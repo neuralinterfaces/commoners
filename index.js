@@ -10,17 +10,8 @@ import { initGitRepo } from "./src/github/index.js";
 import { resolveFile } from "./src/files.js";
 import { spawnProcess, onExit as processOnExit } from "./src/processes.js";
 import * as typescript from "./src/typescript.js";
-
-import fs from 'fs'
 import { __dirname } from "./globals.js";
-// import { Confinode } from 'confinode'
-// import { description } from "./src/config.js";
-// NOTE: This can't handle ESM typescript files...
-// const confinode = new Confinode('commoners', description)
-// const configResult = await confinode.search() // await (configFile ? confinode.load(configFile) : confinode.search())
-// if (!configResult) console.error(chalk.yellow('No user-defined configuration found.'))
-// const configuration = configResult?.configuration ?? {}
-// console.log(configuration, configResult)
+
 
 const onExit = (...args) => {
     processOnExit(...args)

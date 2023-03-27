@@ -3,8 +3,12 @@ import CLI from 'clui';
 import Configstore from 'configstore';
 import { Octokit } from "@octokit/rest";
 
-import pkg from '../../package.json' assert { type: "json" };
+import fs from 'fs';
 import { askGithubCredentials } from '../inquirer.js';
+import { __dirname } from '../../globals.js';
+import path from 'path';
+
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json')).toString());
 
 const Spinner = CLI.Spinner;
 
