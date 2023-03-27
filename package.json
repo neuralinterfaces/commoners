@@ -1,5 +1,27 @@
 {
     "name": "commoners",
     "description": "A CLI for Commoners",
-    "version": "0.0.0"
+    "version": "0.0.0",
+    "type": "module",
+    "bin": {
+        "commoners": "./index.js"
+    },
+    "dependencies": {
+        "@capacitor/cli": "^4.7.1",
+        "@octokit/auth-basic": "^1.4.8",
+        "@octokit/rest": "^19.0.7",
+        "@tauri-apps/cli": "^1.2.3",
+        "chalk": "^5.2.0",
+        "clear": "^0.1.0",
+        "cli-clear": "^1.0.4",
+        "clui": "^0.3.6",
+        "configstore": "^6.0.0",
+        "inquirer": "^9.1.5",
+        "lodash": "^4.17.21",
+        "minimist": "^1.2.8",
+        "simple-git": "^3.17.0",
+        "touch": "^3.1.0",
+        "typescript": "^5.0.2",
+        "vite": "^4.2.1"
+    }
 }
