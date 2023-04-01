@@ -14,7 +14,7 @@ const getGithubToken = async () => {
 // Initialize a Git repository for the project
 export const initGitRepo = async (name, description) => {
 
-    if (files.directoryExists('.git')) {
+    if (files.exists('.git')) {
         console.log(chalk.red('Already a Git repository!'));
         process.exit();
     }

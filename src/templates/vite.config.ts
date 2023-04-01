@@ -1,12 +1,10 @@
 import { defineConfig } from "vite";
 
-import commonersConfig from "./commoners.config.js";
-
 // https://vitejs.dev/config/
 export default defineConfig({
   clearScreen: false,
   server: {
-    port: commonersConfig.frontend.port,
+    port: 3768,
     strictPort: true,
   },
   envPrefix: ["VITE_", "TAURI_"],

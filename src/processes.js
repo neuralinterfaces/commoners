@@ -6,13 +6,13 @@ import { __dirname } from "../globals.js";
 
 let children = {}
 
-export const spawnProcess = (command, args) => {
-    return new Promise((resolve, reject) => {
+export const spawnProcess = (command, args, customEnv = {}) => {
+    return new Promise((resolve) => {
         
         const proc = spawn(command, args, { 
             shell: true, 
             env: {
-                ...process.env,
+                ...customEnv,
                 PATH: `${process.env.PATH}:${__dirname}/node_modules/.bin` // Include this library's node_modules in the PATH
             }
         });
@@ -21,11 +21,15 @@ export const spawnProcess = (command, args) => {
 
         proc.stdout.on('data', (data) => console.log(chalk.gray(data.toString())));
         
-        proc.stderr.on('data', reject);
+        proc.stderr.on('data', (e) => {
+            throw e
+        });
 
         proc.on('data', (data) => console.log(chalk.gray(data.toString())));
 
-        proc.on('error', reject)
+        proc.on('error',(e) => {
+            throw e
+        });
         
         proc.on('exit', (res) => {
             delete children[proc.pid]

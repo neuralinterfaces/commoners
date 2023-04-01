@@ -1,20 +1,19 @@
 export default {
-    name: "Commoners Demo App",
-    ourDir: "dist",
+    name: "Commoners Project",
+    outDir: "dist",
     
-    frontend: {
-        port: 3760,
-    },
-
-    // Backend Configuration
-    backend: {
-        port: 3768,
-        entrypoint: './backend/index'
+    frontend: './frontend/index',
+    services: {
+        first: './services/first/index',
+        second: './services/second/index'
     },
 
     dev: {
         frontend: true,
-        backend: true
+        services: {
+            first: true,
+            second: true
+        }
     },
 
     build: {
@@ -22,7 +21,7 @@ export default {
         android: false,
         desktop: false,
         pwa: false,
-        backend: false,
+        services: true,
         frontend: true
     },
 
@@ -34,7 +33,9 @@ export default {
         },
         npm: false,
         docker: false,
-        backend: false
+        services: {
+            first: 'https://commoners-demo-first-service.herokuapp.com' // NOTE: This is a mockup service url
+        }
     },
 
     // Optional Configurations
