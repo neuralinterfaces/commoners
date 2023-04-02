@@ -9,7 +9,7 @@ app.use(express.json())
 
 const name = 'service'
 const service = new Service()
-service.register(name, objectToRegister)
+service.add(name, objectToRegister)
 
 const port = 3768
 const thisUrl = `http://localhost:${port}`

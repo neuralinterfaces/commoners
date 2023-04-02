@@ -7,64 +7,108 @@
     <title>Document</title>
 </head>
 <body> 
-    
+    <h1>Commonwealth</h1>
+    <h2 id="displayName"></h2>
+    <hr>
+    <div id="log">
+        <h3>Output Log</h3>
+    </div>
 </body>
+
 <script type="module">
     import * as commonwealth from './src/index.js'
     const service = new commonwealth.Service()
 
-    import objectToRegister from './demo/object.js'
-    import { updateValue } from './demo/object.js'
+    import * as object from './demo/object.js'
 
-    service.register('self', service)
+    const startTime = performance.now()
 
+    let objectToUse = object // ESM With Side-Effects
+    // let objectToUse = Object.assign({}, object) // Standard Object with Side-Effects
 
-    function multiListener(...args){
-        console.log(this[commonwealth.symbols.id], ...args)
+    // import { updateValue } from './demo/object.js'
+
+    // Manage UI
+    const headerEl = document.getElementById('displayName')
+    const logEl = document.getElementById('log')
+    let elements = {}
+    const logFunction = function(value, ...args){
+        const id = this[commonwealth.symbols.id]
+        console.log(`[${id}]`, value, ...args)
+
+        elements[id].innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${JSON.stringify(value, null, 2)}</pre>`
     }
+    
+    service.add('log',  logFunction)
+
+    service.add('self', service)
+
 
     const updateValueCalled = (...args) => console.log('Update value has been called!', ...args)
 
-    const valueUpdated = (...args) => console.log('Value has been updated!', ...args)
+    const valueUpdated = (...args) => headerEl.innerHTML = args[0]
 
     const listenableKeyAdded =(...args) =>  console.log('Is listened to!', ...args)
 
     const keyAdded = (...args) => console.log('Added!', ...args)
 
     // Listen to all registered objects
-    service.add('self.register', function (registered) {
+    service.subscribe('self.add', function (registered) {
         const name = registered?.[commonwealth.symbols.id]
-        if (name) service.add(name, multiListener)
-        else console.error('No name found for:', registered)
+        if (name) {
+
+            // Create UI element for each reigstered element
+            if (!elements[name]) {
+                const el = elements[name] = document.createElement('div')
+                el.id = name
+                el.innerHTML = `<h4>${name}</h4>`
+                logEl.appendChild(el)
+            }
+
+            service.subscribe(name, 'log') // Subscribe between endpoints
+        }
     })
 
-    const registeredUpdateFunction = service.register('updateValue', updateValue)
-    const registeredObject = service.register('object', objectToRegister)
+    const nameRegistered = service.add('displayName', objectToUse.displayName)
+    const registeredUpdateFunction = service.add('updateDisplayName', objectToUse.updateDisplayName)
+    const registeredObject = service.add('object', objectToUse)
 
-    const targetId = service.add('updateValue', updateValueCalled)
-    const targetId2 = service.add('object.value', valueUpdated)
-    const targetId3 = service.add('object.updateValue', updateValueCalled) // Is an alias for the original method
-    const targetId4 = service.add('object.nested.updateValue', updateValueCalled) // Is accessing a different this.value than the original method
+    const targetIdPre = service.subscribe('displayName', valueUpdated)
+    const targetId = service.subscribe('updateDisplayName', updateValueCalled)
+    const targetId2 = service.subscribe('object.displayName', valueUpdated)
+    const targetId3 = service.subscribe('object.updateDisplayName', updateValueCalled) // Is an alias for the original method
+    const targetId4 = service.subscribe('object.nested.updateDisplayName', updateValueCalled) // Is accessing a different this.displayName than the original method
 
-    service.add('object.listenable', listenableKeyAdded) // Is an alias for the original method
-    service.add('object.added', keyAdded) // Is an alias for the original method
+    service.subscribe('object.listenable', listenableKeyAdded) // Is an alias for the original method
+    service.subscribe('object.added', keyAdded) // Is an alias for the original method
 
-    registeredUpdateFunction(2)
+    console.warn('----------- Test Subscriptions -----------')
 
+    const internalArrayProxy = service.get('object.array')
+    registeredObject.array.push(1) // NOTE: Does not yet work...
+    internalArrayProxy.push(2)
+
+    // objectToUse.updateDisplayName('Through Original Update') // Will not work on ESM with side-effects
+    registeredUpdateFunction('Through Registered Update')
+
+    console.log(service.endpoints)
     // Both are resolved
-    objectToRegister.value = 5
-    registeredObject.value = 10
+    // objectToUse.displayName = 'On Original Object'
+    service.set('displayName', 'With Set Method')
+    registeredObject.displayName = 'On Registered Object'
 
-    // Update is still registered on an alias (object.value)
-    service.remove('updateValue', targetId)
-    objectToRegister.updateValue(2)
+    // Update is still registered on an alias (objectToUse.displayName)
+    service.unsubscribe('updateDisplayName', targetId)
+    // objectToUse.updateDisplayName('Reset Name') // Will not work on ESM with side-effects
+    registeredObject.updateDisplayName()
     
     // Able to trigger on nested update function, though this targets a different value update
-    objectToRegister.nested.updateValue(10000)
+    objectToUse.nested.updateDisplayName('Unknown User')
 
     // No longer resolved once alias is removed
-    service.remove('object.updateValue', updateValueCalled)
-    objectToRegister.updateValue(2)
+    service.unsubscribe('object.updateDisplayName', updateValueCalled)
+    // objectToUse.updateDisplayName('What I Want') // Will not work on ESM with side-effects
+    registeredObject.updateDisplayName('What I Want')
 
     // Reponse thrown when new property is set
     registeredObject.added = true 
@@ -73,6 +117,23 @@
     registeredObject.listenable = () => true
     registeredObject.listenable()
 
+    console.warn('----------- Get and Set Properties -----------')
+
+    // Latest Object value
+    console.log(service.get('object.displayName')) // 40
+
+    // Update Object Value Directly
+    service.set('object.displayName', 'Batman')
+    console.log(service.get('object.displayName')) // 1000
+
+    // Multiply Object Value with Function
+    service.set('object.updateDisplayName', 'Not Batman')
+    console.log(service.get('object.displayName')) // 2000
+
+    // console.warn('----------- Remove an Endpoint -----------')
+    // console.log('nEndpoints', Object.keys(service.endpoints).length)
+    // service.remove('object')
+    // console.log('nEndpoints (no object)', Object.keys(service.endpoints).length)
 
 
 

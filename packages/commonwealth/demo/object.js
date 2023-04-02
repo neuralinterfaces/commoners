@@ -1,21 +1,14 @@
 
+export const displayName = 'Name'
 
-
-
-export const updateValue = function (multiplier=1) {
-    if (this.value) this.value = this.value * multiplier
-    return this.value
+export function updateDisplayName(newName='Default Name') {
+    if (this.displayName) this.displayName = newName
+    return this.displayName
 }
 
-export const nestedObject = {
-    value: 1,
-    updateValue
+export const nested = {
+    displayName: "Nested Name",
+    updateDisplayName
 }
 
-const objectToRegister = {
-    value: 1,
-    updateValue,
-    nested: nestedObject
-}
-
-export default objectToRegister
+export const array = []
