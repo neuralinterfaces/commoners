@@ -56,7 +56,6 @@
     registeredObject.value = 10
 
     // Update is still registered on an alias (object.value)
-    console.warn('---------- Removing updateValue ----------')
     service.remove('updateValue', targetId)
     objectToRegister.updateValue(2)
     
@@ -64,7 +63,6 @@
     objectToRegister.nested.updateValue(10000)
 
     // No longer resolved once alias is removed
-    console.warn('---------- Removing object.updateValue ----------')
     service.remove('object.updateValue', updateValueCalled)
     objectToRegister.updateValue(2)
 

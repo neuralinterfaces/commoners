@@ -41,13 +41,13 @@ const handleRequest = (req) => {
 // Handle all get requests with the service
 app.get('*', (req, res) => {
     const { id, args = [] } = handleRequest(req, res)
-    res.send(JSON.stringify(service.getFrom(id, ...args)))
+    res.send(JSON.stringify(service.get(id, ...args)))
 })
 
 // Handle all post requests with the service
 app.post('*', (req, res) => {
     const { id, args } = handleRequest(req)
-    res.send(JSON.stringify(service.setTo(id, ...args)))
+    res.send(JSON.stringify(service.set(id, ...args)))
 })
   
 
