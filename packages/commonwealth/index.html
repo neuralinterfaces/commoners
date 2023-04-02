@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body> 
+    
+</body>
+<script type="module">
+    import * as commonwealth from './src/index.js'
+    const service = new commonwealth.Service()
+
+    import objectToRegister from './demo/object.js'
+    import { updateValue } from './demo/object.js'
+
+    service.register('self', service)
+
+
+    function multiListener(...args){
+        console.log(this[commonwealth.symbols.id], ...args)
+    }
+
+    const updateValueCalled = (...args) => console.log('Update value has been called!', ...args)
+
+    const valueUpdated = (...args) => console.log('Value has been updated!', ...args)
+
+    const listenableKeyAdded =(...args) =>  console.log('Is listened to!', ...args)
+
+    const keyAdded = (...args) => console.log('Added!', ...args)
+
+    // Listen to all registered objects
+    service.add('self.register', function (registered) {
+        const name = registered?.[commonwealth.symbols.id]
+        if (name) service.add(name, multiListener)
+        else console.error('No name found for:', registered)
+    })
+
+    const registeredUpdateFunction = service.register('updateValue', updateValue)
+    const registeredObject = service.register('object', objectToRegister)
+
+    const targetId = service.add('updateValue', updateValueCalled)
+    const targetId2 = service.add('object.value', valueUpdated)
+    const targetId3 = service.add('object.updateValue', updateValueCalled) // Is an alias for the original method
+    const targetId4 = service.add('object.nested.updateValue', updateValueCalled) // Is accessing a different this.value than the original method
+
+    service.add('object.listenable', listenableKeyAdded) // Is an alias for the original method
+    service.add('object.added', keyAdded) // Is an alias for the original method
+
+    registeredUpdateFunction(2)
+
+    // Both are resolved
+    objectToRegister.value = 5
+    registeredObject.value = 10
+
+    // Update is still registered on an alias (object.value)
+    console.warn('---------- Removing updateValue ----------')
+    service.remove('updateValue', targetId)
+    objectToRegister.updateValue(2)
+    
+    // Able to trigger on nested update function, though this targets a different value update
+    objectToRegister.nested.updateValue(10000)
+
+    // No longer resolved once alias is removed
+    console.warn('---------- Removing object.updateValue ----------')
+    service.remove('object.updateValue', updateValueCalled)
+    objectToRegister.updateValue(2)
+
+    // Reponse thrown when new property is set
+    registeredObject.added = true 
+
+    // Response thrown when new function is set
+    registeredObject.listenable = () => true
+    registeredObject.listenable()
+
+
+
+
+</script>
+</html>
