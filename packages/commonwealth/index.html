@@ -20,10 +20,14 @@
             right: 0;
             /* width: 200px; */
             height: 100vh;
-            font-size: 0.8rem;
             overflow: auto;
-            background: rgba(0,0,0,0.1);
+            color: white;
+            background: rgba(0,0,0,0.7);
             padding: 1rem;
+        }
+
+        #server pre {
+            font-size: 0.7rem;
         }
 
     </style>
@@ -124,8 +128,8 @@
         }
     })
 
-    const nameRegistered = service.add('displayName', objectToUse.displayName)
-    const registeredUpdateFunction = service.add('updateDisplayName', objectToUse.updateDisplayName)
+    const nameRegistered = service.add('displayName', objectToUse.displayName, objectToUse) // Include parent
+    const registeredUpdateFunction = service.add('updateDisplayName', objectToUse.updateDisplayName) // No need to include parent for functions
     const registeredObject = service.add('object', objectToUse)
 
     const targetIdPre = service.subscribe('displayName', valueUpdated)
