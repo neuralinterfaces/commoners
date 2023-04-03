@@ -4,14 +4,40 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Commonwealth Demo</title>
+    <style>
+        h2 {
+            margin: 0;
+        }
+
+        small {
+            color: #494949;
+        }
+
+        #server {
+            position: fixed;
+            top: 0;
+            right: 0;
+            /* width: 200px; */
+            height: 100vh;
+            font-size: 0.8rem;
+            overflow: auto;
+            background: rgba(0,0,0,0.1);
+            padding: 1rem;
+        }
+
+    </style>
 </head>
 <body> 
     <h1>Commonwealth</h1>
     <h2 id="displayName"></h2>
+    <small id="history"></small>
     <hr>
     <div id="log">
         <h3>Output Log</h3>
+    </div>
+    <div id="server">
+        <h3>Server Log</h3>
     </div>
 </body>
 
@@ -28,15 +54,38 @@
 
     // import { updateValue } from './demo/object.js'
 
+    // Setup SSE
+    const serverEl = document.getElementById('server')
+    const serverURL = 'http://localhost:3768'
+    const evtSource = new EventSource(`${serverURL}/subscribe`);
+    evtSource.onmessage = (event) => {
+        const json = JSON.parse(event.data)
+        serverEl.innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${json.id} = ${json.results}</pre>`
+    };
+
+    evtSource.onerror = (err) => console.error("EventSource failed:", err);
+
+
     // Manage UI
     const headerEl = document.getElementById('displayName')
+    const historyEl = document.getElementById('history')
     const logEl = document.getElementById('log')
     let elements = {}
-    const logFunction = function(value, ...args){
+    const logFunction = async function (value, ...args){
         const id = this[commonwealth.symbols.id]
-        console.log(`[${id}]`, value, ...args)
-
+        // console.log(`[${id}]`, value, ...args)
+        
+        // Display on Frontend
         elements[id].innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${JSON.stringify(value, null, 2)}</pre>`
+
+        // Mirror on Backend
+        const res = await fetch(`${serverURL}/${id.split('.').join('/')}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ args: [value] })
+        })
+        .then(res => res.json())
+        .catch(e => {})
     }
     
     service.add('log',  logFunction)
@@ -46,7 +95,13 @@
 
     const updateValueCalled = (...args) => console.log('Update value has been called!', ...args)
 
-    const valueUpdated = (...args) => headerEl.innerHTML = args[0]
+    const valueUpdated = (...args) => {
+        const current = headerEl.innerHTML
+        const previous = historyEl.innerHTML
+        if (current) historyEl.innerHTML += previous ? ` > ${current}` : current
+
+        headerEl.innerHTML = args[0]
+    }
 
     const listenableKeyAdded =(...args) =>  console.log('Is listened to!', ...args)
 
@@ -82,60 +137,65 @@
     service.subscribe('object.listenable', listenableKeyAdded) // Is an alias for the original method
     service.subscribe('object.added', keyAdded) // Is an alias for the original method
 
-    console.warn('----------- Test Subscriptions -----------')
+    const runTest = () => {
+        console.warn('----------- Test Subscriptions -----------')
 
-    const internalArrayProxy = service.get('object.array')
-    registeredObject.array.push(1) // NOTE: Does not yet work...
-    internalArrayProxy.push(2)
+        const internalArrayProxy = service.get('object.array')
+        registeredObject.array.push(1) // NOTE: Does not yet work...
+        internalArrayProxy.push(2)
 
-    // objectToUse.updateDisplayName('Through Original Update') // Will not work on ESM with side-effects
-    registeredUpdateFunction('Through Registered Update')
+        // objectToUse.updateDisplayName('Through Original Update') // Will not work on ESM with side-effects
+        registeredUpdateFunction('Through Registered Update')
 
-    console.log(service.endpoints)
-    // Both are resolved
-    // objectToUse.displayName = 'On Original Object'
-    service.set('displayName', 'With Set Method')
-    registeredObject.displayName = 'On Registered Object'
+        console.log(service.endpoints)
+        // Both are resolved
+        // objectToUse.displayName = 'On Original Object'
+        service.set('displayName', 'With Set Method')
+        registeredObject.displayName = 'On Registered Object'
 
-    // Update is still registered on an alias (objectToUse.displayName)
-    service.unsubscribe('updateDisplayName', targetId)
-    // objectToUse.updateDisplayName('Reset Name') // Will not work on ESM with side-effects
-    registeredObject.updateDisplayName()
-    
-    // Able to trigger on nested update function, though this targets a different value update
-    objectToUse.nested.updateDisplayName('Unknown User')
+        // Update is still registered on an alias (objectToUse.displayName)
+        service.unsubscribe('updateDisplayName', targetId)
+        // objectToUse.updateDisplayName('Reset Name') // Will not work on ESM with side-effects
+        registeredObject.updateDisplayName()
 
-    // No longer resolved once alias is removed
-    service.unsubscribe('object.updateDisplayName', updateValueCalled)
-    // objectToUse.updateDisplayName('What I Want') // Will not work on ESM with side-effects
-    registeredObject.updateDisplayName('What I Want')
+        // Able to trigger on nested update function, though this targets a different value update
+        objectToUse.nested.updateDisplayName('Nested User')
 
-    // Reponse thrown when new property is set
-    registeredObject.added = true 
+        // No longer resolved once alias is removed
+        service.unsubscribe('object.updateDisplayName', updateValueCalled)
+        // objectToUse.updateDisplayName('What I Want') // Will not work on ESM with side-effects
+        registeredObject.updateDisplayName('What I Want')
 
-    // Response thrown when new function is set
-    registeredObject.listenable = () => true
-    registeredObject.listenable()
+        // Reponse thrown when new property is set
+        registeredObject.added = true 
 
-    console.warn('----------- Get and Set Properties -----------')
+        // Response thrown when new function is set
+        registeredObject.listenable = () => true
+        registeredObject.listenable()
 
-    // Latest Object value
-    console.log(service.get('object.displayName')) // 40
+        console.warn('----------- Get and Set Properties -----------')
 
-    // Update Object Value Directly
-    service.set('object.displayName', 'Batman')
-    console.log(service.get('object.displayName')) // 1000
+        // Latest Object value
+        console.log(service.get('object.displayName')) // 40
 
-    // Multiply Object Value with Function
-    service.set('object.updateDisplayName', 'Not Batman')
-    console.log(service.get('object.displayName')) // 2000
+        // Update Object Value Directly
+        service.set('object.displayName', 'Batman')
+        console.log(service.get('object.displayName')) // 1000
 
-    // console.warn('----------- Remove an Endpoint -----------')
-    // console.log('nEndpoints', Object.keys(service.endpoints).length)
-    // service.remove('object')
-    // console.log('nEndpoints (no object)', Object.keys(service.endpoints).length)
+        // Multiply Object Value with Function (async update)
+        setTimeout(() => {
+            service.set('object.updateDisplayName', 'Not Batman')
+            console.log(service.get('object.displayName')) // 2000
+        }, 1000)
 
+        // console.warn('----------- Remove an Endpoint -----------')
+        // console.log('nEndpoints', Object.keys(service.endpoints).length)
+        // service.remove('object')
+        // console.log('nEndpoints (no object)', Object.keys(service.endpoints).length)
 
+    }
+
+    evtSource.onopen = runTest
 
 </script>
 </html>

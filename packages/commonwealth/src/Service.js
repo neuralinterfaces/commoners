@@ -4,7 +4,7 @@ const proxyTarget = Symbol('proxyTarget')
 import { isESM } from './esm.js'
 import * as symbols from './symbols.js'
 
-const nonProxiableObjects = [Map, Set, WeakMap, WeakSet, Promise]   
+const nonProxiableObjects = [Map, Set, WeakMap, WeakSet, Promise, Number, String, Boolean]   
 
 
 // An object that has its method / properties exposed to networking protocols
@@ -15,6 +15,9 @@ export class Service {
         this.responses = new Map()
         this.endpoints = {}
         this.subscriptions = {}
+
+        // Cannot subscribe to endpoints and subscriptions
+        Object.defineProperty(this.subscriptions, symbols.doNotAddAll, { value: true }) // DO NOT DRILL INTO THIS OBJECT
         Object.defineProperty(this.endpoints, symbols.doNotAddAll, { value: true }) // DO NOT DRILL INTO THIS OBJECT
     }
 
@@ -35,7 +38,9 @@ export class Service {
         if (this.#canProxy(endpoint)) {
             
             // let esmNewValues = {}
-            const proxy = (endpoint[isProxy]) ? endpoint : new Proxy(endpoint, {
+
+            // Immediately register the endpoint
+            const proxy = this.endpoints[id] = (endpoint[isProxy]) ? endpoint : new Proxy(endpoint, {
                 get: (target, key) => {
                     if (key === symbols.id) return id;
                     if (key === isProxy)  return true;
@@ -56,8 +61,8 @@ export class Service {
 
                     // Just ensure new properties are registered
                     if (!(key in target)) {
-                        target[key] = value // Ensure is present first
-                        value = this.#monitorProperty(propId) // register new property
+                        target[key] = value
+                        value = this.#monitorProperty(propId, value) // register new property
                     }
 
                     // this.forward(propId, value)
@@ -71,15 +76,12 @@ export class Service {
             })
 
             // Drill into proxied objects to register their properties
-            if (typeof endpoint === 'object' && !endpoint[symbols.doNotAddAll]) {
-                Object.entries(endpoint).forEach(([k, v]) => {
-                    const propId = `${id}.${k}`
-                    const res = this.add(propId, v)
-                    // NOTE: This must be set to effectively target the proxy on the original object...
-                    // if (res) endpoint[k] = res 
-                })
-            }
-            endpoint = proxy // Use proxy as endpoint object
+            if (typeof endpoint === 'object' && !endpoint[isProxy] && !endpoint[symbols.doNotAddAll]) Object.entries(endpoint).forEach(([k, v]) => {
+                // endpoint[k] = this.add(`${id}.${k}`, v) // NOTE: This gets hijacked by the self.x.x.x id...
+                this.add(`${id}.${k}`, v) 
+            }) 
+            
+            return proxy // Use proxy as endpoint object
         } 
 
         // Force primitives to be wrapped in an object so they have IDs
@@ -88,11 +90,10 @@ export class Service {
             else if (typeof endpoint === 'string') endpoint = new String(endpoint)
             else if (typeof endpoint === 'boolean') endpoint = new Boolean(endpoint)
             if (endpoint && !(symbols.id in endpoint)) Object.defineProperty(endpoint, symbols.id, { value: id })
+
+            this.endpoints[id] = endpoint // Register anything that is added as a primitive
+            return endpoint
         }
-
-        this.endpoints[id] = endpoint // Register anything that is attempted to be added
-
-        return endpoint
     }
 
     // Remove a registered endpoint
@@ -135,67 +136,53 @@ export class Service {
                     return parent[prop]
                 }
             } else throw new Error(`Service with ID ${id} is not a function or object`)
-        } else throw new Error(`No service found with path ${path}`)
-    }
-
-    #handleGet = (endpoint) => {
-        if (typeof endpoint === 'function') return endpoint(...args) // NOTE: Must distinguish from functions with side-effects
-        else return endpoint
+        } else throw new Error(`No service found with path ${path.join('.')}`)
     }
     
     get(id, ...args) {
-        const path = id.split('.')
-        const endpoint = this.endpoints[path.join('.')]
-        if (endpoint) return this.#handleGet(endpoint) // Directly get endpoint if available
-
-        console.error('AHH')
-        const prop =  path.length > 1 ? path.pop() : null
-        const parent = this.endpoints[path.join('.')]
-
-        if (parent) {
-            if (!prop) return parent // Return object if no property is specified
-            if (prop in parent) {
-                const endpoint = parent[prop]
-                if (typeof endpoint === 'function') return parent[prop](...args) // NOTE: Must distinguish from functions with side-effects
-                else return endpoint
-            }
-            else throw new Error(`Endpoint with ID ${id} is not a function or object`)
-        } else throw new Error(`No endpoint found with path ${path}`)
+        const endpoint = this.endpoints[id]
+        if (typeof endpoint === 'function') return endpoint(...args) // NOTE: Must distinguish from functions with side-effects
+        else return endpoint
     }
 
-    #monitorProperty = (source) => {
+    #monitorProperty = (source, latestValue) => {
 
         const path = source.split('.')
         const prop = path.pop()
-        const parent = this.endpoints[path.join('.')]
+
+        const id = path.join('.')
+        
+        const parent = this.endpoints[id]
+        if (!latestValue) latestValue = parent?.[prop] // Get value from parent if not passed in
+
+        const resolvedParent = parent ?? {}
+        
+        if (typeof latestValue === 'function') {
+            const og = latestValue
+
+            latestValue = (...args) => {
+                const res = og.call(resolvedParent, ...args)
+                if (res !== undefined) this.forward(source, res) // Only run links if the function returns a value
+                return res
+            }
+        }
+
         if (parent && prop in parent) {
             const desc = Object.getOwnPropertyDescriptor(parent, prop)
-            let latestValue = parent[prop]
-            
-            if (typeof latestValue === 'function') {
-                const og = latestValue
-
-                latestValue = (...args) => {
-                    const res = og.call(parent, ...args)
-                    if (res !== undefined) this.forward(source, res) // Only run links if the function returns a value
-                    return res
-                }
-            }
-
-            if (!desc.set && desc.configurable) Object.defineProperty(parent, prop, {
+            if (parent && !desc.set && desc.configurable) Object.defineProperty(parent, prop, {
                 get: () => latestValue,
                 set: (value) => {
                     latestValue = this.add(source, value)
                     if ((typeof latestValue !== 'function')) this.forward(source, latestValue)
                 },
             })
+        }
 
-            return latestValue // Pass back the latest function proxy
-        } 
+        return latestValue // Pass back the latest value
     }
 
 
-    subscribe(source, target) {
+    subscribe = (source, target) => {
         
         // If a function is passed, add it to the possible responses
         if (typeof target === 'function') {
@@ -211,11 +198,11 @@ export class Service {
         // if (!this.endpoints.has(target)) throw new Error(`Could not find ${target} in service`)
         // else if (!this.endpoints.has(source)) throw new Error(`Could not find ${source} in service`)
         
-        if (!this.subscriptions[source]) this.subscriptions[source] = new Set()
+        if (!this.subscriptions[source]) this.subscriptions[source] = new Set() // NOTE: This will trigger an update if the subscription object isn't ignored
+
         this.subscriptions[source].add(target)
 
         this.#monitorProperty(source)
-        // else console.error('Could not find parent', source)
 
         return target
     }
