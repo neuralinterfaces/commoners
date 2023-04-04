@@ -194,6 +194,14 @@
             })
         }))
 
+        http.add('echo')
+        http.subscribe('echo', (update) => {
+            serverEl.innerHTML += `<pre>ECHO ${(performance.now() - startTime).toFixed(2)}ms - ${update}</pre>`
+        })
+        const res = await http.set('echo', 'Hello World!')
+        console.log('Echoed Value:', res)
+
+
         runTest()
     }
 

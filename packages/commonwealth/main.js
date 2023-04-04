@@ -6,25 +6,12 @@ import { HTTPServer } from './src/http/server.js'
 
 const app = express()
 app.use(cors())
-app.use(express.json())
+app.use(express.json()) // Support JSON-encoded bodies
+app.use(express.text()) // Support text bodies
 
 const name = 'object'
-const selfName = `self`
 
 const http = new HTTPServer()
-
-// const addEndpointName = `${selfName}.add`
-
-// const sendToAllSubscribers = function (result) {
-//     const id = this[commonwealth.symbols.id]
-//     console.log('Wants to send!', id)
-// }
-
-// // // NOTE: Must subscribe after existence
-// http.service.subscribe(addEndpointName, (registered) => {
-//     const name = registered?.[commonwealth.symbols.id]
-//     if (name.slice(0,4) !== 'self') http.service.subscribe(name, sendToAllSubscribers)
-// })
 
 http.service.add(name, object)
 // service.add(object) // Add object to load as a service
@@ -36,6 +23,12 @@ app.use(express.static('.')) // Serve static files from the current directory
 
 app.get('/events', http.subscribe)
 app.post('/subscribe', http.setSubscription)
+
+app.post('/echo', (req, res) => {
+    console.log('Echoed', req.body)
+    res.send(req.body)
+})
+
 
 // Handle anything not covered by the static paths using get requests to the service
 app.get('*', http.get)

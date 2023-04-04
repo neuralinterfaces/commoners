@@ -2,7 +2,9 @@
     "name": "commonwealth",
     "version": "0.0.1",
     "type": "module",
-    "dependencies": { },
+    "scripts": {
+        "start": "node ./main.js"
+     },
     "devDependencies": {
         "@types/express": "^4.17.17",
         "@types/ws": "^8.5.4",
