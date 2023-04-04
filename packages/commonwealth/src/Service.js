@@ -31,6 +31,8 @@ export class Service {
         return (typeof service === 'function' || (typeof service === 'object' && (!nonProxiableObjects.find(c => service instanceof c))));
     }
 
+    list = () => Object.keys(this.endpoints)
+
     add = (...args) => {
 
         // Flatten the endpoint collection while maintaining the parent
