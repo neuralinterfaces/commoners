@@ -1,8 +1,8 @@
 
 export const displayName = 'Name'
 
-export function updateDisplayName(newName='Default Name') {
-    if (this.displayName) this.displayName = newName
+export function updateDisplayName(newName) {
+    if (newName) this.displayName = newName // Update the name (or ignore on get requests)
     return this.displayName
 }
 

@@ -23,7 +23,7 @@ export class Service {
 
     forward = (id, ...args) => {
         if (this.subscriptions[id]) this.subscriptions[id].forEach(link => {
-            (this.endpoints[link]?.value || this.responses.get(link)).call({ [symbols.id]: id }, ...args)
+            (this.endpoints[link]?.value || this.responses.get(link)).call({ [symbols.id]: id }, ...args) // Inject the id into the context
         })
     }
 
@@ -41,7 +41,10 @@ export class Service {
         // Add a single endpoint
         else if (typeof args[0] === 'string') {
 
-            let [ id, endpoint, parent ] = args            
+            let [ id, endpoint, parent ] = args           
+            
+            // Always have a functional parent
+            if (!parent) parent = {[id.split('.').pop()]: endpoint}
 
             if (isESM(endpoint)) endpoint = { ...endpoint }
             if (isESM(parent)) parent = { ...parent }
@@ -60,6 +63,8 @@ export class Service {
                         return Reflect.get(target, key);
                     },
                     set: (target, key, value) => {
+                        if (typeof key === 'symbol') return true;
+
                         const propId = `${id}.${key}`
                         // // Cannot register new properties on ESM objects
                         // if (isESM(target)) {
@@ -128,7 +133,7 @@ export class Service {
                 delete this.endpoints[target]
 
                 // Delete sub-endpoints
-                if (typeof got === 'object') Object.entries(got).forEach(([k, v]) => this.remove(`${target}.${k}`))
+                if (typeof got.value === 'object') Object.entries(got.value).forEach(([k, v]) => this.remove(`${target}.${k}`))
             }
         }
     }
@@ -138,7 +143,7 @@ export class Service {
         const path = id.split('.')
         const prop = path.length > 1 ? path.pop() : null
 
-        const { parent } = this.endpoints[id] ?? {}
+        const { parent } = this.endpoints[id] ?? {} // NOTE: Running the value itself does not work...
 
         if (parent) {
 
@@ -150,19 +155,33 @@ export class Service {
 
             // Register updates on the parent
             if (prop in parent) {
-                const endpoint = parent[prop]
-                if (typeof endpoint === 'function') return parent[prop](...args) // NOTE: Must only include functions with side-effects
-                else {
-                    if (0 in args) parent[prop] = args[0] // 
-                    return parent[prop]
+                if (typeof parent[prop] === 'function') {
+                    return this.#runFunction(id, prop, parent, ...args) // parent[prop](...args)
+                } 
+                if (0 in args) {
+                    const oldValue = parent[prop]
+                    parent[prop] = args[0] // 
                 }
+                return parent[prop]
             } else throw new Error(`Service with ID ${id} is not a function or object`)
         } else throw new Error(`No service found with path ${path.join('.')}`)
     }
     
+    #runFunction = (id, fnOrString, parent = {}, ...args) => {
+        if (typeof fnOrString === 'string') fnOrString = parent[fnOrString]
+
+        // Call function with parent (inject id into parent)
+        if (typeof fnOrString === 'function') {
+            parent[symbols.id] = id
+            const result = fnOrString.call(parent, ...args)
+            delete parent[symbols.id]
+            return result
+        } else throw new Error(`Service with ID ${id} is not a function`)
+    }
+    
     get(id, ...args) {
-        const { value } = this.endpoints[id]
-        if (typeof value === 'function') return value(...args) // NOTE: Must distinguish from functions with side-effects
+        const { value, parent } = this.endpoints[id]
+        if (typeof value === 'function') return this.#runFunction(id, value, parent, ...args)
         else return value
     }
 

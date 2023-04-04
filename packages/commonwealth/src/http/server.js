@@ -7,7 +7,7 @@ export class HTTPServer {
     service = new Service()
 
     constructor(){
-        this.service.add(this.selfName, this.service) // REGISTER WITHOUT STUFF
+        this.service.add(this.selfName, this.service)
     }
 
     clients = {}
@@ -20,13 +20,26 @@ export class HTTPServer {
         res.flushHeaders(); // flush the headers to establish SSE with client
     
         // Register for later use
-        this.clients[req.query.id] = res
-    
+        const id =  Math.random().toString(36).substr(2, 9)
+        this.clients[id] = res
+
+        res.write(`data: ${JSON.stringify({commonersClientId: id})}\n\n`)
+                
         // If client closes connection, stop sending events
         res.on('close', () => {
-            delete this.clients[req.query.id]
+            delete this.clients[id]
             res.end();
         });
+    }
+
+    // Handle the subscription of a client to a service
+    setSubscription = (req, res) => {
+        const { id, args, clientId } = this.#handleRequest(req, res)
+
+        const endpointId = args[0]
+        const result = this.service.subscribe(endpointId, (result) =>  this.clients[clientId]?.write(`data: ${JSON.stringify({ id: endpointId, result })}\n\n`))
+
+        res.send({ id, result })
     }
 
     get = (req, res) => {
@@ -40,10 +53,10 @@ export class HTTPServer {
     }
 
     post = (req, res) => {
-        const { id, args = [] } = this.#handleRequest(req)    
+        const { id, args = [], notify = true } = this.#handleRequest(req)    
         try {
             const toSend = this.service.set(id, ...args) ?? null
-            res.send({ id, result: toSend }) // Send null if no response is found
+            res.send({ id, result: toSend })
         } catch (e) {
             res.status(404).send({ id, error: e.message })
         }

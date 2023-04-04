@@ -13,20 +13,18 @@ const selfName = `self`
 
 const http = new HTTPServer()
 
-const addEndpointName = `${selfName}.add`
+// const addEndpointName = `${selfName}.add`
 
-const sendToAllSubscribers = function (results) {
-    const id = this[commonwealth.symbols.id]
-    for (let sseId in http.clients) {
-        http.clients[sseId].write(`data: ${JSON.stringify({id, results})}\n\n`); // res.write() instead of res.send()
-    }
-}
+// const sendToAllSubscribers = function (result) {
+//     const id = this[commonwealth.symbols.id]
+//     console.log('Wants to send!', id)
+// }
 
-// // NOTE: Must subscribe after existence
-http.service.subscribe(addEndpointName, (registered) => {
-    const name = registered?.[commonwealth.symbols.id]
-    if (name.slice(0,4) !== 'self') http.service.subscribe(name, sendToAllSubscribers)
-})
+// // // NOTE: Must subscribe after existence
+// http.service.subscribe(addEndpointName, (registered) => {
+//     const name = registered?.[commonwealth.symbols.id]
+//     if (name.slice(0,4) !== 'self') http.service.subscribe(name, sendToAllSubscribers)
+// })
 
 http.service.add(name, object)
 // service.add(object) // Add object to load as a service
@@ -36,7 +34,8 @@ const thisUrl = `http://localhost:${port}`
 
 app.use(express.static('.')) // Serve static files from the current directory
 
-app.get('/subscribe', http.subscribe)
+app.get('/events', http.subscribe)
+app.post('/subscribe', http.setSubscription)
 
 // Handle anything not covered by the static paths using get requests to the service
 app.get('*', http.get)

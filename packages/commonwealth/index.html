@@ -69,23 +69,49 @@
     const historyEl = document.getElementById('history')
     const logEl = document.getElementById('log')
     let elements = {}
+
+
+    // Properly run updates in order
+    let queue = []
+
+    let active = false
+
+    const runFromQueue = async (id, value) => {
+        active = true
+        try {
+            const updatedValue = await http.set(id, value)
+            const newValue = await http.get(id)
+            const isValidResult = newValue == value && value == updatedValue
+            if (!isValidResult)  console.error('Request failed', id, newValue, value, updatedValue)
+
+        } catch (e) {
+            console.error(e)
+        }
+
+        active = false
+        const nextInQueue = queue.shift()
+        if (nextInQueue) runFromQueue(nextInQueue.id, nextInQueue.value)
+    }
+
+    const addToQueue = async (id, value) => {
+        if (!active) runFromQueue(id, value)
+        else queue.push({id, value})
+    }
+
+
     const logFunction = async function (value, ...args){
         const id = this[commonwealth.symbols.id]
-        // console.log(`[${id}]`, value, ...args)
+        elements[id].innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${JSON.stringify(value, null, 2)}</pre>`  // Display on Frontend
         
-        // Display on Frontend
-        elements[id].innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${JSON.stringify(value, null, 2)}</pre>`
-
-        // Mirror on Backend
-        http.post(id, value)
+        // Check if name exists before sending
+        if (id in http.service.endpoints) addToQueue(id, value) // Mirror on Backend
+        else console.warn(`No endpoint found for ${id} on the server`)
     }
     
     service.add('log',  logFunction)
 
     service.add('self', service)
 
-
-    const updateValueCalled = (...args) => console.log('Update value has been called!', ...args)
 
     const valueUpdated = (...args) => {
         const current = headerEl.innerHTML
@@ -95,22 +121,20 @@
         headerEl.innerHTML = args[0]
     }
 
-    const listenableKeyAdded =(...args) =>  console.log('Is listened to!', ...args)
+    const createElement = (name) => {
+        const el = elements[name] = document.createElement('div')
+        el.id = name
+        el.innerHTML = `<h4>${name}</h4>`
+        logEl.appendChild(el)
+    }
 
-    const keyAdded = (...args) => console.log('Added!', ...args)
-
-    // Listen to all registered objects
+    // Log updates from all endpoints on the frontend
     service.subscribe('self.add', function (registered) {
         const name = registered?.[commonwealth.symbols.id]
         if (name) {
 
             // Create UI element for each reigstered element
-            if (!elements[name]) {
-                const el = elements[name] = document.createElement('div')
-                el.id = name
-                el.innerHTML = `<h4>${name}</h4>`
-                logEl.appendChild(el)
-            }
+            if (!elements[name]) createElement(name)
 
             service.subscribe(name, 'log') // Subscribe between endpoints
         }
@@ -119,44 +143,23 @@
     const nameRegistered = service.add('displayName', objectToUse.displayName, objectToUse) // Include parent
     const registeredUpdateFunction = service.add('updateDisplayName', objectToUse.updateDisplayName) // No need to include parent for functions
     const registeredObject = service.add('object', objectToUse)
-
     const targetIdPre = service.subscribe('displayName', valueUpdated)
-    const targetId = service.subscribe('updateDisplayName', updateValueCalled)
-    const targetId2 = service.subscribe('object.displayName', valueUpdated)
-    const targetId3 = service.subscribe('object.updateDisplayName', updateValueCalled) // Is an alias for the original method
-    const targetId4 = service.subscribe('object.nested.updateDisplayName', updateValueCalled) // Is accessing a different this.displayName than the original method
-
-    service.subscribe('object.listenable', listenableKeyAdded) // Is an alias for the original method
-    service.subscribe('object.added', keyAdded) // Is an alias for the original method
 
     const runTest = () => {
-        console.warn('----------- Test Subscriptions -----------')
-
         const internalArrayProxy = service.get('object.array')
         registeredObject.array.push(1) // NOTE: Does not yet work...
         internalArrayProxy.push(2)
 
         // objectToUse.updateDisplayName('Through Original Update') // Will not work on ESM with side-effects
         registeredUpdateFunction('Through Registered Update')
-
-        console.log(service.endpoints)
+        
         // Both are resolved
         // objectToUse.displayName = 'On Original Object'
         service.set('displayName', 'With Set Method')
         registeredObject.displayName = 'On Registered Object'
 
-        // Update is still registered on an alias (objectToUse.displayName)
-        service.unsubscribe('updateDisplayName', targetId)
-        // objectToUse.updateDisplayName('Reset Name') // Will not work on ESM with side-effects
-        registeredObject.updateDisplayName()
-
         // Able to trigger on nested update function, though this targets a different value update
         objectToUse.nested.updateDisplayName('Nested User')
-
-        // No longer resolved once alias is removed
-        service.unsubscribe('object.updateDisplayName', updateValueCalled)
-        // objectToUse.updateDisplayName('What I Want') // Will not work on ESM with side-effects
-        registeredObject.updateDisplayName('What I Want')
 
         // Reponse thrown when new property is set
         registeredObject.added = true 
@@ -165,32 +168,33 @@
         registeredObject.listenable = () => true
         registeredObject.listenable()
 
-        console.warn('----------- Get and Set Properties -----------')
-
-        // Latest Object value
-        console.log(service.get('object.displayName')) // 40
 
         // Update Object Value Directly
         service.set('object.displayName', 'Batman')
-        console.log(service.get('object.displayName')) // 1000
 
         // Multiply Object Value with Function (async update)
         setTimeout(() => {
             service.set('object.updateDisplayName', 'Not Batman')
-            console.log(service.get('object.displayName')) // 2000
+
+            // Remove Endpoints after use
+            console.log('nEndpoints', Object.keys(service.endpoints).length)
+            service.remove('object')
+            console.log('nEndpoints (no object)', Object.keys(service.endpoints).length)
         }, 1000)
-
-        // console.warn('----------- Remove an Endpoint -----------')
-        // console.log('nEndpoints', Object.keys(service.endpoints).length)
-        // service.remove('object')
-        // console.log('nEndpoints (no object)', Object.keys(service.endpoints).length)
-
     }
 
     http.connect()
-    http.onopen = runTest
-    http.onmessage = (data) => {
-        serverEl.innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${data.id} = ${data.results}</pre>`
+    http.onopen = async () => {
+
+        // Subscribe to all initial properties (except self)
+        await Promise.all(Object.keys(service.endpoints).map((id) => {
+            if (id.includes('self')) return // Skip self
+            return http.subscribe(id, (update) => {
+                serverEl.innerHTML += `<pre>${(performance.now() - startTime).toFixed(2)}ms - ${id} = ${update}</pre>`
+            })
+        }))
+
+        runTest()
     }
 
 </script>

@@ -1,12 +1,28 @@
 import { Service } from "../Service.js"
 
+const doNotSetSymbol = Symbol('commonwealth-http-client')
 
 export class HTTPClient {
     constructor(url) {
        this.url = url
-       this.service = new Service()
     }
 
+    // Shell Functions for Service Calls
+    subscribe = async (id, f) => {
+        if (typeof id !== 'string') throw new Error('Subscribe function must have a string as the first argument')
+        else {
+            const res = await this.#post('subscribe', id)
+            return this.service.subscribe(id, f)
+        }
+    }
+
+    // NO ADD CALL
+    // NO REMOVE CALL
+    get = async (id, ...args) => (await this.#get(id, ...args))?.result
+    set = async (id, ...args) => (await this.#post(id, ...args))?.result
+
+
+    // Client-specific functions
     connect = (url) => {
 
         if (this.source) {
@@ -16,16 +32,29 @@ export class HTTPClient {
 
         if (url) this.url = url
 
-        this.source = new EventSource(`${this.url}/subscribe`);
+        this.service = new Service() // Create a new service
+        this.source = new EventSource(`${this.url}/events`);
 
+        // Event Updates + Special Commands
         this.source.onmessage = (event) => {
             const json = JSON.parse(event.data)
-            this.onmessage(json)
+
+            // Special Commands
+            if (json.commonersClientId) {
+                this.source.clientId = json.commonersClientId // Save client id
+                return
+            }
+
+            // General Commands
+            this.service.set(json.id, {
+                [doNotSetSymbol]: true,
+                result: json.result
+            })
         };
     
         this.source.onerror = (err) => {
-            this.onerror(err)
-            evtSource.close()
+            console.error('[commonwealth-http-client] Error:', err)
+            this.source.close()
         }
         
         this.source.onclose = () => {
@@ -33,29 +62,33 @@ export class HTTPClient {
         }
 
         this.source.onopen = async () => {
-            this.onopen()
+            const { result } = await this.#get('self/list') // List the endpoints on the service
 
-            const { result } = await this.post('self/list')
-            result.forEach(endpoint => {
-                this.service.add(endpoint, (...args) => this.post(endpoint, ...args)) // Proxy the server
-            })
+            result.forEach(endpoint => this.service.add(endpoint, (...args) =>  {
+                if (args[0]?.[doNotSetSymbol]) return args[0].result // If the result is a proxy, return the result
+                else return this.set(endpoint, ...args)  // Proxy the server for user-defined sets
+            }))
+            this.onopen()
         }
     }
 
-    get = async (id) => {
+    #get = async (id) => {
         return await fetch(`${this.url}/${id.split('.').join('/')}`)
-        .then(res => res.json())
-        .catch(e => {})
+        .then(this.#handleServerResponse)
     }
 
-    post = async (id, ...args) => {
+    #post = async (id, ...args) => {
         return await fetch(`${this.url}/${id.split('.').join('/')}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ args })
+            body: JSON.stringify({ args, clientId: this.source.clientId })
         })
-        .then(res => res.json())
-        .catch(e => {})
+        .then(this.#handleServerResponse)
+    }
+
+    #handleServerResponse = (res) => {
+        if (res.ok) return res.json()
+        else throw new Error(`${res.status}: ${res.statusText}`)
     }
 
     disconnect = () => {
@@ -65,5 +98,4 @@ export class HTTPClient {
 
     onopen = () => {}
     onclose = () => {}
-    onerror = () => {}
 }
