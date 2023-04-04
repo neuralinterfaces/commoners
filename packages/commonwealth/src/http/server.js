@@ -21,12 +21,16 @@ export class HTTPServer {
     
         // Register for later use
         const id =  Math.random().toString(36).substr(2, 9)
-        this.clients[id] = res
+        this.clients[id] = {
+            endpoint: res,
+            subscriptions: []
+        }
 
         res.write(`data: ${JSON.stringify({commonersClientId: id})}\n\n`)
                 
         // If client closes connection, stop sending events
         res.on('close', () => {
+            this.clients[id].subscriptions.forEach((o) => this.service.unsubscribe(o.endpoint, o.subscription))
             delete this.clients[id]
             res.end();
         });
@@ -37,9 +41,15 @@ export class HTTPServer {
         const { id, args, clientId } = this.#handleRequest(req, res)
 
         const endpointId = args[0]
-        const result = this.service.subscribe(endpointId, (result) =>  this.clients[clientId]?.write(`data: ${JSON.stringify({ id: endpointId, result })}\n\n`))
+        const subId = this.service.subscribe(endpointId, (result) =>  {
+            console.log(Date.now(), result)
+            this.clients[clientId]?.write(`data: ${JSON.stringify({ id: endpointId, result })}\n\n`)
+        })
 
-        res.send({ id, result })
+        const info = { endpoint: endpointId, subscription: subId }
+        this.clients[clientId].subscriptions.push(info)
+
+        res.send({ id, result: info })
     }
 
     get = (req, res) => {
