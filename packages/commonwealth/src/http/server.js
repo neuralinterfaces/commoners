@@ -42,8 +42,7 @@ export class HTTPServer {
 
         const endpointId = args[0]
         const subId = this.service.subscribe(endpointId, (result) =>  {
-            console.log(Date.now(), result)
-            this.clients[clientId]?.write(`data: ${JSON.stringify({ id: endpointId, result })}\n\n`)
+            this.clients[clientId]?.endpoint.write(`data: ${JSON.stringify({ id: endpointId, result })}\n\n`)
         })
 
         const info = { endpoint: endpointId, subscription: subId }
@@ -63,7 +62,7 @@ export class HTTPServer {
     }
 
     post = (req, res) => {
-        const { id, args = [], notify = true } = this.#handleRequest(req)    
+        const { id, args = [] } = this.#handleRequest(req)    
         try {
             const toSend = this.service.set(id, ...args) ?? null
             res.send({ id, result: toSend })

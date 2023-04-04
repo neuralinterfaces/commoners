@@ -54,7 +54,8 @@ export class HTTPClient {
     
         this.source.onerror = (err) => {
             console.error('[commonwealth-http-client] Error:', err)
-            this.source.close()
+            this.onerror()
+            this.disconnect()
         }
         
         this.source.onclose = () => {

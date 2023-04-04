@@ -184,9 +184,9 @@
     }
 
     http.connect()
+    
+    // Subscribe to all initial properties (except self) on the server
     http.onopen = async () => {
-
-        // Subscribe to all initial properties (except self)
         await Promise.all(Object.keys(service.endpoints).map((id) => {
             if (id.includes('self')) return // Skip self
             return http.subscribe(id, (update) => {
@@ -196,6 +196,9 @@
 
         runTest()
     }
+
+    // Just run tests if no server
+    http.onerror = runTest
 
 </script>
 </html>

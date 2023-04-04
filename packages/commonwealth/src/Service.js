@@ -180,7 +180,7 @@ export class Service {
     }
     
     get(id, ...args) {
-        const { value, parent } = this.endpoints[id]
+        const { value, parent } = this.endpoints[id] ?? {}
         if (typeof value === 'function') return this.#runFunction(id, value, parent, ...args)
         else return value
     }
