@@ -12,7 +12,7 @@ export class HTTPServer {
 
     clients = {}
 
-    subscribe = (req, res) => {
+    subscribe = (_, res) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Access-Control-Allow-Origin', '*');

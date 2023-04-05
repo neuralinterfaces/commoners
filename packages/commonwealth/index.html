@@ -147,7 +147,7 @@
 
     const runTest = () => {
         const internalArrayProxy = service.get('object.array')
-        registeredObject.array.push(1) // NOTE: Does not yet work...
+        registeredObject.array.push(1)
         internalArrayProxy.push(2)
 
         // objectToUse.updateDisplayName('Through Original Update') // Will not work on ESM with side-effects
@@ -160,6 +160,7 @@
 
         // Able to trigger on nested update function, though this targets a different value update
         objectToUse.nested.updateDisplayName('Nested User')
+        registeredObject.nested.displayName = 'Nested User (proxy)'
 
         // Reponse thrown when new property is set
         registeredObject.added = true 
@@ -184,9 +185,9 @@
     }
 
     http.connect()
-    
-    // Subscribe to all initial properties (except self) on the server
-    http.onopen = async () => {
+
+     // Subscribe to all initial properties (except self) on the server
+    .then(async () => {
         await Promise.all(Object.keys(service.endpoints).map((id) => {
             if (id.includes('self')) return // Skip self
             return http.subscribe(id, (update) => {
@@ -198,14 +199,12 @@
         http.subscribe('echo', (update) => {
             serverEl.innerHTML += `<pre>ECHO ${(performance.now() - startTime).toFixed(2)}ms - ${update}</pre>`
         })
-        
+
         const res = await http.set('echo', 'Hello World!')
 
         runTest()
-    }
-
-    // Just run tests if no server
-    http.onerror = runTest
-
+    })
+    .catch(() => runTest()) // Just run tests if no server
+    
 </script>
 </html>

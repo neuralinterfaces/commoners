@@ -66,50 +66,51 @@ export class HTTPClient {
 
     connect = () => {
 
-        if (this.source) {
-            if (this.source.readyState !== 2) this.disconnect() // disconnect if not connected
-            else throw new Error('Already connected')
-        }
-
-        this.service = new Service() // Create a new service
-        this.source = new EventSource(`${this.#url}/events`);
-
-        // Event Updates + Special Commands
-        this.source.onmessage = (event) => {
-            const json = JSON.parse(event.data)
-
-            // Special Commands
-            if (json.commonersClientId) {
-                this.source.clientId = json.commonersClientId // Save client id
-                return
+        return new Promise((resolve, reject) => {
+            
+            if (this.source) {
+                if (this.source.readyState !== 2) this.disconnect() // disconnect if not connected
+                else throw new Error('Already connected')
             }
 
-            // General Commands
-            this.service.set(json.id, {
-                [doNotSetSymbol]: true,
-                result: json.result
-            })
-        };
-    
-        this.source.onerror = (err) => {
-            console.error('[commonwealth-http-client] Error:', err)
-            this.onerror()
-            this.disconnect()
-        }
+            this.service = new Service() // Create a new service
+            this.source = new EventSource(`${this.#url}/events`);
+
+            // Event Updates + Special Commands
+            this.source.onmessage = (event) => {
+                const json = JSON.parse(event.data)
+
+                // Special Commands
+                if (json.commonersClientId) {
+                    this.source.clientId = json.commonersClientId // Save client id
+                    return
+                }
+
+                // General Commands
+                this.service.set(json.id, {
+                    [doNotSetSymbol]: true,
+                    result: json.result
+                })
+            };
         
-        this.source.onclose = () => {
-            this.onclose()
-        }
+            this.source.onerror = (err) => {
+                this.disconnect()
+                reject(err)
+            }
+            
+            this.source.onclose = () => this.disconnect(false)
 
-        this.source.onopen = async () => {
-            const { result } = await this.#get('self/list') // List the endpoints on the service
+            this.source.onopen = async () => {
+                const { result } = await this.#get('self/list') // List the endpoints on the service
 
-            result.forEach(endpoint => this.service.add(endpoint, (...args) =>  {
-                if (args[0]?.[doNotSetSymbol]) return args[0].result // If the result is a proxy, return the result
-                else return this.set(endpoint, ...args)  // Proxy the server for user-defined sets
-            }))
-            this.onopen()
-        }
+                result.forEach(endpoint => this.service.add(endpoint, (...args) =>  {
+                    if (args[0]?.[doNotSetSymbol]) return args[0].result // If the result is a proxy, return the result
+                    else return this.set(endpoint, ...args)  // Proxy the server for user-defined sets
+                }))
+
+                resolve(this.source.clientId)
+            }
+        })
     }
 
     #get = async (id) => {
@@ -144,11 +145,8 @@ export class HTTPClient {
         else throw new Error(`${res.status}: ${res.statusText}`)
     }
 
-    disconnect = () => {
-        this.source.close()
+    disconnect = (close=true) => {
+        if (close) this.source.close()
         delete this.source
     }
-
-    onopen = () => {}
-    onclose = () => {}
 }
