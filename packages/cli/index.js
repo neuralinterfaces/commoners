@@ -134,13 +134,23 @@ const devCommands = {
             }
         })
     },
+
+    // TODO: Test if working
     desktop: () => spawnProcess(`tauri`, ['dev'])
 }
 
+// "build:desktop": "CI=true tauri build",
+// "dev:desktop": "tauri dev",
+
+// "init:android": "npx cap add android && npm run copy",
+// "init:ios": "npx cap add ios && npm run copy",
+// "copy": "npx cap copy",
+// "android": "npx cap open android",
+// "ios": "npx cap open ios"
 const buildCommands = {
     ios: () => console.log('Building for iOS'),
     android: () => console.log('Building for android'),
-    desktop: () => console.log('Building for desktop'),
+    desktop: () => spawnProcess(`CI=true`, ['tauri', 'build']), //, '--config', `${resolveFile('.commoners/tauri.conf', ['.json'], () => path.join(__dirname, 'src/templates/tauri.conf.json'))}`]),
     pwa: () => console.log('Building for PWA'),
     services: () => console.log('Building the services'),
     frontend: () => spawnProcess(`vite`, ['build', '--config', `${resolveFile('vite.config', ['.ts', '.js'], () => path.join(__dirname, 'src/templates/vite.config.ts'))}`])
@@ -161,7 +171,10 @@ const checkCommands = (baseCommand, commands, config = {}) => {
     if (baseCommand === command) {
         for (const [key, value] of Object.entries(commands)) {
             if (option === key || (!option && config[key])) {
-                if (typeof value === 'function') value(config[key]) // Pass configuration options
+                if (typeof value === 'function') {
+                    console.log('Running', key)
+                    value(config[key]) // Pass configuration options
+                }
                 else checkCommands(key, value, config[key])
             }
         }

@@ -60,4 +60,4 @@ async function main() {
   }
 }
 
-oraPromise(main, { text: '[brainsatplay] Building backend...\n', successText: '[brainsatplay] Done\n', failText: '[brainsatplay] Cannot build backend'});
+oraPromise(main, { text: '[commoners] Building backend...\n', successText: '[commoners] Done\n', failText: '[commoners] Cannot build backend'});

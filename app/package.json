@@ -1,0 +1,37 @@
+{
+  "name": "commoners",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "bin": "services/backend/dist/index.cjs",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "tauri": "tauri",
+    "start": "npm run dev",
+    "app:dev": "vite",
+    "app:build": "tsc && vite build",
+    "server:dev": "node scripts/watch-server.js",
+    "server:build": "node scripts/build-server.js",
+    "dev": "run-p server:dev app:dev",
+    "build": "tsc && run-s server:build app:build",
+    "build:desktop": "CI=true tauri build",
+    "dev:desktop": "tauri dev"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^1.3.0",
+    "esbuild": "^0.17.19"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.3.1",
+    "chokidar": "3.5.3",
+    "execa": "5.1.1",
+    "npm-run-all": "^4.1.5",
+    "ora": "6.1.2",
+    "pkg": "5.8.0",
+    "typescript": "^4.8.2",
+    "vite": "^4.2.1"
+  }
+}
