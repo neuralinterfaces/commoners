@@ -13,8 +13,14 @@ import { spawnProcess, onExit as processOnExit } from "./src/processes.js";
 import * as typescript from "./src/typescript.js";
 import { __dirname } from "./globals.js";
 import { readFileSync } from "fs";
-import { getConfig } from "./src/config.js";
+import { getConfig, getFile } from "./src/config.js";
 import { createService, createFrontend, createPackage } from "./src/create.js";
+
+// New electron-vite calls
+import { preview, defineConfig, createServer } from 'vite'
+import electron from 'vite-plugin-electron'
+import renderer from 'vite-plugin-electron-renderer'
+
 
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -35,7 +41,7 @@ process.on('uncaughtException', (e) => {
 process.on('beforeExit', onExit);
 
 
-const [ command, option ] = args
+const [command, option] = args
 
 // Global Variables
 const isTypescriptProject = exists('tsconfig.json') || cliArgs.typescript
@@ -45,11 +51,11 @@ let config = await getConfig(undefined, command)
 if (command === 'init') {
 
     const cliName = cliArgs.name
-    const isConfig = (config={}) => Object.keys(config).length
+    const isConfig = (config = {}) => Object.keys(config).length
     const transformName = (name) => name?.toLowerCase().split(' ').join('-')
 
     let name = transformName(cliName ?? (isConfig(config) ? undefined : userPkg.name)) // Get name from CLI, config, or package.json
-    
+
     const rejectInitializedConfig = (config, target) => {
         if (isConfig(config)) {
             console.error(chalk.red(`${target} is already a commoners project.`))
@@ -95,49 +101,21 @@ if (command === 'init') {
     })
 
     createFile('LICENSE', () => readFileSync(path.join(__dirname, 'src/templates/LICENSE')))
-    
+
     const pkg = createPackage(name)
-    
+
     createFrontend(frontendDir, pkg)
 
     // Create Template Backend Files
     const servicesEntrypoints = config.services ?? {}
     Object.entries(servicesEntrypoints).forEach(([name, entrypoint]) => createService(name, entrypoint, pkg))
 
-    console.log(chalk.green(`${name ?? "Project" } initialized!`))
+    console.log(chalk.green(`${name ?? "Project"} initialized!`))
 }
 
 
 else if (command === 'start') spawnProcess(`tauri`, ['start'])
 
-
-let latestPort = 3769
-
-const devCommands = {
-
-    // Run Vite with Template or User-Defined Config
-    frontend: () => spawnProcess(`vite`, ['dev', '--config', `${resolveFile('vite.config', ['.ts', '.js'], () => path.join(__dirname, 'src/templates/vite.config.ts'))}`]),
-    
-    // Run Services + Pass Port as First Argument
-    services: async (options) => {
-        if (options === true) options = config.services
-        Object.entries(options).forEach(async ([service, toRun]) => {
-            if (toRun) {
-                const entrypoint = config.services[service]
-                const serviceFile = resolveFile(entrypoint, ['.ts', '.js'])
-                if (serviceFile) {
-                    const customEnv =  { COMMONERS_PORT: latestPort, COMMONERS_NAME: service }
-                    latestPort++
-                    if (serviceFile.slice(-3) === '.ts') spawnProcess('node', [await typescript.transpile(serviceFile, config)], customEnv)
-                    else spawnProcess('node', [serviceFile] , customEnv)
-                }
-            }
-        })
-    },
-
-    // TODO: Test if working
-    desktop: () => spawnProcess(`tauri`, ['dev'])
-}
 
 // "build:desktop": "CI=true tauri build",
 // "dev:desktop": "tauri dev",
@@ -153,7 +131,7 @@ const buildCommands = {
     desktop: () => spawnProcess(`CI=true`, ['tauri', 'build']), //, '--config', `${resolveFile('.commoners/tauri.conf', ['.json'], () => path.join(__dirname, 'src/templates/tauri.conf.json'))}`]),
     pwa: () => console.log('Building for PWA'),
     services: () => console.log('Building the services'),
-    frontend: () => spawnProcess(`vite`, ['build', '--config', `${resolveFile('vite.config', ['.ts', '.js'], () => path.join(__dirname, 'src/templates/vite.config.ts'))}`])
+    // frontend: () => spawnProcess(`vite`, ['build', '--config', `${resolveFile('vite.config', ['.ts', '.js'], () => path.join(__dirname, 'src/templates/vite.config.ts'))}`])
 }
 
 const publishCommands = {
@@ -162,7 +140,7 @@ const publishCommands = {
         pages: () => console.log('Publishing to GitHub Pages'),
         release: () => console.log('Publishing to GitHub Releases'),
     },
-    npm: () => console.log('Publishing to NPM'),    
+    npm: () => console.log('Publishing to NPM'),
     docker: () => console.log('Publishing to Docker'),
     services: () => console.log('Publishing the services somewhere')
 }
@@ -171,16 +149,84 @@ const checkCommands = (baseCommand, commands, config = {}) => {
     if (baseCommand === command) {
         for (const [key, value] of Object.entries(commands)) {
             if (option === key || (!option && config[key])) {
-                if (typeof value === 'function') {
-                    console.log('Running', key)
-                    value(config[key]) // Pass configuration options
-                }
+                if (typeof value === 'function') value(config[key]) // Pass configuration options
                 else checkCommands(key, value, config[key])
             }
         }
     }
 }
 
-checkCommands('dev', devCommands, config.dev)
-checkCommands('build', buildCommands, config.build)
-checkCommands('publish', publishCommands, config.publish)
+if (command === 'dev') {
+
+    const isServe = command === 'serve'
+    const isBuild = command === 'build'
+    const sourcemap = isServe || !!process.env.VSCODE_DEBUG
+
+    const fullConfig = defineConfig({
+
+        plugins: [
+            electron([
+                {
+                    // Main-Process entry file of the Electron App.
+                    entry: path.join(__dirname, '..', '..', 'template/src/main/index.ts'),
+                    onstart(options) {
+                        if (process.env.VSCODE_DEBUG) {
+                            console.log(/* For `.vscode/.debug.script.mjs` */'[startup] Electron App')
+                        } else {
+                            options.startup()
+                        }
+                    },
+                    vite: {
+                        build: {
+                            sourcemap,
+                            minify: isBuild,
+                            outDir: '.commoners/dist/main',
+                            rollupOptions: {
+                                external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
+                            },
+                        },
+                    },
+                },
+                {
+                    entry: path.join(__dirname, '..', '..', 'template/src/preload/index.ts'),
+                    onstart(options) {
+                        // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, 
+                        // instead of restarting the entire Electron App.
+                        options.reload()
+                    },
+                    vite: {
+                        build: {
+                            sourcemap: sourcemap ? 'inline' : undefined, // #332
+                            minify: isBuild,
+                            outDir: '.commoners/dist/preload',
+                            rollupOptions: {
+                                external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
+                            },
+                        },
+                    },
+                }
+            ]),
+
+            // Use Node.js API in the Renderer-process
+            renderer(),
+        ],
+        
+        server: process.env.VSCODE_DEBUG && (() => {
+            const url = new URL(userPkg.debug.env.VITE_DEV_SERVER_URL)
+            return {
+                host: url.hostname,
+                port: +url.port,
+            }
+        })(),
+        clearScreen: false,
+    })
+
+    const server = await createServer(fullConfig)
+    await server.listen()
+    server.printUrls()
+}
+
+else {
+    checkCommands('build', buildCommands, config.build)
+    checkCommands('publish', publishCommands, config.publish)
+}

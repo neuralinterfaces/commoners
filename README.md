@@ -3,11 +3,9 @@
 
 
 ## Project Structure
-### Automatic Updates + User Overrides
-- `tauri.conf.js` — Your Tauri configuration 
-- `Cargo.toml` — A secondary configuration for Tauri
+The CLI will output a `.commoners` subfolder with built files for your application.
 
-> **Note:** Tauri configuration files cannot be placed in a hidden folder (e.g. `.commoners`) since these are not resolved by the Tauri compiler.
+As such, you'll need to specify `"main": "./.commoners/dist/main/index.js"` in your `package.json` to ensure that it can find your Electron dev build.
 
 ## Stable Commands
 - `commoners build` - Build the project into a certain format

@@ -4,6 +4,8 @@ import path from "path";
 import { resolveFile } from "./files.js";
 import * as typescript from "./typescript.js";
 
+export const getFile = async (filepath) => (await typescript.loadModule(filepath)).default
+
 export const getConfig = async (dirPath='', command='init') => {
     const resolvedConfigPath = resolveFile(path.join(dirPath, 'commoners.config'), ['.ts', '.js'])
     if (!resolvedConfigPath && (command !== 'init')) {
@@ -11,5 +13,5 @@ export const getConfig = async (dirPath='', command='init') => {
         process.exit()
     }
 
-    return resolvedConfigPath ? (await typescript.loadModule(resolvedConfigPath)).default : {}
+    return  resolvedConfigPath ? getFile(resolvedConfigPath) : {}
 }
