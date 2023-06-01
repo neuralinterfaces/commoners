@@ -1,26 +1,37 @@
 import { app, shell, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+
+// @ts-ignore
 import icon from '../../resources/icon.png?asset'
 
-import { spawn } from 'node:child_process'
+import { fork } from 'node:child_process'
 import { existsSync } from 'fs'
-const filepath = join(__dirname, '../../..', 'app', 'services', 'backend', 'index.js')
+import { ChildProcess } from 'child_process'
 
-const distElectron = join(__dirname, '..')
-const dist = join(distElectron, '../dist')
+// import chalk from 'chalk'
+
+const commonersDist = join(__dirname, '..')
+const dist = join(commonersDist, '..') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 
-
+let processes: {[x:string]: ChildProcess} = {}
 // Create and monitor arbitary Node.js processes
-const spawnBackendInstance = (filepath) => {
-  const ls = spawn('node', [ filepath ]);
-  ls.stdout.on('data', (data) => console.log(`[commoners-service]: ${data}`));
-  ls.stderr.on('data', (data) => console.error(`[commoners-service]: ${data}`));
-  ls.on('close', (code) => console.log(`[commoners-service]: exited with code ${code}`)); 
+const spawnBackendInstance = (filepath, id) => {
+
+  const fullpath = resolve(commonersDist, 'assets', filepath) // Find file in assets
+  const process = fork(fullpath, { silent: true })
+  const label = id ? `commoners-${id}-service` : 'commoners-service'
+  if (process.stdout) process.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
+  if (process.stderr) process.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
+  process.on('close', (code) => code === null ? console.log(`Restarting ${label}...`) : console.error(`[${label}]: exited with code ${code}`)); 
+  // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
+  processes[id] = process
 }
 
 function createWindow(): void {
+
+  const preload = join(commonersDist, 'preload', 'index.js')
 
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -30,7 +41,7 @@ function createWindow(): void {
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: preload,
       sandbox: false
     }
   })
@@ -44,10 +55,15 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
+  mainWindow.on('closed', _ => {
+    for (let id in processes) processes[id].kill()
+    processes = {}
+  });
+
+  // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && devServerURL) mainWindow.loadURL(devServerURL) 
-  else  mainWindow.loadFile(join(__dirname, join(dist, 'index.html')))
+  else mainWindow.loadFile(join(dist, 'index.html'))
 }
 
 // This method will be called when Electron has finished
@@ -57,19 +73,19 @@ app.whenReady().then(async () => {
 
   // Get the COMMONERS configuration file
   const configFileName = 'commoners.config.js'
-  const configPath = join(process.cwd(), configFileName)
+  const configPath = join(commonersDist, 'assets', configFileName)
 
+  // Handle aspects of the application related to the configuration file
   if (existsSync(configPath)) {
-    const config = (await import(configPath)).default
-
-    // Run sidecars automatically based on the configuration file
-    config.services.forEach(relativePath => spawnBackendInstance(relativePath))
+    const config = require(configPath).default
+    Object.entries(config.services).forEach(([id, path]) => spawnBackendInstance(path, id)) // Run sidecars automatically based on the configuration file
   }
 
   else console.error(`${configFileName} does not exist for this project.`)
 
+
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId(`com.${app.name}`)
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

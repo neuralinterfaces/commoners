@@ -2,7 +2,7 @@
 import chalk from "chalk";
 import path from "path";
 import { resolveFile } from "./files.js";
-import * as typescript from "./typescript.js";
+import * as typescript from "./build.js";
 
 export const getFile = async (filepath) => (await typescript.loadModule(filepath)).default
 

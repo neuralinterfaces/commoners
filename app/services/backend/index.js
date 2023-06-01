@@ -1,9 +1,7 @@
-// import robot from 'robotjs'
 import { localIP } from './network.js' // Print the network you're on
 import { WebSocketServer } from 'ws';
 
 const port = 3768
-// let thrown = false
 const wss = new WebSocketServer({ port });
 
 console.log(`Server running at http://${localIP}:${port}/`)
@@ -28,5 +26,3 @@ wss.on('connection', function connection(ws) {
 
   });
 });
-
-// wss.close()

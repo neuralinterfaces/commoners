@@ -1,5 +1,5 @@
 export default {
-    services: [
-        './services/backend/index.js'
-    ]
+    services: {
+        main: './services/backend/index.js'
+    }
 }

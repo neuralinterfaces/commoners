@@ -1,23 +1,16 @@
-import { notarize } from '@electron/notarize'
+const { notarize } = require('@electron/notarize')
 
-export default async (context) => {
+module.exports = async (context) => {
   if (process.platform !== 'darwin') return
 
-  console.log('aftersign hook triggered, start to notarize app.')
-
-  if (!process.env.CI) {
-    console.log(`skipping notarizing, not in CI.`)
-    return
-  }
-
   if (!('APPLE_ID' in process.env && 'APPLE_ID_PASS' in process.env)) {
-    console.warn('skipping notarizing, APPLE_ID and APPLE_ID_PASS env variables must be set.')
+    console.warn('[commoners]: skipping notarizing, APPLE_ID and APPLE_ID_PASS env variables must be set.')
     return
   }
 
-  const appId = 'com.electron.app'
+  const { appOutDir, appInfo } = context
 
-  const { appOutDir } = context
+  const appId = `com.${appInfo.productName}.app` // Ensure appId matches what is expected 
 
   const appName = context.packager.appInfo.productFilename
 

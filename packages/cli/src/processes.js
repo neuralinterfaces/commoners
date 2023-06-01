@@ -2,9 +2,13 @@ import chalk from "chalk";
 import { spawn } from "child_process";
 import { __dirname } from "../globals.js";
 
-
-
 let children = {}
+
+export const runCommand = async (string) => {
+    const splitCommand = string.split(' ')
+    const [command, ...args] = splitCommand
+    await spawnProcess(command, args)
+}
 
 export const spawnProcess = (command, args, customEnv = {}) => {
     return new Promise((resolve) => {

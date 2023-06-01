@@ -4,29 +4,70 @@ import chalk from "chalk";
 import minimist from 'minimist';
 import path from "path";
 
+
 const cliArgs = minimist(process.argv.slice(2))
 const args = cliArgs._
 
 import { initGitRepo } from "./src/github/index.js";
-import { resolveFile, createDirectory, createFile, getJSON, deleteDirectory, exists } from "./src/files.js";
+import { createDirectory, createFile, exists, resolveFile } from "./src/files.js";
 import { spawnProcess, onExit as processOnExit } from "./src/processes.js";
-import * as typescript from "./src/typescript.js";
-import { __dirname } from "./globals.js";
-import { readFileSync } from "fs";
-import { getConfig, getFile } from "./src/config.js";
+import { __dirname, baseOutDir, commonersPkg, userPkg } from "./globals.js";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, write, writeFileSync } from "fs";
+import { getConfig } from "./src/config.js";
 import { createService, createFrontend, createPackage } from "./src/create.js";
 
-// New electron-vite calls
-import { preview, defineConfig, createServer } from 'vite'
-import electron from 'vite-plugin-electron'
-import renderer from 'vite-plugin-electron-renderer'
+const [command, ...options] = args
+let config = await getConfig(undefined, command)
+const configPath = resolveFile('commoners.config', ['.ts', '.js'])
+
+const templateDir = path.join(__dirname, '..', '..', 'template')
+import * as yaml from 'js-yaml'
+const buildConfig = yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
+
+buildConfig.productName = userPkg.name
+
+// Derive Electron version
+if (!('electronVersion' in buildConfig)) {
+    const electronVersion = commonersPkg.devDependencies.electron
+    if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
+    else buildConfig.electronVersion = electronVersion
+}
+
+// Ensure proper absolute paths are provided for signing
+const buildResources = buildConfig.directories.buildResources = path.join(templateDir, 'build')
+
+buildConfig.afterSign = path.join(templateDir, buildConfig.afterSign)
+buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
+buildConfig.mac.icon = path.join(templateDir, buildConfig.mac.icon)
+buildConfig.win.icon = path.join(templateDir, buildConfig.win.icon)
+
+// Specify the correct resources glob
+buildConfig.asarUnpack = [
+    path.join(templateDir, 'resources', "**")
+]
+
+// Transfer configuration file and related services
+const assets = {
+    copy: [  ],
+    transpile: configPath ? [ configPath.split(path.sep).slice(-1)[0], ...Object.values(config.services) ] : []
+}
+
+
+// Ensure the packaged application is saved to a scoped location
+buildConfig.directories.output = 'build'
+buildConfig.directories.buildResources = 'build'
+buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
+
+// New Vite CLI
+import * as vite from 'vite'
+import { resolveConfig } from './src/vite.config.js'
+import { build } from 'electron-builder'
+import { transpileTo } from "./src/build.js";
 
 
 const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1)
 
 const createReadableName = (name) => name.split('-').map(capitalize).join(' ')
-
-const userPkg = getJSON('package.json')
 
 const onExit = (...args) => {
     processOnExit(...args)
@@ -41,98 +82,74 @@ process.on('uncaughtException', (e) => {
 process.on('beforeExit', onExit);
 
 
-const [command, option] = args
-
 // Global Variables
 const isTypescriptProject = exists('tsconfig.json') || cliArgs.typescript
 
-let config = await getConfig(undefined, command)
+// if (command === 'init') {
 
-if (command === 'init') {
+//     const cliName = cliArgs.name
+//     const isConfig = (config = {}) => Object.keys(config).length
+//     const transformName = (name) => name?.toLowerCase().split(' ').join('-')
 
-    const cliName = cliArgs.name
-    const isConfig = (config = {}) => Object.keys(config).length
-    const transformName = (name) => name?.toLowerCase().split(' ').join('-')
+//     let name = transformName(cliName ?? (isConfig(config) ? undefined : userPkg.name)) // Get name from CLI, config, or package.json
 
-    let name = transformName(cliName ?? (isConfig(config) ? undefined : userPkg.name)) // Get name from CLI, config, or package.json
+//     const rejectInitializedConfig = (config, target) => {
+//         if (isConfig(config)) {
+//             console.error(chalk.red(`${target} is already a commoners project.`))
+//             process.exit()
+//         }
+//     }
+//     // Create Project Directory (if not already in one)
+//     if (name) {
+//         const newDirPath = path.join(process.cwd(), name)
+//         config = await getConfig(newDirPath) // Re-fetch config
+//         rejectInitializedConfig(config, name)
+//         createDirectory(name)
+//         process.chdir(name);
+//     }
 
-    const rejectInitializedConfig = (config, target) => {
-        if (isConfig(config)) {
-            console.error(chalk.red(`${target} is already a commoners project.`))
-            process.exit()
-        }
-    }
-    // Create Project Directory (if not already in one)
-    if (name) {
-        const newDirPath = path.join(process.cwd(), name)
-        config = await getConfig(newDirPath) // Re-fetch config
-        rejectInitializedConfig(config, name)
-        createDirectory(name)
-        process.chdir(name);
-    }
+//     rejectInitializedConfig(config, path.basename(process.cwd()))
 
-    rejectInitializedConfig(config, path.basename(process.cwd()))
+//     // Create config file to use as the base for the project
+//     if (!name) name = path.basename(process.cwd())
+//     const ext = isTypescriptProject ? '.ts' : '.js'
+//     const filepath = `commoners.config${ext}`
+//     const templatepath = path.join(__dirname, 'src', 'templates', `commoners.config.ts`)
+//     let templateFileText = readFileSync(templatepath).toString()
+//     templateFileText = templateFileText.replace(/name: .*,/g, `name: "${createReadableName(name)}",`)
+//     const newFilePath = createFile(filepath, templateFileText)
+//     config = await getConfig(path.dirname(newFilePath))
 
-    // Create config file to use as the base for the project
-    if (!name) name = path.basename(process.cwd())
-    const ext = isTypescriptProject ? '.ts' : '.js'
-    const filepath = `commoners.config${ext}`
-    const templatepath = path.join(__dirname, 'src', 'templates', `commoners.config.ts`)
-    let templateFileText = readFileSync(templatepath).toString()
-    templateFileText = templateFileText.replace(/name: .*,/g, `name: "${createReadableName(name)}",`)
-    const newFilePath = createFile(filepath, templateFileText)
-    config = await getConfig(path.dirname(newFilePath))
-
-    // Resolve final name
-    name = config.name.toLowerCase().split(' ').join('-')
+//     // Resolve final name
+//     name = config.name.toLowerCase().split(' ').join('-')
 
 
-    // Create Template Directories
+//     // Create Template Directories
 
-    const frontendEntrypoint = cliArgs.frontend ?? config.frontend ?? 'frontend'
+//     const frontendEntrypoint = cliArgs.frontend ?? config.frontend ?? 'frontend'
 
-    const frontendDir = path.dirname(frontendEntrypoint)
-    createDirectory(frontendDir)
+//     const frontendDir = path.dirname(frontendEntrypoint)
+//     createDirectory(frontendDir)
 
-    // Create Template Root Files
-    createFile('index.html', () => {
-        const file = readFileSync(path.join(__dirname, 'src/templates/index.html')).toString()
-        return file.replace(/commoners-project/g, createReadableName(name))
-    })
+//     // Create Template Root Files
+//     createFile('index.html', () => {
+//         const file = readFileSync(path.join(__dirname, 'src/templates/index.html')).toString()
+//         return file.replace(/commoners-project/g, createReadableName(name))
+//     })
 
-    createFile('LICENSE', () => readFileSync(path.join(__dirname, 'src/templates/LICENSE')))
+//     createFile('LICENSE', () => readFileSync(path.join(__dirname, 'src/templates/LICENSE')))
 
-    const pkg = createPackage(name)
+//     const pkg = createPackage(name)
 
-    createFrontend(frontendDir, pkg)
+//     createFrontend(frontendDir, pkg)
 
-    // Create Template Backend Files
-    const servicesEntrypoints = config.services ?? {}
-    Object.entries(servicesEntrypoints).forEach(([name, entrypoint]) => createService(name, entrypoint, pkg))
+//     // Create Template Backend Files
+//     const servicesEntrypoints = config.services ?? {}
+//     Object.entries(servicesEntrypoints).forEach(([name, entrypoint]) => createService(name, entrypoint, pkg))
 
-    console.log(chalk.green(`${name ?? "Project"} initialized!`))
-}
+//     console.log(chalk.green(`${name ?? "Project"} initialized!`))
+// }
 
-
-else if (command === 'start') spawnProcess(`tauri`, ['start'])
-
-
-// "build:desktop": "CI=true tauri build",
-// "dev:desktop": "tauri dev",
-
-// "init:android": "npx cap add android && npm run copy",
-// "init:ios": "npx cap add ios && npm run copy",
-// "copy": "npx cap copy",
-// "android": "npx cap open android",
-// "ios": "npx cap open ios"
-const buildCommands = {
-    ios: () => console.log('Building for iOS'),
-    android: () => console.log('Building for android'),
-    desktop: () => spawnProcess(`CI=true`, ['tauri', 'build']), //, '--config', `${resolveFile('.commoners/tauri.conf', ['.json'], () => path.join(__dirname, 'src/templates/tauri.conf.json'))}`]),
-    pwa: () => console.log('Building for PWA'),
-    services: () => console.log('Building the services'),
-    // frontend: () => spawnProcess(`vite`, ['build', '--config', `${resolveFile('vite.config', ['.ts', '.js'], () => path.join(__dirname, 'src/templates/vite.config.ts'))}`])
-}
 
 const publishCommands = {
     github: {
@@ -145,88 +162,77 @@ const publishCommands = {
     services: () => console.log('Publishing the services somewhere')
 }
 
-const checkCommands = (baseCommand, commands, config = {}) => {
-    if (baseCommand === command) {
-        for (const [key, value] of Object.entries(commands)) {
-            if (option === key || (!option && config[key])) {
-                if (typeof value === 'function') value(config[key]) // Pass configuration options
-                else checkCommands(key, value, config[key])
-            }
-        }
-    }
+const isDev = command === 'dev' || command === 'start'
+const isBuild = command.startsWith('build')
+
+// The template for a package.json override at the COMMONERS output directory
+const newPkg = {
+    name: `commoners-${userPkg.name}`,
+    version: userPkg.version,
+    type: 'commonjs'
 }
 
-if (command === 'dev') {
 
-    const isServe = command === 'serve'
-    const isBuild = command === 'build'
-    const sourcemap = isServe || !!process.env.VSCODE_DEBUG
+if ( isDev || isBuild ) {
 
-    const fullConfig = defineConfig({
+    // Ensure main property is added as the 4th entry in the package.json file.
+    if (!userPkg.main) {
+        console.log(chalk.green('Added a main entry to your package.json'))
+        const copy = {}
+        Object.entries(userPkg).forEach(([name, value], i) => {
+            if (i === 3) copy.main = "./dist/.commoners/main/index.js"
+            copy[name] = value
+        })
+        writeFileSync('package.json', JSON.stringify(copy, null, 2))
+    }
 
-        plugins: [
-            electron([
-                {
-                    // Main-Process entry file of the Electron App.
-                    entry: path.join(__dirname, '..', '..', 'template/src/main/index.ts'),
-                    onstart(options) {
-                        if (process.env.VSCODE_DEBUG) {
-                            console.log(/* For `.vscode/.debug.script.mjs` */'[startup] Electron App')
-                        } else {
-                            options.startup()
-                        }
-                    },
-                    vite: {
-                        build: {
-                            sourcemap,
-                            minify: isBuild,
-                            outDir: '.commoners/dist/main',
-                            rollupOptions: {
-                                external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
-                            },
-                        },
-                    },
-                },
-                {
-                    entry: path.join(__dirname, '..', '..', 'template/src/preload/index.ts'),
-                    onstart(options) {
-                        // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, 
-                        // instead of restarting the entire Electron App.
-                        options.reload()
-                    },
-                    vite: {
-                        build: {
-                            sourcemap: sourcemap ? 'inline' : undefined, // #332
-                            minify: isBuild,
-                            outDir: '.commoners/dist/preload',
-                            rollupOptions: {
-                                external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
-                            },
-                        },
-                    },
-                }
-            ]),
+    if (existsSync(baseOutDir)) rmSync(baseOutDir, { recursive: true, force: true }) // Clear output directory
 
-            // Use Node.js API in the Renderer-process
-            renderer(),
-        ],
-        
-        server: process.env.VSCODE_DEBUG && (() => {
-            const url = new URL(userPkg.debug.env.VITE_DEV_SERVER_URL)
-            return {
-                host: url.hostname,
-                port: +url.port,
-            }
-        })(),
-        clearScreen: false,
+    // Copy static assets
+    assets.copy.forEach(src => {
+        const outPath = path.join(baseOutDir, 'assets', src)
+        mkdirSync(path.dirname(outPath), {recursive: true})
+        copyFileSync(src, outPath)
     })
 
-    const server = await createServer(fullConfig)
-    await server.listen()
-    server.printUrls()
-}
+    console.log('\n')
 
-else {
-    checkCommands('build', buildCommands, config.build)
-    checkCommands('publish', publishCommands, config.publish)
-}
+    // Run a development server that can be accessed through Electron or the browser
+    if (isDev) {
+        const server = await vite.createServer(resolveConfig(command))
+        await server.listen()
+        server.printUrls()
+    }
+
+    // Build the entire application, including the Electron backend—and possibly the actual application
+    else await vite.build(resolveConfig(command))
+
+    console.log('\n')
+
+
+    mkdirSync(baseOutDir, { recursive: true }) // Ensure base output directory exists
+    writeFileSync(path.join(baseOutDir, 'package.json'), JSON.stringify(newPkg, null, 2)) // Write package.json to ensure these files are treated as commonjs
+
+    // Create an assets folder with copied assets (CommonJS)
+    await Promise.all(assets.transpile.map(src => transpileTo(src, path.dirname(path.join(baseOutDir, 'assets', src)))))
+    
+    // "init:android": "npx cap add android && npm run copy",
+    // "init:ios": "npx cap add ios && npm run copy",
+    // "copy": "npx cap copy",
+    // "android": "npx cap open android",
+    // "ios": "npx cap open ios"
+
+    if (isBuild) {
+       if (cliArgs.desktop) await build({ config: buildConfig })
+       if (cliArgs.ios) console.error(chalk.red('No iOS support yet'))
+       if (cliArgs.android) console.error(chalk.red('No Android support yet'))
+       if (cliArgs.pwa) console.error(chalk.red('No PWA support yet'))
+    }
+
+} 
+
+
+// else {
+//     // checkCommands('build', buildCommands, config.build)
+//     checkCommands('publish', publishCommands, config.publish)
+// }
