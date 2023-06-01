@@ -5,6 +5,7 @@ import renderer from 'vite-plugin-electron-renderer'
 import { join } from 'node:path'
 
 import { __dirname, userPkg, baseOutDir } from "../globals.js";
+import plugins from '../../../plugins/index.js';
 
 export const resolveConfig = (command) => {
 
@@ -15,6 +16,24 @@ export const resolveConfig = (command) => {
     return vite.defineConfig({
 
         plugins: [
+
+            {
+                name: 'commoners',
+                transformIndexHtml(html) {
+
+                    // Insert COMMONERS Electron Polyfills
+                    const script = `<script>
+                        if (window.commoners) {
+                            [
+                                ${plugins.filter(f => 'renderer' in f).map(f => f.renderer.toString()).join(',\n')}
+                            ].forEach(f => f.call(window.commoners.plugins))
+                        }
+                    </script>`
+                  return `${script}\n${html}`
+                },
+            },
+
+
             electron([
                 {
                     // Main-Process entry file of the Electron App.

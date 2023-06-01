@@ -1,9 +1,23 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { join } from 'path'
 
+import plugins from '../../../plugins/index'
+
+// Load preload the configuration file
+const commonersDist = join(__dirname, '..')
+const configFileName = 'commoners.config.js'
+const configPath = join(commonersDist, 'assets', configFileName)
+const config = require(configPath).default
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  config,
+  plugins: plugins.reduce((acc, { name, preload }) => {
+    if (preload) acc[name] = preload.call(ipcRenderer)
+    return acc
+  }, {})
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -11,7 +25,7 @@ const api = {}
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('commoners', api)
   } catch (error) {
     console.error(error)
   }

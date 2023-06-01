@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join, resolve } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
@@ -6,8 +6,9 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
 import { fork } from 'node:child_process'
-import { existsSync } from 'fs'
 import { ChildProcess } from 'child_process'
+
+import plugins from '../../../plugins/index'
 
 // import chalk from 'chalk'
 
@@ -19,6 +20,8 @@ let processes: {[x:string]: ChildProcess} = {}
 // Create and monitor arbitary Node.js processes
 const spawnBackendInstance = (filepath, id) => {
 
+  if (filepath.endsWith('.ts')) filepath = filepath.slice(0, -2) + 'js' // Load transpiled file
+
   const fullpath = resolve(commonersDist, 'assets', filepath) // Find file in assets
   const process = fork(fullpath, { silent: true })
   const label = id ? `commoners-${id}-service` : 'commoners-service'
@@ -29,7 +32,7 @@ const spawnBackendInstance = (filepath, id) => {
   processes[id] = process
 }
 
-function createWindow(): void {
+function createWindow(config): void {
 
   const preload = join(commonersDist, 'preload', 'index.js')
 
@@ -45,6 +48,14 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  // Activate specified plugins from the configuration file
+  if ('plugins' in config){
+    for (let name in config.plugins) {
+      const plugin = plugins.find(o => o.name === name)
+      if (plugin) plugin.main.call(ipcMain, mainWindow)
+    }
+  }
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -74,14 +85,8 @@ app.whenReady().then(async () => {
   // Get the COMMONERS configuration file
   const configFileName = 'commoners.config.js'
   const configPath = join(commonersDist, 'assets', configFileName)
-
-  // Handle aspects of the application related to the configuration file
-  if (existsSync(configPath)) {
-    const config = require(configPath).default
-    Object.entries(config.services).forEach(([id, path]) => spawnBackendInstance(path, id)) // Run sidecars automatically based on the configuration file
-  }
-
-  else console.error(`${configFileName} does not exist for this project.`)
+  const config = require(configPath).default
+  Object.entries(config.services).forEach(([id, path]) => spawnBackendInstance(path, id)) // Run sidecars automatically based on the configuration file
 
 
   // Set app user model id for windows
@@ -94,7 +99,7 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  createWindow()
+  createWindow(config)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -111,6 +116,3 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
