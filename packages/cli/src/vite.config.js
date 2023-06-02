@@ -7,15 +7,15 @@ import { join } from 'node:path'
 import { __dirname, userPkg, baseOutDir } from "../globals.js";
 import plugins from '../../../plugins/index.js';
 
-export const resolveConfig = (command) => {
+export const resolveConfig = (command, buildForElectron = true) => {
 
     const isServe = command === 'serve' || command === 'dev'
     const isBuild = command === 'build'
-    const sourcemap = isServe
+    const sourcemap = isServe    
 
     return vite.defineConfig({
 
-        plugins: [
+        plugins: buildForElectron ? [
 
             {
                 name: 'commoners',
@@ -70,7 +70,11 @@ export const resolveConfig = (command) => {
 
             // Use Node.js API in the Renderer-process
             renderer(),
-        ],
+        ] : [],
+
+        server: {
+            open: !buildForElectron
+        },
 
         clearScreen: false,
     })

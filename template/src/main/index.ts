@@ -9,12 +9,18 @@ import { fork } from 'node:child_process'
 import { ChildProcess } from 'child_process'
 
 import plugins from '../../../plugins/index'
+import { existsSync } from 'fs'
 
 // import chalk from 'chalk'
 
 const commonersDist = join(__dirname, '..')
 const dist = join(commonersDist, '..') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const devServerURL = process.env.VITE_DEV_SERVER_URL
+
+  // Get the COMMONERS configuration file
+  const configFileName = 'commoners.config.js'
+  const configPath = join(commonersDist, 'assets', configFileName)
+  const config = existsSync(configPath) ? require(configPath).default : {}
 
 let processes: {[x:string]: ChildProcess} = {}
 // Create and monitor arbitary Node.js processes
@@ -38,8 +44,8 @@ function createWindow(config): void {
 
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: config.electron?.window?.width ?? 900,
+    height: config.electron?.window?.height ?? 670,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -82,12 +88,7 @@ function createWindow(config): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
-  // Get the COMMONERS configuration file
-  const configFileName = 'commoners.config.js'
-  const configPath = join(commonersDist, 'assets', configFileName)
-  const config = require(configPath).default
-  Object.entries(config.services).forEach(([id, path]) => spawnBackendInstance(path, id)) // Run sidecars automatically based on the configuration file
-
+  if ('services' in config) Object.entries(config.services).forEach(([id, path]) => spawnBackendInstance(path, id)) // Run sidecars automatically based on the configuration file
 
   // Set app user model id for windows
   electronApp.setAppUserModelId(`com.${app.name}`)
@@ -104,7 +105,7 @@ app.whenReady().then(async () => {
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(config)
   })
 })
 

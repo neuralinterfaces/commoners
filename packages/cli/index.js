@@ -162,7 +162,8 @@ const publishCommands = {
     services: () => console.log('Publishing the services somewhere')
 }
 
-const isDev = command === 'dev' || command === 'start'
+const isStart = command === 'start'
+const isDev = command === 'dev'
 const isBuild = command.startsWith('build')
 
 // The template for a package.json override at the COMMONERS output directory
@@ -173,7 +174,7 @@ const newPkg = {
 }
 
 
-if ( isDev || isBuild ) {
+if ( isDev || isStart || isBuild ) {
 
     // Ensure main property is added as the 4th entry in the package.json file.
     if (!userPkg.main) {
@@ -198,17 +199,18 @@ if ( isDev || isBuild ) {
     console.log('\n')
 
     // Run a development server that can be accessed through Electron or the browser
-    if (isDev) {
-        const server = await vite.createServer(resolveConfig(command))
+    if ( isDev || isStart ) {
+        const server = await vite.createServer(resolveConfig(command, isStart))
         await server.listen()
-        server.printUrls()
+        if (isDev) {
+            console.log('\n')
+            server.printUrls() // Only show Vite URLs when Electron is not running
+            console.log('\n')
+        }
     }
 
     // Build the entire application, including the Electron backend—and possibly the actual application
     else await vite.build(resolveConfig(command))
-
-    console.log('\n')
-
 
     mkdirSync(baseOutDir, { recursive: true }) // Ensure base output directory exists
     writeFileSync(path.join(baseOutDir, 'package.json'), JSON.stringify(newPkg, null, 2)) // Write package.json to ensure these files are treated as commonjs

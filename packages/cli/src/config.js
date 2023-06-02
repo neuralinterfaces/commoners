@@ -9,8 +9,8 @@ export const getFile = async (filepath) => (await typescript.loadModule(filepath
 export const getConfig = async (dirPath='', command='init') => {
     const resolvedConfigPath = resolveFile(path.join(dirPath, 'commoners.config'), ['.ts', '.js'])
     if (!resolvedConfigPath && (command !== 'init')) {
-        console.error(chalk.red('No config file found. Please create a commoners.config file in the root of your project.'))
-        process.exit()
+        console.error(chalk.red('No commoners.config.js file found.')) // Please create this file in the root of your project.'))
+        // process.exit()
     }
 
     return  resolvedConfigPath ? getFile(resolvedConfigPath) : {}
