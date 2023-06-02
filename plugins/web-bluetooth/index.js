@@ -10,26 +10,20 @@ export function main (
 ) {
 
     // Enable Web Bluetooth
-    let active = false
+    let selectionCallback = null
+
+    this.on("bluetooth.selectDevice", (
+      _evt, //: IpcMainEvent, 
+      value //: string
+    ) => {
+        if (typeof selectionCallback === 'function') selectionCallback(value)
+        else selectionCallback = null
+    });
+
     win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
       event.preventDefault()
       win.webContents.send("bluetooth.requestDevice", devices);
-  
-      if (!active) {
-        console.log(`Requesting a Bluetooth device...`);
-        this.on("bluetooth.selectDevice", (
-          _evt, //: IpcMainEvent, 
-          value //: string
-        ) => {
-          if (active) {
-            console.log(`Bluetooth device '(${value})' selected.`);
-            active = false
-            callback(value)
-          }
-        });
-  
-        active = true
-      }
+      selectionCallback = callback
     })
 
 }
@@ -40,9 +34,11 @@ export function preload(
     return {
         onRequestDevice: (
           callback//: (evt: IpcRendererEvent) => void
-        ) => this.on("bluetooth.requestDevice", (_, value) => callback(value)),
+        ) => this.on("bluetooth.requestDevice", (sender, value) => {
+          callback(sender.senderId, value)
+        }),
         selectDevice: (
-          // deviceID: string
+          deviceID //: string
         ) => this.send("bluetooth.selectDevice", deviceID),
     }
 }
@@ -50,8 +46,81 @@ export function preload(
 export function renderer(
   // this: any
 ) {
-    this.bluetooth.onRequestDevice(((devices) => {
-        const device = devices.find(o => o.deviceName === 'HEG')
-        if (device) this.bluetooth.selectDevice(device.deviceId)
-    }))
+
+  const dialog = document.createElement('dialog')
+  dialog.addEventListener('click', () => dialog.close());
+
+  const container = document.createElement('section')
+  container.addEventListener('click', (event) => event.stopPropagation());
+  dialog.append(container)
+
+  const header = document.createElement('header')
+  const footer = document.createElement('footer')
+  const main = document.createElement('div')
+
+  const title = document.createElement('h3')
+  title.innerText = `Available BLE Devices`
+  header.append(title)
+
+  const ul = document.createElement('ul')
+  main.append(ul)
+
+  const form = document.createElement('form')
+  form.method = 'dialog'
+
+  const cancelButton = document.createElement('button')
+  cancelButton.innerText = 'Cancel'
+
+  let selectedDevice = ''
+  const pairButton = document.createElement('button')
+  pairButton.innerText = 'Pair'
+  pairButton.addEventListener('click', () => {
+    dialog.close(selectedDevice)
+  })
+
+  
+  form.append(cancelButton, pairButton)
+  footer.append(form)
+
+  container.append(header, main, footer)
+
+  dialog.addEventListener('close', () => {
+    this.bluetooth.selectDevice(dialog.returnValue ?? '')
+  })
+
+  document.body.append(dialog)
+
+  let latestDevices = ''
+
+  this.bluetooth.onRequestDevice((id, devices) => {
+
+      // Update the devices list if different
+      if (latestDevices !== JSON.stringify(devices)) {
+                
+        latestDevices = JSON.stringify(devices)
+
+        if (!dialog.open) {
+          ul.innerText = ''
+          selectedDevice = ''
+          pairButton.setAttribute('disabled', '')
+          dialog.showModal()
+        }
+
+        const filtered = devices.filter(o => !dialog.querySelector(`[data-id="${o.deviceId}"]`))
+        console.log(filtered, devices)
+
+        ul.append(...filtered.map(({ deviceName, deviceId }) => {
+          const li = document.createElement('li')
+          li.style.cursor = 'pointer'
+          li.innerText = `${deviceName} (${deviceId})` 
+          li.setAttribute('data-id', deviceId)
+          li.onclick = () => {
+            pairButton.removeAttribute('disabled')
+            selectedDevice = deviceId
+          }
+          return li
+        }))
+      }
+
+  })
 }

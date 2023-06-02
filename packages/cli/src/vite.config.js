@@ -21,7 +21,7 @@ export const resolveConfig = (command) => {
                 name: 'commoners',
                 transformIndexHtml(html) {
 
-                    // Insert COMMONERS Electron Polyfills
+                    // Insert COMMONERS Electron Polyfills after everything has loaded
                     const script = `<script>
                         if (window.commoners) {
                             [
@@ -29,7 +29,7 @@ export const resolveConfig = (command) => {
                             ].forEach(f => f.call(window.commoners.plugins))
                         }
                     </script>`
-                  return `${script}\n${html}`
+                  return `${html}\n${script}`
                 },
             },
 
