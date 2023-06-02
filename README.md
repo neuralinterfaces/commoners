@@ -9,3 +9,34 @@
     - `--pwa` - Build as a PWA (coming soon)
     - `--ios` - Build for iOS (coming soon)
     - `--android` - Build for Android (coming soon)
+
+## Configuration Options
+- `services` - An object that declares backend services to run
+```js
+export default {
+    services: {
+        myservice: './backend/index.ts'
+    },
+}
+```
+
+- `plugins` - An object that declares the plugins to activate for this project. 
+> **Note:** The object provided will be used to configure the `capacitor` plugin only.
+
+```js
+export default {
+    plugins: {
+        
+        bluetooth: {
+            displayStrings: {
+                scanning: "Scanning BLE...",
+                cancel: "Stop Scanning",
+                availableDevices: "Devices available!",
+                noDeviceFound: "No BLE devices found."
+            }
+        },
+
+        customplugin: true
+    }
+}
+```

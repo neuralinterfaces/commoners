@@ -2,6 +2,8 @@
 
 export const name = 'bluetooth'
 
+export const capacitorName = 'BluetoothLe'
+
 export function main (
   // this: IpcMain, 
   win//: BrowserWindow
