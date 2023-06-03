@@ -58,7 +58,7 @@ function createWindow(config): void {
 
     if (config.electron?.splash) {
       setTimeout(() => {
-        // config.electron.splash.close();
+        config.electron.splash.close();
         mainWindow.show();
       }, 1000);
      } 
@@ -72,9 +72,7 @@ function createWindow(config): void {
     return { action: 'deny' }
   })
 
-  mainWindow.on('closed', _ => {
-    services.stop()
-  });
+  mainWindow.on('closed', () => services.stop());
 
   // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
@@ -96,8 +94,6 @@ app.whenReady().then(async () => {
       config.services[id] = Object.assign(config.services[id], preconfigured[id])
     }
   }
-
-  console.log(config.services)
 
   await services.createAll(config.services) // Create all services as configured by the user / main build
 
