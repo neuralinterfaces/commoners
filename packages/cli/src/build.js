@@ -1,20 +1,5 @@
 import ts from 'typescript'
 import { readFileSync } from "fs"
-import { join, parse } from 'path'
-import * as esbuild from 'esbuild'
-
-export const transpileTo = async (src, outDir, options) => {
-  const outfile = join(outDir, `${parse(src).name}.js`)
-  await esbuild.build({
-    entryPoints: [ src ],
-    external: ['*.node'],
-    bundle: true,
-    outfile,
-    platform: 'node'
-  })
-
-  return outfile
-}
 
 export const transpile = (filePath, options = { module: 'es2015' }) => {
       const source = readFileSync(filePath, 'utf8').toString()

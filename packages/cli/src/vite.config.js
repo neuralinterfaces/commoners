@@ -5,72 +5,85 @@ import renderer from 'vite-plugin-electron-renderer'
 import { join } from 'node:path'
 
 import { __dirname, userPkg, baseOutDir } from "../globals.js";
-import plugins from '../../../plugins/index.js';
+import commonersPlugins from '../../../plugins/index.js';
 
-export const resolveConfig = (command, buildForElectron = true) => {
+export const resolveConfig = (command, commonersConfig = {}, buildForElectron = true) => {
 
     const isServe = command === 'serve' || command === 'dev'
     const isBuild = command === 'build'
     const sourcemap = isServe    
 
-    return vite.defineConfig({
+    const plugins = [
+        {
+            name: 'commoners',
+            transformIndexHtml(html) {
 
-        plugins: buildForElectron ? [
+                // Insert COMMONERS Electron Polyfills after everything has loaded
+                const configPlugins = commonersConfig.plugins ?? []
 
-            {
-                name: 'commoners',
-                transformIndexHtml(html) {
+                const electronScript = buildForElectron ? `<script>
 
-                    // Insert COMMONERS Electron Polyfills after everything has loaded
-                    const script = `<script>
-                        if (window.commoners) {
+                    if (globalThis.electron) {
+                        const plugins = globalThis.commoners.plugins
+
+                        if (plugins) {
                             [
-                                ${plugins.filter(f => 'renderer' in f).map(f => f.renderer.toString()).join(',\n')}
-                            ].forEach(f => f.call(window.commoners.plugins))
+                                ${commonersPlugins.filter(o => 'renderer' in o && o.name in configPlugins).map(o => o.renderer.toString()).join(',\n')}
+                            ].forEach(f => f.call(plugins))
                         }
-                    </script>`
-                  return `${html}\n${script}`
+                    }
+                </script>` : ''
+
+                const webBuildScript = `<script>globalThis.commoners = JSON.parse('${JSON.stringify(commonersConfig)}');</script>`
+
+              return`${webBuildScript}\n${html}\n${electronScript}`
+            },
+        },
+    ]
+
+    if (buildForElectron) {
+
+        const electronPluginConfig = electron([
+            {
+                // Main-Process entry file of the Electron App.
+                entry: join(__dirname, '..', '..', 'template/src/main/index.ts'),
+                onstart: (options) => options.startup(),
+                vite: {
+                    logLevel: 'silent',
+                    build: {
+                        sourcemap,
+                        minify: isBuild,
+                        outDir: join(baseOutDir, 'main'),
+                        rollupOptions: {
+                            external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
+                        },
+                    },
                 },
             },
-
-
-            electron([
-                {
-                    // Main-Process entry file of the Electron App.
-                    entry: join(__dirname, '..', '..', 'template/src/main/index.ts'),
-                    onstart: (options) => options.startup(),
-                    vite: {
-                        logLevel: 'silent',
-                        build: {
-                            sourcemap,
-                            minify: isBuild,
-                            outDir: join(baseOutDir, 'main'),
-                            rollupOptions: {
-                                external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
-                            },
+            {
+                entry: join(__dirname, '..', '..', 'template/src/preload/index.ts'),
+                onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
+                vite: {
+                    logLevel: 'silent',
+                    build: {
+                        sourcemap: sourcemap ? 'inline' : undefined, // #332
+                        minify: isBuild,
+                        outDir: join(baseOutDir, 'preload'),
+                        rollupOptions: {
+                            external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
                         },
                     },
                 },
-                {
-                    entry: join(__dirname, '..', '..', 'template/src/preload/index.ts'),
-                    onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
-                    vite: {
-                        logLevel: 'silent',
-                        build: {
-                            sourcemap: sourcemap ? 'inline' : undefined, // #332
-                            minify: isBuild,
-                            outDir: join(baseOutDir, 'preload'),
-                            rollupOptions: {
-                                external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
-                            },
-                        },
-                    },
-                }
-            ]),
+            }
+        ])
 
-            // Use Node.js API in the Renderer-process
-            renderer(),
-        ] : [],
+        plugins.push(electronPluginConfig)
+        plugins.push(renderer()) // Use Node.js API in the Renderer-process
+    }
+
+    return vite.defineConfig({
+
+        plugins,
 
         server: {
             open: !buildForElectron

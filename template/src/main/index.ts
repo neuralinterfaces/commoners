@@ -1,12 +1,11 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join, resolve } from 'path'
+import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 // @ts-ignore
 import icon from '../../resources/icon.png?asset'
 
-import { fork } from 'node:child_process'
-import { ChildProcess } from 'child_process'
+import * as services from './services/index'
 
 import plugins from '../../../plugins/index'
 import { existsSync } from 'fs'
@@ -14,46 +13,38 @@ import { existsSync } from 'fs'
 // import chalk from 'chalk'
 
 const commonersDist = join(__dirname, '..')
+const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 
   // Get the COMMONERS configuration file
   const configFileName = 'commoners.config.js'
-  const configPath = join(commonersDist, 'assets', configFileName)
+  const configPath = join(commonersAssets, configFileName)
   const config = existsSync(configPath) ? require(configPath).default : {}
 
-let processes: {[x:string]: ChildProcess} = {}
-// Create and monitor arbitary Node.js processes
-const spawnBackendInstance = (filepath, id) => {
-
-  if (filepath.endsWith('.ts')) filepath = filepath.slice(0, -2) + 'js' // Load transpiled file
-
-  const fullpath = resolve(commonersDist, 'assets', filepath) // Find file in assets
-  const process = fork(fullpath, { silent: true })
-  const label = id ? `commoners-${id}-service` : 'commoners-service'
-  if (process.stdout) process.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
-  if (process.stderr) process.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
-  process.on('close', (code) => code === null ? console.log(`Restarting ${label}...`) : console.error(`[${label}]: exited with code ${code}`)); 
-  // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
-  processes[id] = process
-}
+const platformDependentWindowConfig = (process.platform === 'linux' ? { icon } : {})
 
 function createWindow(config): void {
 
   const preload = join(commonersDist, 'preload', 'index.js')
 
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: config.electron?.window?.width ?? 900,
-    height: config.electron?.window?.height ?? 670,
+  const windowConfig = {
+    width: 900,
+    height: 670,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...platformDependentWindowConfig,
     webPreferences: {
-      preload: preload,
       sandbox: false
-    }
-  })
+    },
+    ...config.electron?.window ?? {} // Merge User-Defined Window Variables
+  }
+
+  // Ensure preload is added
+  if (!('preload' in windowConfig.webPreferences)) windowConfig.webPreferences.preload = preload
+
+  // Create the browser window.
+  const mainWindow = new BrowserWindow(windowConfig)
 
   // Activate specified plugins from the configuration file
   if ('plugins' in config){
@@ -64,7 +55,16 @@ function createWindow(config): void {
   }
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+
+    if (config.electron?.splash) {
+      setTimeout(() => {
+        // config.electron.splash.close();
+        mainWindow.show();
+      }, 1000);
+     } 
+     
+     else mainWindow.show()
+
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -73,8 +73,7 @@ function createWindow(config): void {
   })
 
   mainWindow.on('closed', _ => {
-    for (let id in processes) processes[id].kill()
-    processes = {}
+    services.stop()
   });
 
   // HMR for renderer base on commoners cli.
@@ -88,7 +87,19 @@ function createWindow(config): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
-  if ('services' in config) Object.entries(config.services).forEach(([id, path]) => spawnBackendInstance(path, id)) // Run sidecars automatically based on the configuration file
+
+  // Pass preconfiguration properties to the main service declaration
+  if ('COMMONERS_SERVICES' in process.env) {
+    const preconfigured = JSON.parse(process.env.COMMONERS_SERVICES)
+    for (let id in preconfigured) {
+      if (typeof config.services[id === 'string']) config.services[id] = { file: config.services[id] }
+      config.services[id] = Object.assign(config.services[id], preconfigured[id])
+    }
+  }
+
+  console.log(config.services)
+
+  await services.createAll(config.services) // Create all services as configured by the user / main build
 
   // Set app user model id for windows
   electronApp.setAppUserModelId(`com.${app.name}`)
@@ -99,6 +110,23 @@ app.whenReady().then(async () => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  const splashURL = config.electron?.splash
+  
+  if (splashURL) {
+    const splash = new BrowserWindow({
+      width: 340,
+      height: 340,
+      frame: false,
+      ...platformDependentWindowConfig,
+      alwaysOnTop: true,
+      transparent: true,
+    });
+
+    splash.loadFile(join(commonersAssets, splashURL))
+
+    config.electron.splash = splash // Replace splash entry with the active window
+  }
 
   createWindow(config)
 

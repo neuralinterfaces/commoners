@@ -8,16 +8,19 @@ import plugins from '../../../plugins/index'
 const commonersDist = join(__dirname, '..')
 const configFileName = 'commoners.config.js'
 const configPath = join(commonersDist, 'assets', configFileName)
-const config = require(configPath).default
+const config = require(configPath).default ?? {}
 
-// Custom APIs for renderer
-const api = {
-  config,
-  plugins: plugins.reduce((acc, { name, preload }) => {
-    if (preload) acc[name] = preload.call(ipcRenderer)
-    return acc
-  }, {})
+// Inject the configuration file (with activated options) into the Electron context
+if (config.plugins) config.plugins = plugins.reduce((acc, { name, preload }) => {
+  if (preload && config.plugins?.[name]) acc[name] = preload.call(ipcRenderer)
+  return acc
+}, {})
+
+if (config.services) {
+  const services = process.env.COMMONERS_SERVICES
+  if (services) config.services = JSON.parse(services)
 }
+
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -25,13 +28,15 @@ const api = {
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('commoners', api)
+    contextBridge.exposeInMainWorld('commoners', config)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
   window.electron = electronAPI
+
   // @ts-ignore (define in dts)
-  window.api = api
+  window.commoners = config
 }
+

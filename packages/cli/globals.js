@@ -9,3 +9,5 @@ export const commonersPkg = getJSON(path.join(__dirname, '..', '..', 'package.js
 export const userPkg = getJSON('package.json')
 
 export const baseOutDir = 'dist/.commoners'
+
+export const assetOutDir = path.join(baseOutDir, 'assets')

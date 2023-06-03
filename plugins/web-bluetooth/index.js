@@ -107,7 +107,6 @@ export function renderer(
         }
 
         const filtered = devices.filter(o => !dialog.querySelector(`[data-id="${o.deviceId}"]`))
-        console.log(filtered, devices)
 
         ul.append(...filtered.map(({ deviceName, deviceId }) => {
           const li = document.createElement('li')
