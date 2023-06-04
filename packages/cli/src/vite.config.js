@@ -13,6 +13,10 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
     const isBuild = command === 'build'
     const sourcemap = isServe    
 
+    const config = { ...commonersConfig }
+    
+    if (!isBuild) config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Provide the sanitized service information
+
     const plugins = [
         {
             name: 'commoners',
@@ -34,7 +38,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
                     }
                 </script>` : ''
 
-                const webBuildScript = `<script>globalThis.commoners = JSON.parse('${JSON.stringify(commonersConfig)}');</script>`
+                const webBuildScript = isBuild ? '' : `<script>globalThis.commoners = JSON.parse('${JSON.stringify(config)}');</script>`
 
               return`${webBuildScript}\n${html}\n${electronScript}`
             },
@@ -42,6 +46,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
     ]
 
     if (buildForElectron) {
+
 
         const electronPluginConfig = electron([
             {

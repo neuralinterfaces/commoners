@@ -80,22 +80,25 @@ function createWindow(config): void {
   else mainWindow.loadFile(join(dist, 'index.html'))
 }
 
+const startMainApp = async (config) => {
+  await services.createAll(config.services, commonersAssets) // Create all services as configured by the user / main build
+  createWindow(config)
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
 
-  // Pass preconfiguration properties to the main service declaration
+  // Pass preconfigured properties to the main service declaration
   if ('COMMONERS_SERVICES' in process.env) {
     const preconfigured = JSON.parse(process.env.COMMONERS_SERVICES)
     for (let id in preconfigured) {
-      if (typeof config.services[id === 'string']) config.services[id] = { file: config.services[id] }
+      if (typeof config.services[id] === 'string') config.services[id] = { file: config.services[id] }
       config.services[id] = Object.assign(config.services[id], preconfigured[id])
     }
   }
-
-  await services.createAll(config.services) // Create all services as configured by the user / main build
 
   // Set app user model id for windows
   electronApp.setAppUserModelId(`com.${app.name}`)
@@ -124,20 +127,17 @@ app.whenReady().then(async () => {
     config.electron.splash = splash // Replace splash entry with the active window
   }
 
-  createWindow(config)
 
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(config)
-  })
+  await startMainApp(config)
+
+  app.on('activate', async function () {
+    if (BrowserWindow.getAllWindows().length === 0) await startMainApp(config)
+    })
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })

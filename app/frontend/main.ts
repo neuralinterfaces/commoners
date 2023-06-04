@@ -1,4 +1,8 @@
-const ws = new WebSocket('ws://localhost:3768')
+const url = new URL(globalThis.commoners.services.main.url)
+
+console.log(globalThis.commoners.services)
+
+const ws = new WebSocket(`ws://${url.host}`)
 
 const sidecarMessage = document.getElementById('sidecar-msg') as HTMLElement
 

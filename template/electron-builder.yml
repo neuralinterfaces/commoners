@@ -2,6 +2,7 @@ appId: com.${name}.app
 productName: cross-platform-app # UPDATED
 directories:
   buildResources: build # AUGMENTED
+  output: build
 files:
   - "dist/**/*" # Include the COMMOMERS output directory
   - "!node_modules"

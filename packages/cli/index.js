@@ -12,7 +12,7 @@ const args = cliArgs._
 import { createDirectory, createFile, exists, resolveFile } from "./src/files.js";
 import { spawnProcess, onExit as processOnExit } from "./src/processes.js";
 import { __dirname, baseOutDir, assetOutDir, commonersPkg, userPkg } from "./globals.js";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, write, writeFileSync } from "fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { getConfig } from "./src/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from '../../template/src/main/services/index.js'
@@ -34,17 +34,18 @@ if (!('electronVersion' in buildConfig)) {
     else buildConfig.electronVersion = electronVersion
 }
 
-// Ensure proper absolute paths are provided for signing
-const buildResources = buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
+// Ensure proper absolute paths are provided for Electron build
+// buildConfig.directories.output = path.join(process.cwd(), buildConfig.directories.output)
+buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
 buildConfig.afterSign = path.join(templateDir, buildConfig.afterSign)
 buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
 buildConfig.mac.icon = path.join(templateDir, buildConfig.mac.icon)
 buildConfig.win.icon = path.join(templateDir, buildConfig.win.icon)
 
-// Specify the correct resources glob
-buildConfig.asarUnpack = [
-    path.join(templateDir, 'resources', "**")
-]
+// // Specify the correct resources glob
+// buildConfig.asarUnpack = [
+//     path.join(templateDir, 'resources', "**")
+// ]
 
 // Transfer configuration file and related services
 const assets = {
@@ -56,6 +57,10 @@ const jsExtensions = [ '.js', '.ts' ]
 if ('services' in config) {
     Object.values(config.services).forEach(config => {
         const filepath = typeof config === 'string' ? config : config.file
+        
+        if (!filepath) return // Do not copy if file doesn't exist
+        if (isValidURL(filepath)) return // Do not copy if file is a url
+
         if (jsExtensions.includes(extname(filepath))) assets.transpile.push(filepath)
         else assets.copy.push(filepath)
     })
@@ -65,7 +70,6 @@ if (config.electron?.splash) assets.transpile.push(config.electron.splash)
 
 
 // Ensure the packaged application is saved to a scoped location
-buildConfig.directories.output = buildResources
 buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
 
 // New Vite CLI
@@ -73,6 +77,7 @@ import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { resolveConfig } from './src/vite.config.js'
 import { build } from 'electron-builder'
+import { isValidURL } from "./src/url.js";
 
 
 const onExit = (...args) => {
