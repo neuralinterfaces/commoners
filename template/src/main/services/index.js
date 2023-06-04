@@ -4,6 +4,7 @@ import python from './python/index.js'
 import { extname, join, resolve } from "path"
 import { getFreePorts } from './utils/network.js';
 import { isValidURL } from '../../../../packages/cli/src/url.js';
+import { URL } from 'url';
 
 let processes = {}
 
@@ -15,29 +16,22 @@ export const handlers = {
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
   const { file } = config
 
-  // Return the configuration unchanged
-  if (!file) return config
-
   // Specify the file property as a url
-  else if (isValidURL(file)) {
+  if (isValidURL(file)) {
     config.url = config.file
     delete config.file
     return config
   }
 
+  if (!file) return config // Return the configuration unchanged if no file or url
+
+  const port = config.port = config.port ?? (await getFreePorts(1))[0]
+  const protocol = config.protocol ?? `http:`
+  const hostname = config.hostname ?? `127.0.0.1`
+  config.url = `${protocol}//${hostname}:${port}`
+
   if (file.endsWith('.ts')) config.file = file.slice(0, -2) + 'js' // Load transpiled file
-
   config.abspath = resolve(assets, config.file) // Find file in assets
-
-  if (!config.port) {
-    const [ port ] = await getFreePorts(1)
-    config.port = port
-  }
-
-  if (!config.protocol) config.protocol = `http:`
-  if (!config.hostname) config.hostname = `127.0.0.1`
-
-  config.url = `${config.protocol}//${config.hostname}:${config.port}`
 
   return config
 
@@ -103,7 +97,8 @@ export async function resolveAll (services = {}, assets) {
 
   await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, assets))) // Run sidecars automatically based on the configuration file
 
-  const propsToInclude = [ 'url', 'protocol', 'hostname', 'port' ]
+  // Provide sanitized service information as an environment variable
+  const propsToInclude = [ 'url' ]
   const info = {} 
   for (let id in serviceInfo) {
     info[id] = {}

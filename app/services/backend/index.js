@@ -8,8 +8,6 @@ console.log(`Server running at http://${localIP}:${port}/`)
 
 wss.on('connection', function connection(ws) {
 
-  console.log('Client connected!\n')
-
   ws.on('error', console.error);
   ws.on('message', (message) => {
     const { id, command, payload } = JSON.parse(message)
