@@ -176,6 +176,10 @@ if ( isDev || isStart || isBuild ) {
 
         buildConfig.productName = NAME
 
+        // NOTE: These variables don't get replaced on Windows
+        buildConfig.appId = buildConfig.appId.replace('${name}', NAME)
+        buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
+
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {
             const electronVersion = commonersPkg.devDependencies.electron
@@ -206,16 +210,17 @@ if ( isDev || isStart || isBuild ) {
 } 
 
 if (isLaunch) {
-    const electronDistPath = path.join(process.cwd(), buildConfig.directories.output, PLATFORM)
+    const electronDistPath = path.join(process.cwd(), buildConfig.directories.output)
 
     let exePath = ''
-    if (PLATFORM === 'mac') exePath = path.join(electronDistPath, `${NAME}.app`)
+    if (PLATFORM === 'mac') exePath = path.join(electronDistPath, PLATFORM, `${NAME}.app`)
+    else if (PLATFORM === 'windows') exePath = path.join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
     else throw new Error(`Cannot launch the application for ${PLATFORM}`)
 
     if (!existsSync(exePath)) throw new Error(`${NAME} has not been built yet.`)
 
     const debugPort = 8315;
-    await spawn('open', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
+    await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
 
     console.log(chalk.green(`${NAME} launched!`))
     console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
