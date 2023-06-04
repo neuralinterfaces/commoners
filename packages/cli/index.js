@@ -25,27 +25,9 @@ const templateDir = path.join(__dirname, '..', '..', 'template')
 import * as yaml from 'js-yaml'
 const buildConfig = yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
 
-buildConfig.productName = userPkg.name
+const NAME = userPkg.name // Specify the product name
+const PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-// Derive Electron version
-if (!('electronVersion' in buildConfig)) {
-    const electronVersion = commonersPkg.devDependencies.electron
-    if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
-    else buildConfig.electronVersion = electronVersion
-}
-
-// Ensure proper absolute paths are provided for Electron build
-// buildConfig.directories.output = path.join(process.cwd(), buildConfig.directories.output)
-buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
-buildConfig.afterSign = path.join(templateDir, buildConfig.afterSign)
-buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
-buildConfig.mac.icon = path.join(templateDir, buildConfig.mac.icon)
-buildConfig.win.icon = path.join(templateDir, buildConfig.win.icon)
-
-// // Specify the correct resources glob
-// buildConfig.asarUnpack = [
-//     path.join(templateDir, 'resources', "**")
-// ]
 
 // Transfer configuration file and related services
 const assets = {
@@ -69,15 +51,13 @@ if ('services' in config) {
 if (config.electron?.splash) assets.transpile.push(config.electron.splash)
 
 
-// Ensure the packaged application is saved to a scoped location
-buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
-
 // New Vite CLI
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { resolveConfig } from './src/vite.config.js'
 import { build } from 'electron-builder'
 import { isValidURL } from "./src/url.js";
+import { spawn } from "child_process";
 
 
 const onExit = (...args) => {
@@ -94,7 +74,8 @@ process.on('beforeExit', onExit);
 
 const isStart = command === 'start'
 const isDev = command === 'dev'
-const isBuild = command.startsWith('build')
+const isBuild = command === 'build'
+const isLaunch = command === 'launch'
 
 if ( isDev || isStart || isBuild ) {
 
@@ -190,13 +171,55 @@ if ( isDev || isStart || isBuild ) {
     // "ios": "npx cap open ios"
 
     if (isBuild) {
-       if (cliArgs.desktop) await build({ config: buildConfig })
+
+       if (cliArgs.desktop) {
+
+        buildConfig.productName = NAME
+
+        // Derive Electron version
+        if (!('electronVersion' in buildConfig)) {
+            const electronVersion = commonersPkg.devDependencies.electron
+            if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
+            else buildConfig.electronVersion = electronVersion
+        }
+
+        // Ensure proper absolute paths are provided for Electron build
+        buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
+        buildConfig.afterSign = path.join(templateDir, buildConfig.afterSign)
+        buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
+        buildConfig.mac.icon = path.join(templateDir, buildConfig.mac.icon)
+        buildConfig.win.icon = path.join(templateDir, buildConfig.win.icon)
+        buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
+
+        // // Specify the correct resources glob
+        // buildConfig.asarUnpack = [
+        //     path.join(templateDir, 'resources', "**")
+        // ]
+
+         await build({ config: buildConfig })
+       }
        if (cliArgs.ios) console.error(chalk.red('No iOS support yet'))
        if (cliArgs.android) console.error(chalk.red('No Android support yet'))
        if (cliArgs.pwa) console.error(chalk.red('No PWA support yet'))
     }
 
 } 
+
+if (isLaunch) {
+    const electronDistPath = path.join(process.cwd(), buildConfig.directories.output, PLATFORM)
+
+    let exePath = ''
+    if (PLATFORM === 'mac') exePath = path.join(electronDistPath, `${NAME}.app`)
+    else throw new Error(`Cannot launch the application for ${PLATFORM}`)
+
+    if (!existsSync(exePath)) throw new Error(`${NAME} has not been built yet.`)
+
+    const debugPort = 8315;
+    await spawn('open', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
+
+    console.log(chalk.green(`${NAME} launched!`))
+    console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
+}
 
 
 // const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1)

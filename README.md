@@ -3,6 +3,9 @@
 
  The `commoners` CLI allows anyone to build their application for multiple platforms.
 
+ Our particular goal has been to develop a simple tool for building web, desktop, and mobile applications that connect to Bluetooth and USB biosensing devices. 
+ As such, `commoners` has been battle-tested against this use-case.
+
 ## Commands
 - `commoners build` - Build the project
     - `--desktop` - Build for your current desktop platform

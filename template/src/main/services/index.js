@@ -1,10 +1,9 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join, resolve } from "path"
+import { extname, join } from "path"
 import { getFreePorts } from './utils/network.js';
 import { isValidURL } from '../../../../packages/cli/src/url.js';
-import { URL } from 'url';
 
 let processes = {}
 
@@ -14,6 +13,7 @@ export const handlers = {
 }
 
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
+
   const { file } = config
 
   // Specify the file property as a url
@@ -31,7 +31,7 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
   config.url = `${protocol}//${hostname}:${port}`
 
   if (file.endsWith('.ts')) config.file = file.slice(0, -2) + 'js' // Load transpiled file
-  config.abspath = resolve(assets, config.file) // Find file in assets
+  config.abspath = join(assets, config.file) // Find file in assets
 
   return config
 
@@ -53,7 +53,9 @@ export async function start (config, id, assets) {
       const label = id ? `commoners-${id}-service` : 'commoners-service'
       if (process.stdout) process.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
       if (process.stderr) process.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
-      process.on('close', (code) => code === null ? console.log(`Restarting ${label}...`) : console.error(`[${label}]: exited with code ${code}`)); 
+      process.on('close', (code) => code === null 
+                                      ? '' // Process is being closed because of a window closure from the user or the Vite HMR process
+                                      : console.error(`[${label}]: exited with code ${code}`)); 
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
       processes[id] = process
 
@@ -113,6 +115,6 @@ export async function resolveAll (services = {}, assets) {
 
 export async function createAll(services = {}, assets){
   services = await resolveAll(services, assets)
-  await Promise.all(Object.entries(services).map(([id, config]) => start(config, id))) // Run sidecars automatically based on the configuration file
+  await Promise.all(Object.entries(services).map(([id, config]) => start(config, id, assets))) // Run sidecars automatically based on the configuration file
   return services
 }
