@@ -50,13 +50,20 @@ export function renderer(
   const dialog = document.createElement('dialog')
   dialog.addEventListener('click', () => dialog.close());
 
+
   const container = document.createElement('section')
   container.addEventListener('click', (event) => event.stopPropagation());
   dialog.append(container)
 
   const header = document.createElement('header')
+  header.style.paddingBottom = '20px'
+
   const footer = document.createElement('footer')
+  footer.style.paddingTop = '20px'
+
   const main = document.createElement('div')
+  main.style.overflow = 'auto'
+  main.style.maxHeight = '300px'
 
   const title = document.createElement('h3')
   title.innerText = `Available BLE Devices`
