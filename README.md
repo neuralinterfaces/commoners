@@ -1,5 +1,5 @@
 # commoners
- A CLI for Commoners
+A Cross-Platform Development Kit for Everyone
 
  The `commoners` CLI allows anyone to build their application for multiple platforms.
 
