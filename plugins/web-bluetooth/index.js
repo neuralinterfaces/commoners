@@ -10,22 +10,19 @@ export function main (
 ) {
 
     // Enable Web Bluetooth
-    let selectBluetoothCallback, bluetoothPinCallback;
+    let selectBluetoothCallback;
 
     this.on("bluetooth.selectDevice", (
       _evt, //: IpcMainEvent, 
       value //: string
     ) => {
+        console.log('selecting', value)
         if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value)
         else selectBluetoothCallback = null
     });
 
-      // Listen for a message from the renderer to get the response for the Bluetooth pairing.
-    // ipcMain.on('bluetooth-pairing-response', (event, response) => bluetoothPinCallback(response))
-
+    // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
     win.webContents.session.setBluetoothPairingHandler((details, callback) => {
-      // bluetoothPinCallback = callback
-      // mainWindow.webContents.send('bluetooth-pairing-request', details)
       if (details.pairingKind === 'confirm') callback({ confirmed: true })
       else console.error(`COMMONERS Bluetooth Extension does not support devices that need ${details.pairingKind} permissions.`)
     })
@@ -128,7 +125,7 @@ export function renderer(
         ul.append(...filtered.map(({ deviceName, deviceId }) => {
           const li = document.createElement('li')
           li.style.cursor = 'pointer'
-          li.innerText = `${deviceName} (${deviceId})` 
+          li.innerText = deviceName
           li.setAttribute('data-id', deviceId)
           li.onclick = () => {
             pairButton.removeAttribute('disabled')
