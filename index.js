@@ -2,8 +2,7 @@
 
 import chalk from "chalk";
 import minimist from 'minimist';
-import path, { extname } from "path";
-
+import path, { extname } from "node:path";
 
 const cliArgs = minimist(process.argv.slice(2))
 const args = cliArgs._
@@ -11,17 +10,17 @@ const args = cliArgs._
 // import { initGitRepo } from "./src/github/index.js";
 import { createDirectory, createFile, exists, resolveFile } from "./src/files.js";
 import { spawnProcess, onExit as processOnExit } from "./src/processes.js";
-import { __dirname, baseOutDir, assetOutDir, commonersPkg, userPkg } from "./globals.js";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "fs";
+import { rootDir, baseOutDir, assetOutDir, commonersPkg, userPkg } from "./globals.js";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { getConfig } from "./src/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
-import { createAll, resolveAll } from '../../template/src/main/services/index.js'
+import { createAll, resolveAll } from './template/src/main/services/index.js'
 
 const [command, ...options] = args
 let config = await getConfig()
 const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
-const templateDir = path.join(__dirname, '..', '..', 'template')
+const templateDir = path.join(rootDir, 'template')
 import * as yaml from 'js-yaml'
 const buildConfig = yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
 
@@ -57,7 +56,6 @@ import * as esbuild from 'esbuild'
 import { resolveConfig } from './src/vite.config.js'
 import { build } from 'electron-builder'
 import { isValidURL } from "./src/url.js";
-import { spawn } from "child_process";
 
 
 const onExit = (...args) => {

@@ -1,5 +1,5 @@
 import ts from 'typescript'
-import { readFileSync } from "fs"
+import { readFileSync } from "node:fs"
 
 export const transpile = (filePath, options = { module: 'es2015' }) => {
       const source = readFileSync(filePath, 'utf8').toString()

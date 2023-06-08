@@ -1,7 +1,7 @@
 import chalk from "chalk"
-import { readFileSync } from "fs"
-import path from "path"
-import { commonersPkg, __dirname } from "../globals.js"
+import { readFileSync } from "node:fs"
+import path from "node:path"
+import { commonersPkg, rootDir } from "../globals.js"
 import { createDirectory, createFile, appendJSON, getJSON } from "./files.js"
 
 
@@ -34,9 +34,9 @@ export const createPackage = (name) => {
 export const createFrontend = (dir, opts) => {
 
     // Create Template Frontend Files
-    createFile(path.join(dir, 'index.ts'), () => readFileSync(path.join(__dirname, 'src/templates/frontend/index.ts')))
-    createFile(path.join(dir, 'style.css'), () => readFileSync(path.join(__dirname, 'src/templates/frontend/style.css')))
-    const packagePath = createFile(path.join(dir, 'package.json'), () => readFileSync(path.join(__dirname, 'src/templates/frontend/package.json')))
+    createFile(path.join(dir, 'index.ts'), () => readFileSync(path.join(rootDir, 'src/templates/frontend/index.ts')))
+    createFile(path.join(dir, 'style.css'), () => readFileSync(path.join(rootDir, 'src/templates/frontend/style.css')))
+    const packagePath = createFile(path.join(dir, 'package.json'), () => readFileSync(path.join(rootDir, 'src/templates/frontend/package.json')))
 
     // Add dynamic name to package.json
     appendJSON(packagePath, {
@@ -65,8 +65,8 @@ export const createService = (name, entrypoint, opts) => {
     createDirectory(dir) // Optional Backend Creation
 
     const fullEntryPoint = ensureTypescriptFile(entrypoint)
-    createFile(fullEntryPoint, () => readFileSync(path.join(__dirname, 'src/templates/service/index.ts')))
-    const packagePath = createFile(path.join(dir, 'package.json'), () => readFileSync(path.join(__dirname, 'src/templates/service/package.json')))
+    createFile(fullEntryPoint, () => readFileSync(path.join(rootDir, 'src/templates/service/index.ts')))
+    const packagePath = createFile(path.join(dir, 'package.json'), () => readFileSync(path.join(rootDir, 'src/templates/service/package.json')))
 
     // Add dynamic name to package.json
     appendJSON(packagePath, {

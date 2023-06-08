@@ -4,8 +4,8 @@ import renderer from 'vite-plugin-electron-renderer'
 
 import { join } from 'node:path'
 
-import { __dirname, userPkg, baseOutDir } from "../globals.js";
-import commonersPlugins from '../../../plugins/index.js';
+import { rootDir, userPkg, baseOutDir } from "../globals.js";
+import commonersPlugins from '../plugins/index.js';
 
 export const resolveConfig = (command, commonersConfig = {}, buildForElectron = true) => {
 
@@ -47,11 +47,10 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
 
     if (buildForElectron) {
 
-
         const electronPluginConfig = electron([
             {
                 // Main-Process entry file of the Electron App.
-                entry: join(__dirname, '..', '..', 'template/src/main/index.ts'),
+                entry: join(rootDir, 'template/src/main/index.ts'),
                 onstart: (options) => options.startup(),
                 vite: {
                     logLevel: 'silent',
@@ -66,7 +65,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
                 },
             },
             {
-                entry: join(__dirname, '..', '..', 'template/src/preload/index.ts'),
+                entry: join(rootDir, 'template/src/preload/index.ts'),
                 onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
                 vite: {
                     logLevel: 'silent',
@@ -83,7 +82,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
         ])
 
         plugins.push(electronPluginConfig)
-        plugins.push(renderer()) // Use Node.js API in the Renderer-process
+        // plugins.push(renderer()) // Use Node.js API in the Renderer-process
     }
 
     return vite.defineConfig({

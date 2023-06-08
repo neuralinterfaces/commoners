@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import { join } from 'path'
+import { join } from 'node:path'
 
 import plugins from '../../../plugins/index'
 

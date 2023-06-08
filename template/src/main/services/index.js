@@ -1,9 +1,9 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join } from "path"
+import { extname, join } from "node:path"
 import { getFreePorts } from './utils/network.js';
-import { isValidURL } from '../../../../packages/cli/src/url.js';
+import { isValidURL } from '../../../../src/url.js';
 
 let processes = {}
 

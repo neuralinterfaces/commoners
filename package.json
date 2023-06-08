@@ -3,11 +3,15 @@
     "description": "A CLI for Commoners",
     "version": "0.0.0",
     "type": "module",
+
     "bin": {
-        "commoners": "./packages/cli/index.js"
+        "commoners": "./dist/commoners.js"
     },
+
     "scripts": {
-        "postinstall": "electron-builder install-app-deps"
+        "build": "vite build",
+        "watch": "vite build --watch",
+        "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {
         "@capacitor/android": "^5.0.4",
@@ -15,34 +19,25 @@
         "@capacitor/ios": "^5.0.4",
         "@electron-toolkit/preload": "^1.0.3",
         "@electron-toolkit/utils": "^1.0.2",
-        "@octokit/auth-basic": "^1.4.8",
-        "@octokit/rest": "^19.0.7",
+        "@electron/notarize": "^1.2.3",
         "chalk": "^5.2.0",
-        "clear": "^0.1.0",
-        "cli-clear": "^1.0.4",
-        "clui": "^0.3.6",
-        "configstore": "^6.0.0",
+        "electron": "^22.3.4",
+        "electron-builder": "^23.6.0",
         "electron-updater": "^5.3.0",
+        "electron-vite": "^1.0.21",
         "esbuild": "^0.17.19",
-        "execa": "^7.1.1",
         "inquirer": "^9.1.5",
         "js-yaml": "^4.1.0",
-        "lodash": "^4.17.21",
         "minimist": "^1.2.8",
-        "simple-git": "^3.17.0",
-        "touch": "^3.1.0",
+        "typescript": "^4.9.5",
+        "vite": "^4.2.1",
         "vite-plugin-electron": "^0.11.2",
         "vite-plugin-electron-renderer": "^0.14.5"
     },
     "devDependencies": {
         "@capacitor/cli": "^5.0.4",
         "@electron-toolkit/tsconfig": "^1.0.1",
-        "@electron/notarize": "^1.2.3",
         "@types/node": "16.18.21",
-        "electron": "^22.3.4",
-        "electron-builder": "^23.6.0",
-        "electron-vite": "^1.0.21",
-        "typescript": "^4.9.5",
-        "vite": "^4.2.1"
+        "vite-plugin-static-copy": "^0.16.0"
     }
 }

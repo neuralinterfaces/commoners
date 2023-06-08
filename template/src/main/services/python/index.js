@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'child_process';
+import { execFile, spawn } from 'node:child_process';
 
 export default function createPythonProcess ({ file, port }) {
     const isPackaged = false

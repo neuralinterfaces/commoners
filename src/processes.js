@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { spawn } from "child_process";
-import { __dirname } from "../globals.js";
+import { spawn } from "node:child_process";
+import { rootDir } from "../globals.js";
 
 let children = {}
 
@@ -17,7 +17,7 @@ export const spawnProcess = (command, args, customEnv = {}) => {
             shell: true, 
             env: {
                 ...customEnv,
-                PATH: `${process.env.PATH}:${__dirname}/node_modules/.bin` // Include this library's node_modules in the PATH
+                PATH: `${process.env.PATH}:${rootDir}/node_modules/.bin` // Include this library's node_modules in the PATH
             }
         });
 

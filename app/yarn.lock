@@ -2,13 +2,7 @@
 # yarn lockfile v1
 
 
-"commoners-backend@file:C:\\Users\\garre\\Documents\\Github\\commoners\\app\\services\\backend":
-  "resolved" "file:services/backend"
-  "version" "1.0.0"
-  dependencies:
-    "ws" "^8.12.0"
-
-"ws@^8.12.0":
-  "integrity" "sha512-x9vcZYTrFPC7aSIbj7sRCYo7L/Xb8Iy+pW0ng0wt2vCJv7M9HOMy0UoN3rr+IFC7hb7vXoqS+P9ktyLLLhO+LA=="
-  "resolved" "https://registry.npmjs.org/ws/-/ws-8.13.0.tgz"
-  "version" "8.13.0"
+ws@^8.12.0:
+  version "8.13.0"
+  resolved "https://registry.npmjs.org/ws/-/ws-8.13.0.tgz"
+  integrity sha512-x9vcZYTrFPC7aSIbj7sRCYo7L/Xb8Iy+pW0ng0wt2vCJv7M9HOMy0UoN3rr+IFC7hb7vXoqS+P9ktyLLLhO+LA==

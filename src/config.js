@@ -1,5 +1,5 @@
 
-import path from "path";
+import path from "node:path";
 import { resolveFile } from "./files.js";
 import * as typescript from "./build.js";
 
