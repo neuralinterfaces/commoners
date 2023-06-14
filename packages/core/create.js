@@ -1,8 +1,8 @@
 import chalk from "chalk"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import { commonersPkg, rootDir } from "../globals.js"
-import { createDirectory, createFile, appendJSON, getJSON } from "./files.js"
+import { commonersPkg, rootDir } from "../../globals.js"
+import { createDirectory, createFile, appendJSON, getJSON } from "./utils/files.js"
 
 
 const basePkg = {

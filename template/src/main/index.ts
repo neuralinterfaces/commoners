@@ -1,17 +1,15 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import path, { join } from 'node:path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-// @ts-ignore
-import icon from '../../resources/icon.png?asset'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { join } from 'node:path'
+import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from './services/index'
 
-import plugins from '../../../plugins/index'
+import plugins from '../../../packages/plugins/index'
+
 import { existsSync } from 'fs'
 
 // import chalk from 'chalk'
-
 const commonersDist = join(__dirname, '..')
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
@@ -22,7 +20,10 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
   const configPath = join(commonersAssets, configFileName)
   const config = existsSync(configPath) ? require(configPath).default : {}
 
-const platformDependentWindowConfig = (process.platform === 'linux' ? { icon } : {})
+  const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
+  const linuxIcon = config.icon?.linux || defaultIcon
+
+const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
 function createWindow(config): void {
 

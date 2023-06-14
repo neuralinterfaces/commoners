@@ -21,6 +21,12 @@ const nodeBuiltIns = [
 const outputFileName = `commoners.js`
 const outputFilePath = join(__dirname, 'dist', outputFileName)
 
+const toCopy = [
+  'template',
+  join('packages', 'plugins'),
+  join('packages', 'utilities')
+]
+
 export default defineConfig({
   plugins: [
     {
@@ -36,23 +42,16 @@ export default defineConfig({
         },
 
         // NOTE: All of these are required for now to resolve template builds
-        {
-          src: resolve(__dirname, './template') + '/[!.]*',
-          dest: './template',
-        },
-        {
-          src: resolve(__dirname, './plugins') + '/[!.]*',
-          dest: './plugins',
-        },
-        {
-          src: resolve(__dirname, './src') + '/[!.]*',
-          dest: './src',
-        },
+        ...toCopy.map(path => {
+          return {
+            src: resolve(__dirname, path) + '/[!.]*',
+            dest: join(path),
+          }
+        })
       ],
     })
   ],
   build: {
-    emptyOutDir: false,
     target: 'node16',
     lib: {
       // Could also be a dictionary or array of multiple entry points

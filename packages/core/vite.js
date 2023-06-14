@@ -4,18 +4,16 @@ import renderer from 'vite-plugin-electron-renderer'
 
 import { join } from 'node:path'
 
-import { rootDir, userPkg, baseOutDir } from "../globals.js";
+import { rootDir, userPkg, baseOutDir } from "../../globals.js";
 import commonersPlugins from '../plugins/index.js';
 
-export const resolveConfig = (command, commonersConfig = {}, buildForElectron = true) => {
+export const resolveConfig = (commonersConfig = {}, { electron: withElectron, build}) => {
 
-    const isServe = command === 'serve' || command === 'dev'
-    const isBuild = command === 'build'
-    const sourcemap = isServe    
-
+    const sourcemap = !build    
+    
     const config = { ...commonersConfig }
     
-    if (!isBuild) config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Provide the sanitized service information
+    if (!build) config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Provide the sanitized service information
 
     const plugins = [
         {
@@ -25,7 +23,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
                 // Insert COMMONERS Electron Polyfills after everything has loaded
                 const configPlugins = commonersConfig.plugins ?? []
 
-                const electronScript = buildForElectron ? `<script>
+                const electronScript = withElectron ? `<script>
 
                     if (globalThis.electron) {
                         const plugins = globalThis.commoners.plugins
@@ -38,14 +36,14 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
                     }
                 </script>` : ''
 
-                const webBuildScript = isBuild ? '' : `<script>globalThis.commoners = JSON.parse('${JSON.stringify(config)}');</script>`
+                const webBuildScript = build ? '' : `<script>globalThis.commoners = JSON.parse('${JSON.stringify(config)}');</script>`
 
               return`${webBuildScript}\n${html}\n${electronScript}`
             },
         },
     ]
 
-    if (buildForElectron) {
+    if (withElectron) {
 
         const electronPluginConfig = electron([
             {
@@ -56,7 +54,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
                     logLevel: 'silent',
                     build: {
                         sourcemap,
-                        minify: isBuild,
+                        minify: build,
                         outDir: join(baseOutDir, 'main'),
                         rollupOptions: {
                             external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
@@ -71,7 +69,7 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
                     logLevel: 'silent',
                     build: {
                         sourcemap: sourcemap ? 'inline' : undefined, // #332
-                        minify: isBuild,
+                        minify: build,
                         outDir: join(baseOutDir, 'preload'),
                         rollupOptions: {
                             external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
@@ -82,17 +80,18 @@ export const resolveConfig = (command, commonersConfig = {}, buildForElectron = 
         ])
 
         plugins.push(electronPluginConfig)
-        // plugins.push(renderer()) // Use Node.js API in the Renderer-process
+        plugins.push(renderer()) // Use Node.js API in the Renderer-process
     }
 
-    return vite.defineConfig({
+    return vite.mergeConfig(
 
-        plugins,
+        // Define a default set of plugins and configuration options
+        vite.defineConfig({
+            plugins,
+            server: { open: !withElectron },
+            clearScreen: false,
+        }), 
 
-        server: {
-            open: !buildForElectron
-        },
-
-        clearScreen: false,
-    })
+        commonersConfig.vite ?? {} // Merge in the user configuration provided
+    )
 }

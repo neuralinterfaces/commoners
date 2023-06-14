@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { spawn } from "node:child_process";
-import { rootDir } from "../globals.js";
+import { rootDir } from "../../globals.js";
 
 let children = {}
 

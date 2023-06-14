@@ -8,15 +8,15 @@ const cliArgs = minimist(process.argv.slice(2))
 const args = cliArgs._
 
 // import { initGitRepo } from "./src/github/index.js";
-import { createDirectory, createFile, exists, resolveFile } from "./src/files.js";
-import { spawnProcess, onExit as processOnExit } from "./src/processes.js";
-import { rootDir, baseOutDir, assetOutDir, commonersPkg, userPkg } from "./globals.js";
+import { createDirectory, createFile, exists, resolveFile } from "./packages/utilities/files.js";
+import { spawnProcess, onExit as processOnExit } from "./packages/utilities/processes.js";
+import { rootDir, baseOutDir, assetOutDir, commonersPkg, userPkg, defaultMainLocation } from "./globals.js";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { getConfig } from "./src/config.js";
+import { getConfig } from "./packages/utilities/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
 
-const [command, ...options] = args
+let [ command, ...options ] = args
 let config = await getConfig()
 const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
@@ -29,11 +29,13 @@ const PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform ==
 
 
 // Transfer configuration file and related services
+
 const assets = {
     copy: [ ],
-    transpile: configPath ? [ configPath.split(path.sep).slice(-1)[0] ] : []
+    bundle: configPath ? [ configPath.split(path.sep).slice(-1)[0] ] : []
 }
 
+// Bundle Services
 const jsExtensions = [ '.js', '.ts' ]
 if ('services' in config) {
     Object.values(config.services).forEach(config => {
@@ -42,20 +44,25 @@ if ('services' in config) {
         if (!filepath) return // Do not copy if file doesn't exist
         if (isValidURL(filepath)) return // Do not copy if file is a url
 
-        if (jsExtensions.includes(extname(filepath))) assets.transpile.push(filepath)
+        if (jsExtensions.includes(extname(filepath))) assets.bundle.push(filepath)
         else assets.copy.push(filepath)
     })
 }
 
-if (config.electron?.splash) assets.transpile.push(config.electron.splash)
+// Copy Icons
+if ('icon' in config)  assets.copy.push(...(typeof config.icon === 'string') ? [config.icon] : Object.values(config.icon))
+
+// Bundle Splash Page
+if (config.electron?.splash) assets.bundle.push(config.electron.splash)
 
 
 // New Vite CLI
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { resolveConfig } from './src/vite.config.js'
+import { resolveConfig } from './packages/core/vite.js'
 import { build } from 'electron-builder'
-import { isValidURL } from "./src/url.js";
+import { isValidURL } from "./packages/utilities/url.js";
+import { yesNo } from "./packages/core/inquirer.js";
 
 
 const onExit = (...args) => {
@@ -70,33 +77,36 @@ process.on('uncaughtException', (e) => {
 
 process.on('beforeExit', onExit);
 
+let withElectron = command === 'start' || (command === 'build' && cliArgs.desktop)
+
+// Ensure project can handle start command
+if (withElectron && userPkg.main !== defaultMainLocation) {
+    const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
+    if (result) {
+        const copy = {}
+        console.log(chalk.green('Added a main entry to your package.json'))
+        Object.entries(userPkg).forEach(([name, value], i) => {
+            if (i === 3) copy.main = defaultMainLocation
+            copy[name] = value
+        })
+        writeFileSync('package.json', JSON.stringify(copy, null, 2))
+    } else {
+        withElectron = false
+        command = 'dev'
+        console.log(chalk.grey('Falling back to the "dev" command'))
+    }
+}
+
+
+// Begin parsing the command structure
 const isStart = command === 'start'
-const isDev = command === 'dev'
+const isDev = command === 'dev' || !command
 const isBuild = command === 'build'
 const isLaunch = command === 'launch'
 
 if ( isDev || isStart || isBuild ) {
 
-    // Ensure main property is added as the 4th entry in the package.json file.
-    if (!userPkg.main) {
-        console.log(chalk.green('Added a main entry to your package.json'))
-        const copy = {}
-        Object.entries(userPkg).forEach(([name, value], i) => {
-            if (i === 3) copy.main = "./dist/.commoners/main/index.js"
-            copy[name] = value
-        })
-        writeFileSync('package.json', JSON.stringify(copy, null, 2))
-    }
-
     if (existsSync(baseOutDir)) rmSync(baseOutDir, { recursive: true, force: true }) // Clear output directory
-
-    // Copy static assets
-    await Promise.all(assets.copy.map(async src => {
-        const outPath = path.join(assetOutDir, src)
-        const outDir = path.dirname(outPath)
-        mkdirSync(outDir, {recursive: true})
-        copyFileSync(src, outPath)
-    }))
 
     const populateOutputDirectory = async () => {
         mkdirSync(baseOutDir, { recursive: true }) // Ensure base output directory exists
@@ -104,7 +114,7 @@ if ( isDev || isStart || isBuild ) {
         writeFileSync(path.join(baseOutDir, 'package.json'), JSON.stringify({ name: `commoners-${userPkg.name}`, version: userPkg.version, type: 'commonjs' }, null, 2)) // Write package.json to ensure these files are treated as commonjs
     
         // Create an assets folder with copied assets (CommonJS)
-        await Promise.all(assets.transpile.map(async src => {
+        await Promise.all(assets.bundle.map(async src => {
     
             const ext = extname(src)
             const outPath = path.join(assetOutDir, src)
@@ -135,6 +145,14 @@ if ( isDev || isStart || isBuild ) {
                 })
             }
         }))
+
+        // Copy static assets
+        assets.copy.map(src => {
+            const outPath = path.join(assetOutDir, src)
+            const outDir = path.dirname(outPath)
+            mkdirSync(outDir, {recursive: true})
+            copyFileSync(src, outPath)
+        })
     }
 
     // Run a development server that can be accessed through Electron or the browser
@@ -145,7 +163,7 @@ if ( isDev || isStart || isBuild ) {
         // Always resolve all backend services before going forward
         config.services = await resolveAll(config.services)
 
-        const server = await vite.createServer(resolveConfig(command, config, isStart))
+        const server = await vite.createServer(resolveConfig(config, { build: isBuild, electron: withElectron }))
         await server.listen()
 
         if (isDev) {
@@ -158,7 +176,7 @@ if ( isDev || isStart || isBuild ) {
 
     // Build the entire application, including the Electron backend—and possibly the actual application
     else {
-        await vite.build(resolveConfig(command, config))
+        await vite.build(resolveConfig(config, { electron: withElectron, build: isBuild }))
         await populateOutputDirectory()
     }
     
@@ -178,20 +196,27 @@ if ( isDev || isStart || isBuild ) {
         buildConfig.appId = buildConfig.appId.replace('${name}', NAME)
         buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
 
+        
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {
-            const electronVersion = commonersPkg.devDependencies.electron
+            const electronVersion = commonersPkg.dependencies.electron
             if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
             else buildConfig.electronVersion = electronVersion
         }
+
+        const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
+        const macIcon = config.icon?.mac || defaultIcon
+        const winIcon = config.icon?.win || defaultIcon
 
         // Ensure proper absolute paths are provided for Electron build
         buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
         buildConfig.afterSign = path.join(templateDir, buildConfig.afterSign)
         buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
-        buildConfig.mac.icon = path.join(templateDir, buildConfig.mac.icon)
-        buildConfig.win.icon = path.join(templateDir, buildConfig.win.icon)
+        buildConfig.mac.icon = macIcon ? path.join(assetOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
+        buildConfig.win.icon = winIcon ? path.join(assetOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
         buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
+
+        console.log('Mac Icon', buildConfig.mac.icon)
 
         // // Specify the correct resources glob
         // buildConfig.asarUnpack = [

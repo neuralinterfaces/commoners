@@ -1,6 +1,7 @@
 import inquirer from 'inquirer';
-import minimist from 'minimist';
-import * as files from './files.js'
+import * as files from '../utilities/files.js'
+
+export const yesNo = async (message) => (await inquirer.prompt([ { name: 'result', type: "confirm", message: message } ])).result
 
 export const askGithubCredentials = () => {
     const questions = [

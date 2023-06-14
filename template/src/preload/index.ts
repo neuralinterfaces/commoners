@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { join } from 'node:path'
 
-import plugins from '../../../plugins/index'
+import plugins from '../../../packages/plugins/index'
 
 // Load preload the configuration file
 const commonersDist = join(__dirname, '..')
