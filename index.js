@@ -10,8 +10,8 @@ const args = cliArgs._
 // import { initGitRepo } from "./src/github/index.js";
 import { createDirectory, createFile, exists, resolveFile } from "./packages/utilities/files.js";
 import { spawnProcess, onExit as processOnExit } from "./packages/utilities/processes.js";
-import { rootDir, baseOutDir, assetOutDir, commonersPkg, userPkg, defaultMainLocation } from "./globals.js";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { rootDir, outDir, scopedOutDir, assetOutDir, commonersPkg, userPkg, defaultMainLocation } from "./globals.js";
+import { copyFileSync, existsSync, fstat, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { getConfig } from "./packages/utilities/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
@@ -106,12 +106,12 @@ const isLaunch = command === 'launch'
 
 if ( isDev || isStart || isBuild ) {
 
-    if (existsSync(baseOutDir)) rmSync(baseOutDir, { recursive: true, force: true }) // Clear output directory
+    if (existsSync(scopedOutDir)) rmSync(scopedOutDir, { recursive: true, force: true }) // Clear output directory
 
     const populateOutputDirectory = async () => {
-        mkdirSync(baseOutDir, { recursive: true }) // Ensure base output directory exists
+        mkdirSync(scopedOutDir, { recursive: true }) // Ensure base output directory exists
     
-        writeFileSync(path.join(baseOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version, type: 'commonjs' }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+        writeFileSync(path.join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version, type: 'commonjs' }, null, 2)) // Write package.json to ensure these files are treated as commonjs
     
         // Create an assets folder with copied assets (CommonJS)
         await Promise.all(assets.bundle.map(async src => {
@@ -148,6 +148,9 @@ if ( isDev || isStart || isBuild ) {
 
         // Copy static assets
         assets.copy.map(src => copyAsset(src))
+
+        // Create yml file for dist
+        writeFileSync(path.join(outDir, '_config.yml'), `include: ['.commoners']`)
     }
 
     const resolveOptions = { 
@@ -191,7 +194,9 @@ if ( isDev || isStart || isBuild ) {
 
             const baseManifest = {
                 id: `?com.${NAME}.app=1`,
+
                 start_url: '.',
+
                 theme_color: '#ffffff', // config.design?.theme_color ?? 
                 background_color: "#fff",
                 display: 'standalone',

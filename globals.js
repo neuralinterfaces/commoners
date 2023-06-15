@@ -9,8 +9,9 @@ export const commonersPkg = getJSON(path.join(rootDir, 'package.json'))
 
 export const userPkg = getJSON('package.json')
 
-export const baseOutDir = path.join('dist', '.commoners')
+export const outDir = 'dist'
+export const scopedOutDir = path.join('dist', '.commoners')
 
-export const assetOutDir = path.join(baseOutDir, 'assets')
+export const assetOutDir = path.join(scopedOutDir, 'assets')
 
-export const defaultMainLocation = path.join(baseOutDir, 'main', 'index.js')
+export const defaultMainLocation = path.join(scopedOutDir, 'main', 'index.js')

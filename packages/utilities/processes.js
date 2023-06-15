@@ -4,13 +4,13 @@ import { rootDir } from "../../globals.js";
 
 let children = {}
 
-export const runCommand = async (string) => {
+export const runCommand = async (string, customEnv, opts) => {
     const splitCommand = string.split(' ')
     const [command, ...args] = splitCommand
-    await spawnProcess(command, args)
+    await spawnProcess(command, args, customEnv, opts)
 }
 
-export const spawnProcess = (command, args, customEnv = {}) => {
+export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
     return new Promise((resolve) => {
         
         const proc = spawn(command, args, { 
@@ -21,20 +21,16 @@ export const spawnProcess = (command, args, customEnv = {}) => {
             }
         });
 
-        children[proc.pid] = proc
+        children[proc.pid] = proc;
 
-        proc.stdout.on('data', (data) => console.log(chalk.gray(data.toString())));
-        
-        proc.stderr.on('data', (e) => {
-            throw e
-        });
+        if (opts.log !== false) {
+            proc.stdout.on('data', (data) => console.log(chalk.gray(data.toString())));
+            proc.on('data', (data) => console.log(chalk.gray(data.toString())));
+            proc.stderr.on('data', (e) => { console.log(chalk.gray(e)) });
+            proc.on('error',(e) => { console.log(chalk.gray(e))});
+        }
 
-        proc.on('data', (data) => console.log(chalk.gray(data.toString())));
 
-        proc.on('error',(e) => {
-            throw e
-        });
-        
         proc.on('exit', (res) => {
             delete children[proc.pid]
             resolve(res)

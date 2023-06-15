@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { join } from 'node:path'
 
-import { rootDir, userPkg, baseOutDir } from "../../globals.js";
+import { rootDir, userPkg, scopedOutDir } from "../../globals.js";
 import commonersPlugins from '../plugins/index.js';
 
 export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
@@ -72,7 +72,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
                     build: {
                         sourcemap,
                         minify: build,
-                        outDir: join(baseOutDir, 'main'),
+                        outDir: join(scopedOutDir, 'main'),
                         rollupOptions: {
                             external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
                         },
@@ -87,7 +87,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
                     build: {
                         sourcemap: sourcemap ? 'inline' : undefined, // #332
                         minify: build,
-                        outDir: join(baseOutDir, 'preload'),
+                        outDir: join(scopedOutDir, 'preload'),
                         rollupOptions: {
                             external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
                         },

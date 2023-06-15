@@ -6,19 +6,15 @@ import * as github from "./github.js"
 import * as repo from "./repo.js"
 import { runCommand } from "../processes.js";
 
-
-// INSTALL: yarn add configstore @octokit/rest clui simple-git touch lodash -d
-
-
 const getGithubToken = async () => {
     let token = github.getStoredGithubToken(); // Fetch token from config store
     return token ?? await github.getPersonalAccesToken(); // No token found, use credentials to access GitHub account
 };
 
+// NOTE: It would still be very nice to automate the initial push
 export const publishGHPages = async (message) => {
-    await repo.push(message, async () => {
-        await runCommand('git', ['subtree split --branch gh-pages --prefix dist/'])
-    })
+    // await repo.push(message)
+    await runCommand('git subtree push --prefix dist origin gh-pages', undefined, { log: false }) // NOTE: This is a fixed branch and folder
 }
 
 // Initialize a Git repository for the project
