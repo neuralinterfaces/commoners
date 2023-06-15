@@ -16,20 +16,29 @@ import { getConfig } from "./packages/utilities/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
 
+import * as vite from 'vite'
+import * as esbuild from 'esbuild'
+import { resolveConfig } from './packages/core/vite.js'
+import { build } from 'electron-builder'
+import { isValidURL } from "./packages/utilities/url.js";
+import { yesNo } from "./packages/utilities/inquirer.js";
+import { copyAsset } from "./packages/utilities/copy.js";
+import * as yaml from 'js-yaml'
+
+// Get CLI Commands
 let [ command, ...options ] = args
+
+// Get Configuration File and Path
 let config = await getConfig()
 const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
 const templateDir = path.join(rootDir, 'template')
-import * as yaml from 'js-yaml'
 const buildConfig = yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
 
 const NAME = userPkg.name // Specify the product name
 const PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-
 // Transfer configuration file and related services
-
 const assets = {
     copy: [ ],
     bundle: configPath ? [ configPath.split(path.sep).slice(-1)[0] ] : []
@@ -56,25 +65,13 @@ if ('icon' in config)  assets.copy.push(...(typeof config.icon === 'string') ? [
 if (config.electron?.splash) assets.bundle.push(config.electron.splash)
 
 
-// New Vite CLI
-import * as vite from 'vite'
-import * as esbuild from 'esbuild'
-import { resolveConfig } from './packages/core/vite.js'
-import { build } from 'electron-builder'
-import { isValidURL } from "./packages/utilities/url.js";
-import { yesNo } from "./packages/core/inquirer.js";
-import { copyAsset } from "./packages/utilities/copy.js";
-
-
-const onExit = (...args) => {
-    processOnExit(...args)
-}
+// Error Handling for CLI
+const onExit = (...args) => processOnExit(...args)
 
 process.on('uncaughtException', (e) => {
     console.error(chalk.red(e))
     processOnExit()
 })
-
 
 process.on('beforeExit', onExit);
 
@@ -112,7 +109,7 @@ if ( isDev || isStart || isBuild ) {
     const populateOutputDirectory = async () => {
         mkdirSync(baseOutDir, { recursive: true }) // Ensure base output directory exists
     
-        writeFileSync(path.join(baseOutDir, 'package.json'), JSON.stringify({ name: `commoners-${userPkg.name}`, version: userPkg.version, type: 'commonjs' }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+        writeFileSync(path.join(baseOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version, type: 'commonjs' }, null, 2)) // Write package.json to ensure these files are treated as commonjs
     
         // Create an assets folder with copied assets (CommonJS)
         await Promise.all(assets.bundle.map(async src => {

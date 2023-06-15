@@ -1,5 +1,5 @@
 import inquirer from 'inquirer';
-import * as files from '../utilities/files.js'
+import * as files from './files.js'
 
 export const yesNo = async (message) => (await inquirer.prompt([ { name: 'result', type: "confirm", message: message } ])).result
 
