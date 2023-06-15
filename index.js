@@ -16,6 +16,8 @@ import { getConfig } from "./packages/utilities/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
 
+import { initGitRepo, publishGHPages } from './packages/utilities/github/index.js'
+
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { resolveConfig } from './packages/core/vite.js'
@@ -279,7 +281,13 @@ if (isLaunch) {
     console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
 }
 
-// if (command === 'publish') {
-//     console.log('Publishing to GitHub Pages + Releases')
-//     console.log('Publishing the services somewhere')
-// }
+if (command === 'publish') {
+    const result = await initGitRepo(userPkg).catch(e => {
+        console.log(chalk.red(e.message));
+        return { valid: false }
+    })
+
+    if (result.valid) {
+        await publishGHPages(args[1])
+    }
+}

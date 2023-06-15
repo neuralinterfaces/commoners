@@ -37,7 +37,6 @@ export const createRemoteRepo = async (name, description) => {
 
 export const createGitignore = async () => {
     const filelist = _.without(fs.readdirSync('.'), '.git', gitIgnoreName);
-    console.log(filelist)
   
     if (filelist.length) {
       const answers = await inquirer.askIgnoreFiles(filelist);
@@ -58,12 +57,37 @@ export const createGitignore = async () => {
     status.start();
   
     try {
-        git.init()
-        .then(git.add(gitIgnoreName))
-        .then(git.add('./*'))
-        .then(git.commit('Initial commit'))
-        .then(git.addRemote('origin', url))
-        .then(git.push('origin', 'main'));
+        await git.init()
+        await git.add(gitIgnoreName)
+        await git.add('./*')
+        await git.commit('Initial commit')
+        await git.branch('main')
+        await git.addRemote('origin', url)
+        await git.push('origin', 'main')
+
+    } finally {
+      status.stop();
+    }
+  }
+
+  export const push = async (message, callback) => {
+    const status = new Spinner('Pushing changes to remote...');
+    status.start();
+    
+  
+    try {
+
+      await git.init()
+
+      await git.add('./*')
+      await git.commit(message)
+
+      // await git.branch('main')
+      await git.push('origin', 'main')
+
+      // Run any additional code before stopping the spinner
+      await callback(message)
+
     } finally {
       status.stop();
     }
