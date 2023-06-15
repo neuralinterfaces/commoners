@@ -1,13 +1,14 @@
 import * as vite from 'vite'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
+import { VitePWA } from 'vite-plugin-pwa'
 
 import { join } from 'node:path'
 
 import { rootDir, userPkg, baseOutDir } from "../../globals.js";
 import commonersPlugins from '../plugins/index.js';
 
-export const resolveConfig = (commonersConfig = {}, { electron: withElectron, build}) => {
+export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
 
     const sourcemap = !build    
     
@@ -38,10 +39,15 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, bu
 
                 const webBuildScript = build ? '' : `<script>globalThis.commoners = JSON.parse('${JSON.stringify(config)}');</script>`
 
-              return`${webBuildScript}\n${html}\n${electronScript}`
+                return `${webBuildScript}\n${html}\n${electronScript}`
             },
         },
     ]
+
+    if (pwa) plugins.push(VitePWA({ 
+        registerType: 'autoUpdate',
+        ...config.pwa 
+    }))
 
     if (withElectron) {
 
@@ -87,6 +93,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, bu
 
         // Define a default set of plugins and configuration options
         vite.defineConfig({
+            base: './',
             plugins,
             server: { open: !withElectron },
             clearScreen: false,

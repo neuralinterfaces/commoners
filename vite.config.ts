@@ -6,6 +6,7 @@ import pkg from './package.json' assert {type: 'json'}
 import url from "node:url";
 import { join, resolve } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
+import chalk from "chalk";
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
@@ -31,7 +32,13 @@ export default defineConfig({
   plugins: [
     {
       name: 'add-bin-shebang',
-      closeBundle: () => writeFileSync(outputFilePath, `#!/usr/bin/env node\n${readFileSync(outputFilePath)}`)
+      closeBundle: () => {
+        const src = readFileSync(outputFilePath)
+        const shebang = '#!/usr/bin/env node'
+        if (!src.includes(shebang)) {
+          writeFileSync(outputFilePath, `${shebang}\n${readFileSync(outputFilePath)}`)
+        }
+      }
     },
 
     viteStaticCopy({
@@ -52,6 +59,7 @@ export default defineConfig({
     })
   ],
   build: {
+    emptyOutDir: false, // This is required so we always have permission to execute the development version that is installed in the global node_modules
     target: 'node16',
     lib: {
       // Could also be a dictionary or array of multiple entry points

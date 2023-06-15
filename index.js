@@ -63,6 +63,7 @@ import { resolveConfig } from './packages/core/vite.js'
 import { build } from 'electron-builder'
 import { isValidURL } from "./packages/utilities/url.js";
 import { yesNo } from "./packages/core/inquirer.js";
+import { copyAsset } from "./packages/utilities/copy.js";
 
 
 const onExit = (...args) => {
@@ -147,12 +148,7 @@ if ( isDev || isStart || isBuild ) {
         }))
 
         // Copy static assets
-        assets.copy.map(src => {
-            const outPath = path.join(assetOutDir, src)
-            const outDir = path.dirname(outPath)
-            mkdirSync(outDir, {recursive: true})
-            copyFileSync(src, outPath)
-        })
+        assets.copy.map(src => copyAsset(src))
     }
 
     // Run a development server that can be accessed through Electron or the browser
@@ -176,7 +172,48 @@ if ( isDev || isStart || isBuild ) {
 
     // Build the entire application, including the Electron backend—and possibly the actual application
     else {
-        await vite.build(resolveConfig(config, { electron: withElectron, build: isBuild }))
+
+        // Specify PWA Manifest
+        if (cliArgs.pwa) {
+
+            if (!('pwa' in config)) config.pwa = {}
+            if (!('includeAssets' in config.pwa)) config.pwa.includeAssets = []
+
+            const fromHTMLPath = path.join(...assetOutDir.split(path.sep).slice(1))
+            const icons = config.icon ? (typeof config.icon === 'string' ? [ config.icon ] : Object.values(config.icon)).map(str => path.join(fromHTMLPath, str)) : [] // Provide full path of the icon
+
+            config.pwa.includeAssets.push(...icons) // Include specified assets
+
+            const baseManifest = {
+                id: `?com.${NAME}.app=1`,
+                start_url: '.',
+                theme_color: '#ffffff', // config.design?.theme_color ?? 
+                background_color: "#fff",
+                display: 'standalone',
+
+                // Dynamic
+                name: NAME,
+                // short_name: NAME,
+                description: userPkg.description,
+
+                // Generated
+                icons: icons.map(src => { return { 
+                    src, 
+                    type: `image/${path.extname(src).slice(1)}`, 
+                    sizes: 'any' 
+                }})
+            }
+
+            if ('manifest' in config.pwa) config.pwa.manifest = { baseManifest, ...config.pwa.manifest }
+            else config.pwa.manifest = baseManifest
+        }
+        
+        await vite.build(resolveConfig(config, { 
+            electron: withElectron, 
+            build: isBuild,
+            pwa: cliArgs.pwa 
+        }))
+
         await populateOutputDirectory()
     }
     
@@ -188,6 +225,7 @@ if ( isDev || isStart || isBuild ) {
 
     if (isBuild) {
 
+       // create a build configuration file for the distrubution
        if (cliArgs.desktop) {
 
         buildConfig.productName = NAME
@@ -216,18 +254,11 @@ if ( isDev || isStart || isBuild ) {
         buildConfig.win.icon = winIcon ? path.join(assetOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
         buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
 
-        console.log('Mac Icon', buildConfig.mac.icon)
-
-        // // Specify the correct resources glob
-        // buildConfig.asarUnpack = [
-        //     path.join(templateDir, 'resources', "**")
-        // ]
-
          await build({ config: buildConfig })
        }
+
        if (cliArgs.ios) console.error(chalk.red('No iOS support yet'))
        if (cliArgs.android) console.error(chalk.red('No Android support yet'))
-       if (cliArgs.pwa) console.error(chalk.red('No PWA support yet'))
     }
 
 } 
