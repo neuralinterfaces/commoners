@@ -44,10 +44,21 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         },
     ]
 
-    if (pwa) plugins.push(VitePWA({ 
-        registerType: 'autoUpdate',
-        ...config.pwa 
-    }))
+    if (pwa && build) {
+
+        const pwaOptions = { 
+            registerType: 'autoUpdate',
+            ...config.pwa 
+        }
+
+        // NOTE: On page reloads, this makes the service worker unable to find the index.html file...
+        // if (!build) {
+        //     const devOpts = ('devOptions' in pwaOptions) ? pwaOptions.devOptions : pwaOptions.devOptions = {}
+        //     if (devOpts.enabled !== false) devOpts.enabled = true
+        // }
+
+        plugins.push(VitePWA(pwaOptions))
+    }
 
     if (withElectron) {
 

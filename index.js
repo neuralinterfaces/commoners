@@ -151,6 +151,12 @@ if ( isDev || isStart || isBuild ) {
         assets.copy.map(src => copyAsset(src))
     }
 
+    const resolveOptions = { 
+        electron: withElectron, 
+        build: isBuild,
+        pwa: cliArgs.pwa 
+    }
+
     // Run a development server that can be accessed through Electron or the browser
     if ( isDev || isStart ) {
 
@@ -159,7 +165,7 @@ if ( isDev || isStart || isBuild ) {
         // Always resolve all backend services before going forward
         config.services = await resolveAll(config.services)
 
-        const server = await vite.createServer(resolveConfig(config, { build: isBuild, electron: withElectron }))
+        const server = await vite.createServer(resolveConfig(config, resolveOptions))
         await server.listen()
 
         if (isDev) {
@@ -208,11 +214,7 @@ if ( isDev || isStart || isBuild ) {
             else config.pwa.manifest = baseManifest
         }
         
-        await vite.build(resolveConfig(config, { 
-            electron: withElectron, 
-            build: isBuild,
-            pwa: cliArgs.pwa 
-        }))
+        await vite.build(resolveConfig(config, resolveOptions))
 
         await populateOutputDirectory()
     }
@@ -280,20 +282,7 @@ if (isLaunch) {
     console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
 }
 
-
-// const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1)
-
-// const createReadableName = (name) => name.split('-').map(capitalize).join(' ')
-
-// const publishCommands = {
-//     github: {
-//         repo: () => initGitRepo(...args),
-//         pages: () => console.log('Publishing to GitHub Pages'),
-//         release: () => console.log('Publishing to GitHub Releases'),
-//     },
-//     npm: () => console.log('Publishing to NPM'),
-//     docker: () => console.log('Publishing to Docker'),
-//     services: () => console.log('Publishing the services somewhere')
+// if (command === 'publish') {
+//     console.log('Publishing to GitHub Pages + Releases')
+//     console.log('Publishing the services somewhere')
 // }
-
-// checkCommands('publish', publishCommands, config.publish)
