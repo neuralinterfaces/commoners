@@ -8,10 +8,9 @@ const cliArgs = minimist(process.argv.slice(2))
 const args = cliArgs._
 
 // import { initGitRepo } from "./src/github/index.js";
-import { createDirectory, createFile, exists, resolveFile } from "./packages/utilities/files.js";
-import { spawnProcess, onExit as processOnExit } from "./packages/utilities/processes.js";
-import { rootDir, outDir, scopedOutDir, assetOutDir, commonersPkg, userPkg, defaultMainLocation } from "./globals.js";
-import { copyFileSync, existsSync, fstat, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnProcess, onExit as processOnExit, runCommand } from "./packages/utilities/processes.js";
+import { config, configPath, NAME, PLATFORM, rootDir, outDir, scopedOutDir, assetOutDir, commonersPkg, userPkg, defaultMainLocation, APPID } from "./globals.js";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { getConfig } from "./packages/utilities/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
@@ -27,18 +26,14 @@ import { yesNo } from "./packages/utilities/inquirer.js";
 import { copyAsset } from "./packages/utilities/copy.js";
 import * as yaml from 'js-yaml'
 
+import * as mobile from './packages/core/mobile'
+
 // Get CLI Commands
 let [ command, ...options ] = args
 
 // Get Configuration File and Path
-let config = await getConfig()
-const configPath = resolveFile('commoners.config', ['.ts', '.js'])
-
 const templateDir = path.join(rootDir, 'template')
 const buildConfig = yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
-
-const NAME = userPkg.name // Specify the product name
-const PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
 // Transfer configuration file and related services
 const assets = {
@@ -77,6 +72,7 @@ process.on('uncaughtException', (e) => {
 
 process.on('beforeExit', onExit);
 
+
 let withElectron = command === 'start' || (command === 'build' && cliArgs.desktop)
 
 // Ensure project can handle start command
@@ -103,6 +99,11 @@ const isStart = command === 'start'
 const isDev = command === 'dev' || !command
 const isBuild = command === 'build'
 const isLaunch = command === 'launch'
+
+const mobilePlatforms =  []
+if (cliArgs.ios) mobilePlatforms.push('ios')
+if (cliArgs.android) mobilePlatforms.push('android')
+
 
 if ( isDev || isStart || isBuild ) {
 
@@ -193,7 +194,7 @@ if ( isDev || isStart || isBuild ) {
             config.pwa.includeAssets.push(...icons) // Include specified assets
 
             const baseManifest = {
-                id: `?com.${NAME}.app=1`,
+                id: `?${APPID}=1`,
 
                 start_url: '.',
 
@@ -222,12 +223,6 @@ if ( isDev || isStart || isBuild ) {
 
         await populateOutputDirectory()
     }
-    
-    // "init:android": "npx cap add android && npm run copy",
-    // "init:ios": "npx cap add ios && npm run copy",
-    // "copy": "npx cap copy",
-    // "android": "npx cap open android",
-    // "ios": "npx cap open ios"
 
     if (isBuild) {
 
@@ -263,13 +258,23 @@ if ( isDev || isStart || isBuild ) {
          await build({ config: buildConfig })
        }
 
-       if (cliArgs.ios) console.error(chalk.red('No iOS support yet'))
-       if (cliArgs.android) console.error(chalk.red('No Android support yet'))
+
+        // Initialize and open project for mobile if needed
+        for (let platform of mobilePlatforms) {
+            await mobile.init(platform)
+            await mobile.open(platform)
+        }
     }
 
 } 
 
 if (isLaunch) {
+
+    // Run the mobile builds if needed
+    for (let platform of mobilePlatforms) await mobile.run(platform)
+
+   if (!mobilePlatforms.length) { 
+
     const electronDistPath = path.join(process.cwd(), buildConfig.directories.output)
 
     let exePath = ''
@@ -284,6 +289,8 @@ if (isLaunch) {
 
     console.log(chalk.green(`${NAME} launched!`))
     console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
+
+   }
 }
 
 if (command === 'publish') {
