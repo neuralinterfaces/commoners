@@ -2,16 +2,21 @@
   "name": "commoners",
   "version": "0.0.0",
   "description": "A GUI for managing COMMONERS applications.",
+  "main": "./dist/.commoners/main/index.js",
   "author": "Garrett Flynn <garrettmflynn@gmail.com>",
   "private": true,
   "type": "module",
-  "main": "./dist/.commoners/main/index.js",
   "bin": "services/backend/dist/index.cjs",
   "workspaces": [
     "frontend",
     "services/*"
   ],
+  "scripts": {
+    "start": "commoners start",
+    "dev": "commoners dev",
+    "build": "commoners build"
+  },
   "dependencies": {
-
+    "commoners": "0.0.1"
   }
 }

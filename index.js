@@ -45,11 +45,10 @@ const assets = {
 const jsExtensions = [ '.js', '.ts' ]
 if ('services' in config) {
     Object.values(config.services).forEach(config => {
-        const filepath = typeof config === 'string' ? config : config.file
-        
+        const filepath = typeof config === 'string' ? config : config.src
+    
         if (!filepath) return // Do not copy if file doesn't exist
         if (isValidURL(filepath)) return // Do not copy if file is a url
-
         if (jsExtensions.includes(extname(filepath))) assets.bundle.push(filepath)
         else assets.copy.push(filepath)
     })
@@ -76,7 +75,7 @@ process.on('beforeExit', onExit);
 let withElectron = command === 'start' || (command === 'build' && cliArgs.desktop)
 
 // Ensure project can handle start command
-if (withElectron && userPkg.main !== defaultMainLocation) {
+if (withElectron && path.normalize(userPkg.main) !== path.normalize(defaultMainLocation)) {
     const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
     if (result) {
         const copy = {}
@@ -99,6 +98,8 @@ const isStart = command === 'start'
 const isDev = command === 'dev' || !command
 const isBuild = command === 'build'
 const isLaunch = command === 'launch'
+
+process.env.COMMONERS_DEV_ENV = isStart || isDev // Always a development environment command
 
 const mobilePlatforms =  []
 if (cliArgs.ios) mobilePlatforms.push('ios')

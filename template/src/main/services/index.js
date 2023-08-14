@@ -4,6 +4,7 @@ import python from './python/index.js'
 import { extname, join } from "node:path"
 import { getFreePorts } from './utils/network.js';
 import { isValidURL } from '../../../../packages/utilities/url.js';
+import { spawn } from 'node:child_process';
 
 let processes = {}
 
@@ -12,26 +13,26 @@ export const handlers = {
     python
 }
 
+
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
 
-  const { file } = config
+  const isProduction = !process.env.COMMONERS_DEV_ENV
 
-  // Specify the file property as a url
-  if (isValidURL(file)) {
-    config.url = config.file
-    delete config.file
-    return config
-  }
+  const { src } = config
 
-  if (!file) return config // Return the configuration unchanged if no file or url
+  if (isValidURL(src)) return config // Abort properly when a url
 
-  const port = config.port = config.port ?? (await getFreePorts(1))[0]
-  const protocol = config.protocol ?? `http:`
-  const hostname = config.hostname ?? `127.0.0.1`
+  if (!src) return config // Return the configuration unchanged if no file or url
+
+  if (isProduction) config.src = config.production.src ?? config.src
+
+  const port = config.port = (isProduction ? config.production.port : null) ?? config.port ?? (await getFreePorts(1))[0]
+  const protocol = (isProduction ? config.production.protocol : null) ?? config.protocol ?? `http:`
+  const hostname = (isProduction ? config.production.hostname : null) ?? config.hostname ?? `127.0.0.1`
   config.url = `${protocol}//${hostname}:${port}`
 
-  if (file.endsWith('.ts')) config.file = file.slice(0, -2) + 'js' // Load transpiled file
-  config.abspath = join(assets, config.file) // Find file in assets
+  if (src.endsWith('.ts')) config.src = src.slice(0, -2) + 'js' // Load transpiled file
+  config.abspath = join(assets, config.src) // Find file in assets
 
   return config
 
@@ -42,12 +43,17 @@ export async function start (config, id, assets) {
 
   config = await resolveService(config, assets)
 
-  if (config.file) {
+  const { src } = config
+
+  if (isValidURL(src)) return
+
+  if (config.src) {
     let process;
-    const ext = extname(config.file)
+    const ext = extname(config.src)
 
     if (ext === '.js') process = node(config)
-    else if (ext === '.py') process = python(config) // NOTE: Python should use actual file
+    else if (ext === '.py') process = python(config)
+    else if (!ext || ext === '.exe') process = spawn(src, [config.port]) // Run executables
 
     if (process) {
       const label = id ? `commoners-${id}-service` : 'commoners-service'
@@ -94,7 +100,7 @@ export function stop (id) {
 
 export async function resolveAll (services = {}, assets) {
 
-  const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { file: config } : config])
+  const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { src: config } : config])
   const serviceInfo = {}
 
   await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, assets))) // Run sidecars automatically based on the configuration file

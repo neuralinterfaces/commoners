@@ -10,6 +10,9 @@ import plugins from '../../../packages/plugins/index'
 import { existsSync } from 'fs'
 
 // import chalk from 'chalk'
+
+
+
 const commonersDist = join(__dirname, '..')
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
@@ -91,12 +94,11 @@ const startMainApp = async (config) => {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
-
   // Pass preconfigured properties to the main service declaration
   if ('COMMONERS_SERVICES' in process.env) {
     const preconfigured = JSON.parse(process.env.COMMONERS_SERVICES)
     for (let id in preconfigured) {
-      if (typeof config.services[id] === 'string') config.services[id] = { file: config.services[id] }
+      if (typeof config.services[id] === 'string') config.services[id] = { src: config.services[id] }
       config.services[id] = Object.assign(config.services[id], preconfigured[id])
     }
   }
