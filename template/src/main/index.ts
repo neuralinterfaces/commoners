@@ -7,15 +7,14 @@ import * as services from './services/index'
 
 import plugins from '../../../packages/plugins/index'
 
-import { existsSync } from 'fs'
+import { existsSync } from 'node:fs'
 
 // import chalk from 'chalk'
 
-
-
-const commonersDist = join(__dirname, '..')
+const isProduction = !process.env.VITE_DEV_SERVER_URL
+const commonersDist = (process.platform === 'win32' || !isProduction) ? join(__dirname, '..') : join(app.getAppPath(), 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const commonersAssets = join(commonersDist, 'assets')
-const dist = join(commonersDist, '..') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
+const dist = join(commonersDist, '..') 
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 
   // Get the COMMONERS configuration file
@@ -28,7 +27,7 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 
 const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
-function createWindow(config): void {
+function createWindow(config) {
 
   const preload = join(commonersDist, 'preload', 'index.js')
 
@@ -76,16 +75,15 @@ function createWindow(config): void {
     return { action: 'deny' };
   });
 
-  mainWindow.on('closed', () => services.stop());
-
   // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && devServerURL) mainWindow.loadURL(devServerURL) 
   else mainWindow.loadFile(join(dist, 'index.html'))
+
+  return mainWindow
 }
 
 const startMainApp = async (config) => {
-  await services.createAll(config.services, commonersAssets) // Create all services as configured by the user / main build
   createWindow(config)
 }
 
@@ -130,8 +128,9 @@ app.whenReady().then(async () => {
     config.electron.splash = splash // Replace splash entry with the active window
   }
 
+  await services.createAll(config.services, commonersAssets) // Create all services as configured by the user / main build
 
-  await startMainApp(config)
+  await startMainApp(config) // Start the application from scratch
 
   app.on('activate', async function () {
     if (BrowserWindow.getAllWindows().length === 0) await startMainApp(config)
@@ -144,3 +143,5 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+app.on('will-quit', () => services.stop());

@@ -8,10 +8,15 @@ export default {
         },
         python: {
             src: './services/python/main.py',
-            port: 4242,
-            buildCommand: 'python -m PyInstaller --onefile --clean ./services/python/main.py --distpath ./dist/pyinstaller',
+            buildCommand: 'python -m PyInstaller --name commoners --onedir --clean ./services/python/main.py --distpath ./dist/pyinstaller',
             production: {
-                src: './dist/commoners/commoners' // TODO: Support this structure
+                src: './pyinstaller/commoners', // --onedir
+                extraResources: [ 
+                     {
+                        "from": "./dist/pyinstaller/commoners",
+                        "to": "pyinstaller"
+                    }
+                ]
             }
         },
         remote: 'https://example.com',

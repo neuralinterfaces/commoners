@@ -13,10 +13,9 @@ export const handlers = {
     python
 }
 
-
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
 
-  const isProduction = !process.env.COMMONERS_DEV_ENV
+  const isProduction = process.env.COMMONERS_DEV_ENV !== "true"
 
   const { src } = config
 
@@ -24,12 +23,15 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
 
   if (!src) return config // Return the configuration unchanged if no file or url
 
-  if (isProduction) config.src = config.production.src ?? config.src
+  if (isProduction) {
+    const { src } = config.production ?? {}
+    if (src) config.production.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
+    Object.assign(config, config.production)
+    delete config.production
+  }
 
-  const port = config.port = (isProduction ? config.production.port : null) ?? config.port ?? (await getFreePorts(1))[0]
-  const protocol = (isProduction ? config.production.protocol : null) ?? config.protocol ?? `http:`
-  const hostname = (isProduction ? config.production.hostname : null) ?? config.hostname ?? `127.0.0.1`
-  config.url = `${protocol}//${hostname}:${port}`
+  if (!config.port) config.port = (await getFreePorts(1))[0]
+  config.url = `${config.protocol ?? `http:`}//${config.hostname ?? `127.0.0.1`}:${config.port}`
 
   if (src.endsWith('.ts')) config.src = src.slice(0, -2) + 'js' // Load transpiled file
   config.abspath = join(assets, config.src) // Find file in assets
@@ -38,7 +40,7 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
 
 }
 
-// Create and monitor arbitary  processes
+// Create and monitor arbitary processes
 export async function start (config, id, assets) {
 
   config = await resolveService(config, assets)
@@ -47,13 +49,13 @@ export async function start (config, id, assets) {
 
   if (isValidURL(src)) return
 
-  if (config.src) {
+  if (src) {
     let process;
-    const ext = extname(config.src)
+    const ext = extname(src)
 
     if (ext === '.js') process = node(config)
     else if (ext === '.py') process = python(config)
-    else if (!ext || ext === '.exe') process = spawn(src, [config.port]) // Run executables
+    else if (!ext || ext === '.exe') process = spawn(config.abspath, [config.port]) // Run executables as extra resources
 
     if (process) {
       const label = id ? `commoners-${id}-service` : 'commoners-service'
@@ -77,13 +79,14 @@ export async function start (config, id, assets) {
   }
 }
 
+const killProcess = (p) => p.kill()
 
 export function stop (id) {
 
     // Kill Specific Process
     if (id) {
         if (processes[id]) {
-            processes[id].kill()
+            killProcess(processes[id])
             delete processes[id]
         } else {
           // console.warn(chalk.yellow(`No process exists with id ${id}`))
@@ -93,7 +96,7 @@ export function stop (id) {
     
     // Kill All Processes
     else {
-        for (let id in processes) processes[id].kill()
+        for (let id in processes) killProcess(processes[id])
         processes = {}
     }
 }

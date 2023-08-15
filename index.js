@@ -27,7 +27,6 @@ import { copyAsset } from "./packages/utilities/copy.js";
 import * as yaml from 'js-yaml'
 
 import * as mobile from './packages/core/mobile'
-import { spawn } from "node:child_process";
 
 // Get CLI Commands
 let [ command, ...options ] = args
@@ -42,17 +41,22 @@ const assets = {
     bundle: configPath ? [ configPath.split(path.sep).slice(-1)[0] ] : []
 }
 
+function trackServiceAssets(config) {
+    const filepath = typeof config === 'string' ? config : config.src
+
+    // if (config.production) trackServiceAssets(config.production) // Ensure that production assets are also tracked
+    
+    if (!filepath) return // Do not copy if file doesn't exist
+    if (isValidURL(filepath)) return // Do not copy if file is a url
+
+    if (jsExtensions.includes(extname(filepath))) assets.bundle.push(filepath)
+    else assets.copy.push(filepath)
+}
+
 // Bundle Services
 const jsExtensions = [ '.js', '.ts' ]
 if ('services' in config) {
-    Object.values(config.services).forEach(config => {
-        const filepath = typeof config === 'string' ? config : config.src
-    
-        if (!filepath) return // Do not copy if file doesn't exist
-        if (isValidURL(filepath)) return // Do not copy if file is a url
-        if (jsExtensions.includes(extname(filepath))) assets.bundle.push(filepath)
-        else assets.copy.push(filepath)
-    })
+    Object.values(config.services).forEach(trackServiceAssets)
 }
 
 // Copy Icons
@@ -225,12 +229,24 @@ if ( isDev || isStart || isBuild ) {
         
         await vite.build(resolveConfig(config, resolveOptions))
 
+        if (isBuild && cliArgs.desktop) {
+            for (let name in config.services) {
+                const { buildCommand } = config.services[name]
+                if (buildCommand) {
+                    console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
+                    await spawnProcess(buildCommand)
+                }
+            }
+        }
+
         await populateOutputDirectory()
     }
 
     if (isBuild) {
 
-       // create a build configuration file for the distrubution
+        // ----------------------------------------------------------------
+        // ----------------------      DESKTOP     ------------------------
+        // ----------------------------------------------------------------
        if (cliArgs.desktop) {
 
         buildConfig.productName = NAME
@@ -239,6 +255,11 @@ if ( isDev || isStart || isBuild ) {
         buildConfig.appId = buildConfig.appId.replace('${name}', NAME)
         buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
 
+        // Register extra resources
+        buildConfig.mac.extraResources = buildConfig.linux.extraResources = Object.values(config.services).reduce((acc, o) => {
+            acc.push(...o.extraResources ?? [])
+            return acc
+        }, [])
         
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {
@@ -262,16 +283,9 @@ if ( isDev || isStart || isBuild ) {
          await build({ config: buildConfig })
        }
 
-       // NOTE: Does not currently need resolution
-       for (let name in config.services) {
-           const { buildCommand } = config.services[name]
-           if (buildCommand) {
-                console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
-                await spawnProcess(buildCommand)
-           }
-       }
-
-        // Initialize and open project for mobile if needed
+        // ----------------------------------------------------------------
+        // ----------------------      MOBILE      ------------------------
+        // ----------------------------------------------------------------
         for (let platform of mobilePlatforms) {
             await mobile.init(platform)
             await mobile.open(platform)

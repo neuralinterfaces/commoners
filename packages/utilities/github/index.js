@@ -1,7 +1,6 @@
 
 import chalk from "chalk";
 import * as files from "../files.js"
-import { getRepoDetails } from "../inquirer.js"
 import * as github from "./github.js"
 import * as repo from "./repo.js"
 import { runCommand } from "../processes.js";
