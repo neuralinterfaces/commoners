@@ -231,7 +231,8 @@ if ( isDev || isStart || isBuild ) {
 
         if (isBuild && cliArgs.desktop) {
             for (let name in config.services) {
-                const { buildCommand } = config.services[name]
+                let { buildCommand } = config.services[name]
+                if (buildCommand && typeof buildCommand === 'object')  buildCommand = buildCommand[PLATFORM] // Run based on the platform if an object
                 if (buildCommand) {
                     console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
                     await spawnProcess(buildCommand)

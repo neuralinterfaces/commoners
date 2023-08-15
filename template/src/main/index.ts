@@ -27,7 +27,31 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 
 const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
-function createWindow(config) {
+
+const globals = {
+  firstOpen: true
+}
+
+function createAppWindows(config) {
+
+  const splashURL = config.electron?.splash
+
+  if (splashURL) {
+    const splash = new BrowserWindow({
+      width: 340,
+      height: 340,
+      frame: false,
+      ...platformDependentWindowConfig,
+      alwaysOnTop: true,
+      transparent: true,
+    });
+
+    const completeSplashPath = join(commonersAssets, splashURL)
+    splash.loadFile(completeSplashPath)
+
+    globals['splash'] = splash // Replace splash entry with the active window
+  }
+
 
   const preload = join(commonersDist, 'preload', 'index.js')
 
@@ -59,11 +83,13 @@ function createWindow(config) {
 
   mainWindow.on('ready-to-show', () => {
 
-    if (config.electron?.splash) {
+    if (globals['splash']) {
       setTimeout(() => {
-        config.electron.splash.close();
+        globals['splash'].close();
+        delete globals['splash']
         mainWindow.show();
-      }, 1000);
+        globals.firstOpen = false
+      }, globals.firstOpen ? 1000 : 200);
      } 
      
      else mainWindow.show()
@@ -83,9 +109,6 @@ function createWindow(config) {
   return mainWindow
 }
 
-const startMainApp = async (config) => {
-  createWindow(config)
-}
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -111,29 +134,12 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  const splashURL = config.electron?.splash
-  
-  if (splashURL) {
-    const splash = new BrowserWindow({
-      width: 340,
-      height: 340,
-      frame: false,
-      ...platformDependentWindowConfig,
-      alwaysOnTop: true,
-      transparent: true,
-    });
-
-    splash.loadFile(join(commonersAssets, splashURL))
-
-    config.electron.splash = splash // Replace splash entry with the active window
-  }
-
   await services.createAll(config.services, commonersAssets) // Create all services as configured by the user / main build
 
-  await startMainApp(config) // Start the application from scratch
+  await createAppWindows(config) // Start the application from scratch
 
   app.on('activate', async function () {
-    if (BrowserWindow.getAllWindows().length === 0) await startMainApp(config)
+    if (BrowserWindow.getAllWindows().length === 0) await createAppWindows(config)
     })
 })
 

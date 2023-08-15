@@ -8,7 +8,9 @@ export default {
         },
         python: {
             src: './services/python/main.py',
-            buildCommand: 'python -m PyInstaller --name commoners --onedir --clean ./services/python/main.py --distpath ./dist/pyinstaller',
+            buildCommand: {
+                mac: 'python -m PyInstaller --name commoners --onedir --clean ./services/python/main.py --distpath ./dist/pyinstaller',
+            },
             production: {
                 src: './pyinstaller/commoners', // --onedir
                 extraResources: [ 
