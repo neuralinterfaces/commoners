@@ -27,6 +27,7 @@ import { copyAsset } from "./packages/utilities/copy.js";
 import * as yaml from 'js-yaml'
 
 import * as mobile from './packages/core/mobile'
+import { spawn } from "node:child_process";
 
 // Get CLI Commands
 let [ command, ...options ] = args
@@ -161,13 +162,15 @@ if ( isDev || isStart || isBuild ) {
         pwa: cliArgs.pwa 
     }
 
+    config.services = await resolveAll(config.services) // Always resolve all backend services before going forward
+
     // Run a development server that can be accessed through Electron or the browser
     if ( isDev || isStart ) {
 
         await populateOutputDirectory()
 
-        // Always resolve all backend services before going forward
-        config.services = await resolveAll(config.services)
+        // // Always resolve all backend services before going forward
+        // config.services = await resolveAll(config.services)
 
         const server = await vite.createServer(resolveConfig(config, resolveOptions))
         await server.listen()
@@ -259,12 +262,21 @@ if ( isDev || isStart || isBuild ) {
          await build({ config: buildConfig })
        }
 
+       // NOTE: Does not currently need resolution
+       for (let name in config.services) {
+           const { buildCommand } = config.services[name]
+           if (buildCommand) {
+                console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
+                await spawnProcess(buildCommand)
+           }
+       }
 
         // Initialize and open project for mobile if needed
         for (let platform of mobilePlatforms) {
             await mobile.init(platform)
             await mobile.open(platform)
         }
+
     }
 
 } 

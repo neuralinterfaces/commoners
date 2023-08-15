@@ -43,3 +43,18 @@ export default {
     }
 }
 ```
+
+
+## Service Types
+### Python
+You'll likely want to package your service using `pyinstaller`, which will output an executable file that includes all dependencies.
+
+To swap between development and production files, you can use the following service structure:
+```json
+{
+    "src": "src/main.py",
+    "production": {
+        "src": "build/python/main.py"
+    }
+}
+```
