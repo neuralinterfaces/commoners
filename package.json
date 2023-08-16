@@ -25,7 +25,6 @@
     "configstore": "^6.0.0",
     "electron": "^22.3.4",
     "electron-builder": "^23.6.0",
-    "electron-updater": "^6.1.1",
     "electron-vite": "^1.0.21",
     "esbuild": "^0.17.19",
     "inquirer": "^9.1.5",
