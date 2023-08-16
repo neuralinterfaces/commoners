@@ -38,16 +38,20 @@ async function requestSerialPort () {
       // filters
     })
     const portInfo = port.getInfo()
-    sidecarMessage.innerText += `vendorId: ${portInfo.usbVendorId} | productId: ${portInfo.usbProductId}\n`
+    sidecarMessage.innerText += `Connected to Serial Port: vendorId: ${portInfo.usbVendorId} | productId: ${portInfo.usbProductId}\n`
   } catch (e: any) {
     console.error(e)
-    if (e.name === 'NotFoundError') {
-      sidecarMessage.innerText += 'Device NOT found'
-    } else {
-      sidecarMessage.innerText +=  e
-    }
   }
 }
 
 const testSerialConnection = document.getElementById('testSerialConnection')
 if (testSerialConnection) testSerialConnection.addEventListener('click', requestSerialPort)
+
+async function requestBluetoothDevice () {
+
+  const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true })
+  sidecarMessage.innerText +=  `Connected to Bluetooth Device: ${device.name || `ID: ${device.id}`}`
+}
+
+const testBluetoothConnection = document.getElementById('testBluetoothConnection')
+if (testBluetoothConnection) testBluetoothConnection.addEventListener('click', requestBluetoothDevice)

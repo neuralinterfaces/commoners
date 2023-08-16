@@ -1,9 +1,18 @@
+import * as autoUpdatePlugin from '../packages/plugins/autoupdate/index.js'
+import * as bluetoothPlugin from '../packages/plugins/devices/ble/index.js'
+import * as serialPlugin from '../packages/plugins/devices/serial/index.js'
+
+// import * as autoUpdatePlugin from 'commoners-autoupdate-plugin'
+// import * as bluetoothPlugin from 'commoners-ble-plugin'
+// import * as serialPlugin from 'commoners-serial-plugin'
+
+
 export default {
-    plugins: {
-        autoupdate: true,
-        bluetooth: true,
-        serial: true
-    },
+    plugins: [
+        // autoUpdatePlugin,
+        bluetoothPlugin,
+        serialPlugin
+    ],
 
     services: {
         main: {

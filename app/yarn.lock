@@ -4,15 +4,64 @@
 
 "@types/node@*":
   version "20.5.0"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.5.0.tgz#7fc8636d5f1aaa3b21e6245e97d56b7f56702313"
+  resolved "https://registry.npmjs.org/@types/node/-/node-20.5.0.tgz"
   integrity sha512-Mgq7eCtoTjT89FqNoTzzXg2XvCi5VMhRV6+I2aYanc6kQCBImeNaAYRs/DyoVqk1YEUJK5gN9VO7HRIdz4Wo3Q==
 
 "@types/ws@^8.5.4":
   version "8.5.5"
-  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-8.5.5.tgz#af587964aa06682702ee6dcbc7be41a80e4b28eb"
+  resolved "https://registry.npmjs.org/@types/ws/-/ws-8.5.5.tgz"
   integrity sha512-lwhs8hktwxSjf9UaZ9tG5M03PGogvFaH8gUgLNbN9HKIg0dvv6q+gkSuJ8HN4/VbyxkuLzCjlN7GquQ0gUJfIg==
   dependencies:
     "@types/node" "*"
+
+commoners-autoupdate-plugin@0.0.0:
+  version "0.0.0"
+  resolved "file:../packages/plugins/autoupdate"
+  dependencies:
+    electron-updater "^6.1.1"
+
+"commoners-backend@file:/Users/garrettflynn/Documents/Github/commoners/app/services/backend":
+  version "1.0.0"
+  resolved "file:services/backend"
+  dependencies:
+    ws "^8.12.0"
+
+commoners-ble-plugin@0.0.0:
+  version "0.0.0"
+  resolved "file:../packages/plugins/devices/ble"
+
+commoners-serial-plugin@0.0.0:
+  version "0.0.0"
+  resolved "file:../packages/plugins/devices/serial"
+
+"commoners@file:..":
+  version "0.0.1"
+  resolved "file:.."
+  dependencies:
+    "@electron-toolkit/preload" "^1.0.3"
+    "@electron-toolkit/utils" "^1.0.2"
+    "@electron/notarize" "^1.2.3"
+    "@electron/remote" "^2.0.10"
+    "@octokit/rest" "^19.0.11"
+    chalk "^5.2.0"
+    clui "^0.3.6"
+    configstore "^6.0.0"
+    electron "^22.3.4"
+    electron-builder "^23.6.0"
+    electron-updater "^6.1.1"
+    electron-vite "^1.0.21"
+    esbuild "^0.17.19"
+    inquirer "^9.1.5"
+    js-yaml "^4.1.0"
+    lodash "^4.17.21"
+    minimist "^1.2.8"
+    simple-git "^3.19.0"
+    touch "^3.1.0"
+    typescript "^4.9.5"
+    vite "^4.2.1"
+    vite-plugin-electron "^0.11.2"
+    vite-plugin-electron-renderer "^0.14.5"
+    vite-plugin-pwa "^0.16.4"
 
 ws@^8.12.0:
   version "8.13.0"

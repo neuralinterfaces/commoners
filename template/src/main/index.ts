@@ -9,7 +9,6 @@ import { existsSync } from 'node:fs'
 
 import main from '@electron/remote/main';
 
-import plugins from '../../../packages/plugins/index' // Ensure plugins are imported last
 // import chalk from 'chalk'
 
 const isProduction = !process.env.VITE_DEV_SERVER_URL
@@ -91,12 +90,7 @@ function createAppWindows(config) {
   }
 
   // Activate specified plugins from the configuration file
-  if ('plugins' in config){
-    for (let name in config.plugins) {
-      const plugin = plugins.find(o => o.name === name)
-      if (plugin) plugin.main.call(ipcMain, mainWindow, globals)
-    }
-  }
+  if ('plugins' in config) config.plugins.forEach(plugin => plugin.main.call(ipcMain, mainWindow, globals) )
 
   mainWindow.on('ready-to-show', () => {
 

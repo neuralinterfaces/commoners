@@ -1,3 +1,5 @@
+import { generateModal } from '../common.js'
+
 export const name = 'bluetooth'
 
 export const capacitorName = 'BluetoothLe'
@@ -15,7 +17,7 @@ export function main (
       value //: string
     ) => {
         if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value)
-        else selectBluetoothCallback = null
+        selectBluetoothCallback = null
     });
 
     // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
@@ -25,8 +27,9 @@ export function main (
     })
 
     win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
+      if (!devices.length) win.webContents.send("bluetooth.open", devices); // Initial request always starts at zero
       event.preventDefault()
-      win.webContents.send("bluetooth.request", devices);
+      win.webContents.send("bluetooth.update", devices);
       selectBluetoothCallback = callback
     })
 
@@ -36,122 +39,13 @@ export function preload(
   // this: IpcRenderer
 ) {
     return {
-        onRequest: (
-          callback//: (evt: IpcRendererEvent) => void
-        ) => this.on("bluetooth.request", (sender, value) => {
-          callback(sender.senderId, value)
-        }),
-        select: (
-          deviceID //: string
-        ) => this.send("bluetooth.select", deviceID),
+        onOpen: (callback) =>this.on("bluetooth.open", () => callback()),
+        onUpdate: (callback) => this.on("bluetooth.update", (_, devices) => callback(devices)),
+        select: (deviceID) => this.send("bluetooth.select", deviceID),
     }
 }
 
-export function renderer(
-  // this: any
-) {
-
-  // -----------------------------------------------------------------------------------------
-// ------------------------------ COMMON BETWEEN DEVICE TYPES ------------------------------
-// -----------------------------------------------------------------------------------------
-
-const generateModal = ({ 
-  headerText = 'Available Devices', 
-  mapDeviceToInfo,
-  onClose, 
-  onRequest 
-}) => {
-
-  const dialog = document.createElement('dialog')
-  dialog.addEventListener('click', () => dialog.close());
-
-
-  const container = document.createElement('section')
-  container.addEventListener('click', (event) => event.stopPropagation());
-  dialog.append(container)
-
-  const header = document.createElement('header')
-  header.style.paddingBottom = '20px'
-
-  const footer = document.createElement('footer')
-  footer.style.paddingTop = '20px'
-
-  const main = document.createElement('div')
-  main.style.overflow = 'auto'
-  main.style.maxHeight = '300px'
-
-  const title = document.createElement('h3')
-  title.innerText = headerText
-  header.append(title)
-
-  const ul = document.createElement('ul')
-  main.append(ul)
-
-  const form = document.createElement('form')
-  form.method = 'dialog'
-
-  const cancelButton = document.createElement('button')
-  cancelButton.innerText = 'Cancel'
-
-  let selectedDevice = ''
-  const pairButton = document.createElement('button')
-  pairButton.innerText = 'Pair'
-  pairButton.addEventListener('click', () => {
-    dialog.close(selectedDevice)
-  })
-
-
-  form.append(cancelButton, pairButton)
-  footer.append(form)
-
-  container.append(header, main, footer)
-
-  dialog.addEventListener('close', () => {
-    onClose(dialog.returnValue ?? '')
-  })
-
-  let latestDevices = ''
-
-  onRequest((id, devices) => {
-
-    // Update the devices list if different
-    if (latestDevices !== JSON.stringify(devices)) {
-
-      latestDevices = JSON.stringify(devices)
-
-      if (!dialog.open) {
-        ul.innerText = ''
-        selectedDevice = ''
-        pairButton.setAttribute('disabled', '')
-        dialog.showModal()
-      }
-
-      const mapped = devices.map(mapDeviceToInfo)
-
-      const filtered = mapped.filter(o => !dialog.querySelector(`[data-id="${o.id}"]`))
-
-      ul.append(...filtered.map(({ name, id }) => {
-        const li = document.createElement('li')
-        li.style.cursor = 'pointer'
-        li.innerText = name
-        li.setAttribute('data-id', id)
-        li.onclick = () => {
-          pairButton.removeAttribute('disabled')
-          selectedDevice = id
-        }
-        return li
-      }))
-    }
-
-  })
-
-  return dialog
-}
-
-// -----------------------------------------------------------------------------------------
-// -----------------------------------------------------------------------------------------
-// -----------------------------------------------------------------------------------------
-
+export function renderer({ onOpen, onUpdate, select }) {
 
   const modal = generateModal({
     headerText: `Available BLE Devices`,
@@ -162,9 +56,21 @@ const generateModal = ({
       }
     },
 
-    onRequest: this.bluetooth.onRequest,
-    onClose: (device) => this.bluetooth.select(device)
+    onClose: (device) => select(device)
+  })
+
+  let latestDevices = ''
+
+  onOpen(() => modal.showModal())
+
+  onUpdate((devices) => {
+    if (latestDevices !== JSON.stringify(devices)) {
+      latestDevices = JSON.stringify(devices)
+      modal.update(devices)
+    }
   })
 
   document.body.append(modal)
+
+  return { modal }
 }

@@ -7,6 +7,7 @@ import { getConfig } from "./packages/utilities/config.js";
 export const userPkg = getJSON('package.json')
 
 export const config = await getConfig()
+
 export const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
 export const NAME = userPkg.name // Specify the product name

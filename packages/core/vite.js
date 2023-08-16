@@ -6,7 +6,6 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { join } from 'node:path'
 
 import { rootDir, userPkg, scopedOutDir } from "../../globals.js";
-import commonersPlugins from '../plugins/index.js';
 
 export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
 
@@ -21,18 +20,17 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
             name: 'commoners',
             transformIndexHtml(html) {
 
-                // Insert COMMONERS Electron Polyfills after everything has loaded
-                const configPlugins = commonersConfig.plugins ?? []
-
+                // Run commoners plugins after everything has loaded
                 const electronScript = withElectron ? `<script>
 
                     if (globalThis.electron) {
-                        const plugins = globalThis.commoners.plugins
+                        const { plugins } = globalThis.commoners
 
                         if (plugins) {
-                            [
-                                ${commonersPlugins.filter(o => 'renderer' in o && o.name in configPlugins).map(o => o.renderer.toString()).join(',\n')}
-                            ].forEach(f => f.call(plugins))
+                            const { __toRender, loaded } = plugins
+                            delete plugins.__toRender
+                            const rendered = plugins.rendered = {}
+                            for (let name in __toRender) rendered[name] = __toRender[name](loaded[name])
                         }
                     }
                 </script>` : ''

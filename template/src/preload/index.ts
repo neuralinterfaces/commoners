@@ -2,19 +2,29 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { join } from 'node:path'
 
-import plugins from '../../../packages/plugins/index'
-
 // Load preload the configuration file
 const commonersDist = join(__dirname, '..')
 const configFileName = 'commoners.config.js'
 const configPath = join(commonersDist, 'assets', configFileName)
 const config = require(configPath).default ?? {}
 
-// Inject the configuration file (with activated options) into the Electron context
-if (config.plugins) config.plugins = plugins.reduce((acc, { name, preload }) => {
-  if (preload && config.plugins?.[name]) acc[name] = preload.call(ipcRenderer)
-  return acc
-}, {})
+// // Inject the configuration file (with activated options) into the Electron context
+if (config.plugins) {
+    const loaded = config.plugins.reduce((acc, { name, preload }) => {
+      if (preload) acc[name] = preload.call(ipcRenderer)
+      return acc
+    }, {})
+
+    const __toRender = config.plugins.reduce((acc, { name, renderer }) => {
+      if (renderer) acc[name] = renderer
+      return acc
+    }, {})
+
+    config.plugins = {
+      loaded,
+      __toRender,
+    }
+}
 
 if (config.services) {
   const services = process.env.COMMONERS_SERVICES
