@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 import pkg from './package.json' assert {type: 'json'}
@@ -28,6 +28,23 @@ const toCopy = [
   join('packages', 'utilities')
 ]
 
+const copyTargets =  [
+  {
+    src: normalizePath(resolve(__dirname, 'package.json')),
+    dest: "./",
+  },
+
+  // NOTE: All of these are required for now to resolve template builds
+  ...toCopy.map(path => {
+    return {
+      src: normalizePath(resolve(__dirname, path)) + '/[!.]*',
+      dest: join(path),
+    }
+  })
+]
+
+console.log(copyTargets)
+
 export default defineConfig({
   plugins: [
     {
@@ -42,20 +59,7 @@ export default defineConfig({
     },
 
     viteStaticCopy({
-      targets: [
-        {
-          src: resolve(__dirname, 'package.json'),
-          dest: "./",
-        },
-
-        // NOTE: All of these are required for now to resolve template builds
-        ...toCopy.map(path => {
-          return {
-            src: resolve(__dirname, path) + '/[!.]*',
-            dest: join(path),
-          }
-        })
-      ],
+      targets: copyTargets,
     })
   ],
   build: {

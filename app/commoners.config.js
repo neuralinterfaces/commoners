@@ -1,4 +1,4 @@
-import * as autoUpdatePlugin from '../packages/plugins/autoupdate/index.js'
+// import * as autoUpdatePlugin from '../packages/plugins/autoupdate/index.js'
 import * as bluetoothPlugin from '../packages/plugins/devices/ble/index.js'
 import * as serialPlugin from '../packages/plugins/devices/serial/index.js'
 

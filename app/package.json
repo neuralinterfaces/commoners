@@ -17,9 +17,8 @@
     "build": "commoners build"
   },
   "dependencies": {
-    "commoners": "0.0.1",
-    "commoners-autoupdate-plugin": "0.0.0",
-    "commoners-ble-plugin": "0.0.0",
-    "commoners-serial-plugin": "0.0.0"
+    "commoners-autoupdate-plugin": "file:../packages/plugins/autoupdate",
+    "commoners-ble-plugin": "file:../packages/plugins/devices/ble",
+    "commoners-serial-plugin": "file:../packages/plugins/devices/serial"
   }
 }
