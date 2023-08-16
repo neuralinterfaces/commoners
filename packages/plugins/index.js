@@ -1,9 +1,12 @@
-import * as bluetooth from './web-bluetooth/index.js'
+import * as bluetooth from './devices/ble/index.js'
+import * as serial from './devices/serial/index.js'
+
 import * as autoupdate from './autoupdate/index.js'
 
 export const plugins = [
+    autoupdate,
     bluetooth,
-    autoupdate
+    serial
 ]
 
 export default plugins

@@ -1,4 +1,10 @@
 export default {
+    plugins: {
+        autoupdate: true,
+        bluetooth: true,
+        serial: true
+    },
+
     services: {
         main: {
             src: './services/backend/index.js',

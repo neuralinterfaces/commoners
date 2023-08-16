@@ -26,3 +26,28 @@ ws.onopen = () => {
 setTimeout(() => {
   fetch(pythonUrl).then(res => res.json()).then(onData)
 })
+
+
+
+// Test Web Serial
+async function requestSerialPort () {
+
+  try {
+
+    const port = await navigator.serial.requestPort({ 
+      // filters
+    })
+    const portInfo = port.getInfo()
+    sidecarMessage.innerText += `vendorId: ${portInfo.usbVendorId} | productId: ${portInfo.usbProductId}\n`
+  } catch (e: any) {
+    console.error(e)
+    if (e.name === 'NotFoundError') {
+      sidecarMessage.innerText += 'Device NOT found'
+    } else {
+      sidecarMessage.innerText +=  e
+    }
+  }
+}
+
+const testSerialConnection = document.getElementById('testSerialConnection')
+if (testSerialConnection) testSerialConnection.addEventListener('click', requestSerialPort)

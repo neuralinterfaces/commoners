@@ -90,9 +90,6 @@ function createAppWindows(config) {
     main.enable(mainWindow.webContents);
   }
 
-
-  if (typeof config.electron.onWindowCreated === 'function') config.electron.onWindowCreated(mainWindow)
-
   // Activate specified plugins from the configuration file
   if ('plugins' in config){
     for (let name in config.plugins) {
