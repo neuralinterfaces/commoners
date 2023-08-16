@@ -1,0 +1,6 @@
+{
+    "name": "commoners-autoupdate",
+    "dependencies": {
+        "electron-updater": "^6.1.1"
+    }
+}

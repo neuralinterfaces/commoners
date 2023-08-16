@@ -1,5 +1,3 @@
-// import { BrowserWindow, IpcMain, IpcMainEvent, IpcRenderer, IpcRendererEvent } from "electron";
-
 export const name = 'bluetooth'
 
 export const capacitorName = 'BluetoothLe'

@@ -5,10 +5,11 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from './services/index'
 
-import plugins from '../../../packages/plugins/index'
-
 import { existsSync } from 'node:fs'
 
+import main from '@electron/remote/main';
+
+import plugins from '../../../packages/plugins/index' // Ensure plugins are imported last
 // import chalk from 'chalk'
 
 const isProduction = !process.env.VITE_DEV_SERVER_URL
@@ -28,8 +29,17 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
 
-const globals = {
-  firstOpen: true
+const globals : {
+  firstOpen: boolean,
+  mainInitialized: boolean,
+  mainWindow?: BrowserWindow
+  splash?: BrowserWindow,
+  userRestarted: boolean
+} = {
+  firstOpen: true,
+  mainInitialized: false,
+  mainWindow: undefined,
+  userRestarted: false
 }
 
 function createAppWindows(config) {
@@ -49,7 +59,7 @@ function createAppWindows(config) {
     const completeSplashPath = join(commonersAssets, splashURL)
     splash.loadFile(completeSplashPath)
 
-    globals['splash'] = splash // Replace splash entry with the active window
+    globals.splash = splash // Replace splash entry with the active window
   }
 
 
@@ -71,22 +81,34 @@ function createAppWindows(config) {
   if (!('preload' in windowConfig.webPreferences)) windowConfig.webPreferences.preload = preload
 
   // Create the browser window.
-  const mainWindow = new BrowserWindow(windowConfig)
+  const mainWindow = globals.mainWindow = new BrowserWindow(windowConfig)
+  if (windowConfig.webPreferences.enableRemoteModule) {
+    if (!globals.mainInitialized) {
+      main.initialize()
+      globals.mainInitialized = true
+    }
+    main.enable(mainWindow.webContents);
+  }
+
+
+  if (typeof config.electron.onWindowCreated === 'function') config.electron.onWindowCreated(mainWindow)
 
   // Activate specified plugins from the configuration file
   if ('plugins' in config){
     for (let name in config.plugins) {
       const plugin = plugins.find(o => o.name === name)
-      if (plugin) plugin.main.call(ipcMain, mainWindow)
+      if (plugin) plugin.main.call(ipcMain, mainWindow, globals)
     }
   }
 
   mainWindow.on('ready-to-show', () => {
 
-    if (globals['splash']) {
+    if (globals.splash) {
       setTimeout(() => {
-        globals['splash'].close();
-        delete globals['splash']
+        if (globals.splash) {
+          globals.splash.close();
+          delete globals.splash
+        }
         mainWindow.show();
         globals.firstOpen = false
       }, globals.firstOpen ? 1000 : 200);
@@ -117,7 +139,8 @@ app.whenReady().then(async () => {
 
   // Pass preconfigured properties to the main service declaration
   if ('COMMONERS_SERVICES' in process.env) {
-    const preconfigured = JSON.parse(process.env.COMMONERS_SERVICES)
+    const { COMMONERS_SERVICES } = process.env
+    const preconfigured = JSON.parse(COMMONERS_SERVICES as string)
     for (let id in preconfigured) {
       if (typeof config.services[id] === 'string') config.services[id] = { src: config.services[id] }
       config.services[id] = Object.assign(config.services[id], preconfigured[id])

@@ -18,13 +18,14 @@
     "@electron-toolkit/preload": "^1.0.3",
     "@electron-toolkit/utils": "^1.0.2",
     "@electron/notarize": "^1.2.3",
+    "@electron/remote": "^2.0.10",
     "@octokit/rest": "^19.0.11",
     "chalk": "^5.2.0",
     "clui": "^0.3.6",
     "configstore": "^6.0.0",
     "electron": "^22.3.4",
     "electron-builder": "^23.6.0",
-    "electron-updater": "^5.3.0",
+    "electron-updater": "^6.1.1",
     "electron-vite": "^1.0.21",
     "esbuild": "^0.17.19",
     "inquirer": "^9.1.5",
@@ -44,7 +45,6 @@
     "@types/node": "16.18.21",
     "vite-plugin-static-copy": "^0.16.0"
   },
-
   "peerDependencies": {
     "@capacitor/cli": "^5.0.5",
     "@capacitor/core": "^5.0.5"
