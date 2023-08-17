@@ -1,6 +1,6 @@
-const url = new URL(globalThis.commoners.services.main.url)
+// --------- Node Service Test ---------
 
-const pythonUrl = new URL(globalThis.commoners.services.python.url)
+const url = new URL(globalThis.commoners.services.main.url)
 
 const ws = new WebSocket(`ws://${url.host}`)
 
@@ -23,13 +23,17 @@ ws.onopen = () => {
   send({ command: 'platform' })
 }
 
+// --------- Python Service Test ---------
+
+const pythonUrl = new URL(globalThis.commoners.services.python.url)
+
 setTimeout(() => {
   fetch(pythonUrl).then(res => res.json()).then(onData)
 })
 
 
 
-// Test Web Serial
+// --------- Web Serial Test ---------
 async function requestSerialPort () {
 
   try {
@@ -47,6 +51,7 @@ async function requestSerialPort () {
 const testSerialConnection = document.getElementById('testSerialConnection')
 if (testSerialConnection) testSerialConnection.addEventListener('click', requestSerialPort)
 
+// --------- Web Bluetooth Test ---------
 async function requestBluetoothDevice () {
 
   const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true })
