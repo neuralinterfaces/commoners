@@ -229,7 +229,7 @@ if ( isDev || isStart || isBuild ) {
 
         if (isBuild && cliArgs.desktop) {
             for (let name in config.services) {
-                let { build } = config.services[name].publish ?? {}
+                let { build } = config.services[name] ?? {}
                 if (build && typeof build === 'object')  build = build[PLATFORM] // Run based on the platform if an object
                 if (build) {
                     console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
@@ -255,8 +255,8 @@ if ( isDev || isStart || isBuild ) {
         buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
 
         // Register extra resources
-        buildConfig.mac.extraResources = buildConfig.linux.extraResources = Object.values(config.services).reduce((acc, o) => {
-            acc.push(...o.extraResources ?? [])
+        buildConfig.mac.extraResources = buildConfig.linux.extraResources = Object.values(config.services).reduce((acc, { extraResources }) => {
+            if (extraResources) acc.push(...extraResources)
             return acc
         }, [])
         

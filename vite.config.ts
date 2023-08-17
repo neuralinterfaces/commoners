@@ -16,7 +16,8 @@ const nodeBuiltIns = [
   "node:fs",
   "node:url",
   "node:path",
-  "node:net"
+  "node:net",
+  "node:util"
 ]
 
 const outputFileName = `commoners.js`

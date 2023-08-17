@@ -14,13 +14,14 @@ export const handlers = {
 }
 
 
-function resolveSource(config) {
-  return typeof config === 'string' ? config : config?.src
+function resolveConfig(config) {
+  return typeof config === 'string' ? { src: config } : config
 }
 
 
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
 
+  const mode = process.env.COMMONERS_MODE ?? "local"
   const isProduction = process.env.COMMONERS_MODE !== "dev"
 
   const { src } = config
@@ -30,17 +31,22 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
   if (!src) return config // Return the configuration unchanged if no file or url
 
   if (isProduction && config.publish) {
-    const src = resolveSource(config.publish[process.env.COMMONERS_MODE]) ?? esolveSource(config.publish.src) ?? {}
-    if (src) config.publish.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
+    const publishConfig = resolveConfig(config.publish)
+    const internalConfig = resolveConfig(config.publish[mode]) ?? publishConfig
+    const { src } = internalConfig
+    if (src) internalConfig.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
+
+    // Cascade from more to less specific information
     Object.assign(config, config.publish)
+    Object.assign(config, internalConfig)
     delete config.publish
   }
 
+  if (src.endsWith('.ts')) config.src = src.slice(0, -2) + 'js' // Load transpiled file
+  config.abspath = join(assets, config.src) // Expose the absolute path of the file in development mode
+
   if (!config.port) config.port = (await getFreePorts(1))[0]
   config.url = `${config.protocol ?? `http:`}//${config.hostname ?? `127.0.0.1`}:${config.port}`
-
-  if (src.endsWith('.ts')) config.src = src.slice(0, -2) + 'js' // Load transpiled file
-  config.abspath = join(assets, config.src) // Find file in assets
 
   return config
 

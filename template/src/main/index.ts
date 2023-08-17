@@ -5,11 +5,32 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from './services/index'
 
-import { existsSync } from 'node:fs'
+import { existsSync, createWriteStream, mkdirSync } from 'node:fs'
 
 import main from '@electron/remote/main';
 
 // import chalk from 'chalk'
+
+
+// import util from 'node:util'
+
+// const homeDirectory = app.getPath("home");
+// const commonersDirectory = join(homeDirectory, 'COMMONERS');
+// if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
+
+// var logFile = createWriteStream(join(commonersDirectory, 'debug.log'), {flags : 'w'});
+
+// const logToFile = (...args) => logFile.write(args.map(d => util.format(d)).join(',') + '\n');
+
+// const logsToReplace = ['log', 'watch', 'error']
+// logsToReplace.forEach(method => {
+//   const ogMethod = console[method]
+//   console[method] = function(...args) {
+//     logToFile(args);
+//     ogMethod(...args) 
+//   };
+// })
+
 
 const isProduction = !process.env.VITE_DEV_SERVER_URL
 const commonersDist = (process.platform === 'win32' || !isProduction) ? join(__dirname, '..') : join(app.getAppPath(), 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
