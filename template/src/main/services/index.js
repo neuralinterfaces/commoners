@@ -29,11 +29,11 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
 
   if (!src) return config // Return the configuration unchanged if no file or url
 
-  if (isProduction && config.production) {
-    const src = resolveSource(config.production[process.env.COMMONERS_MODE]) ?? esolveSource(config.production.src) ?? {}
-    if (src) config.production.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
-    Object.assign(config, config.production)
-    delete config.production
+  if (isProduction && config.publish) {
+    const src = resolveSource(config.publish[process.env.COMMONERS_MODE]) ?? esolveSource(config.publish.src) ?? {}
+    if (src) config.publish.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
+    Object.assign(config, config.publish)
+    delete config.publish
   }
 
   if (!config.port) config.port = (await getFreePorts(1))[0]

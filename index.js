@@ -43,8 +43,6 @@ const assets = {
 
 function trackServiceAssets(config) {
     const filepath = typeof config === 'string' ? config : config.src
-
-    // if (config.production) trackServiceAssets(config.production) // Ensure that production assets are also tracked
     
     if (!filepath) return // Do not copy if file doesn't exist
     if (isValidURL(filepath)) return // Do not copy if file is a url
