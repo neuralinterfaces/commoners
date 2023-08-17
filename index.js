@@ -104,12 +104,12 @@ const isDev = command === 'dev' || !command
 const isBuild = command === 'build'
 const isLaunch = command === 'launch'
 
-process.env.COMMONERS_DEV_ENV = isStart || isDev // Always a development environment command
 
 const mobilePlatforms =  []
 if (cliArgs.ios) mobilePlatforms.push('ios')
 if (cliArgs.android) mobilePlatforms.push('android')
 
+process.env.COMMONERS_MODE = (isStart || isDev) ? 'dev' : ( mobilePlatforms.length || cliArgs.pwa ? 'remote' : 'local' ) // Always a development environment command
 
 if ( isDev || isStart || isBuild ) {
 
@@ -231,11 +231,11 @@ if ( isDev || isStart || isBuild ) {
 
         if (isBuild && cliArgs.desktop) {
             for (let name in config.services) {
-                let { buildCommand } = config.services[name]
-                if (buildCommand && typeof buildCommand === 'object')  buildCommand = buildCommand[PLATFORM] // Run based on the platform if an object
-                if (buildCommand) {
+                let { build } = config.services[name].publish ?? {}
+                if (build && typeof build === 'object')  build = build[PLATFORM] // Run based on the platform if an object
+                if (build) {
                     console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
-                    await spawnProcess(buildCommand)
+                    await spawnProcess(build)
                 }
             }
         }

@@ -53,8 +53,19 @@ To swap between development and production files, you can use the following serv
 ```json
 {
     "src": "src/main.py",
-    "production": {
-        "src": "build/python/main.py"
+    "publish": {
+        "build": {
+            "mac": "python -m PyInstaller --name test --onedir --clean ./src/main.py --distpath ./dist/pyinstaller",
+        },
+        "desktop": {
+            "src": "./pyinstaller/test", 
+            "extraResources": [ 
+                {
+                    "from": "./dist/pyinstaller/test",
+                    "to": "pyinstaller"
+                }
+            ]
+        }
     }
 }
 ```

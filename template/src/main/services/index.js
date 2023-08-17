@@ -13,9 +13,15 @@ export const handlers = {
     python
 }
 
+
+function resolveSource(config) {
+  return typeof config === 'string' ? config : config?.src
+}
+
+
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
 
-  const isProduction = process.env.COMMONERS_DEV_ENV !== "true"
+  const isProduction = process.env.COMMONERS_MODE !== "dev"
 
   const { src } = config
 
@@ -23,8 +29,8 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
 
   if (!src) return config // Return the configuration unchanged if no file or url
 
-  if (isProduction) {
-    const { src } = config.production ?? {}
+  if (isProduction && config.production) {
+    const src = resolveSource(config.production[process.env.COMMONERS_MODE]) ?? esolveSource(config.production.src) ?? {}
     if (src) config.production.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
     Object.assign(config, config.production)
     delete config.production
