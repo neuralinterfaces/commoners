@@ -12,7 +12,7 @@ export function main (
     // Enable Web Bluetooth
     let selectBluetoothCallback;
 
-    this.on("bluetooth.selectDevice", (
+    this.on("bluetooth.select", (
       _evt, //: IpcMainEvent, 
       value //: string
     ) => {
@@ -27,10 +27,16 @@ export function main (
     })
 
     win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
-      if (!devices.length) win.webContents.send("bluetooth.open", devices); // Initial request always starts at zero
+
+
       event.preventDefault()
+      
+      if (!selectBluetoothCallback) win.webContents.send("bluetooth.open", devices); // Initial request always starts at zero
+
       win.webContents.send("bluetooth.update", devices);
+
       selectBluetoothCallback = callback
+
     })
 
 }
@@ -61,7 +67,10 @@ export function renderer({ onOpen, onUpdate, select }) {
 
   let latestDevices = ''
 
-  onOpen(() => modal.showModal())
+  onOpen(() => {
+    modal.close();
+    modal.showModal(); // avoid error
+  })
 
   onUpdate((devices) => {
     if (latestDevices !== JSON.stringify(devices)) {

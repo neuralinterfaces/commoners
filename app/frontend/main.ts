@@ -1,3 +1,8 @@
+const display = (message: string) => {
+  sidecarMessage.innerText += `${message}\n`
+}
+
+
 // --------- Node Service Test ---------
 
 const url = new URL(globalThis.commoners.services.main.url)
@@ -8,8 +13,7 @@ const sidecarMessage = document.getElementById('sidecar-msg') as HTMLElement
 
 const onData = (data: any) => {
   if (data.error) return console.error(data.error)
-
-  sidecarMessage.innerText += `${data.command} - ${data.payload}\n`
+  display(`${data.command} - ${data.payload}`)
 }
 
 ws.onmessage = (o) => onData(JSON.parse(o.data))
@@ -42,7 +46,7 @@ async function requestSerialPort () {
       // filters
     })
     const portInfo = port.getInfo()
-    sidecarMessage.innerText += `Connected to Serial Port: vendorId: ${portInfo.usbVendorId} | productId: ${portInfo.usbProductId}\n`
+    display(`Connected to Serial Port: vendorId: ${portInfo.usbVendorId} | productId: ${portInfo.usbProductId}`)
   } catch (e: any) {
     console.error(e)
   }
@@ -55,7 +59,8 @@ if (testSerialConnection) testSerialConnection.addEventListener('click', request
 async function requestBluetoothDevice () {
 
   const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true })
-  sidecarMessage.innerText +=  `Connected to Bluetooth Device: ${device.name || `ID: ${device.id}`}`
+  console.log(device)
+  display(`Connected to Bluetooth Device: ${device.name || `ID: ${device.id}`}`)
 }
 
 const testBluetoothConnection = document.getElementById('testBluetoothConnection')
