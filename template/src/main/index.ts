@@ -5,7 +5,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from './services/index'
 
-import { existsSync, createWriteStream, mkdirSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 
 import main from '@electron/remote/main';
 
@@ -17,20 +17,6 @@ import main from '@electron/remote/main';
 // const homeDirectory = app.getPath("home");
 // const commonersDirectory = join(homeDirectory, 'COMMONERS');
 // if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
-
-// var logFile = createWriteStream(join(commonersDirectory, 'debug.log'), {flags : 'w'});
-
-// const logToFile = (...args) => logFile.write(args.map(d => util.format(d)).join(',') + '\n');
-
-// const logsToReplace = ['log', 'watch', 'error']
-// logsToReplace.forEach(method => {
-//   const ogMethod = console[method]
-//   console[method] = function(...args) {
-//     logToFile(args);
-//     ogMethod(...args) 
-//   };
-// })
-
 
 const isProduction = !process.env.VITE_DEV_SERVER_URL
 const commonersDist = (process.platform === 'win32' || !isProduction) ? join(__dirname, '..') : join(app.getAppPath(), 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
@@ -49,6 +35,16 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
 
+let mainWindow;
+
+function send(this: BrowserWindow, ...args: any[]) {
+  return this.webContents.send(...args)
+}
+
+let readyQueue: Function[] = []
+const onWindowReady = (f: (win: BrowserWindow) => any) => (globals.mainWindow) ? f(globals.mainWindow) : readyQueue.push(f)
+
+
 const globals : {
   firstOpen: boolean,
   mainInitialized: boolean,
@@ -58,8 +54,15 @@ const globals : {
 } = {
   firstOpen: true,
   mainInitialized: false,
-  mainWindow: undefined,
-  userRestarted: false
+  get mainWindow(){
+    return mainWindow
+  },
+  set mainWindow(v) {
+    mainWindow = v
+    if (v) readyQueue.forEach(f => onWindowReady(f))
+    readyQueue = []
+  },
+  userRestarted: false,
 }
 
 function createAppWindows(config) {
@@ -101,7 +104,7 @@ function createAppWindows(config) {
   if (!('preload' in windowConfig.webPreferences)) windowConfig.webPreferences.preload = preload
 
   // Create the browser window.
-  const mainWindow = globals.mainWindow = new BrowserWindow(windowConfig)
+  const mainWindow = new BrowserWindow(windowConfig)
   if (windowConfig.webPreferences.enableRemoteModule) {
     if (!globals.mainInitialized) {
       main.initialize()
@@ -114,6 +117,8 @@ function createAppWindows(config) {
   if ('plugins' in config) config.plugins.forEach(plugin => plugin.main.call(ipcMain, mainWindow, globals) )
 
   mainWindow.on('ready-to-show', () => {
+
+    globals.mainWindow = mainWindow
 
     if (globals.splash) {
       setTimeout(() => {
@@ -129,6 +134,8 @@ function createAppWindows(config) {
      else mainWindow.show()
 
   })
+
+  mainWindow.once('close', () => globals.mainWindow = undefined) // De-register the main window
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -186,3 +193,13 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => services.stop());
+
+// Transfer all the main console commands to the browser
+const ogConsoleMethods: any = {};
+['log', 'warn', 'error'].forEach(method => {
+  const ogMethod = ogConsoleMethods[method] = console[method]
+  console[method] = (...args) => {
+    onWindowReady(win => send.call(win, `console.${method}`, ...args))
+    ogMethod(...args)
+  }
+})

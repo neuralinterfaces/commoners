@@ -70,7 +70,7 @@ export async function start (config, id, assets) {
     else if (!ext || ext === '.exe') process = spawn(config.abspath, [config.port]) // Run executables as extra resources
 
     if (process) {
-      const label = id ? `commoners-${id}-service` : 'commoners-service'
+      const label = id ?? 'commoners-service'
       if (process.stdout) process.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
       if (process.stderr) process.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
       process.on('close', (code) => code === null 

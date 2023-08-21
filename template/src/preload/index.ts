@@ -50,3 +50,4 @@ if (process.contextIsolated) {
   window.commoners = config
 }
 
+["log", "warn", "error"].forEach((method) => ipcRenderer.on(`console.${method}`, (_, ...args) => console[method](`[commoners-main-process]`, ...args)));
