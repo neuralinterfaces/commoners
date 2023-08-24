@@ -1,0 +1,18 @@
+{
+  "appId": "com.commoners.app",
+  "appName": "commoners",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Scanning BLE...",
+        "cancel": "Stop Scanning",
+        "availableDevices": "Devices available!",
+        "noDeviceFound": "No BLE devices found."
+      }
+    }
+  }
+}

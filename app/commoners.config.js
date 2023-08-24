@@ -8,6 +8,13 @@ import * as serialPlugin from '../packages/plugins/devices/serial/index.js'
 
 
 export default {
+    
+    icon: {
+        dark: 'commoners_dark.png',
+        light: 'commoners_light.png'
+    }, 
+
+
     plugins: [
         // autoUpdatePlugin,
         bluetoothPlugin,

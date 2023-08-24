@@ -1,6 +1,7 @@
 import { existsSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../../utilities/processes"
 import { NAME, APPID, userPkg, config as resolvedConfig } from "../../../globals"
+import * as assets from './assets'
 
 import chalk from 'chalk'
 
@@ -24,20 +25,24 @@ const baseConfig = {
 export const openConfig = async (callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a,b) => a+b ? 1 : 0, 0) > 0
+   
+    if (!isUserDefined) {
 
-    const config = JSON.parse(JSON.stringify(baseConfig))
-    if (resolvedConfig.plugins) {
-        const capacitorPlugins = resolvedConfig.plugins.filter(o => o.capacitor).map(o => o.capacitor)
-        capacitorPlugins.forEach(o => config.plugins[o.name] = o.options)
+        const config = JSON.parse(JSON.stringify(baseConfig))
+        if (resolvedConfig.plugins) {
+            const capacitorPlugins = resolvedConfig.plugins.filter(o => o.capacitor).map(o => o.capacitor)
+            capacitorPlugins.forEach(o => config.plugins[o.name] = o.options)
+        }
+
+        writeFileSync(configName, JSON.stringify(config, null, 2))
     }
 
-    if (!isUserDefined) writeFileSync(configName, JSON.stringify(config, null, 2))
     await callback()
-    if (!isUserDefined) rmSync(configName)
-}
 
-const corePkg = '@capacitor/core'
-const cliPkg = '@capacitor/cli'
+    // Remove configuration if not specified by the user
+    if (!isUserDefined) rmSync(configName)
+
+}
 
 const installForUser = async (pkgName) => {
     console.log(chalk.yellow(`Installing ${pkgName}...`))
@@ -55,14 +60,21 @@ export const checkDepinstalled = async (pkgName) => (!userPkg.devDependencies?.[
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (platform) => {
-    await checkDepinstalled(cliPkg)
-    await checkDepinstalled(corePkg)
+    await checkDepinstalled('@capacitor/cli')
+    await checkDepinstalled('@capacitor/core')
     await checkDepinstalled(`@capacitor/${platform}`)
+    await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
 }
+
 
 export const open = async (platform) => {
     await checkDepsInstalled(platform)
     await openConfig(() => runCommand("npx cap sync"))
+
+    const info = assets.create()
+    await runCommand(`npx capacitor-assets generate --${platform}`) // Generate assets
+    assets.cleanup(info)
+
     await runCommand(`npx cap open ${platform}`)
 }
 

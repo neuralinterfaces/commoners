@@ -267,7 +267,7 @@ if ( isDev || isStart || isBuild ) {
             else buildConfig.electronVersion = electronVersion
         }
 
-        const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
+        const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : (config.icon.light ?? config.icon.dark ?? Object.values(config.icon).find(str => typeof str === 'string')))
         const macIcon = config.icon?.mac || defaultIcon
         const winIcon = config.icon?.win || defaultIcon
 
