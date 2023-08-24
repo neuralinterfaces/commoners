@@ -18,12 +18,14 @@ A Cross-Platform Development Kit for Everyone
     - `--ios` - For iOS
     - `--android` - For Android
 
-- `commoners launch` - Launch your built application
-    - `--desktop` - For your current desktop platform
+- `commoners launch` - Launch your built application (default: `commoners dev`)
+    - `--desktop` - Start your desktop build
     - `--ios` - Open the project with XCode (coming soon)
     - `--android` - Open the project with Android Studio (coming soon)
 
-- `commoners publish` - Publish your latest build to Github Pages
+- `commoners commit` - Commit your latest build to Github (coming soon)
+- `commoners publish` - Publish your latest commit to Github Pages (coming soon)
+    - `--message` - Add a commit message and trigger a new commit
 
 ## Configuration Options
 - `services` - An object that declares backend services to run
