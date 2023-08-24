@@ -1,39 +1,65 @@
+
+const sidecarMessage = document.getElementById('sidecar-msg') as HTMLElement
+
 const display = (message: string) => {
   sidecarMessage.innerText += `${message}\n`
 }
-
-
-// --------- Node Service Test ---------
-
-const url = new URL(globalThis.commoners.services.main.url)
-
-const ws = new WebSocket(`ws://${url.host}`)
-
-const sidecarMessage = document.getElementById('sidecar-msg') as HTMLElement
 
 const onData = (data: any) => {
   if (data.error) return console.error(data.error)
   display(`${data.command} - ${data.payload}`)
 }
 
-ws.onmessage = (o) => onData(JSON.parse(o.data))
+// Remote API Tests
+if (COMMONERS.services.remote && COMMONERS.services.remoteConfig) {
+  try {
+    const remoteAPI = new URL('/users', COMMONERS.services.remote.url)
+    const remoteAPIConfigured = new URL('/users', COMMONERS.services.remoteConfig.url)
 
-let send = (o: any) => {
-  ws.send(JSON.stringify(o))
-}
+    setTimeout(() => {
 
-ws.onopen = () => {
-  send({ command: 'test', payload: true })
-  send({ command: 'platform' })
+      fetch(remoteAPI)
+      .then(response => response.json())
+      .then(json => display(`Remote Response Length: ${json.length}`))
+
+
+      fetch(remoteAPIConfigured)
+      .then(response => response.json())
+      .then(json => display(`Remote (Config) Response Length: ${json.length}`))
+    })
+  } catch (e) {
+    console.error('Remote URLs not configured')
+  }
+} 
+
+
+
+
+// --------- Node Service Test ---------
+if (COMMONERS.services.main) {
+  const url = new URL(COMMONERS.services.main.url)
+
+  const ws = new WebSocket(`ws://${url.host}`)
+
+  ws.onmessage = (o) => onData(JSON.parse(o.data))
+
+  let send = (o: any) => {
+    ws.send(JSON.stringify(o))
+  }
+
+  ws.onopen = () => {
+    send({ command: 'test', payload: true })
+    send({ command: 'platform' })
+  }
 }
 
 // --------- Python Service Test ---------
+if (COMMONERS.services.python) {
 
-const pythonUrl = new URL(globalThis.commoners.services.python.url)
+  const pythonUrl = new URL(COMMONERS.services.python.url)
 
-setTimeout(() => {
-  fetch(pythonUrl).then(res => res.json()).then(onData)
-})
+  setTimeout(() => fetch(pythonUrl).then(res => res.json()).then(onData))
+}
 
 
 

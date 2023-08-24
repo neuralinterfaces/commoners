@@ -38,7 +38,7 @@ if (config.services) {
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('commoners', config)
+    contextBridge.exposeInMainWorld('COMMONERS', config)
   } catch (error) {
     console.error(error)
   }
@@ -47,7 +47,7 @@ if (process.contextIsolated) {
   window.electron = electronAPI
 
   // @ts-ignore (define in dts)
-  window.commoners = config
+  window.COMMONERS = config
 }
 
 ["log", "warn", "error"].forEach((method) => ipcRenderer.on(`console.${method}`, (_, ...args) => console[method](`[commoners-main-process]`, ...args)));

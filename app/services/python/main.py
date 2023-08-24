@@ -15,12 +15,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return json.dumps({"command": "python", "payload": True}).encode()
 
     def do_GET(self):
+        print(self.path)
         if self.path == '/':
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(bytes(self.api_response))
+
+        elif self.path == '/users':
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(bytes(json.dumps([{}, {}, {}]).encode()))
+
+        else:
+            self.send_response(HTTPStatus.NOT_FOUND)
+            self.wfile.write(bytes(json.dumps({"command": "python", "payload": '404 Not Found'}).encode()))
+
 
 
 if __name__ == "__main__":

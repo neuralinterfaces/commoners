@@ -23,6 +23,7 @@ export default {
         },
         python: {
             src: './services/python/main.py',
+            port: 3768,
             publish: {
                 build: {
                     mac: 'python -m PyInstaller --name commoners --onedir --clean ./services/python/main.py --distpath ./dist/pyinstaller',
@@ -38,9 +39,12 @@ export default {
                 }
             }
         },
-        // remote: 'https://example.com',
-        // remoteConfig: {
-        //     url: 'https://example.com'
-        // }
+        remote: 'https://jsonplaceholder.typicode.com',
+        remoteConfig: {
+            url: 'http://localhost:3768', // Call the python server in development
+            publish: {
+                url: 'https://jsonplaceholder.typicode.com'
+            }
+        }
     }
 }

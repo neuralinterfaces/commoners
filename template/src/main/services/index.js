@@ -24,11 +24,6 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
   const mode = process.env.COMMONERS_MODE ?? "local"
   const isProduction = process.env.COMMONERS_MODE !== "dev"
 
-  const { src } = config
-
-  if (isValidURL(src)) return config // Abort properly when a url
-
-  if (!src) return config // Return the configuration unchanged if no file or url
 
   if (isProduction && config.publish) {
     const publishConfig = resolveConfig(config.publish)
@@ -41,6 +36,17 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
     Object.assign(config, internalConfig)
     delete config.publish
   }
+
+  const { src } = resolveConfig(config)
+
+  if (isValidURL(src)) {
+    config.url = src
+    delete config.src
+    return config // Abort properly when a url
+  }
+
+  if (!src) return config // Return the configuration unchanged if no file or url
+
 
   if (src.endsWith('.ts')) config.src = src.slice(0, -2) + 'js' // Load transpiled file
   config.abspath = join(assets, config.src) // Expose the absolute path of the file in development mode

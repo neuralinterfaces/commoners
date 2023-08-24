@@ -24,7 +24,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
                 const electronScript = withElectron ? `<script>
 
                     if (globalThis.electron) {
-                        const { plugins } = globalThis.commoners
+                        const { plugins } = COMMONERS
 
                         if (plugins) {
                             const { __toRender, loaded } = plugins
@@ -35,7 +35,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
                     }
                 </script>` : ''
 
-                const webBuildScript = build ? '' : `<script>globalThis.commoners = JSON.parse('${JSON.stringify(config)}');</script>`
+                const webBuildScript = build ? '' : `<script>window.COMMONERS = JSON.parse('${JSON.stringify(config)}');</script>`
 
                 return `${webBuildScript}\n${html}\n${electronScript}`
             },

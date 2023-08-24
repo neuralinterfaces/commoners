@@ -2,6 +2,8 @@ import { existsSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../../utilities/processes"
 import { NAME, APPID, userPkg } from "../../../globals"
 
+import chalk from 'chalk'
+
 const configName = 'capacitor.config.json'
 
 const possibleConfigNames = [
