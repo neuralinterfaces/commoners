@@ -5,6 +5,9 @@ const display = (message: string) => {
   sidecarMessage.innerText += `${message}\n`
 }
 
+console.log('Web Serial Supported:', 'serial' in COMMONERS.plugins.loaded)
+console.log('Web Bluetooth Supported:', 'bluetooth' in COMMONERS.plugins.loaded)
+
 const onData = (data: any) => {
   if (data.error) return console.error(data.error)
   display(`${data.command} - ${data.payload}`)

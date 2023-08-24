@@ -11,7 +11,29 @@ export default {
     plugins: [
         // autoUpdatePlugin,
         bluetoothPlugin,
-        serialPlugin
+        serialPlugin,
+
+        // NOTE: These are not present on non-Electron builds because functions cannot be reliably parsed
+        {
+            name: 'render-only',
+            renderer: () => console.log('RENDERED')
+        },
+        {
+            name: 'preload-only',
+            preload: () => console.log('PRELOADED')
+        },
+        {
+            name: 'main-only',
+            main: () => console.log('RUNNING ON MAIN')
+        },
+        {
+            name: 'all-builds',
+            electronOnly: false,
+            main: () => console.log('ALL BUILDS (main)'),
+            preload: () => console.log('ALL BUILDS (preload)'),
+            renderer: () => console.log('ALL BUILDS (renderer)')
+
+        }
     ],
 
     services: {

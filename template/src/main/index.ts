@@ -114,7 +114,7 @@ function createAppWindows(config) {
   }
 
   // Activate specified plugins from the configuration file
-  if ('plugins' in config) config.plugins.forEach(plugin => plugin.main.call(ipcMain, mainWindow, globals) )
+  if ('plugins' in config) config.plugins.forEach(plugin => (plugin.main) ? plugin.main.call(ipcMain, mainWindow, globals) : '' )
 
   mainWindow.on('ready-to-show', () => {
 

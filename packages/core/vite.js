@@ -11,33 +11,96 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
 
     const sourcemap = !build    
     
-    const config = { ...commonersConfig }
+    const config =  { ... commonersConfig }
     
-    if (!build) config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Provide the sanitized service information
+    config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Only provide sanitized service information
+
+    // Only transfer plugin values that might actually be used
+    if (config.plugins) config.plugins = config.plugins.map((v, i) => {
+        const copy = {...v}
+        if (('main' in copy)) {
+            delete copy.main
+            if (copy.electronOnly !== false) {
+                delete copy.preload
+                delete copy.renderer
+            }
+        }
+
+        return copy
+    })
+
+    // NOTE: Only simple plugins can be transferred between contexts
+    const strConfig = JSON.stringify(config, function (k, v) {
+        if (typeof v === 'function') return v.toString().replaceAll('"', "'")
+        else return v
+    })
 
     const plugins = [
         {
             name: 'commoners',
             transformIndexHtml(html) {
+return `<script>
 
-                // Run commoners plugins after everything has loaded
-                const electronScript = withElectron ? `<script>
+    const pluginsResolved = new Promise(async (resolve, reject) => {
 
-                    if (globalThis.electron) {
-                        const { plugins } = COMMONERS
+        // Preload plugins for non-Electron builds
+        if (!${withElectron}) {
 
-                        if (plugins) {
-                            const { __toRender, loaded } = plugins
-                            delete plugins.__toRender
-                            const rendered = plugins.rendered = {}
-                            for (let name in __toRender) rendered[name] = __toRender[name](loaded[name])
-                        }
+            const { plugins } = globalThis.COMMONERS = JSON.parse(\`${strConfig}\`)
+            const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
+
+            if (plugins) {
+
+                const getFnFromString = (str) => eval(\`(\${str})\`)
+
+                const supported = await Promise.all(plugins.filter(async ({ name, isSupported }) => (typeof isSupported === 'function') ? await getFnFromString(isSupported)() : isSupported !== false))
+
+                const loaded = supported.reduce((acc, { name, preload }) => {
+                    
+                    acc[name] = undefined // Register that all supported plugins are technically loaded
+
+                    try {
+                        if (preload) acc[name] = getFnFromString(preload)()
+                    } catch (e) {
+                        pluginErrorMessage(name, "preload", e)
                     }
-                </script>` : ''
+                    return acc
+                }, {})
+            
+                const __toRender = supported.reduce((acc, { name, renderer }) => {
+                    if (renderer) acc[name] = getFnFromString(renderer)
+                    return acc
+                }, {})
+            
+                COMMONERS.plugins = {
+                    loaded,
+                    __toRender,
+                }
 
-                const webBuildScript = build ? '' : `<script>window.COMMONERS = JSON.parse('${JSON.stringify(config)}');</script>`
+                resolve()
+            }
+        } else resolve()
 
-                return `${webBuildScript}\n${html}\n${electronScript}`
+    })
+
+    document.addEventListener("DOMContentLoaded", async function(){
+        console.log('COMMONERS Variables:', COMMONERS)
+
+        const { plugins } = COMMONERS
+        
+        // Handle Preloaded Plugin Values
+        const { __toRender = {}, loaded } = plugins ?? {}
+        delete plugins.__toRender
+        const rendered = plugins.rendered = {}
+        for (let name in __toRender) {
+            try {
+                rendered[name] = __toRender[name](loaded[name])
+            } catch (e) {
+                pluginErrorMessage(name, "renderer", e)
+            }
+        }
+    });
+</script>\n${html}`
             },
         },
     ]

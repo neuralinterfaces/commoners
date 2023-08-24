@@ -26,6 +26,7 @@ if (config.plugins) {
     }
 }
 
+// Assign sanitized services to the global object
 if (config.services) {
   const services = process.env.COMMONERS_SERVICES
   if (services) config.services = JSON.parse(services)

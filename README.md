@@ -69,3 +69,14 @@ To swap between development and production files, you can use the following serv
     }
 }
 ```
+
+## Build Notes
+### iOS
+## Fix Pods Issue
+Close XCode and run the following commands on the terminal:
+```
+cd ios/App
+pod install
+```
+
+Then open XCode again and try again.

@@ -2,6 +2,8 @@ import { generateModal } from '../common.js'
 
 export const name = 'serial'
 
+export const isSupported = () => 'serial' in navigator // Check if Web Serial is available on web builds
+
 export function main(
   // this: IpcMain, 
   win//: BrowserWindow

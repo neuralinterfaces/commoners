@@ -1,6 +1,6 @@
 import { existsSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../../utilities/processes"
-import { NAME, APPID, userPkg } from "../../../globals"
+import { NAME, APPID, userPkg, config as resolvedConfig } from "../../../globals"
 
 import chalk from 'chalk'
 
@@ -16,7 +16,8 @@ const baseConfig = {
     appId: APPID.replaceAll('-', ''),
     appName: NAME,
     webDir: 'dist',
-    server: { androidScheme: 'https' }
+    server: { androidScheme: 'https' },
+    plugins: {}
 }
 
 // Create a temporary Capacitor configuration file if the user has not defined one
@@ -24,7 +25,13 @@ export const openConfig = async (callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a,b) => a+b ? 1 : 0, 0) > 0
 
-    if (!isUserDefined) writeFileSync(configName, JSON.stringify(baseConfig))
+    const config = JSON.parse(JSON.stringify(baseConfig))
+    if (resolvedConfig.plugins) {
+        const capacitorPlugins = resolvedConfig.plugins.filter(o => o.capacitor).map(o => o.capacitor)
+        capacitorPlugins.forEach(o => config.plugins[o.name] = o.options)
+    }
+
+    if (!isUserDefined) writeFileSync(configName, JSON.stringify(config, null, 2))
     await callback()
     if (!isUserDefined) rmSync(configName)
 }

@@ -2,7 +2,19 @@ import { generateModal } from '../common.js'
 
 export const name = 'bluetooth'
 
-export const capacitorName = 'BluetoothLe'
+export const capacitor = {
+  name: 'BluetoothLe',
+  options: {
+    displayStrings: {
+      scanning: "Scanning BLE...",
+      cancel: "Stop Scanning",
+      availableDevices: "Devices available!",
+      noDeviceFound: "No BLE devices found."
+    }
+  }
+}
+
+export const isSupported = async () => await navigator.bluetooth.getAvailability() // Check if BLE is available on web builds
 
 export function main (
   // this: IpcMain, 
