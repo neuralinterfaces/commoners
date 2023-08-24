@@ -325,7 +325,6 @@ if (command === 'publish') {
         return { valid: false }
     })
 
-    if (result.valid) {
-        await publishGHPages(args[1])
-    }
+    if (result.valid) await publishGHPages(args[1])
+    else throw Error('The git repository for this project has been configured incorrectly...')
 }

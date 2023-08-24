@@ -52,7 +52,7 @@ const installForUser = async (pkgName) => {
 export const init = async (platform) => {
     await checkDepsInstalled(platform)
     await openConfig(async () => {
-        if (!existsSync(`./${platform}`)) await runCommand(`npx cap add ${platform} && npx cap copy`)
+        if (!existsSync(platform)) await runCommand(`npx cap add ${platform} && npx cap copy`)
     })
 }
 
@@ -79,13 +79,15 @@ export const open = async (platform) => {
 }
 
 export const run = async (platform) => {
-        
-    if (existsSync(`./${platform}`))  {
-        console.log(chalk.red(`This project is not initialized for ${platform}`))
-        process.exit()
-    }
 
-    await checkDepsInstalled(platform)
-    await openConfig(() => runCommand("npx cap sync"))
-    await runCommand(`npx cap run ${platform}`)
+    throw new Error('This command has not been configured for mobile platforms yet...')
+        
+    // if (existsSync(platform))  {
+    //     console.log(chalk.red(`This project is not initialized for ${platform}`))
+    //     process.exit()
+    // }
+
+    // await checkDepsInstalled(platform)
+    // await openConfig(() => runCommand("npx cap sync"))
+    // await runCommand(`npx cap run ${platform}`)
 }

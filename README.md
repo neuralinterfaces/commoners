@@ -4,14 +4,26 @@ A Cross-Platform Development Kit for Everyone
  The `commoners` CLI allows anyone to build their application for multiple platforms.
 
  Our particular goal has been to develop a simple tool for building web, desktop, and mobile applications that connect to Bluetooth and USB biosensing devices. 
+ 
  As such, `commoners` has been battle-tested against this use-case.
 
 ## Commands
-- `commoners build` - Build the project
-    - `--desktop` - Build for your current desktop platform
-    - `--pwa` - Build as a PWA (coming soon)
-    - `--ios` - Build for iOS (coming soon)
-    - `--android` - Build for Android (coming soon)
+- `commoners start` - Start your project in an Electron application.
+
+- `commoners dev` - Start your project in your default browser
+
+- `commoners build` - Build the project assets
+    - `--desktop` - For your current desktop platform
+    - `--pwa` - As a Progressive Web App (PWA)
+    - `--ios` - For iOS
+    - `--android` - For Android
+
+- `commoners launch` - Launch your built application
+    - `--desktop` - For your current desktop platform
+    - `--ios` - Open the project with XCode (coming soon)
+    - `--android` - Open the project with Android Studio (coming soon)
+
+- `commoners publish` - Publish your latest build to Github Pages
 
 ## Configuration Options
 - `services` - An object that declares backend services to run
