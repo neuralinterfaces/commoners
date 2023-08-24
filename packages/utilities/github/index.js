@@ -4,6 +4,7 @@ import * as files from "../files.js"
 import * as github from "./github.js"
 import * as repo from "./repo.js"
 import { runCommand } from "../processes.js";
+import { rmdirSync } from "node:fs";
 
 const getGithubToken = async () => {
     let token = github.getStoredGithubToken(); // Fetch token from config store
@@ -12,27 +13,32 @@ const getGithubToken = async () => {
 
 // NOTE: It would still be very nice to automate the initial push
 export const publishGHPages = async (message) => {
-    // await repo.push(message)
     await runCommand('git subtree push --prefix dist origin gh-pages', undefined, { log: false }) // NOTE: This is a fixed branch and folder
 }
 
 // Initialize a Git repository for the project
-export const initGitRepo = async ({ name, description } = {}) => {
+export const initGitRepo = async ({ name, description } = {}, opts = {}) => {
 
+    // Ensure you have a valid token
+    let token;
+    if (opts.clear) github.clearStoredGithubToken()
+
+    // Retrieve & Set Authentication Token
+    token = await getGithubToken();
+    github.githubAuth(token);
+
+
+    // Ensure the git repo exists
     if (files.exists('.git')) {
-        return {
+        if (opts.reset) rmdirSync('.git', { recursive: true, force: true })
+        else return {
             valid: true,
             message: 'This project is already a Git repository!'
         }
     }
 
 
-    let token;
     try {
-
-        // Retrieve & Set Authentication Token
-        token = await getGithubToken();
-        github.githubAuth(token);
 
         // Create remote repository
         const repoInfo = await repo.createRemoteRepo(name, description);

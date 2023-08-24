@@ -11,7 +11,6 @@ const args = cliArgs._
 import { spawnProcess, onExit as processOnExit, runCommand } from "./packages/utilities/processes.js";
 import { config, configPath, NAME, PLATFORM, rootDir, outDir, scopedOutDir, assetOutDir, commonersPkg, userPkg, defaultMainLocation, APPID } from "./globals.js";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { getConfig } from "./packages/utilities/config.js";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
 
@@ -27,9 +26,18 @@ import { copyAsset } from "./packages/utilities/copy.js";
 import * as yaml from 'js-yaml'
 
 import * as mobile from './packages/core/mobile'
+import { push as pushToGithub } from "./packages/utilities/github/repo.js";
 
 // Get CLI Commands
 let [ command, ...options ] = args
+
+const validCommands = ['start', 'dev', 'build', 'launch']
+if (command && !validCommands.includes(command)) throw new Error(`'${command}' is an invalid command.`)
+
+const mobilePlatforms =  []
+if (cliArgs.ios) mobilePlatforms.push('ios')
+if (cliArgs.android) mobilePlatforms.push('android')
+
 
 // Get Configuration File and Path
 const templateDir = path.join(rootDir, 'template')
@@ -95,19 +103,37 @@ if (withElectron && path.normalize(userPkg.main) !== path.normalize(defaultMainL
     }
 }
 
-
 // Begin parsing the command structure
 const isStart = command === 'start'
-const isDev = command === 'dev' || !command
+const isDev = command === 'dev' || !command || (command === 'launch' && !mobilePlatforms.length && !cliArgs.desktop) // Is also the default launch command
 const isBuild = command === 'build'
-const isLaunch = command === 'launch'
-
-
-const mobilePlatforms =  []
-if (cliArgs.ios) mobilePlatforms.push('ios')
-if (cliArgs.android) mobilePlatforms.push('android')
-
+const isLaunch = !isDev && command === 'launch'
 process.env.COMMONERS_MODE = (isStart || isDev) ? 'dev' : ( mobilePlatforms.length || cliArgs.pwa ? 'remote' : 'local' ) // Always a development environment command
+
+if (isLaunch) {
+  
+    // Run the mobile builds (if specified)
+    for (let platform of mobilePlatforms) await mobile.run(platform)
+
+        // Run the electron build
+    if (cliArgs.desktop) {
+            const electronDistPath = path.join(process.cwd(), buildConfig.directories.output)
+
+            let exePath = ''
+            if (PLATFORM === 'mac') exePath = path.join(electronDistPath, PLATFORM, `${NAME}.app`)
+            else if (PLATFORM === 'windows') exePath = path.join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
+            else throw new Error(`Cannot launch the application for ${PLATFORM}`)
+
+            if (!existsSync(exePath)) throw new Error(`${NAME} has not been built yet.`)
+
+            const debugPort = 8315;
+            await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
+
+            console.log(chalk.green(`${NAME} launched!`))
+            console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
+    }
+}
+
 
 if ( isDev || isStart || isBuild ) {
 
@@ -294,37 +320,21 @@ if ( isDev || isStart || isBuild ) {
 
 } 
 
-if (isLaunch) {
+// ------------- Github Integration ----------------
 
-    // Run the mobile builds if needed
-    for (let platform of mobilePlatforms) await mobile.run(platform)
-
-   if (!mobilePlatforms.length) { 
-
-    const electronDistPath = path.join(process.cwd(), buildConfig.directories.output)
-
-    let exePath = ''
-    if (PLATFORM === 'mac') exePath = path.join(electronDistPath, PLATFORM, `${NAME}.app`)
-    else if (PLATFORM === 'windows') exePath = path.join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
-    else throw new Error(`Cannot launch the application for ${PLATFORM}`)
-
-    if (!existsSync(exePath)) throw new Error(`${NAME} has not been built yet.`)
-
-    const debugPort = 8315;
-    await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
-
-    console.log(chalk.green(`${NAME} launched!`))
-    console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
-
-   }
-}
-
-if (command === 'publish') {
-    const result = await initGitRepo(userPkg).catch(e => {
+const ifRepo = async (callback) => {
+    const result = await initGitRepo(userPkg, cliArgs).catch(e => {
         console.log(chalk.red(e.message));
         return { valid: false }
     })
 
-    if (result.valid) await publishGHPages(args[1])
+    if (result.valid) callback()
     else throw Error('The git repository for this project has been configured incorrectly...')
 }
+
+if (command === 'commit') ifRepo(() => pushToGithub(cliArgs.message))
+
+if (command === 'publish') ifRepo(() => {
+    if (cliArgs.message) pushToGithub(cliArgs.message)
+    publishGHPages()
+})
