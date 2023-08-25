@@ -38,23 +38,17 @@ export default {
 ```
 
 - `plugins` - An object that declares the plugins to activate for this project. 
-> **Note:** The object provided will be used to configure the `capacitor` plugin only.
-
 ```js
 export default {
-    plugins: {
-        
-        bluetooth: {
-            displayStrings: {
-                scanning: "Scanning BLE...",
-                cancel: "Stop Scanning",
-                availableDevices: "Devices available!",
-                noDeviceFound: "No BLE devices found."
-            }
-        },
-
-        customplugin: true
-    }
+    plugins: [
+        {
+            name: 'test',
+            electronOnly: false,
+            main: () => console.log('ELECTRON BUILD (main)'),
+            preload: () => console.log('ALL BUILDS (preload)'),
+            renderer: () => console.log('ALL BUILDS (renderer)')
+        }
+    ]
 }
 ```
 

@@ -17,7 +17,6 @@ const baseConfig = {
     appId: APPID.replaceAll('-', ''),
     appName: NAME,
     webDir: 'dist',
-    bundledWebRuntime: false,
     server: { androidScheme: 'https' },
     plugins: {}
 }

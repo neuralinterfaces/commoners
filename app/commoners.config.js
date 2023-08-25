@@ -36,7 +36,7 @@ export default {
         {
             name: 'all-builds',
             electronOnly: false,
-            main: () => console.log('ALL BUILDS (main)'),
+            main: () => console.log('ELECTRON BUILD (main)'),
             preload: () => console.log('ALL BUILDS (preload)'),
             renderer: () => console.log('ALL BUILDS (renderer)')
 
