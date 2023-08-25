@@ -1,6 +1,6 @@
 {
-  "appId": "com.commoners.app",
-  "appName": "commoners",
+  "appId": "com.COMMONERS.app",
+  "appName": "COMMONERS",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

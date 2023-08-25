@@ -24,6 +24,13 @@
     chalk "^2.4.2"
     js-tokens "^4.0.0"
 
+"@capacitor-community/bluetooth-le@~3.0.0":
+  version "3.0.1"
+  resolved "https://registry.npmjs.org/@capacitor-community/bluetooth-le/-/bluetooth-le-3.0.1.tgz"
+  integrity sha512-IRjurszsqKgvEiITmqEJnIAyJdPYkLf/45WaPKrCOP2c8bFYCrenBu2tdKXm8Vfh/d0ybpojK1kcEFj8M4z97w==
+  dependencies:
+    "@types/web-bluetooth" "^0.0.16"
+
 "@capacitor/assets@^2.0.4":
   version "2.0.4"
   resolved "https://registry.npmjs.org/@capacitor/assets/-/assets-2.0.4.tgz"
@@ -87,7 +94,7 @@
     tslib "^2.4.0"
     xml2js "^0.5.0"
 
-"@capacitor/core@^5.3.0":
+"@capacitor/core@^5.0.0", "@capacitor/core@^5.3.0":
   version "5.3.0"
   resolved "https://registry.npmjs.org/@capacitor/core/-/core-5.3.0.tgz"
   integrity sha512-mvhh1yJtcUTZ0hUUriBKKpxq47hn75bjxH3tYPRgAFu1z3gowCg+OtG4Rce3W5gr5fSfCjQgOSL0Vp7k9hPUWw==
@@ -383,6 +390,11 @@
   version "5.0.0"
   resolved "https://registry.npmjs.org/@types/slice-ansi/-/slice-ansi-5.0.0.tgz"
   integrity sha512-Bt9wdwNObyD9EQMNN2GSeutWmpsZUC1/bip6XKawJ+cAK9Vhf2EwnSgg7G9Zd7KJv0fTvEbgHFjrHnImemyYQg==
+
+"@types/web-bluetooth@^0.0.16":
+  version "0.0.16"
+  resolved "https://registry.npmjs.org/@types/web-bluetooth/-/web-bluetooth-0.0.16.tgz"
+  integrity sha512-oh8q2Zc32S6gd/j50GowEjKLoOVOwHP/bWVjKJInBwQqdOYMdPrf1oVlelTlyfFK3CKxL1uahMDAr+vy8T7yMQ==
 
 "@types/ws@^8.5.4":
   version "8.5.5"
@@ -767,6 +779,8 @@ commander@^9.3.0:
 "commoners-ble-plugin@file:../packages/plugins/devices/ble":
   version "0.0.0"
   resolved "file:../packages/plugins/devices/ble"
+  dependencies:
+    "@capacitor-community/bluetooth-le" "~3.0.0"
 
 "commoners-serial-plugin@file:../packages/plugins/devices/serial":
   version "0.0.0"

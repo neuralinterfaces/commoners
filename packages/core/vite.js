@@ -51,7 +51,7 @@ return `<script>
 
             if (plugins) {
 
-                const getFnFromString = (str) => eval(\`(\${str})\`)
+                const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
 
                 const supported = await Promise.all(plugins.filter(async ({ name, isSupported }) => (typeof isSupported === 'function') ? await getFnFromString(isSupported)() : isSupported !== false))
 

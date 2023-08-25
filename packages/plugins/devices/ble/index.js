@@ -4,6 +4,7 @@ export const name = 'bluetooth'
 
 export const capacitor = {
   name: 'BluetoothLe',
+  package: { name: '@capacitor-community/bluetooth-le', version: '~3.0.0' },
   options: {
     displayStrings: {
       scanning: "Scanning BLE...",

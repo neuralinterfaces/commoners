@@ -17,9 +17,12 @@ const baseConfig = {
     appId: APPID.replaceAll('-', ''),
     appName: NAME,
     webDir: 'dist',
+    bundledWebRuntime: false,
     server: { androidScheme: 'https' },
     plugins: {}
 }
+
+const getCapacitorPlugins = () => resolvedConfig.plugins ? resolvedConfig.plugins.filter(o => o.capacitor).map(o => o.capacitor) : []
 
 // Create a temporary Capacitor configuration file if the user has not defined one
 export const openConfig = async (callback) => {
@@ -30,7 +33,7 @@ export const openConfig = async (callback) => {
 
         const config = JSON.parse(JSON.stringify(baseConfig))
         if (resolvedConfig.plugins) {
-            const capacitorPlugins = resolvedConfig.plugins.filter(o => o.capacitor).map(o => o.capacitor)
+            const capacitorPlugins = getCapacitorPlugins()
             capacitorPlugins.forEach(o => config.plugins[o.name] = o.options)
         }
 
@@ -44,9 +47,10 @@ export const openConfig = async (callback) => {
 
 }
 
-const installForUser = async (pkgName) => {
-    console.log(chalk.yellow(`Installing ${pkgName}...`))
-    await runCommand(`npm install ${pkgName} -D`, undefined, {log: false })
+const installForUser = async (pkgName, version) => {
+    const specifier = `${pkgName}${version ? `@${version}` : ''}`
+    console.log(chalk.yellow(`Installing ${specifier}...`))
+    await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
 }
 
 export const init = async (platform) => {
@@ -56,7 +60,7 @@ export const init = async (platform) => {
     })
 }
 
-export const checkDepinstalled = async (pkgName) => (!userPkg.devDependencies?.[pkgName]) ? await installForUser(pkgName) : true
+export const checkDepinstalled = async (pkgName, version) => (!userPkg.devDependencies?.[pkgName]) ? await installForUser(pkgName, version) : true
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (platform) => {
@@ -64,6 +68,7 @@ export const checkDepsInstalled = async (platform) => {
     await checkDepinstalled('@capacitor/core')
     await checkDepinstalled(`@capacitor/${platform}`)
     await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
+    await Promise.all(getCapacitorPlugins().map(({ package: pkg }) => pkg ? checkDepinstalled(pkg?.name ?? pkg, pkg?.version) : ''))
 }
 
 
