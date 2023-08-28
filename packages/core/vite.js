@@ -22,7 +22,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
             delete copy.main
             if (copy.electronOnly !== false) {
                 delete copy.preload
-                delete copy.renderer
+                delete copy.render
             }
         }
 
@@ -85,8 +85,8 @@ return `<script>
 
                 })
             
-                supported.forEach(({ name, renderer }) => {
-                    if (renderer) __toRender[name] = getFnFromString(renderer)
+                supported.forEach(({ name, render }) => {
+                    if (render) __toRender[name] = getFnFromString(render)
                 })
             }
 
@@ -111,7 +111,7 @@ return `<script>
             try {
                 rendered[name] = __toRender[name](loaded[name])
             } catch (e) {
-                pluginErrorMessage(name, "renderer", e)
+                pluginErrorMessage(name, "render", e)
             }
         }
     });

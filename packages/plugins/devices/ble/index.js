@@ -68,7 +68,7 @@ export function preload(
     }
 }
 
-export function renderer({ onOpen, onUpdate, select }) {
+export function render({ onOpen, onUpdate, select }) {
 
   const modal = generateModal({
     headerText: `Available BLE Devices`,

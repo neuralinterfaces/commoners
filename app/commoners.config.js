@@ -23,7 +23,7 @@ export default {
         // NOTE: These are not present on non-Electron builds because functions cannot be reliably parsed
         {
             name: 'render-only',
-            renderer: () => console.log('RENDERED')
+            render: () => console.log('RENDERED')
         },
         {
             name: 'preload-only',
@@ -38,7 +38,7 @@ export default {
             electronOnly: false,
             main: () => console.log('ELECTRON BUILD (main)'),
             preload: () => console.log('ALL BUILDS (preload)'),
-            renderer: () => console.log('ALL BUILDS (renderer)')
+            render: () => console.log('ALL BUILDS (render)')
 
         }
     ],

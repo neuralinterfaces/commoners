@@ -40,8 +40,8 @@ config.plugins = new Promise(async (resolve, reject) => {
 
       })
 
-      supported.forEach(({ name, renderer }) => {
-        if (renderer) __toRender[name] = renderer
+      supported.forEach(({ name, render }) => {
+        if (render) __toRender[name] = render
       })
     } catch (e) {
       reject(e)

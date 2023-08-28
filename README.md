@@ -27,37 +27,38 @@ A Cross-Platform Development Kit for Everyone
 - `commoners publish` - Publish your latest commit to Github Pages (coming soon)
     - `--message` - Add a commit message and trigger a new commit
 
-## Configuration Options
-- `services` - An object that declares backend services to run
+
+## Core Concepts
+### Services
+Services are independent processes that the main application depends on. These may be `local` or `remote` based on the distributed application files.
+
+> **Note:** `commoners` currently supports `.js`, `.ts`, `.py`, `.exe`, and `.pkg` services.
+
+To declare a service, you simply add the source file path to the `commoners.config.js` file:
 ```js
 export default {
     services: {
-        myservice: './backend/index.ts'
+        test: './services/test/index.ts'
     },
 }
 ```
 
-- `plugins` - An object that declares the plugins to activate for this project. 
+To use a service, you should (1) check for the existence of the service, then (2) instantiate the appropriate URL from the `COMMONERS` global object:
+
 ```js
-export default {
-    plugins: [
-        {
-            name: 'test',
-            electronOnly: false,
-            main: () => console.log('ELECTRON BUILD (main)'),
-            preload: () => console.log('ALL BUILDS (preload)'),
-            renderer: () => console.log('ALL BUILDS (renderer)')
-        }
-    ]
-}
+    if ('test' in COMMMONERS.services) {
+        const url = new URL(COMMONERS.services.test.url)
+        // ....
+    }
 ```
 
 
-## Service Types
-### Python
-You'll likely want to package your service using `pyinstaller`, which will output an executable file that includes all dependencies.
 
-To swap between development and production files, you can use the following service structure:
+
+#### Using Services in Production
+Service configurations may be different between development and production. For instance, `.py` services are commonly packaged using `pyinstaller`, which will output an `.exe` / `.pkg` file that includes all dependencies.
+
+The following service structure would be used to handle this case:
 ```json
 {
     "src": "src/main.py",
@@ -75,6 +76,26 @@ To swap between development and production files, you can use the following serv
             ]
         }
     }
+}
+```
+
+### Plugins
+Plugins are collections of JavaScript functions that run at different points during app initialization. These points include:
+1. `main` - Immediately on Electron main process instantiation (`desktop` builds only)
+2. `preload` - Before the DOM is loaded 
+3. `render` - After the DOM is loaded 
+
+```js
+export default {
+    plugins: [
+        {
+            name: 'test',
+            electronOnly: false,
+            main: () => console.log('ELECTRON BUILD (main)'),
+            preload: () => console.log('ALL BUILDS (preload)'),
+            render: () => console.log('ALL BUILDS (renderer)')
+        }
+    ]
 }
 ```
 

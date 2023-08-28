@@ -57,7 +57,7 @@ export function preload(
   }
 }
 
-export function renderer({ onRequest, added, removed, select }) {
+export function render({ onRequest, added, removed, select }) {
 
   const modal = generateModal({
     headerText: `Available Serial Ports`,
