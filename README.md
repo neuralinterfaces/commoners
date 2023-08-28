@@ -87,4 +87,4 @@ cd ios/App
 pod install
 ```
 
-Then open XCode again and try again.
+Then open XCode and try again.
