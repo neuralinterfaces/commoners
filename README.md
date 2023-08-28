@@ -85,18 +85,29 @@ Plugins are collections of JavaScript functions that run at different points dur
 2. `preload` - Before the DOM is loaded 
 3. `render` - After the DOM is loaded 
 
+To declare a plugin, you simply add the relevant configuration object in the `plugins` array of the `commoners.config.js` file:
 ```js
 export default {
     plugins: [
         {
             name: 'test',
-            electronOnly: false,
+            electronOnly: false, // ???
             main: () => console.log('ELECTRON BUILD (main)'),
             preload: () => console.log('ALL BUILDS (preload)'),
             render: () => console.log('ALL BUILDS (renderer)')
         }
     ]
 }
+```
+
+To use a plugin, you should check for the existence of the plugin, which *may* have a return value separately stored in the `plugins.loaded` and `plugins.rendered` propreties:
+
+```js
+    if ('test' in COMMMONERS.plugins.loaded) {
+        const loadedPlugin = COMMMONERS.plugins.loaded.test
+        const renderedPlugin = COMMMONERS.plugins.loaded.rendered
+        // ....
+    }
 ```
 
 ## Build Notes
