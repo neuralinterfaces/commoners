@@ -1,5 +1,8 @@
 {
     "name": "commoners-ble-plugin",
     "version": "0.0.0",
-    "main": "index.js"
+    "main": "index.js",
+    "dependencies" :{
+        "@capacitor-community/bluetooth-le": "~3.0.0"
+    }
 }

@@ -1,12 +1,10 @@
+import { BleClient, numbersToDataView, numberToUUID } from '@capacitor-community/bluetooth-le';
 
 const sidecarMessage = document.getElementById('sidecar-msg') as HTMLElement
 
 const display = (message: string) => {
   sidecarMessage.innerText += `${message}\n`
 }
-
-console.log('Web Serial Supported:', 'serial' in COMMONERS.plugins.loaded)
-console.log('Web Bluetooth Supported:', 'bluetooth' in COMMONERS.plugins.loaded)
 
 const onData = (data: any) => {
   if (data.error) return console.error(data.error)
@@ -82,15 +80,25 @@ async function requestSerialPort () {
 }
 
 const testSerialConnection = document.getElementById('testSerialConnection')
-if (testSerialConnection) testSerialConnection.addEventListener('click', requestSerialPort)
-
+if (testSerialConnection) {
+  if ('serial' in COMMONERS.plugins.loaded) testSerialConnection.addEventListener('click', requestSerialPort)
+  else testSerialConnection.setAttribute('disabled', '')
+}
 // --------- Web Bluetooth Test ---------
 async function requestBluetoothDevice () {
 
-  const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true })
+  // Use the Capacitor API to support mobile
+  await BleClient.initialize();
+  const device = await BleClient.requestDevice();
+
+  // const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true })
   console.log(device)
   display(`Connected to Bluetooth Device: ${device.name || `ID: ${device.id}`}`)
 }
 
 const testBluetoothConnection = document.getElementById('testBluetoothConnection')
-if (testBluetoothConnection) testBluetoothConnection.addEventListener('click', requestBluetoothDevice)
+
+if (testBluetoothConnection) {
+  if ('bluetooth' in COMMONERS.plugins.loaded) testBluetoothConnection.addEventListener('click', requestBluetoothDevice)
+  else testBluetoothConnection.setAttribute('disabled', '')
+}

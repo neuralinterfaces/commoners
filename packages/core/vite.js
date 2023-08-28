@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { join } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir } from "../../globals.js";
+import { rootDir, userPkg, scopedOutDir, TARGET } from "../../globals.js";
 
 export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
 
@@ -31,7 +31,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
 
     // NOTE: Only simple plugins can be transferred between contexts
     const strConfig = JSON.stringify(config, function (k, v) {
-        if (typeof v === 'function') return v.toString().replaceAll('"', "'")
+        if (typeof v === 'function') return v.toString().replaceAll('"', "'").replaceAll("\n", "\\n")
         else return v
     })
 
@@ -43,53 +43,68 @@ return `<script>
 
     const pluginsResolved = new Promise(async (resolve, reject) => {
 
+
+        const loaded = {}
+        const __toRender = {}
+
         // Preload plugins for non-Electron builds
         if (!${withElectron}) {
+            
 
             const { plugins } = globalThis.COMMONERS = JSON.parse(\`${strConfig}\`)
-            const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
-
             if (plugins) {
+
+                const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
 
                 const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
 
-                const supported = await Promise.all(plugins.filter(async ({ name, isSupported }) => (typeof isSupported === 'function') ? await getFnFromString(isSupported)() : isSupported !== false))
+                // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
+                const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-                const loaded = supported.reduce((acc, { name, preload }) => {
+
+                const supported = await asyncFilter(plugins, async (plugin) => {
+                    try {
+                        let { isSupported } = plugin
+                        if (isSupported && typeof isSupported === 'object') isSupported = isSupported['${TARGET}']
+                        return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, '${TARGET}') : isSupported !== false
+                    } catch {
+                        return false
+                    }
+                })
+
+
+                supported.forEach(({ name, preload }) => {
                     
-                    acc[name] = undefined // Register that all supported plugins are technically loaded
+                    loaded[name] = undefined // Register that all supported plugins are technically loaded
 
                     try {
-                        if (preload) acc[name] = getFnFromString(preload)()
+                        if (preload) loaded[name] = getFnFromString(preload)()
                     } catch (e) {
                         pluginErrorMessage(name, "preload", e)
                     }
-                    return acc
-                }, {})
-            
-                const __toRender = supported.reduce((acc, { name, renderer }) => {
-                    if (renderer) acc[name] = getFnFromString(renderer)
-                    return acc
-                }, {})
-            
-                COMMONERS.plugins = {
-                    loaded,
-                    __toRender,
-                }
 
-                resolve()
+                })
+            
+                supported.forEach(({ name, renderer }) => {
+                    if (renderer) __toRender[name] = getFnFromString(renderer)
+                })
             }
-        } else resolve()
+
+            resolve(COMMONERS.plugins = { loaded, __toRender })
+
+        } 
+        
+        else resolve(await COMMONERS.plugins) // Await the plugins declared in preload.js
 
     })
 
     document.addEventListener("DOMContentLoaded", async function(){
-        console.log('COMMONERS Variables:', COMMONERS)
 
+        await pluginsResolved
         const { plugins } = COMMONERS
         
         // Handle Preloaded Plugin Values
-        const { __toRender = {}, loaded } = plugins ?? {}
+        const { __toRender = {}, loaded } = plugins
         delete plugins.__toRender
         const rendered = plugins.rendered = {}
         for (let name in __toRender) {

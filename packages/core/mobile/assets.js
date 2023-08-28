@@ -3,8 +3,13 @@ import { config as resolvedConfig } from "../../../globals"
 
 import { extname, join } from "node:path"
 
+export const has = () => !!resolvedConfig.icon
+
 export const create = () => {
     const parentPath = 'resources'
+
+    if (!has()) return
+
     let iconInfo = { 
         default: typeof resolvedConfig.icon === 'string' ? resolvedConfig.icon : (resolvedConfig.icon.light ?? resolvedConfig.icon.dark ?? Object.values(resolvedConfig.icon).find(o => typeof o === 'string')),
         parent: {
@@ -14,7 +19,7 @@ export const create = () => {
         light: {}, 
         dark: {} 
     }
-    
+
     // Create icons
     const { light, dark, parent, default: iconDefault } = iconInfo
     if (iconDefault) {
@@ -31,7 +36,9 @@ export const create = () => {
 
 }
 
-export const cleanup = ({ light, dark, parent }) => {
+export const cleanup = (info) => {
+    if (!info) return
+    const { light, dark, parent } = info
     rmSync(light.to)
     rmSync(dark.to)
     if (!parent.existed) rmSync(parent.path, { recursive: true, force: true })

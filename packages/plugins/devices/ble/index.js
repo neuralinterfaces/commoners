@@ -2,20 +2,24 @@ import { generateModal } from '../common.js'
 
 export const name = 'bluetooth'
 
-export const capacitor = {
-  name: 'BluetoothLe',
-  package: { name: '@capacitor-community/bluetooth-le', version: '~3.0.0' },
-  options: {
-    displayStrings: {
-      scanning: "Scanning BLE...",
-      cancel: "Stop Scanning",
-      availableDevices: "Devices available!",
-      noDeviceFound: "No BLE devices found."
-    }
-  }
-}
+// @capacitor-community/bluetooth-le must be installed by the user
 
-export const isSupported = async () => await navigator.bluetooth.getAvailability() // Check if BLE is available on web builds
+export const isSupported = {
+  desktop: true,
+  mobile: {
+    name: 'BluetoothLe',
+    plugin: '@capacitor-community/bluetooth-le', // Must be installed by the user
+    options: {
+      displayStrings: {
+        scanning: "Scanning BLE...",
+        cancel: "Stop Scanning",
+        availableDevices: "Devices available!",
+        noDeviceFound: "No BLE devices found."
+      }
+    }
+  },
+  web: async () => await navigator.bluetooth.getAvailability()
+}
 
 export function main (
   // this: IpcMain, 

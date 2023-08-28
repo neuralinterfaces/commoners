@@ -8,23 +8,48 @@ const configFileName = 'commoners.config.js'
 const configPath = join(commonersDist, 'assets', configFileName)
 const config = require(configPath).default ?? {}
 
-// // Inject the configuration file (with activated options) into the Electron context
-if (config.plugins) {
-    const loaded = config.plugins.reduce((acc, { name, preload }) => {
-      if (preload) acc[name] = preload.call(ipcRenderer)
-      return acc
-    }, {})
+// https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
+const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-    const __toRender = config.plugins.reduce((acc, { name, renderer }) => {
-      if (renderer) acc[name] = renderer
-      return acc
-    }, {})
 
-    config.plugins = {
-      loaded,
-      __toRender,
+config.plugins = new Promise(async (resolve, reject) => {
+
+  const loaded = {}
+  const __toRender = {}
+  const { plugins } = config
+
+
+  if (plugins) {
+    try {
+
+      const supported = await asyncFilter(plugins, async (plugin) => {
+        let { isSupported } = plugin
+
+        try {
+          if (isSupported && typeof isSupported === 'object') isSupported = isSupported['desktop']
+          return (typeof isSupported === 'function') ? await plugin.isSupported('desktop') : isSupported !== false
+        } catch {
+          return false
+        }
+      })
+
+      supported.forEach(({ name, preload }) => {
+
+        loaded[name] = undefined // Register that all supported plugins are technically loaded
+        if (preload) loaded[name] = preload.call(ipcRenderer)
+
+      })
+
+      supported.forEach(({ name, renderer }) => {
+        if (renderer) __toRender[name] = renderer
+      })
+    } catch (e) {
+      reject(e)
     }
-}
+  }
+
+  resolve(config.plugins = { loaded, __toRender })
+})
 
 // Assign sanitized services to the global object
 if (config.services) {
