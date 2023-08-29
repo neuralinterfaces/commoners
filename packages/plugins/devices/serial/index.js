@@ -4,8 +4,13 @@ export const name = 'serial'
 
 export const isSupported = {
   desktop: true,
-  mobile: false,
-  web: async () => 'serial' in navigator 
+  mobile: {
+    properties: false
+  },
+  web: {
+    check: async () => 'serial' in navigator,
+    properties: false
+  }
 }
 
 export function main(

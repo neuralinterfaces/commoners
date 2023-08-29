@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { join } from 'node:path'
 
+import { sanitizePluginProperties } from './utils/plugins'
+
 // Load preload the configuration file
 const commonersDist = join(__dirname, '..')
 const configFileName = 'commoners.config.js'
@@ -18,6 +20,8 @@ config.plugins = new Promise(async (resolve, reject) => {
   const __toRender = {}
   const { plugins } = config
 
+  const env = { TARGET: 'desktop' }
+
 
   if (plugins) {
     try {
@@ -26,21 +30,23 @@ config.plugins = new Promise(async (resolve, reject) => {
         let { isSupported } = plugin
 
         try {
-          if (isSupported && typeof isSupported === 'object') isSupported = isSupported['desktop']
-          return (typeof isSupported === 'function') ? await plugin.isSupported('desktop') : isSupported !== false
+          if (isSupported && typeof isSupported === 'object') isSupported = isSupported[env.TARGET]
+          return (typeof isSupported === 'function') ? await plugin.isSupported(env.TARGET) : isSupported !== false
         } catch {
           return false
         }
       })
 
-      supported.forEach(({ name, preload }) => {
+      const sanitized = supported.map(o => sanitizePluginProperties(o, env.TARGET))
+
+      sanitized.forEach(({ name, preload }) => {
 
         loaded[name] = undefined // Register that all supported plugins are technically loaded
-        if (preload) loaded[name] = preload.call(ipcRenderer)
+        if (preload) loaded[name] = preload.call(ipcRenderer, env)
 
       })
 
-      supported.forEach(({ name, render }) => {
+      sanitized.forEach(({ name, render }) => {
         if (render) __toRender[name] = render
       })
     } catch (e) {

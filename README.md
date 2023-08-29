@@ -90,11 +90,22 @@ To declare a plugin, you simply add the relevant configuration object in the `pl
 export default {
     plugins: [
         {
-            name: 'test',
-            electronOnly: false, // ???
-            main: () => console.log('ELECTRON BUILD (main)'),
-            preload: () => console.log('ALL BUILDS (preload)'),
-            render: () => console.log('ALL BUILDS (renderer)')
+            name: 'selective-builds',
+            isSupported: {
+                desktop: {
+                    render: false,
+                    preload: false
+                },
+                mobile: {
+                    render: false
+                },
+                web: {
+                    preload: false
+                }
+            },
+            main: () => console.log('desktop build (main)'),
+            preload: ({ platform }) => console.log(platform + ' build (preload)'),
+            render: (_, { platform }) => console.log(platform + ' build (render)'),
         }
     ]
 }

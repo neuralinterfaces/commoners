@@ -26,7 +26,10 @@ const baseConfig = {
 
 const isCapacitorConfig = (o) => o && typeof o === 'object' && 'name' in o && 'plugin' in o
 
-const getCapacitorPluginAccessors = () => resolvedConfig.plugins ? resolvedConfig.plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile)).map(o => [o.isSupported?.mobile, (v) => o.isSupported.mobile = v]) : []
+const getCapacitorPluginAccessors = () => resolvedConfig.plugins ? resolvedConfig.plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile)).map(o => [o.isSupported?.mobile?.capacitor, (v) => {
+    if (!o.isSupported.mobile) o.isSupported.mobile = {}
+    o.isSupported.mobile.capacitor = v
+}]) : []
 
 
 export const prebuild = () => {

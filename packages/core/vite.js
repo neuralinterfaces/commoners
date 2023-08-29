@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { join } from 'node:path'
 
 import { rootDir, userPkg, scopedOutDir, TARGET } from "../../globals.js";
+import { sanitizePluginProperties } from '../../template/src/preload/utils/plugins.js'
 
 export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
 
@@ -16,22 +17,11 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
     config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Only provide sanitized service information
 
     // Only transfer plugin values that might actually be used
-    if (config.plugins) config.plugins = config.plugins.map((v, i) => {
-        const copy = {...v}
-        if (('main' in copy)) {
-            delete copy.main
-            if (copy.electronOnly !== false) {
-                delete copy.preload
-                delete copy.render
-            }
-        }
-
-        return copy
-    })
+    if (config.plugins) config.plugins = config.plugins.map((o) => sanitizePluginProperties(o, TARGET))
 
     // NOTE: Only simple plugins can be transferred between contexts
     const strConfig = JSON.stringify(config, function (k, v) {
-        if (typeof v === 'function') return v.toString().replaceAll('"', "'").replaceAll("\n", "\\n")
+        if (typeof v === 'function') return v.toString().replaceAll('"', "'").replaceAll("\n", "\\n") // NOTE: Cannot handle internal template strings inside the functions
         else return v
     })
 
@@ -40,8 +30,6 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
     
     const { plugins } = globalThis.COMMONERS = JSON.parse(\`${strConfig}\`)
     if (plugins) {
-
-        const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
 
         const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
 
@@ -52,8 +40,8 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         const supported = await asyncFilter(plugins, async (plugin) => {
             try {
                 let { isSupported } = plugin
-                if (isSupported && typeof isSupported === 'object') isSupported = isSupported['${TARGET}']
-                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, '${TARGET}') : isSupported !== false
+                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[env.target]
+                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, env.target) : isSupported !== false
             } catch {
                 return false
             }
@@ -65,7 +53,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
             loaded[name] = undefined // Register that all supported plugins are technically loaded
 
             try {
-                if (preload) loaded[name] = getFnFromString(preload)()
+                if (preload) loaded[name] = getFnFromString(preload)(env)
             } catch (e) {
                 pluginErrorMessage(name, "preload", e)
             }
@@ -73,7 +61,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         })
     
         supported.forEach(({ name, render }) => {
-            if (render) __toRender[name] = getFnFromString(render)
+            if (render) __toRender[name] = getFnFromString(render, env)
         })
     }
 
@@ -86,6 +74,13 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
             name: 'commoners',
             transformIndexHtml(html) {
 return `<script>
+
+    // Injected environment from the COMMONERS build process
+    const env = {
+        TARGET: '${TARGET}'
+    }
+
+    const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
 
     const pluginsResolved = new Promise(async (resolve, reject) => {
 
@@ -108,7 +103,7 @@ return `<script>
         const rendered = plugins.rendered = {}
         for (let name in __toRender) {
             try {
-                rendered[name] = __toRender[name](loaded[name])
+                rendered[name] = __toRender[name](loaded[name], env)
             } catch (e) {
                 pluginErrorMessage(name, "render", e)
             }

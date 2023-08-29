@@ -7,18 +7,24 @@ export const name = 'bluetooth'
 export const isSupported = {
   desktop: true,
   mobile: {
-    name: 'BluetoothLe',
-    plugin: '@capacitor-community/bluetooth-le', // Must be installed by the user
-    options: {
-      displayStrings: {
-        scanning: "Scanning BLE...",
-        cancel: "Stop Scanning",
-        availableDevices: "Devices available!",
-        noDeviceFound: "No BLE devices found."
+    capacitor: {
+      name: 'BluetoothLe',
+      plugin: '@capacitor-community/bluetooth-le', // Must be installed by the user
+      options: {
+        displayStrings: {
+          scanning: "Scanning BLE...",
+          cancel: "Stop Scanning",
+          availableDevices: "Devices available!",
+          noDeviceFound: "No BLE devices found."
+        }
       }
-    }
+    },
+    properties: false
   },
-  web: async () => await navigator.bluetooth.getAvailability()
+  web: {
+    check: async () => await navigator.bluetooth.getAvailability(),
+    properties: false
+  }
 }
 
 export function main (
