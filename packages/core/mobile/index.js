@@ -26,16 +26,17 @@ const baseConfig = {
 
 const isCapacitorConfig = (o) => o && typeof o === 'object' && 'name' in o && 'plugin' in o
 
-const getCapacitorPluginAccessors = () => resolvedConfig.plugins ? resolvedConfig.plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile)).map(o => [o.isSupported?.mobile?.capacitor, (v) => {
-    if (!o.isSupported.mobile) o.isSupported.mobile = {}
-    o.isSupported.mobile.capacitor = v
+const getCapacitorPluginAccessors = () => resolvedConfig.plugins ? resolvedConfig.plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile?.capacitor)).map(o => [o.isSupported?.mobile?.capacitor, (v) => {
+    console.log('Setting parent', o.name, v)
+    if (v === false) o.isSupported.mobile = false
+    else if (!o.isSupported.mobile) o.isSupported.mobile = {} // Set to evaluate to true
 }]) : []
 
 
 export const prebuild = () => {
     // Map Capacitor plugin information to their availiabity
     const accessors = getCapacitorPluginAccessors()
-    accessors.forEach(([ref, setParent]) => setParent(isInstalled(ref.plugin)))
+    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin)) ? setParent(false) : '')
 }
 
 // Create a temporary Capacitor configuration file if the user has not defined one

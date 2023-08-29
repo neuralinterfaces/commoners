@@ -4,11 +4,9 @@ export const name = 'serial'
 
 export const isSupported = {
   desktop: true,
-  mobile: {
-    properties: false
-  },
+  mobile: false,
   web: {
-    check: async () => 'serial' in navigator,
+    check: async () => 'serial' in navigator, 
     properties: false
   }
 }
@@ -65,7 +63,7 @@ export function preload(
 export function render({ onRequest, added, removed, select }) {
 
   const modal = generateModal({
-    headerText: `Available Serial Ports`,
+    headerText: 'Available Serial Ports',
     added,
     removed,
     mapDeviceToInfo: (o) => {

@@ -40,8 +40,9 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         const supported = await asyncFilter(plugins, async (plugin) => {
             try {
                 let { isSupported } = plugin
-                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[env.target]
-                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, env.target) : isSupported !== false
+                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[env.TARGET]
+                if (typeof isSupported?.check === 'string') isSupported = isSupported.check
+                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, env.TARGET) : isSupported !== false
             } catch {
                 return false
             }

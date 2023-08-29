@@ -104,8 +104,8 @@ export default {
                 }
             },
             main: () => console.log('desktop build (main)'),
-            preload: ({ platform }) => console.log(platform + ' build (preload)'),
-            render: (_, { platform }) => console.log(platform + ' build (render)'),
+            preload: ({ TARGET }) => console.log(TARGET + ' build (preload)'),
+            render: (_, { TARGET }) => console.log(TARGET + ' build (render)'),
         }
     ]
 }
@@ -124,10 +124,10 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
 ## Build Notes
 ### iOS
 #### Fix Pods Issue
-Close XCode and run the following commands on the terminal:
+Run the following commands on the terminal and try again:
 ```
 cd ios/App
 pod install
 ```
 
-Then open XCode and try again.
+If you add any Capacitor plugins to your dependencies, you'll need to run this again.

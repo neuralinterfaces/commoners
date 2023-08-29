@@ -77,7 +77,7 @@ export function preload(
 export function render({ onOpen, onUpdate, select }) {
 
   const modal = generateModal({
-    headerText: `Available BLE Devices`,
+    headerText: 'Available BLE Devices',
     mapDeviceToInfo: (o) => {
       return {
         name: o.deviceName,
