@@ -1,5 +1,5 @@
 {
-    "name": "commoners-ble-plugin",
+    "name": "@commoners/bluetooth",
     "version": "0.0.0",
     "main": "index.js",
     "dependencies" :{

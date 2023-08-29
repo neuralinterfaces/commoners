@@ -1,11 +1,11 @@
 # commoners
-A Cross-Platform Development Kit for Everyone
+The Cross-Platform Development Kit for Everyone
 
  The `commoners` CLI allows anyone to build their application for multiple platforms.
 
- Our particular goal has been to develop a simple tool for building web, desktop, and mobile applications that connect to Bluetooth and USB biosensing devices. 
- 
- As such, `commoners` has been battle-tested against this use-case.
+ Our goal has been to develop a simple tool for building web, desktop, and mobile applications that connect to Bluetooth biosensing devices. As such, `commoners` has been battle-tested against this use-case.
+
+ > **Note:** For a complete example of a COMMONERS application, visit the [commoners-starter-kit](https://github.com/commonersdev/commoners-starter-kit).
 
 ## Commands
 - `commoners start` - Start your project in an Electron application.
@@ -112,7 +112,7 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
 
 ## Build Notes
 ### iOS
-## Fix Pods Issue
+#### Fix Pods Issue
 Close XCode and run the following commands on the terminal:
 ```
 cd ios/App

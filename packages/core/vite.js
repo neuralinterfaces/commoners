@@ -35,6 +35,52 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         else return v
     })
 
+    // Preload plugins for non-Electron builds
+    const nonElectronPreloadScript = `
+    
+    const { plugins } = globalThis.COMMONERS = JSON.parse(\`${strConfig}\`)
+    if (plugins) {
+
+        const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
+
+        const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
+
+        // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
+        const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
+
+
+        const supported = await asyncFilter(plugins, async (plugin) => {
+            try {
+                let { isSupported } = plugin
+                if (isSupported && typeof isSupported === 'object') isSupported = isSupported['${TARGET}']
+                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, '${TARGET}') : isSupported !== false
+            } catch {
+                return false
+            }
+        })
+
+
+        supported.forEach(({ name, preload }) => {
+            
+            loaded[name] = undefined // Register that all supported plugins are technically loaded
+
+            try {
+                if (preload) loaded[name] = getFnFromString(preload)()
+            } catch (e) {
+                pluginErrorMessage(name, "preload", e)
+            }
+
+        })
+    
+        supported.forEach(({ name, render }) => {
+            if (render) __toRender[name] = getFnFromString(render)
+        })
+    }
+
+    COMMONERS.plugins = { loaded, __toRender }
+    
+    `
+
     const plugins = [
         {
             name: 'commoners',
@@ -46,55 +92,8 @@ return `<script>
 
         const loaded = {}
         const __toRender = {}
-
-        // Preload plugins for non-Electron builds
-        if (!${withElectron}) {
-            
-
-            const { plugins } = globalThis.COMMONERS = JSON.parse(\`${strConfig}\`)
-            if (plugins) {
-
-                const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
-
-                const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
-
-                // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
-                const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
-
-
-                const supported = await asyncFilter(plugins, async (plugin) => {
-                    try {
-                        let { isSupported } = plugin
-                        if (isSupported && typeof isSupported === 'object') isSupported = isSupported['${TARGET}']
-                        return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, '${TARGET}') : isSupported !== false
-                    } catch {
-                        return false
-                    }
-                })
-
-
-                supported.forEach(({ name, preload }) => {
-                    
-                    loaded[name] = undefined // Register that all supported plugins are technically loaded
-
-                    try {
-                        if (preload) loaded[name] = getFnFromString(preload)()
-                    } catch (e) {
-                        pluginErrorMessage(name, "preload", e)
-                    }
-
-                })
-            
-                supported.forEach(({ name, render }) => {
-                    if (render) __toRender[name] = getFnFromString(render)
-                })
-            }
-
-            resolve(COMMONERS.plugins = { loaded, __toRender })
-
-        } 
-        
-        else resolve(await COMMONERS.plugins) // Await the plugins declared in preload.js
+        ${withElectron ? '' : nonElectronPreloadScript}
+        resolve(await COMMONERS.plugins) // Await the plugins declared in preload.js
 
     })
 

@@ -1,5 +1,5 @@
 {
-    "name": "commoners-autoupdate-plugin",
+    "name": "@commoners/autoupdate",
     "version": "0.0.0",
     "main": "index.js",
     "dependencies": {
