@@ -29,6 +29,7 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
   const configPath = join(commonersAssets, configFileName)
   const config = existsSync(configPath) ? require(configPath).default : {}
 
+  // Replace with getIcon (?)
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
   const linuxIcon = config.icon?.linux || defaultIcon
 

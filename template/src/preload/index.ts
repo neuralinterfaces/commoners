@@ -42,7 +42,7 @@ config.plugins = new Promise(async (resolve, reject) => {
       sanitized.forEach(({ name, preload }) => {
 
         loaded[name] = undefined // Register that all supported plugins are technically loaded
-        if (preload) loaded[name] = preload.call(ipcRenderer, env)
+        if (preload) loaded[name] = preload.call(ipcRenderer)
 
       })
 

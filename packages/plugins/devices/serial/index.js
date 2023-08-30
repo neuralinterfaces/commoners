@@ -4,7 +4,9 @@ export const name = 'serial'
 
 export const isSupported = {
   desktop: true,
-  mobile: false,
+  mobile: () => {
+    return COMMONERS.PLATFORM === 'android'
+  },
   web: {
     check: async () => 'serial' in navigator, 
     properties: false

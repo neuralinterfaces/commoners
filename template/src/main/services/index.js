@@ -5,6 +5,7 @@ import { extname, join } from "node:path"
 import { getFreePorts } from './utils/network.js';
 import { isValidURL } from '../../../../packages/utilities/url.js';
 import { spawn } from 'node:child_process';
+import { MODE } from '../../../../globals.js';
 
 let processes = {}
 
@@ -21,8 +22,8 @@ function resolveConfig(config) {
 
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
 
-  const mode = process.env.COMMONERS_MODE ?? "local"
-  const isProduction = process.env.COMMONERS_MODE !== "dev"
+  const mode = MODE
+  const isProduction = MODE !== "development"
 
 
   if (isProduction && config.publish) {

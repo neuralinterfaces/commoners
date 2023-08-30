@@ -104,8 +104,8 @@ export default {
                 }
             },
             main: () => console.log('desktop build (main)'),
-            preload: ({ TARGET }) => console.log(TARGET + ' build (preload)'),
-            render: (_, { TARGET }) => console.log(TARGET + ' build (render)'),
+            preload: () => console.log(COMMONERS.TARGET + ' build (preload)'),
+            render: () => console.log(COMMONERS.TARGET + ' build (render)'),
         }
     ]
 }

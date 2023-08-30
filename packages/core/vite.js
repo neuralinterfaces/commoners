@@ -3,10 +3,11 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import { VitePWA } from 'vite-plugin-pwa'
 
-import { join } from 'node:path'
+import { join, normalize } from 'node:path'
 
 import { rootDir, userPkg, scopedOutDir, TARGET } from "../../globals.js";
 import { sanitizePluginProperties } from '../../template/src/preload/utils/plugins.js'
+import { getIcon } from './utils/index.js'
 
 export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
 
@@ -25,6 +26,8 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         else return v
     })
 
+    const icon = getIcon(config)
+
     // Preload plugins for non-Electron builds
     const nonElectronPreloadScript = `
     
@@ -36,13 +39,12 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
         const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-
         const supported = await asyncFilter(plugins, async (plugin) => {
             try {
                 let { isSupported } = plugin
-                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[env.TARGET]
+                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
                 if (typeof isSupported?.check === 'string') isSupported = isSupported.check
-                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, env.TARGET) : isSupported !== false
+                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, COMMONERS.TARGET) : isSupported !== false
             } catch {
                 return false
             }
@@ -54,7 +56,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
             loaded[name] = undefined // Register that all supported plugins are technically loaded
 
             try {
-                if (preload) loaded[name] = getFnFromString(preload)(env)
+                if (preload) loaded[name] = getFnFromString(preload)()
             } catch (e) {
                 pluginErrorMessage(name, "preload", e)
             }
@@ -62,7 +64,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         })
     
         supported.forEach(({ name, render }) => {
-            if (render) __toRender[name] = getFnFromString(render, env)
+            if (render) __toRender[name] = getFnFromString(render)
         })
     }
 
@@ -74,12 +76,14 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         {
             name: 'commoners',
             transformIndexHtml(html) {
-return `<script>
+return `
+${
+    icon ? `<link rel="icon" type="image/x-icon" href="./${normalize(icon)}">` : '' // Add favicon
+}
+<script>
 
     // Injected environment from the COMMONERS build process
-    const env = {
-        TARGET: '${TARGET}'
-    }
+
 
     const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
 
@@ -104,7 +108,7 @@ return `<script>
         const rendered = plugins.rendered = {}
         for (let name in __toRender) {
             try {
-                rendered[name] = __toRender[name](loaded[name], env)
+                rendered[name] = __toRender[name](loaded[name])
             } catch (e) {
                 pluginErrorMessage(name, "render", e)
             }

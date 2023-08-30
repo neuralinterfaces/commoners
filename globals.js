@@ -6,6 +6,7 @@ import { getConfig } from "./packages/utilities/config.js";
 import minimist from 'minimist';
 import { yesNo } from "./packages/utilities/inquirer.js";
 import { writeFileSync } from "node:fs";
+import { platform } from "node:os";
 
 
 export const outDir = 'dist'
@@ -20,7 +21,7 @@ export const [ passedCommand ] = cliArgs._
 
 const validTargets = ['desktop', 'mobile', 'web']
 const validCommands = ['start', 'dev', 'build', 'launch', 'commit', 'publish']
-// const validMode = ['dev', 'local', 'remote']
+// const validMode = ['development', 'local', 'remote']
 
 // // Full Cascade (TO SUPPORT)
 // const object = {
@@ -84,16 +85,23 @@ if (target.desktop && path.normalize(userPkg.main) !== path.normalize(defaultMai
     }
 }
 
-export const MODE = process.env.COMMONERS_MODE = (command.start || command.dev) ? 'dev' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) // Always a development environment command
+export const MODE = (command.start || command.dev) ? 'development' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) // Always a development environment command
 
-export const TARGET = process.env.COMMONERS_TARGET = Object.entries(target).find(([_, value]) => value)[0] // return the key of the first true target
+export const TARGET = Object.entries(target).find(([_, value]) => value)[0] // return the key of the first true target
+
+const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+export const PLATFORM = validMobilePlatforms.find(str => cliArgs[str]) || getOS()  // Declared Mobile OR Implicit Desktop Patform
+
 
 export const config = await getConfig()
+
+// Add Environment Variables to the config
+config.TARGET = TARGET
+config.MODE = MODE
 
 export const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
 export const NAME = userPkg.name // Specify the product name
-export const PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 export const APPID = `com.${NAME}.app`
 
 export const rootDir = dirname(fileURLToPath(import.meta.url));

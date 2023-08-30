@@ -22,6 +22,7 @@ import * as yaml from 'js-yaml'
 
 import * as mobile from './packages/core/mobile'
 import { push as pushToGithub } from "./packages/utilities/github/repo.js";
+import { getIcon } from "./packages/core/utils/index.js";
 
 // Get Configuration File and Path
 const templateDir = path.join(rootDir, 'template')
@@ -251,7 +252,7 @@ if (command.dev || command.start || command.build) {
                 else buildConfig.electronVersion = electronVersion
             }
 
-            const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : (config.icon.light ?? config.icon.dark ?? Object.values(config.icon).find(str => typeof str === 'string')))
+            const defaultIcon = getIcon(config)
             const macIcon = config.icon?.mac || defaultIcon
             const winIcon = config.icon?.win || defaultIcon
 
