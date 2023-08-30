@@ -5,7 +5,6 @@ import { extname, join } from "node:path"
 import { getFreePorts } from './utils/network.js';
 import { isValidURL } from '../../../../packages/utilities/url.js';
 import { spawn } from 'node:child_process';
-import { MODE } from '../../../../globals.js';
 
 let processes = {}
 
@@ -22,8 +21,8 @@ function resolveConfig(config) {
 
 export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
 
-  const mode = MODE
-  const isProduction = MODE !== "development"
+  const mode = process.env.MODE
+  const isProduction = mode !== "development"
 
 
   if (isProduction && config.publish) {
@@ -135,7 +134,7 @@ export async function resolveAll (services = {}, assets) {
     propsToInclude.forEach(prop => info[id][prop] = serviceInfo[id][prop])
   }
 
-  process.env.COMMONERS_SERVICES = JSON.stringify(info)
+  process.env.SERVICES = JSON.stringify(info)
 
   return serviceInfo
 }

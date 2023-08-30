@@ -59,7 +59,7 @@ config.plugins = new Promise(async (resolve, reject) => {
 
 // Assign sanitized services to the global object
 if (config.services) {
-  const services = process.env.COMMONERS_SERVICES
+  const services = process.env.SERVICES
   if (services) config.services = JSON.parse(services)
 }
 

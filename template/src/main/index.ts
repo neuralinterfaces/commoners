@@ -158,9 +158,9 @@ function createAppWindows(config) {
 app.whenReady().then(async () => {
 
   // Pass preconfigured properties to the main service declaration
-  if ('COMMONERS_SERVICES' in process.env) {
-    const { COMMONERS_SERVICES } = process.env
-    const preconfigured = JSON.parse(COMMONERS_SERVICES as string)
+  const { SERVICES } = process.env
+  if (SERVICES) {
+    const preconfigured = JSON.parse(SERVICES as string)
     for (let id in preconfigured) {
       if (typeof config.services[id] === 'string') config.services[id] = { src: config.services[id] }
       config.services[id] = Object.assign(config.services[id], preconfigured[id])

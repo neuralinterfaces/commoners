@@ -6,7 +6,6 @@ import { getConfig } from "./packages/utilities/config.js";
 import minimist from 'minimist';
 import { yesNo } from "./packages/utilities/inquirer.js";
 import { writeFileSync } from "node:fs";
-import { platform } from "node:os";
 
 
 export const outDir = 'dist'
@@ -96,8 +95,9 @@ export const PLATFORM = validMobilePlatforms.find(str => cliArgs[str]) || getOS(
 export const config = await getConfig()
 
 // Add Environment Variables to the config
-config.TARGET = TARGET
-config.MODE = MODE
+process.env.COMMONERS = {}
+config.TARGET = process.env.TARGET = TARGET
+config.MODE = process.env.MODE = MODE
 
 export const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 

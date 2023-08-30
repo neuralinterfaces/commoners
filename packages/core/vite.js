@@ -15,7 +15,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
     
     const config =  { ... commonersConfig }
     
-    config.services = JSON.parse(process.env.COMMONERS_SERVICES) // Only provide sanitized service information
+    config.services = JSON.parse(process.env.SERVICES) // Only provide sanitized service information
 
     // Only transfer plugin values that might actually be used
     if (config.plugins) config.plugins = config.plugins.map((o) => sanitizePluginProperties(o, TARGET))
