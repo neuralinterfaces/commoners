@@ -107,3 +107,21 @@ export const APPID = `com.${NAME}.app`
 export const rootDir = dirname(fileURLToPath(import.meta.url));
 
 export const commonersPkg = getJSON(path.join(rootDir, 'package.json'))
+
+
+const resolveKey = () => {
+    if (valid.mode.includes(firstKey)) return MODE
+    else if (valid.platform.includes(firstKey)) return PLATFORM
+    else if (valid.target.includes(firstKey)) return TARGET
+    return
+}
+export const resolvePlatformSpecificValue = (o) => {
+    if (o && typeof o === 'object') {
+        const resolvedKey = Object.keys(o).find(resolveKey)
+        if (resolvedKey) return resolvePlatformSpecificValue(o[resolvedKey]) // Return resolved value
+    } 
+    
+    else if (typeof o === 'function') return resolvePlatformSpecificValue(o())
+    
+    return o             
+}
