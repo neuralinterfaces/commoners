@@ -71,8 +71,7 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        ...Object.keys(pkg.dependencies),
-        // ...Object.keys(pkg.devDependencies),
+        ...Object.keys(pkg.devDependencies),
         ...nodeBuiltIns
       ],
     },

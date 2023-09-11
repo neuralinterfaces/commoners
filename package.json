@@ -14,11 +14,13 @@
     "watch": "vite build --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
+  "devDependencies": {
     "@electron-toolkit/preload": "^1.0.3",
+    "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron-toolkit/utils": "^1.0.2",
     "@electron/notarize": "^1.2.3",
     "@electron/remote": "^2.0.10",
+    "@types/node": "16.18.21",
     "@octokit/rest": "^19.0.11",
     "chalk": "^5.2.0",
     "clui": "^0.3.6",
@@ -38,15 +40,7 @@
     "vite": "^4.2.1",
     "vite-plugin-electron": "^0.11.2",
     "vite-plugin-electron-renderer": "^0.14.5",
-    "vite-plugin-pwa": "^0.16.4"
-  },
-  "devDependencies": {
-    "@electron-toolkit/tsconfig": "^1.0.1",
-    "@types/node": "16.18.21",
+    "vite-plugin-pwa": "^0.16.4",
     "vite-plugin-static-copy": "^0.16.0"
-  },
-  "peerDependencies": {
-    "@capacitor/cli": "^5.0.5",
-    "@capacitor/core": "^5.0.5"
   }
 }
