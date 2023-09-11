@@ -3,8 +3,22 @@ import python from './python/index.js'
 
 import { extname, join } from "node:path"
 import { getFreePorts } from './utils/network.js';
-import { isValidURL } from '../../../../packages/utilities/url.js';
+
 import { spawn } from 'node:child_process';
+
+// ------------------------------------ COPIED ---------------------------------------
+
+// NOTE: From core/utils/url.js to remove the need to copy this asset...
+export const isValidURL = (s) => {
+  try {
+    new URL(s);
+    return true;
+  } catch (err) {
+    return false;
+  }
+};
+
+// ------------------------------------------------------------------------------------
 
 let processes = {}
 

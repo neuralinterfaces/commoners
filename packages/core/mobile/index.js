@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { runCommand } from "../../utilities/processes"
+import { runCommand } from "../utils/processes"
 import { NAME, APPID, userPkg, config as resolvedConfig } from "../../../globals"
 import * as assets from './assets'
 

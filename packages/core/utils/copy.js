@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, lstatSync, cpSync } from "node:fs"
-import { assetOutDir } from "../../globals"
+import { assetOutDir } from "../../../globals"
 import { basename, dirname, join } from "node:path"
 
 export const copyAsset = (src, maintainStructure = true) => {

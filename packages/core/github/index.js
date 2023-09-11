@@ -1,10 +1,21 @@
 
 import chalk from "chalk";
-import * as files from "../files.js"
+import * as files from "../utils/files.js"
 import * as github from "./github.js"
 import * as repo from "./repo.js"
-import { runCommand } from "../processes.js";
+import { runCommand } from "../utils/processes.js";
 import { rmdirSync } from "node:fs";
+import { cliArgs, userPkg } from "../../../globals";
+
+export const ifRepo = async (callback) => {
+    const result = await initGitRepo(userPkg, cliArgs).catch(e => {
+        console.log(chalk.red(e.message));
+        return { valid: false }
+    })
+
+    if (result.valid) return callback()
+    else throw Error('The git repository for this project has been configured incorrectly...')
+}
 
 const getGithubToken = async () => {
     let token = github.getStoredGithubToken(); // Fetch token from config store

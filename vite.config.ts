@@ -1,15 +1,13 @@
 import { defineConfig, normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 
-import pkg from './package.json' assert {type: 'json'}
-
 import url from "node:url";
 import { join, resolve } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
-import chalk from "chalk";
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
+const pkg = JSON.parse(readFileSync('./package.json').toString())
 
 const nodeBuiltIns = [
   "node:child_process",
@@ -25,8 +23,6 @@ const outputFilePath = join(__dirname, 'dist', outputFileName)
 
 const toCopy = [
   'template',
-  join('packages', 'plugins'),
-  join('packages', 'utilities')
 ]
 
 export default defineConfig({

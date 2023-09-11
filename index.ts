@@ -4,29 +4,22 @@ import chalk from "chalk";
 import path, { extname } from "node:path";
 
 // import { initGitRepo } from "./src/github/index.js";
-import { spawnProcess, onExit as processOnExit } from "./packages/utilities/processes.js";
-import { cliArgs, command, target, config, configPath, NAME, PLATFORM, rootDir, outDir, scopedOutDir, assetOutDir, commonersPkg, userPkg, APPID } from "./globals.js";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnProcess, onExit as processOnExit } from "./packages/core/utils/processes.js";
+import { cliArgs, command, target, config, configPath, NAME, PLATFORM, getBuildConfig, templateDir, outDir, scopedOutDir, assetOutDir, commonersPkg, userPkg, APPID, TARGET } from "./globals.js";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 // import { createService, createFrontend, createPackage } from "./src/create.js";
 import { createAll, resolveAll } from './template/src/main/services/index.js'
-
-import { initGitRepo, publishGHPages } from './packages/utilities/github/index.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { resolveConfig } from './packages/core/vite.js'
 import { build } from 'electron-builder'
-import { isValidURL } from "./packages/utilities/url.js";
-import { copyAsset } from "./packages/utilities/copy.js";
-import * as yaml from 'js-yaml'
+import { isValidURL } from "./packages/core/utils/url.js";
+import { copyAsset } from "./packages/core/utils/copy.js";
 
-import * as mobile from './packages/core/mobile'
-import { push as pushToGithub } from "./packages/utilities/github/repo.js";
+import * as mobile from './packages/core/mobile/index.js'
 import { getIcon } from "./packages/core/utils/index.js";
-
-// Get Configuration File and Path
-const templateDir = path.join(rootDir, 'template')
-const buildConfig = yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
+import { commit, launch, publish } from "./packages/core/index.js";
 
 // Transfer configuration file and related services
 const assets = {
@@ -67,30 +60,7 @@ process.on('uncaughtException', (e) => {
 
 process.on('beforeExit', onExit);
 
-if (command.launch) {
-
-
-    // Run the mobile builds (if specified)
-    if (target.mobile) await mobile.run(target.mobile)
-
-    // Run the electron build
-    else if (target.desktop) {
-        const electronDistPath = path.join(process.cwd(), buildConfig.directories.output)
-
-        let exePath = ''
-        if (PLATFORM === 'mac') exePath = path.join(electronDistPath, PLATFORM, `${NAME}.app`)
-        else if (PLATFORM === 'windows') exePath = path.join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
-        else throw new Error(`Cannot launch the application for ${PLATFORM}`)
-
-        if (!existsSync(exePath)) throw new Error(`${NAME} has not been built yet.`)
-
-        const debugPort = 8315;
-        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
-
-        console.log(chalk.green(`${NAME} launched!`))
-        console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
-    }
-}
+if (command.launch) launch({ target: TARGET })
 
 
 if (command.dev || command.start || command.build) {
@@ -211,7 +181,7 @@ if (command.dev || command.start || command.build) {
             else config.pwa.manifest = baseManifest
         }
 
-        if (target.mobile) await mobile.prebuild(target.mobile) // Run mobile prebuild command
+        if (target.mobile) await mobile.prebuild(PLATFORM) // Run mobile prebuild command
 
         await vite.build(resolveConfig(config, resolveOptions))
 
@@ -233,6 +203,8 @@ if (command.dev || command.start || command.build) {
 
         if (target.desktop) {
 
+            const buildConfig = getBuildConfig()
+
             buildConfig.productName = NAME
 
             // NOTE: These variables don't get replaced on Windows
@@ -240,7 +212,7 @@ if (command.dev || command.start || command.build) {
             buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
 
             // Register extra resources
-            buildConfig.mac.extraResources = buildConfig.linux.extraResources = Object.values(config.services).reduce((acc, { extraResources }) => {
+            buildConfig.mac.extraResources = buildConfig.linux.extraResources = Object.values(config.services).reduce((acc: string[], { extraResources }: any) => {
                 if (extraResources) acc.push(...extraResources)
                 return acc
             }, [])
@@ -268,29 +240,13 @@ if (command.dev || command.start || command.build) {
         }
 
         else if (target.mobile) {
-            await mobile.init(target.mobile)
-            await mobile.open(target.mobile)
+            await mobile.init(PLATFORM)
+            await mobile.open(PLATFORM)
         }
 
     }
 
 }
 
-// ------------- Github Integration ----------------
-
-const ifRepo = async (callback) => {
-    const result = await initGitRepo(userPkg, cliArgs).catch(e => {
-        console.log(chalk.red(e.message));
-        return { valid: false }
-    })
-
-    if (result.valid) callback()
-    else throw Error('The git repository for this project has been configured incorrectly...')
-}
-
-if (command.commit) ifRepo(() => pushToGithub(cliArgs.message))
-
-if (command.publish) ifRepo(() => {
-    if (cliArgs.message) pushToGithub(cliArgs.message)
-    publishGHPages()
-})
+if (command.commit) commit({ message: cliArgs.message })
+if (command.publish) publish({ message: cliArgs.message })

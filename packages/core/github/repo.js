@@ -6,7 +6,7 @@ const git = simpleGit();
 import touch from 'touch';
 import _ from 'lodash';
 
-import * as inquirer from '../inquirer.js';
+import * as inquirer from '../utils/inquirer.js';
 import * as gh from './github.js';
 
 const Spinner = CLI.Spinner;
