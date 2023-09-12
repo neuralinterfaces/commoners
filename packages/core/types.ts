@@ -1,4 +1,5 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
+import { Configuration as ElectronBuilderConfiguration } from 'electron-builder'
 import { ManifestOptions } from 'vite-plugin-pwa'
 
 export function tuple<T extends string[]>(...o: T) {
@@ -11,6 +12,10 @@ export type BaseOptions = {
     target: TargetType,
     platform: PlatformType
 }
+
+type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
+
+export type WritableElectronBuilderConfig = DeepWriteable<ElectronBuilderConfiguration>
 
 // ------------------- Support -------------------
 export const validMobilePlatforms =  tuple('ios', 'android')
@@ -41,9 +46,14 @@ type RemoteServiceMetadata = { url: string }
 
 type BaseServiceMetadata = (LocalServiceMetadata | RemoteServiceMetadata)
 type ExtraServiceMetadata = {
+    // Common
     port?: number,
     build?: string | {[x in PlatformType]?: string},
-    extraResources?: {to: string, from: string}[] // NOTE: Replace with electron-builder type
+    extraResources?: ElectronBuilderConfiguration['extraResources'], // NOTE: Replace with electron-builder type
+
+    // Uncommon
+    protocol?: string,
+    hostname?: string,
 }
 
 type PublishedServiceMetadata = { 
@@ -53,7 +63,9 @@ type PublishedServiceMetadata = {
     }
 }
 
-type GeneratedServiceMetadata = {} // TODO
+type GeneratedServiceMetadata = {
+    abspath: string
+}
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
 
@@ -62,9 +74,21 @@ type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedSer
 // ------------------- Plugins -------------------
 type LoadedPlugin = { [x:string]: any }
 
+type ResolvedSupportType = boolean | any // Evaluated as boolean
+type UserSupportType = ResolvedSupportType | (() => ResolvedSupportType)
+
+export type SupportConfigurationObject = {
+    [x in TargetType]?: UserSupportType
+} & {
+    mobile?: {
+        capacitor?: any // Capacitor Plugin Configuration Object
+    }
+}
+
 export type PluginType = {
     name: string,
-    isSupported?: boolean
+    isSupported?: ResolvedSupportType | SupportConfigurationObject
+    
     main?: (this: IpcMain, win: BrowserWindow) => void, // TO PASS TO RENDER
     preload?: (this: IpcRenderer) => LoadedPlugin,
     render?: (loaded: LoadedPlugin) => AnyObj
@@ -113,23 +137,28 @@ export type ResolvedConfig = BaseConfig & {
 }
 
 // ------------------- Global Object Declaration -------------------
+
+type ExposedServices = {
+    [x:string]: {
+        url: string
+    }
+}
+
+type ExposedPlugins = {
+    loaded: {
+        [x:string]: LoadedPlugin
+    },
+    rendered: {
+        [x:string]: AnyObj
+    },
+}
+
 export type CommonersGlobalObject = {
     TARGET: TargetType,
     PLATFORM: PlatformType,
     MODE: ModeType,
-    plugins: {
-        loaded: {
-            [x:string]: LoadedPlugin
-        },
-        rendered: {
-            [x:string]: AnyObj
-        },
-    },
-    services: {
-        [x:string]: {
-            url: string
-        }
-    }
+    plugins: ExposedPlugins,
+    services: ExposedPlugins
 }
 
 declare global {

@@ -14,6 +14,7 @@ import { spawnProcess } from './utils/processes.js'
 import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
 
+// Types
 export type BuildOptions = BaseOptions & {}
 
 export default async function build ({ target, platform }: BuildOptions, config?: ResolvedConfig) {
@@ -82,13 +83,13 @@ export default async function build ({ target, platform }: BuildOptions, config?
 
         // Ensure proper absolute paths are provided for Electron build
         buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
-        buildConfig.afterSign = path.join(templateDir, buildConfig.afterSign)
+        buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(templateDir, buildConfig.afterSign) : buildConfig.afterSign
         buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
         buildConfig.mac.icon = macIcon ? path.join(assetOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
         buildConfig.win.icon = winIcon ? path.join(assetOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
         buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
 
-        await ElectronBuilder({ config: buildConfig })
+        await ElectronBuilder({ config: buildConfig as any })
     }
 
     else if (target === 'mobile') {

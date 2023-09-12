@@ -6,7 +6,9 @@ import minimist from 'minimist';
 import { readFileSync } from "node:fs";
 
 import * as yaml from 'js-yaml'
-import { valid, validMobilePlatforms } from "./types.js";
+
+// Types
+import { valid, validMobilePlatforms, WritableElectronBuilderConfig } from "./types.js";
 
 export const outDir = 'dist'
 export const scopedOutDir = path.join('dist', '.commoners')
@@ -61,7 +63,7 @@ export const APPID = `com.${NAME}.app`
 // Get Configuration File and Path
 export const rootDir = path.resolve(dirname(fileURLToPath(import.meta.url))); // NOTE: Files referenced relative to rootDir must be transferred to the dist
 export const templateDir = path.join(rootDir, 'template')
-export const getBuildConfig = () => yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
+export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
 
 // Get package file
 export const commonersPkg = getJSON(path.join(rootDir, 'package.json'))

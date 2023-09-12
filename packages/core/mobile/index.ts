@@ -7,7 +7,7 @@ import chalk from 'chalk'
 
 import { resolve } from "node:path"
 import plist from 'plist'
-import { ResolvedConfig } from "../types.js"
+import { ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
 const configName = 'capacitor.config.json'
 
@@ -28,11 +28,19 @@ const getBaseConfig = () => {
 }
 
 const isCapacitorConfig = (o) => o && typeof o === 'object' && 'name' in o && 'plugin' in o
+const getCapacitorConfig = (o) => (o.isSupported && typeof o.isSupported === 'object') ? o.isSupported?.mobile?.capacitor : null
 
-const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile?.capacitor)).map(o => [o.isSupported?.mobile?.capacitor, (v) => {
-    if (v === false) o.isSupported.mobile = false
-    else if (!o.isSupported.mobile) o.isSupported.mobile = {} // Set to evaluate to true
-}])
+const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => {
+    
+    return plugins.filter(o => isCapacitorConfig(getCapacitorConfig(o))).map(o => {
+        const config = getCapacitorConfig(o)
+        return [config, (v) => {
+            const supportObj = o.isSupported as SupportConfigurationObject
+            if (v === false) supportObj.mobile = false
+            else if (!supportObj.mobile) supportObj.mobile = {} // Set to evaluate to true
+        }]
+    })
+}
 
 
 export const prebuild = ({ plugins }) => {
