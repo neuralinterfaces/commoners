@@ -1,33 +1,34 @@
 {
   "name": "commoners",
   "description": "A cross-platform development kit for everyone",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
+  "types": "./dist/types/index.d.ts",
+  "main": "./dist/index.js",
   "bin": {
-    "commoners": "./dist/commoners.js"
+    "commoners": "./dist/cli.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "npm run build:cli && npm run build:library",
+    "build:cli": "vite build",
+    "build:library": "vite build --config ./packages/core/vite.config.ts",
     "watch": "vite build --watch",
+    "watch:library": "vite build --watch --config ./packages/core/vite.library.config.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "devDependencies": {
-    "@electron-toolkit/preload": "^1.0.3",
+  "dependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron-toolkit/utils": "^1.0.2",
     "@electron/notarize": "^1.2.3",
-    "@electron/remote": "^2.0.10",
-    "@types/node": "16.18.21",
     "@octokit/rest": "^19.0.11",
     "chalk": "^5.2.0",
     "clui": "^0.3.6",
     "configstore": "^6.0.0",
     "electron": "^22.3.4",
     "electron-builder": "^23.6.0",
-    "electron-vite": "^1.0.21",
     "esbuild": "^0.17.19",
     "inquirer": "^9.1.5",
     "js-yaml": "^4.1.0",
@@ -36,11 +37,15 @@
     "plist": "^3.1.0",
     "simple-git": "^3.19.0",
     "touch": "^3.1.0",
-    "typescript": "^4.9.5",
     "vite": "^4.2.1",
     "vite-plugin-electron": "^0.11.2",
     "vite-plugin-electron-renderer": "^0.14.5",
-    "vite-plugin-pwa": "^0.16.4",
+    "vite-plugin-pwa": "^0.16.4"
+  },
+  "devDependencies": {
+    "@electron/remote": "^2.0.11",
+    "@types/node": "16.18.21",
+    "typescript": "^4.9.5",
     "vite-plugin-static-copy": "^0.16.0"
   }
 }

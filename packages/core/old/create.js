@@ -1,7 +1,7 @@
 import chalk from "chalk"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import { commonersPkg, rootDir } from "../../../globals"
+import { commonersPkg, rootDir } from "../globals"
 import { createDirectory, createFile, appendJSON, getJSON } from "./utils/files.js"
 
 
@@ -52,9 +52,7 @@ export const createFrontend = (dir, opts) => {
 
 
 const ensureTypescriptFile = (filepath) => {
-    if (!filepath.endsWith('.ts')) {
-        return filepath + '.ts'
-    }
+    if (!filepath.endsWith('.ts')) return filepath + '.ts'
     return filepath
 }
 

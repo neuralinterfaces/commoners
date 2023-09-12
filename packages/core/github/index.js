@@ -5,7 +5,7 @@ import * as github from "./github.js"
 import * as repo from "./repo.js"
 import { runCommand } from "../utils/processes.js";
 import { rmdirSync } from "node:fs";
-import { cliArgs, userPkg } from "../../../globals";
+import { cliArgs, userPkg } from "../globals";
 
 export const ifRepo = async (callback) => {
     const result = await initGitRepo(userPkg, cliArgs).catch(e => {

@@ -1,11 +1,16 @@
 {
     "compilerOptions": {
       "rootDir": ".",
-      "outDir": "dist",
+      "declaration": true,
       "strict": false,
       "target": "es2021",
       "module": "nodenext",
       "sourceMap": true,
-      "esModuleInterop": true
-    }
+      "esModuleInterop": true,
+      "declarationMap": true,
+    },
+    "include": [
+      "index.ts",
+      "*.d.ts"
+    ]
 }

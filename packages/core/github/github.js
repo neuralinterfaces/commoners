@@ -4,15 +4,11 @@ import Configstore from 'configstore';
 import { Octokit } from "@octokit/rest";
 
 import { askGithubCredentials } from '../utils/inquirer.js';
-import { rootDir } from '../../../globals';
-import path from 'node:path';
-import { getJSON } from '../utils/files.js';
-
-const pkg = getJSON(path.join(rootDir, 'package.json'))
+import { commonersPkg } from '../globals';
 
 const Spinner = CLI.Spinner;
 
-const conf = new Configstore(pkg.name);
+const conf = new Configstore(commonersPkg.name);
 
 let octokit;
 

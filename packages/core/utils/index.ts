@@ -9,7 +9,7 @@ export const getIcon = (icon: ResolvedConfig['icon']) => {
         if (typeof icon === 'string') return icon
         else {
             const found = valid.icon.find(str => isIconString(icon[str]))
-            return icon[found] || Object.values(icon).find(isIconString)
+            return found ? icon[found] : Object.values(icon).find(isIconString)
         }
     } 
 }

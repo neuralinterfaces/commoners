@@ -1,4 +1,4 @@
-import { APPID, NAME, assetOutDir, cliArgs, configPath, userPkg } from '../../globals.js'
+import { APPID, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, userPkg } from './globals.js'
 import { ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from '../../template/src/main/services/index.js'
@@ -11,19 +11,51 @@ export { default as build } from './build.js'
 
 import { ManifestOptions } from 'vite-plugin-pwa'
 
-import { loadConfigFromFile as viteConfigHelper } from 'vite';
+import { yesNo } from "./utils/inquirer.js";
 
+export const defineConfig = (o: UserConfig): UserConfig => o
+
+// NOTE: Simplified from https://github.com/vitejs/vite/blob/c7969597caba80cf5d3348cba9f18ad9d14e9295/packages/vite/src/node/config.ts
 export async function loadConfigFromFile(filepath: string = configPath) {
-    const config = filepath ? (await viteConfigHelper({ command: 'build' } as any, filepath)).config : {} // NOTE: Piggyback off of Vite's configuration resolution system 
-    return resolveConfig(config)
+    if (!filepath) return
+
+    // Bundle config file
+    const result = await build({
+        absWorkingDir: process.cwd(),
+        entryPoints: [ filepath ],
+        outfile: 'out.js',
+        write: false,
+        target: ['node16'],
+        platform: 'node',
+        bundle: true,
+        format: 'esm',
+        external: [...Object.keys(commonersPkg.dependencies)] // Ensure that COMMONERS dependencies are external
+    })
+
+    const { text } = result.outputFiles[0]
+
+    // Load config from timestamped file
+    const fileBase = `${filepath}.timestamp-${Date.now()}-${Math.random()
+        .toString(16)
+        .slice(2)}`
+        
+    const fileNameTmp = `${fileBase}.mjs`
+    const fileUrl = `${pathToFileURL(fileBase)}.mjs`
+
+    await writeFileSync(fileNameTmp, text)
+
+    try {
+        return resolveConfig((await import(fileUrl)).default)
+    } finally {
+        unlink(fileNameTmp, () => { }) // Ignore errors
+    }
 }
 
 export async function resolveConfig(o: UserConfig = {}) {
 
-    const copy = { ... o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
+    const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
 
     if (!copy.electron) copy.electron = {}
-
 
     copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
 
@@ -73,22 +105,42 @@ export async function resolveConfig(o: UserConfig = {}) {
 
 import { createServer as createViteServer } from 'vite'
 import { resolveViteConfig } from './vite.js'
-import { extname, join, sep } from 'node:path'
+import { extname, join, normalize, sep } from 'node:path'
+import chalk from 'chalk'
+import { unlink, writeFileSync } from 'node:fs'
+import { build } from 'esbuild'
+import { pathToFileURL } from 'node:url'
 
 export const start = async (config?: UserConfig) => {
+
+    // Ensure project can handle start command
+    if (normalize(userPkg.main) !== normalize(defaultMainLocation)) {
+        const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
+        if (result) {
+            const copy: any = {}
+            console.log(chalk.green('Added a main entry to your package.json'))
+            Object.entries(userPkg).forEach(([name, value], i) => {
+                if (i === 3) copy.main = defaultMainLocation
+                copy[name] = value
+            })
+            writeFileSync('package.json', JSON.stringify(copy, null, 2))
+        } else throw new Error('This project is not compatible with desktop mode.')
+    }
+
+
     await clearOutputDirectory()
-    const resolvedConfig = config ? await resolveConfig(config) : await loadConfigFromFile();
+    const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
     await populateOutputDirectory(resolvedConfig)
     await createServer(config, false)
 }
 
 // Run a development server that can be accessed through Electron or the browser
 export const createServer = async (config?: UserConfig | ResolvedConfig, initialize = true) => {
-    
+
     let resolvedConfig = config as ResolvedConfig
 
     if (initialize) {
-        resolvedConfig = config ? await resolveConfig(config) : await loadConfigFromFile();
+        resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
         await clearOutputDirectory()
         await populateOutputDirectory(resolvedConfig)
     }

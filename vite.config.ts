@@ -18,7 +18,7 @@ const nodeBuiltIns = [
   "node:util"
 ]
 
-const outputFileName = `commoners.js`
+const outputFileName = `cli.js`
 const outputFilePath = join(__dirname, 'dist', outputFileName)
 
 const toCopy = [
@@ -60,14 +60,14 @@ export default defineConfig({
     target: 'node16',
     lib: {
       // Could also be a dictionary or array of multiple entry points
-      entry: resolve(__dirname, 'index'),
+      entry: resolve(__dirname, 'packages', 'cli', 'index'),
       name: 'commoners',
       formats: ['es'], // 'cjs'],
-      fileName: (format) => `commoners.js`
+      fileName: (format) => outputFileName
     },
     rollupOptions: {
       external: [
-        ...Object.keys(pkg.devDependencies),
+        ...Object.keys(pkg.dependencies),
         ...nodeBuiltIns
       ],
     },

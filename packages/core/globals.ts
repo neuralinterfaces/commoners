@@ -1,14 +1,12 @@
 import path from "node:path";
-import { getJSON, resolveFile } from "./packages/core/utils/files.js";
+import { getJSON, resolveFile } from "./utils/files.js";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import minimist from 'minimist';
-import { yesNo } from "./packages/core/utils/inquirer.js";
-import { readFileSync, writeFileSync } from "node:fs";
-import chalk from 'chalk'
+import { readFileSync } from "node:fs";
 
 import * as yaml from 'js-yaml'
-import { valid, validMobilePlatforms } from "./packages/core/types.js";
+import { valid, validMobilePlatforms } from "./types.js";
 
 export const outDir = 'dist'
 export const scopedOutDir = path.join('dist', '.commoners')
@@ -45,29 +43,10 @@ export const target = {
     web: !desktopTargetValue && !isMobile // Default to web mode
 }
 
-// Ensure project can handle start command
-if (target.desktop && path.normalize(userPkg.main) !== path.normalize(defaultMainLocation)) {
-    const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
-    if (result) {
-        const copy: any = {}
-        console.log(chalk.green('Added a main entry to your package.json'))
-        Object.entries(userPkg).forEach(([name, value], i) => {
-            if (i === 3) copy.main = defaultMainLocation
-            copy[name] = value
-        })
-        writeFileSync('package.json', JSON.stringify(copy, null, 2))
-    } else {
-        valid.command.forEach(str => command[str] = false)
-        valid.target.forEach(str => target[str] = false)
-        target.web = command.dev = true 
-        console.log(chalk.grey('Falling back to the "dev" command'))
-    }
-}
-
 // ----------------- GLOBAL STATE DECLARATION -----------------
 export const MODE = process.env.MODE = (command.start || command.dev) ? 'development' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
 
-export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)[0] as typeof valid.target[number] // return the key of the first true target
+export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 export const PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
@@ -80,7 +59,7 @@ export const NAME = userPkg.name // Specify the product name
 export const APPID = `com.${NAME}.app`
 
 // Get Configuration File and Path
-export const rootDir = dirname(fileURLToPath(import.meta.url));
+export const rootDir = path.resolve(dirname(fileURLToPath(import.meta.url))); // NOTE: Files referenced relative to rootDir must be transferred to the dist
 export const templateDir = path.join(rootDir, 'template')
 export const getBuildConfig = () => yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
 

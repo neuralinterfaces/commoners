@@ -1,6 +1,6 @@
 
 import { existsSync } from 'node:fs';
-import { NAME, getBuildConfig } from '../../globals.js';
+import { NAME, getBuildConfig } from './globals.js';
 import path from 'node:path';
 import chalk from 'chalk';
 

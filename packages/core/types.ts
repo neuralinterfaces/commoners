@@ -15,7 +15,22 @@ export const valid = {
 
 }
 
-export type ServiceType = string | { src: string, build?: string | {[x in typeof valid.platform[number]] : string} } // Can nest build by platform type
+type LocalServiceMetadata = { src: string }
+type RemoteServiceMetadata = { url: string }
+
+type BaseServiceMetadata = (LocalServiceMetadata | RemoteServiceMetadata)
+type ExtraServiceMetadata = { 
+    port?: number,
+    build?: string | {[x in typeof valid.platform[number]]?: string},
+    extraResources?: {to: string, from: string}[] // NOTE: Replace with electron-builder type
+    publish?: Partial<UserService> & {
+        local?: Partial<UserService>,
+        remote?: Partial<UserService>,
+    }
+}
+
+export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) // Can nest build by platform type
+
 export type PluginType = any
 
 import { ManifestOptions } from 'vite-plugin-pwa'
@@ -38,7 +53,7 @@ export type UserConfig = {
     icon?: BaseIconType | IconConfiguration
     plugins?: PluginType[],
     services?: {
-        [x: string]: ServiceType
+        [x: string]: UserService
     }
 }
 
@@ -46,7 +61,7 @@ export type ResolvedConfig = {
     icon?: BaseIconType | IconConfiguration
     plugins: PluginType[],
     services: {
-        [x: string]: ServiceType
+        [x: string]: UserService // FIX
     },
 
     // Programmatically Added
@@ -67,3 +82,7 @@ export type BaseOptions = {
     target: typeof valid.target[number],
     platform: typeof valid.platform[number]
 }
+
+declare global {
+    const COMMONERS: CommonersGlobalObject
+  }

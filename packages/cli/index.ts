@@ -3,9 +3,9 @@
 import chalk from "chalk";
 
 // import { initGitRepo } from "./src/github/index.js";
-import { onExit as processOnExit } from "./packages/core/utils/processes.js";
-import { cliArgs, command, COMMAND, PLATFORM, TARGET } from "./globals.js";
-import { build, commit, createServer, launch, loadConfigFromFile, publish, start } from "./packages/core/index.js";
+import { onExit as processOnExit } from "../core/utils/processes.js";
+import { cliArgs, command, COMMAND, PLATFORM, TARGET } from "../core/globals.js";
+import { build, commit, createServer, launch, loadConfigFromFile, publish, start } from "../core/index.js";
 
 // Error Handling for CLI
 const onExit = (...args) => processOnExit(...args)

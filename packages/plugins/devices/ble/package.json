@@ -2,6 +2,7 @@
     "name": "@commoners/bluetooth",
     "version": "0.0.0",
     "main": "index.js",
+    "type": "module",
     "dependencies" :{
         "@capacitor-community/bluetooth-le": "~3.0.0"
     }

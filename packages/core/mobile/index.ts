@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { NAME, APPID, userPkg } from "../../../globals.js"
+import { NAME, APPID, userPkg } from "../globals.js"
 import * as assets from './assets.js'
 
 import chalk from 'chalk'

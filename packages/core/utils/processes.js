@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { spawn } from "node:child_process";
-import { rootDir } from "../../../globals";
+import { rootDir } from "../globals";
 
 let children = {}
 
@@ -13,11 +13,13 @@ export const runCommand = async (string, customEnv, opts) => {
 export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
     return new Promise((resolve) => {
         
+        const customPath = `${rootDir}/node_modules/.bin`  // Include this library's node_modules in the PATH
+        console.log('Adding to path', customPath)
         const proc = spawn(command, args, { 
             shell: true, 
             env: {
                 ...customEnv,
-                PATH: `${process.env.PATH}:${rootDir}/node_modules/.bin` // Include this library's node_modules in the PATH
+                PATH: `${process.env.PATH}:${customPath}`
             }
         });
 

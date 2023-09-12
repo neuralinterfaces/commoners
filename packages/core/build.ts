@@ -1,5 +1,5 @@
 import path from "node:path"
-import { NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, templateDir } from "../../globals.js"
+import { NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, templateDir } from "./globals.js"
 import { BaseOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -18,7 +18,7 @@ export type BuildOptions = BaseOptions & {}
 
 export default async function build ({ target, platform }: BuildOptions, config?: ResolvedConfig) {
 
-    const resolvedConfig = config ? await resolveConfig(config) : await loadConfigFromFile()
+    const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
 
     await clearOutputDirectory()
 
@@ -69,7 +69,7 @@ export default async function build ({ target, platform }: BuildOptions, config?
 
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {
-            const electronVersion = commonersPkg.devDependencies.electron
+            const electronVersion = commonersPkg.dependencies.electron
             if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
             else buildConfig.electronVersion = electronVersion
         }

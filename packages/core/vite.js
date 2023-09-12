@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { join, normalize } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir, TARGET, target, command, cliArgs } from "../../globals";
+import { rootDir, userPkg, scopedOutDir, TARGET, target, command, cliArgs } from "./globals";
 import { sanitizePluginProperties } from '../../template/src/preload/utils/plugins.js'
 import { getIcon } from './utils/index'
 

@@ -26,7 +26,7 @@ globalObject.MODE =  process.env.MODE
 
 // Define global COMMONERS object for the resolution of preload plugins
 // @ts-ignore (define in dts)
-window.COMMONERS = globalObject
+globalThis.COMMONERS = globalObject
 
 
 globalObject.plugins = new Promise(async (resolve, reject) => {

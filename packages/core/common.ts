@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { COMMAND, MODE, NAME, PLATFORM, TARGET, assetOutDir, configPath, outDir, scopedOutDir, userPkg } from "../../globals.js"
+import { COMMAND, MODE, NAME, PLATFORM, TARGET, assetOutDir, configPath, outDir, scopedOutDir, userPkg } from "./globals.js"
 import { dirname, extname, join, parse, relative, sep } from "node:path"
 
 import { isValidURL } from './utils/url.js'
@@ -7,7 +7,7 @@ import { copyAsset } from './utils/copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { ResolvedConfig, ServiceType, UserConfig } from "./types.js"
+import { ResolvedConfig, UserService, UserConfig } from "./types.js"
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 
 type AssetsCollection = {
@@ -17,8 +17,8 @@ type AssetsCollection = {
 
 const jsExtensions = ['.js', '.ts']
 
-function addServiceAssets(this: AssetsCollection, config: ServiceType) {
-    const filepath = typeof config === 'string' ? config : config.src
+function addServiceAssets(this: AssetsCollection, config: UserService) {
+    const filepath = typeof config === 'string' ? config : (config as any).src
 
     if (!filepath) return // Do not copy if file doesn't exist
     if (isValidURL(filepath)) return // Do not copy if file is a url
@@ -30,7 +30,7 @@ function addServiceAssets(this: AssetsCollection, config: ServiceType) {
 // Derive assets to be transferred to the COMMONERS folder
 export const getAssets = async (config?: UserConfig) => {
 
-    const resolvedConfig = await (config ? resolveConfig(config) : loadConfigFromFile())
+    const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
 
     // Transfer configuration file and related services
     const assets: AssetsCollection = {
@@ -42,7 +42,7 @@ export const getAssets = async (config?: UserConfig) => {
     if (COMMAND !== 'build' || TARGET === 'desktop') Object.values(resolvedConfig.services).forEach(o => addServiceAssets.call(assets, o))
 
     // Copy Icons
-    if ('icon' in resolvedConfig) assets.copy.push(...(typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon))
+    if (resolvedConfig.icon) assets.copy.push(...(typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon))
 
     // Bundle Splash Page
     if (resolvedConfig.electron.splash) assets.bundle.push(resolvedConfig.electron.splash)
