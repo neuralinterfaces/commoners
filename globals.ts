@@ -2,13 +2,13 @@ import path from "node:path";
 import { getJSON, resolveFile } from "./packages/core/utils/files.js";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getConfig } from "./packages/core/utils/config.js";
 import minimist from 'minimist';
 import { yesNo } from "./packages/core/utils/inquirer.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import chalk from 'chalk'
 
 import * as yaml from 'js-yaml'
+import { valid, validMobilePlatforms } from "./packages/core/types.js";
 
 export const outDir = 'dist'
 export const scopedOutDir = path.join('dist', '.commoners')
@@ -18,28 +18,13 @@ export const defaultMainLocation = path.join(scopedOutDir, 'main', 'index.js')
 export const userPkg = getJSON('package.json')
 
 export const cliArgs = minimist(process.argv.slice(2))
-export const [ passedCommand ] = cliArgs._
+const [ passedCommand ] = cliArgs._
 
-export const validMobilePlatforms =  tuple('ios', 'android')
-
-function tuple<T extends string[]>(...o: T) {
-    return o;
-}
-
-export const valid = {
-    target: tuple('desktop', 'mobile', 'web'),
-    command: tuple('start', 'dev', 'build', 'launch', 'commit', 'publish'),
-    mode:  tuple('development', 'local', 'remote'),
-    platform: tuple('mac', 'windows', 'linux', ...validMobilePlatforms)
-}
-
-// Ensure command structure is correct
-if (passedCommand && !valid.command.includes(passedCommand)) throw new Error(`'${passedCommand}' is an invalid command.`)
-
-export const COMMAND = passedCommand
+export const COMMAND = process.env.COMMAND = passedCommand
 
 const isMobile = validMobilePlatforms.find(platform => cliArgs[platform])
 
+// Ensures launch with dev command is not called...
 const isDev = COMMAND === 'dev' || !COMMAND || (COMMAND === 'launch' && !isMobile && !cliArgs.desktop) // Is also the default launch command
 
 export const command = {
@@ -79,20 +64,16 @@ if (target.desktop && path.normalize(userPkg.main) !== path.normalize(defaultMai
     }
 }
 
-export const MODE = (command.start || command.dev) ? 'development' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
+// ----------------- GLOBAL STATE DECLARATION -----------------
+export const MODE = process.env.MODE = (command.start || command.dev) ? 'development' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
 
-export const TARGET = Object.entries(target).find(([_, value]) => value)[0] as typeof valid.target[number] // return the key of the first true target
+export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)[0] as typeof valid.target[number] // return the key of the first true target
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-export const PLATFORM = validMobilePlatforms.find(str => cliArgs[str]) || getOS()  // Declared Mobile OR Implicit Desktop Patform
+export const PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
+// ------------------------------------------------------------
 
-
-export const config = await getConfig()
-
-// Add Environment Variables to the config
-config.TARGET = process.env.TARGET = TARGET
-config.MODE = process.env.MODE = MODE
-
+// Pre-loaded configuration objects
 export const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
 export const NAME = userPkg.name // Specify the product name

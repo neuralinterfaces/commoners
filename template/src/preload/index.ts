@@ -21,7 +21,7 @@ const services = process.env.SERVICES
 if (services) globalObject.services = JSON.parse(services)
 
 // Add globals to the object
-globalObject.TARGET = process.env.TARGET
+globalObject.TARGET = process.env.TARGET 
 globalObject.MODE =  process.env.MODE
 
 // Define global COMMONERS object for the resolution of preload plugins

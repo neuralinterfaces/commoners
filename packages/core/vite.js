@@ -5,16 +5,23 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { join, normalize } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir, TARGET } from "../../globals";
+import { rootDir, userPkg, scopedOutDir, TARGET, target, command, cliArgs } from "../../globals";
 import { sanitizePluginProperties } from '../../template/src/preload/utils/plugins.js'
-import { getIcon } from './utils/index.js'
+import { getIcon } from './utils/index'
 
-export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pwa, build} = {}) => {
+export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
+
+    const withElectron = ('electron' in opts) ? opts.electron : target.desktop
+    const build = ('build' in opts) ? opts.build : command.build
+    const pwa = ('pwa' in opts) ? opts.pwa : cliArgs.pwa
 
     const sourcemap = !build    
     
     const config =  { ... commonersConfig }
-    
+
+    // Add extra global state variables
+    config.TARGET = process.env.TARGET
+    config.MODE =  process.env.MODE
     config.services = JSON.parse(process.env.SERVICES) // Only provide sanitized service information
 
     // Only transfer plugin values that might actually be used
@@ -26,7 +33,7 @@ export const resolveConfig = (commonersConfig = {}, { electron: withElectron, pw
         else return v
     })
 
-    const icon = getIcon(config)
+    const icon = getIcon(config.icon)
 
     // Preload plugins for non-Electron builds
     const nonElectronPreloadScript = `

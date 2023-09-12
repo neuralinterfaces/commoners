@@ -43,11 +43,14 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
     const publishConfig = resolveConfig(config.publish)
     const internalConfig = resolveConfig(config.publish[mode]) ?? publishConfig
     const { src } = internalConfig
-    if (src) internalConfig.src = join('..', '..', '..', '..', src) // Back out to the app resource section (where production builds will live)
+
+  // Back out to the app resource section (where Electron production runs will target)
+    if (src && !('COMMAND' in process.env) && process.env.MODE === 'local' && process.env.TARGET === 'desktop') internalConfig.src = join('..', '..', '..', '..', src)
 
     // Cascade from more to less specific information
     Object.assign(config, config.publish)
     Object.assign(config, internalConfig)
+
     delete config.publish
   }
 

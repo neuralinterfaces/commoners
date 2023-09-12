@@ -1,12 +1,13 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { runCommand } from "../utils/processes"
-import { NAME, APPID, userPkg, config as resolvedConfig } from "../../../globals"
-import * as assets from './assets'
+import { runCommand } from "../utils/processes.js"
+import { NAME, APPID, userPkg } from "../../../globals.js"
+import * as assets from './assets.js'
 
 import chalk from 'chalk'
 
 import { resolve } from "node:path"
 import plist from 'plist'
+import { ResolvedConfig } from "../types.js"
 
 const configName = 'capacitor.config.json'
 
@@ -16,39 +17,40 @@ const possibleConfigNames = [
     'capacitor.config.ts'
 ]
 
-const baseConfig = {
-    appId: APPID.replaceAll('-', ''),
-    appName: NAME,
-    webDir: 'dist',
-    server: { androidScheme: 'https' },
-    plugins: {}
+const getBaseConfig = () => {
+    return {
+        appId: APPID.replaceAll('-', ''),
+        appName: NAME,
+        webDir: 'dist',
+        server: { androidScheme: 'https' },
+        plugins: {}
+    }
 }
 
 const isCapacitorConfig = (o) => o && typeof o === 'object' && 'name' in o && 'plugin' in o
 
-const getCapacitorPluginAccessors = () => resolvedConfig.plugins ? resolvedConfig.plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile?.capacitor)).map(o => [o.isSupported?.mobile?.capacitor, (v) => {
-    console.log('Setting parent', o.name, v)
+const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => plugins.filter(o => isCapacitorConfig(o.isSupported?.mobile?.capacitor)).map(o => [o.isSupported?.mobile?.capacitor, (v) => {
     if (v === false) o.isSupported.mobile = false
     else if (!o.isSupported.mobile) o.isSupported.mobile = {} // Set to evaluate to true
-}]) : []
+}])
 
 
-export const prebuild = () => {
+export const prebuild = ({ plugins }) => {
     // Map Capacitor plugin information to their availiabity
-    const accessors = getCapacitorPluginAccessors()
+    const accessors = getCapacitorPluginAccessors(plugins)
     accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin)) ? setParent(false) : '')
 }
 
 // Create a temporary Capacitor configuration file if the user has not defined one
-export const openConfig = async (callback) => {
+export const openConfig = async ({ plugins }: ResolvedConfig, callback) => {
 
-    const isUserDefined = possibleConfigNames.map(existsSync).reduce((a,b) => a+b ? 1 : 0, 0) > 0
+    const isUserDefined = possibleConfigNames.map(existsSync).reduce((a: number, b: boolean) => a + (b ? 1 : 0), 0) > 0
 
     if (!isUserDefined) {
 
-        const config = JSON.parse(JSON.stringify(baseConfig))
+        const config = getBaseConfig()
         
-        getCapacitorPluginAccessors().forEach(([ ref ]) => {
+        getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
             if (isInstalled(ref.plugin)) {
                 config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
             }
@@ -70,16 +72,16 @@ const installForUser = async (pkgName, version) => {
     await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
 }
 
-export const init = async (platform) => {
-    await checkDepsInstalled(platform)
-    await openConfig(async () => {
+export const init = async (platform, config: ResolvedConfig) => {
+    await checkDepsInstalled(platform, config)
+    await openConfig(config, async () => {
         if (!existsSync(platform)) {
             await runCommand(`npx cap add ${platform} && npx cap copy`)
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
             if (platform === 'ios') {
                 const plistPath = resolve('ios/App/App/info.plist')
-                const xml = plist.parse(readFileSync(plistPath, 'utf8'));
+                const xml = plist.parse(readFileSync(plistPath, 'utf8')) as any;
                 xml.NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to connect and interact with peripheral BLE devices."
                 xml.UIBackgroundModes = ["bluetooth-central"]
                 writeFileSync(plistPath, plist.build(xml));
@@ -90,23 +92,23 @@ export const init = async (platform) => {
 
 const isInstalled = (pkgName) => typeof pkgName === 'string' ? !!(userPkg.devDependencies?.[pkgName] || userPkg.dependencies?.[pkgName]) : false // Only accept strings
 
-export const checkDepinstalled = async (pkgName, version) => isInstalled(pkgName) || await installForUser(pkgName, version)
+export const checkDepinstalled = async (pkgName, version?: string) => isInstalled(pkgName) || await installForUser(pkgName, version)
 
 // Install Capacitor packages as a user dependency
-export const checkDepsInstalled = async (platform) => {
+export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
     await checkDepinstalled('@capacitor/cli')
     await checkDepinstalled('@capacitor/core')
     await checkDepinstalled(`@capacitor/${platform}`)
-    if (assets.has()) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
+    if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
 }
 
 
-export const open = async (platform) => {
-    await checkDepsInstalled(platform)
-    await openConfig(() => runCommand("npx cap sync"))
+export const open = async (platform, config: ResolvedConfig) => {
+    await checkDepsInstalled(platform, config)
+    await openConfig(config, () => runCommand("npx cap sync"))
 
-    if (assets.has()) {
-        const info = assets.create()
+    if (assets.has(config)) {
+        const info = assets.create(config)
         await runCommand(`npx capacitor-assets generate --${platform}`) // Generate assets
         assets.cleanup(info)
     }

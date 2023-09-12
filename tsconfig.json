@@ -3,7 +3,7 @@
       "rootDir": ".",
       "outDir": "dist",
       "strict": false,
-      "target": "es2017",
+      "target": "es2021",
       "module": "nodenext",
       "sourceMap": true,
       "esModuleInterop": true

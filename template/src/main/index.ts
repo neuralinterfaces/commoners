@@ -28,6 +28,7 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
   const configFileName = 'commoners.config.js'
   const configPath = join(commonersAssets, configFileName)
   const config = existsSync(configPath) ? require(configPath).default : {}
+  
 
   // Replace with getIcon (?)
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
@@ -36,14 +37,20 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
 
+// NOTE: No PLATFORM provided
+if (!process.env.TARGET) process.env.TARGET = 'desktop'
+if (!process.env.MODE)  process.env.MODE = isProduction ? 'local' : 'development'; // NOTE: Could be remote
+
+
 let mainWindow;
 
-function send(this: BrowserWindow, ...args: any[]) {
-  return this.webContents.send(...args)
+function send(this: BrowserWindow, channel: string, ...args: any[]) {
+  return this.webContents.send(channel, ...args)
 }
 
-let readyQueue: Function[] = []
-const onWindowReady = (f: (win: BrowserWindow) => any) => (globals.mainWindow) ? f(globals.mainWindow) : readyQueue.push(f)
+type ReadyFunction = (win: BrowserWindow) => any
+let readyQueue: ReadyFunction[] = []
+const onWindowReady = (f: ReadyFunction) => (globals.mainWindow) ? f(globals.mainWindow) : readyQueue.push(f)
 
 
 const globals : {

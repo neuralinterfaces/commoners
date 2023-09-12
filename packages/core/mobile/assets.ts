@@ -1,30 +1,31 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
-import { config as resolvedConfig } from "../../../globals"
 
 import { extname, join } from "node:path"
+import { getIcon } from "../utils/index.js"
+import { valid, ResolvedConfig } from "../types.js"
 
-export const has = () => !!resolvedConfig.icon
+export const has = (config: ResolvedConfig) => !!config.icon
 
-export const create = () => {
+export const create = (config: ResolvedConfig) => {
     const parentPath = 'resources'
 
-    if (!has()) return
+    if (!has(config)) return
 
     let iconInfo = { 
-        default: typeof resolvedConfig.icon === 'string' ? resolvedConfig.icon : (resolvedConfig.icon.light ?? resolvedConfig.icon.dark ?? Object.values(resolvedConfig.icon).find(o => typeof o === 'string')),
+        default: getIcon(config.icon),
         parent: {
             path: parentPath,
             existed: existsSync(parentPath)
         }, 
         light: {}, 
         dark: {} 
-    }
+    } as any
 
     // Create icons
     const { light, dark, parent, default: iconDefault } = iconInfo
     if (iconDefault) {
-        light.src = resolvedConfig.icon?.light ?? iconDefault
-        dark.src = resolvedConfig.icon?.dark ?? iconDefault
+        light.src = config.icon?.[valid.icon[0]] ?? iconDefault
+        dark.src = config.icon?.[valid.icon[1]] ?? iconDefault
         light.to = join(parent.path, 'logo' + extname(light.src))
         dark.to  = join(parent.path, 'logo-dark' + extname(light.src))
         if (!parent.existed) mkdirSync(parent.path, { recursive: true });
