@@ -1,3 +1,18 @@
+import { BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
+import { ManifestOptions } from 'vite-plugin-pwa'
+
+export function tuple<T extends string[]>(...o: T) {
+    return o;
+}
+
+type AnyObj = { [x:string]: any }
+
+export type BaseOptions = {
+    target: TargetType,
+    platform: PlatformType
+}
+
+// ------------------- Support -------------------
 export const validMobilePlatforms =  tuple('ios', 'android')
 
 export const valid = {
@@ -15,72 +30,106 @@ export const valid = {
 
 }
 
+type TargetType = typeof valid.target[number]
+type ModeType = typeof valid.mode[number]
+type PlatformType = typeof valid.platform[number]
+
+
+// ------------------- Services -------------------
 type LocalServiceMetadata = { src: string }
 type RemoteServiceMetadata = { url: string }
 
 type BaseServiceMetadata = (LocalServiceMetadata | RemoteServiceMetadata)
-type ExtraServiceMetadata = { 
+type ExtraServiceMetadata = {
     port?: number,
-    build?: string | {[x in typeof valid.platform[number]]?: string},
+    build?: string | {[x in PlatformType]?: string},
     extraResources?: {to: string, from: string}[] // NOTE: Replace with electron-builder type
+}
+
+type PublishedServiceMetadata = { 
     publish?: Partial<UserService> & {
         local?: Partial<UserService>,
         remote?: Partial<UserService>,
     }
 }
 
-export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) // Can nest build by platform type
+type GeneratedServiceMetadata = {} // TODO
 
-export type PluginType = any
+export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
 
-import { ManifestOptions } from 'vite-plugin-pwa'
+type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedServiceMetadata
 
+// ------------------- Plugins -------------------
+type LoadedPlugin = { [x:string]: any }
 
-export function tuple<T extends string[]>(...o: T) {
-    return o;
+export type PluginType = {
+    name: string,
+    isSupported?: boolean
+    main?: (this: IpcMain, win: BrowserWindow) => void, // TO PASS TO RENDER
+    preload?: (this: IpcRenderer) => LoadedPlugin,
+    render?: (loaded: LoadedPlugin) => AnyObj
 }
 
-type ValidNestedProperty = typeof valid.target[number] | typeof valid.platform[number] | typeof valid.mode[number]
+type ValidNestedProperty = TargetType | PlatformType | ModeType
 
-// Icon Configuration
-type BaseIconType = string //| {[x in typeof valid.platform[number]]?: string}
+// ------------------- Icon -------------------
+type BaseIconType = string //| {[x in PlatformType]?: string}
 type ValidNestedIconKey = typeof valid.icon[number] // | ValidNestedProperty // NOTE: Not yet drilling for the icon
 
 // Complete Recursive Configurations
 type IconConfiguration = {[x in ValidNestedIconKey]?: BaseIconType }
 
-export type UserConfig = {
-    icon?: BaseIconType | IconConfiguration
-    plugins?: PluginType[],
-    services?: {
-        [x: string]: UserService
-    }
+type IconType = BaseIconType | IconConfiguration
+
+// ------------------- PWA -------------------
+
+type PWAOptions = {
+    includeAssets: string[],
+    manifest: Partial<ManifestOptions>
 }
 
-export type ResolvedConfig = {
-    icon?: BaseIconType | IconConfiguration
+// ------------------- Electron -------------------
+type ElectronOptions = {
+    splash?: string,
+    window?: BrowserWindowConstructorOptions
+}
+
+// ------------------- Configuration Object Declaration -------------------
+type BaseConfig = {
+    icon?: IconType
     plugins: PluginType[],
-    services: {
-        [x: string]: UserService // FIX
-    },
+    electron: ElectronOptions
+    pwa: PWAOptions
+}
 
-    // Programmatically Added
-    electron?: any, // TODO
-    pwa?: {
-        includeAssets: string[],
-        manifest: Partial<ManifestOptions>
+export type UserConfig = Partial<BaseConfig> & {
+    services?: { [x: string]: UserService },
+}
+
+export type ResolvedConfig = BaseConfig & {
+    services: {
+        [x: string]: ResolvedService // FIX
     }
 }
 
+// ------------------- Global Object Declaration -------------------
 export type CommonersGlobalObject = {
-    TARGET: typeof valid.target[number],
-    PLATFORM: typeof valid.platform[number],
-    MODE: typeof valid.mode[number],
-}
-
-export type BaseOptions = {
-    target: typeof valid.target[number],
-    platform: typeof valid.platform[number]
+    TARGET: TargetType,
+    PLATFORM: PlatformType,
+    MODE: ModeType,
+    plugins: {
+        loaded: {
+            [x:string]: LoadedPlugin
+        },
+        rendered: {
+            [x:string]: AnyObj
+        },
+    },
+    services: {
+        [x:string]: {
+            url: string
+        }
+    }
 }
 
 declare global {

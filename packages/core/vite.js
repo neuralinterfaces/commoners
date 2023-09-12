@@ -22,7 +22,12 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
     // Add extra global state variables
     config.TARGET = process.env.TARGET
     config.MODE =  process.env.MODE
-    config.services = JSON.parse(process.env.SERVICES) // Only provide sanitized service information
+
+    // Sanitize the global configuration object
+    config.services = JSON.parse(process.env.SERVICES) 
+    delete config.electron
+    delete config.icon
+    delete config.pwa
 
     // Only transfer plugin values that might actually be used
     if (config.plugins) config.plugins = config.plugins.map((o) => sanitizePluginProperties(o, TARGET))
