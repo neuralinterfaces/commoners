@@ -22,6 +22,7 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
     // Add extra global state variables
     config.TARGET = process.env.TARGET
     config.MODE =  process.env.MODE
+    config.PLATFORM =  process.env.PLATFORM
 
     // Sanitize the global configuration object
     config.services = JSON.parse(process.env.SERVICES) 

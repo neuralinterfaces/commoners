@@ -49,7 +49,7 @@ export const MODE = process.env.MODE = (command.start || command.dev) ? 'develop
 export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-export const PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
+export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
 // ------------------------------------------------------------
 
 // Pre-loaded configuration objects

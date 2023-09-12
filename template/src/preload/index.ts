@@ -23,6 +23,7 @@ if (services) globalObject.services = JSON.parse(services)
 // Add globals to the object
 globalObject.TARGET = process.env.TARGET 
 globalObject.MODE =  process.env.MODE
+globalObject.PLATFORM =  process.env.PLATFORM
 
 // Define global COMMONERS object for the resolution of preload plugins
 // @ts-ignore (define in dts)

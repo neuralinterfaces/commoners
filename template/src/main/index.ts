@@ -19,7 +19,11 @@ import main from '@electron/remote/main';
 // if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
 
 const isProduction = !process.env.VITE_DEV_SERVER_URL
-const commonersDist = (process.platform === 'win32' || !isProduction) ? join(__dirname, '..') : join(app.getAppPath(), 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
+
+// Populate platform variable if it doesn't exist
+if (!process.env.PLATFORM)  process.env.PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+
+const commonersDist = (process.env.PLATFORM === 'windows' || !isProduction) ? join(__dirname, '..') : join(app.getAppPath(), 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
 const devServerURL = process.env.VITE_DEV_SERVER_URL
@@ -34,13 +38,12 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
   const linuxIcon = config.icon?.linux || defaultIcon
 
-const platformDependentWindowConfig = (process.platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
+const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
-// NOTE: No PLATFORM provided
+// Populate other global variables if they don't exist
 if (!process.env.TARGET) process.env.TARGET = 'desktop'
 if (!process.env.MODE)  process.env.MODE = isProduction ? 'local' : 'development'; // NOTE: Could be remote
-
 
 let mainWindow;
 
