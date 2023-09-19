@@ -13,8 +13,9 @@ export const runCommand = async (string, customEnv, opts) => {
 export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
     return new Promise((resolve) => {
         
+        // NOTE: We don't need this in production builds...
         const customPath = `${rootDir}/node_modules/.bin`  // Include this library's node_modules in the PATH
-        console.log('Adding to path', customPath)
+
         const proc = spawn(command, args, { 
             shell: true, 
             env: {

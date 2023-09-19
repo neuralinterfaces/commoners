@@ -1,6 +1,6 @@
 
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'node:path'
+import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import { join, resolve } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from './services/index'
@@ -28,15 +28,15 @@ const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 
-  // Get the COMMONERS configuration file
-  const configFileName = 'commoners.config.js'
-  const configPath = join(commonersAssets, configFileName)
-  const config = existsSync(configPath) ? require(configPath).default : {}
-  
+// Get the COMMONERS configuration file
+const configFileName = 'commoners.config.js'
+const configPath = join(commonersAssets, configFileName)
+const config = existsSync(configPath) ? require(configPath).default : {}
 
-  // Replace with getIcon (?)
-  const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
-  const linuxIcon = config.icon?.linux || defaultIcon
+
+// Replace with getIcon (?)
+const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
+const linuxIcon = config.icon?.linux || defaultIcon
 
 
 const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
@@ -161,11 +161,18 @@ function createAppWindows(config) {
   return mainWindow
 }
 
+// Custom Protocol Support (https://www.electronjs.org/docs/latest/api/protocol#protocolregisterschemesasprivilegedcustomschemes)
+const customProtocolScheme = app.name.toLowerCase().replaceAll(' ', '-')
+protocol.registerSchemesAsPrivileged([{
+  scheme: customProtocolScheme,
+  privileges: { supportFetchAPI: true }
+}])
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+
 
   // Pass preconfigured properties to the main service declaration
   const { SERVICES } = process.env
@@ -178,7 +185,7 @@ app.whenReady().then(async () => {
   }
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId(`com.${app.name}`)
+  electronApp.setAppUserModelId(`com.${customProtocolScheme}`)
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -188,6 +195,24 @@ app.whenReady().then(async () => {
   })
 
   await services.createAll(config.services, commonersAssets) // Create all services as configured by the user / main build
+
+  // Proxy the services through the custom protocol
+  protocol.handle(customProtocolScheme, (req) => {
+
+    const pathname = req.url.slice(`${customProtocolScheme}://`.length)
+
+    for (let service in config.services) {
+      if (pathname.slice(0, service.length) === service) {
+        const newPathname = pathname.slice(service.length)
+        const o = config.services[service]
+        return net.fetch(new URL(newPathname, o.url))
+      }
+    }
+
+    return new Response(`${pathname} is not a valid request`, {
+      status: 404
+    })
+})
 
   await createAppWindows(config) // Start the application from scratch
 
