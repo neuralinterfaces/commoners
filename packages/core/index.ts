@@ -143,10 +143,11 @@ export const createServer = async (config?: UserConfig | ResolvedConfig, initial
         resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
         await clearOutputDirectory()
         await populateOutputDirectory(resolvedConfig)
+
+        // Create all backend services 
+        await createAll(config.services)
     }
 
-    // Create all backend services 
-    await createAll(config.services)
 
     // Create the frontend server
     const server = await createViteServer(resolveViteConfig(resolvedConfig))

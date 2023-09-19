@@ -10,9 +10,16 @@ import * as esbuild from 'esbuild'
 import { ResolvedConfig, UserService, UserConfig } from "./types.js"
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 
+type AssetInfo = string | {
+    input: string,
+    output?: {
+        extension?: 'mjs' | 'cjs'
+    }
+}
+
 type AssetsCollection = {
-    copy: string[],
-    bundle: string[]
+    copy: AssetInfo[],
+    bundle: AssetInfo[]
 }
 
 const jsExtensions = ['.js', '.ts']
@@ -35,7 +42,12 @@ export const getAssets = async (config?: UserConfig) => {
     // Transfer configuration file and related services
     const assets: AssetsCollection = {
         copy: [],
-        bundle: configPath ? [configPath.split(sep).slice(-1)[0]] : []
+        bundle: configPath ? [{
+            input: configPath.split(sep).slice(-1)[0],
+            output: {
+                extension: 'mjs'
+            }
+        }] : []
     }
     
     // Copy Services Only in Development / Electron Builds
@@ -58,17 +70,20 @@ export const clearOutputDirectory = () => {
 export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
     mkdirSync(scopedOutDir, { recursive: true }) // Ensure base output directory exists
 
-    writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version, type: 'commonjs' }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+    writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
     const assets = await getAssets(config)
 
-    // Create an assets folder with copied assets (CommonJS)
-    await Promise.all(assets.bundle.map(async src => {
+    // Create an assets folder with copied assets (ESM)
+    await Promise.all(assets.bundle.map(async info => {
 
-        const ext = extname(src)
-        const outPath = join(assetOutDir, src)
+        const hasMetadata = typeof info !== 'string'
+        const input = hasMetadata ? info.input : info
+
+        const ext = extname(input)
+        const outPath = join(assetOutDir, input)
         const outDir = dirname(outPath)
-        const root = dirname(src)
+        const root = dirname(input)
 
         // Bundle HTML Files using Vite
         if (ext === '.html') await vite.build({
@@ -77,20 +92,30 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
             root,
             build: {
                 outDir: relative(root, outDir),
-                rollupOptions: { input: src }
+                rollupOptions: { input: input }
             },
         })
 
         // Build JavaScript Files using ESBuild
         else {
-            const outfile = join(outDir, `${parse(src).name}.js`)
-            await esbuild.build({
-                entryPoints: [src],
-                external: ['*.node'],
+            const resolvedExtension = (hasMetadata ? info.output?.extension : '') || 'js'
+            const outfile = join(outDir, `${parse(input).name}.${resolvedExtension}`)
+
+            const baseConfig: esbuild.BuildOptions = {
+                entryPoints: [input],
                 bundle: true,
+                logLevel: 'silent',
                 outfile,
-                platform: 'node'
-            })
+            }
+
+            if (resolvedExtension === 'mjs') await esbuild.build({ ...baseConfig, format: 'esm' })
+            else if (resolvedExtension === 'cjs') await esbuild.build({ ...baseConfig, format: 'cjs' })
+            else return await esbuild.build({ ...baseConfig,  format: 'esm' })
+                .catch(() => esbuild.build({
+                    ...baseConfig,
+                    external: ['*.node'],
+                    platform: 'node'
+                }))
         }
     }))
 

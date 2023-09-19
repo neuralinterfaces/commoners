@@ -5,8 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { join, normalize } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir, TARGET, target, command, cliArgs } from "./globals";
-import { sanitizePluginProperties } from '../../template/src/preload/utils/plugins.js'
+import { rootDir, userPkg, scopedOutDir, target, command, cliArgs, TARGET } from "./globals";
 import { getIcon } from './utils/index'
 
 export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
@@ -20,70 +19,9 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
     const config =  { ... commonersConfig }
 
     // Add extra global state variables
-    config.TARGET = process.env.TARGET
-    config.MODE =  process.env.MODE
-    config.PLATFORM =  process.env.PLATFORM
 
     // Sanitize the global configuration object
-    config.services = JSON.parse(process.env.SERVICES) 
-    delete config.electron
-    delete config.icon
-    delete config.pwa
-
-    // Only transfer plugin values that might actually be used
-    if (config.plugins) config.plugins = config.plugins.map((o) => sanitizePluginProperties(o, TARGET))
-
-    // NOTE: Only simple plugins can be transferred between contexts
-    const strConfig = JSON.stringify(config, function (k, v) {
-        if (typeof v === 'function') return v.toString().replaceAll('"', "'").replaceAll("\n", "\\n") // NOTE: Cannot handle internal template strings inside the functions
-        else return v
-    })
-
     const icon = getIcon(config.icon)
-
-    // Preload plugins for non-Electron builds
-    const nonElectronPreloadScript = `
-    
-    const { plugins } = globalThis.COMMONERS = JSON.parse(\`${strConfig}\`)
-    if (plugins) {
-
-        const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
-
-        // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
-        const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
-
-        const supported = await asyncFilter(plugins, async (plugin) => {
-            try {
-                let { isSupported } = plugin
-                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
-                if (typeof isSupported?.check === 'string') isSupported = isSupported.check
-                return (typeof isSupported === 'string') ? await getFnFromString(isSupported).call(plugin, COMMONERS.TARGET) : isSupported !== false
-            } catch {
-                return false
-            }
-        })
-
-
-        supported.forEach(({ name, preload }) => {
-            
-            loaded[name] = undefined // Register that all supported plugins are technically loaded
-
-            try {
-                if (preload) loaded[name] = getFnFromString(preload)()
-            } catch (e) {
-                pluginErrorMessage(name, "preload", e)
-            }
-
-        })
-    
-        supported.forEach(({ name, render }) => {
-            if (render) __toRender[name] = getFnFromString(render)
-        })
-    }
-
-    COMMONERS.plugins = { loaded, __toRender }
-    
-    `
 
     const plugins = [
         {
@@ -93,21 +31,103 @@ return `
 ${
     icon ? `<link rel="icon" type="image/x-icon" href="./${normalize(icon)}">` : '' // Add favicon
 }
-<script>
+<script type="module">
+
+    // Directly import the plugins from the transpiled configuration object
+    import COMMONERS_CONFIG from "./${true ? 'dist/' : ''}.commoners/assets/commoners.config.mjs"
+    const { plugins } = COMMONERS_CONFIG
+
+    // Set global variable
+    const { ipcRenderer, services } = globalThis.__COMMONERS // Grab temporary variables
+
+    globalThis.COMMONERS = JSON.parse(\`${JSON.stringify({
+        services: JSON.parse(process.env.SERVICES),
+        TARGET: process.env.TARGET,
+        PLATFORM: process.env.PLATFORM,
+        MODE: process.env.MODE
+    })}\`)
+
+    if (services)  globalThis.COMMONERS.services = services // Replace with sanitized services from Electron if available
 
     // Injected environment from the COMMONERS build process
-
-
     const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
+
+    const removablePluginProps = ['preload', 'render']
+
+    const sanitizePluginProperties = (plugin, target) => {
+        const copy = {...plugin}
+
+        const assumeRemoval = 'main' in copy && target !== 'desktop' // Always clear main when not an electron build
+
+        if (assumeRemoval) delete copy.main 
+
+        // Assume true if no main; assume false if main
+        const willRemove = (v) => assumeRemoval ? !v : v === false
+
+        // Remove any top-level properties that are flagged as unsupported
+        const isSupported = copy.isSupported?.[target] ?? copy.isSupported // Drill to the target
+
+        if (isSupported && typeof isSupported === 'object') {
+            let { properties } = isSupported
+
+            if (!isSupported.check) properties = isSupported // isSupported is the property dictionary
+
+            if (willRemove(properties)) {
+                properties = isSupported.properties = {}
+                removablePluginProps.forEach(prop => properties[prop] = false)
+            }
+            
+            if (properties && typeof properties === 'object') removablePluginProps.forEach(prop => {
+                if (willRemove(properties[prop])) delete copy[prop]
+            })
+        }
+
+        return copy
+    }
 
     const pluginsResolved = new Promise(async (resolve, reject) => {
 
-
         const loaded = {}
         const __toRender = {}
-        ${withElectron ? '' : nonElectronPreloadScript}
-        resolve(await COMMONERS.plugins) // Await the plugins declared in preload.js
+        if (plugins) {
 
+            const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
+    
+            // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
+            const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
+    
+            const supported = await asyncFilter(plugins, async (plugin) => {
+                try {
+                    let { isSupported } = plugin
+                    if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
+                    if (typeof isSupported?.check === 'function') isSupported = isSupported.check
+                    return (typeof isSupported === 'function') ? await isSupported.call(plugin, COMMONERS.TARGET) : isSupported !== false
+                } catch {
+                    return false
+                }
+            })
+
+            const sanitized = supported.map((o) => sanitizePluginProperties(o, COMMONERS.TARGET))
+    
+            sanitized.forEach(({ name, preload }) => {
+                
+                loaded[name] = undefined // Register that all supported plugins are technically loaded
+    
+                try {
+                    if (preload) loaded[name] = ipcRenderer ? preload.call(ipcRenderer) : preload()
+                } catch (e) {
+                    pluginErrorMessage(name, "preload", e)
+                }
+    
+            })
+        
+            sanitized.forEach(({ name, render }) => {
+                if (render) __toRender[name] = render
+            })
+        }
+    
+        COMMONERS.plugins = { loaded, __toRender }
+        resolve()
     })
 
     document.addEventListener("DOMContentLoaded", async function(){

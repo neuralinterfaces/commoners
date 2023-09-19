@@ -1,11 +1,9 @@
 
 import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from './services/index'
-
-import { existsSync } from 'node:fs'
 
 import main from '@electron/remote/main';
 
@@ -29,17 +27,8 @@ const dist = join(commonersDist, '..')
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 
 // Get the COMMONERS configuration file
-const configFileName = 'commoners.config.js'
+const configFileName = 'commoners.config.mjs'
 const configPath = join(commonersAssets, configFileName)
-const config = existsSync(configPath) ? require(configPath).default : {}
-
-
-// Replace with getIcon (?)
-const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
-const linuxIcon = config.icon?.linux || defaultIcon
-
-
-const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
 // Populate other global variables if they don't exist
 if (!process.env.TARGET) process.env.TARGET = 'desktop'
@@ -77,6 +66,15 @@ const globals : {
 }
 
 function createAppWindows(config) {
+
+
+// Replace with getIcon (?)
+const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
+const linuxIcon = config.icon?.linux || defaultIcon
+
+
+const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
+
 
   const splashURL = config.electron?.splash
 
@@ -173,6 +171,7 @@ protocol.registerSchemesAsPrivileged([{
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
+  const config = (await import(configPath)).default
 
   // Pass preconfigured properties to the main service declaration
   const { SERVICES } = process.env
@@ -205,7 +204,7 @@ app.whenReady().then(async () => {
       if (pathname.slice(0, service.length) === service) {
         const newPathname = pathname.slice(service.length)
         const o = config.services[service]
-        return net.fetch(new URL(newPathname, o.url))
+        return net.fetch((new URL(newPathname, o.url)).href)
       }
     }
 
