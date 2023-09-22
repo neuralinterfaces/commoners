@@ -1,7 +1,5 @@
-# ✊ commoners
-Building Cross-Platform Solidarity with Modern JavaScript
-
- The `commoners` CLI is a TypeScript-based tool that allows anyone to build their applications for multiple platforms. Only JavaScript is required; no additional languages or libraries (e.g. Dart, React, etc.) are necessary!
+# commoners
+ The `commoners` CLI is a TypeScript-based tool that **allows anyone to build their applications for multiple platforms**. Only JavaScript is required; no additional languages or libraries (e.g. Dart, React, etc.) are necessary!
 
  Our goal has been to develop a simple tool for building web, desktop, and mobile applications that connect to Bluetooth biosensing devices. As such, `commoners` has been battle-tested against this use case.
 
