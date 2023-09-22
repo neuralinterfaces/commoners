@@ -114,7 +114,7 @@ import { pathToFileURL } from 'node:url'
 export const start = async (config?: UserConfig) => {
 
     // Ensure project can handle start command
-    if (normalize(userPkg.main) !== normalize(defaultMainLocation)) {
+    if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
         const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
         if (result) {
             const copy: any = {}
@@ -126,7 +126,6 @@ export const start = async (config?: UserConfig) => {
             writeFileSync('package.json', JSON.stringify(copy, null, 2))
         } else throw new Error('This project is not compatible with desktop mode.')
     }
-
 
     await clearOutputDirectory()
     const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());

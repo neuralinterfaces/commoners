@@ -38,7 +38,7 @@ ${
     const { plugins } = COMMONERS_CONFIG
 
     // Set global variable
-    const { ipcRenderer, services } = globalThis.__COMMONERS // Grab temporary variables
+    const { ipcRenderer, services } = globalThis.__COMMONERS ?? {} // Grab temporary variables
 
     globalThis.COMMONERS = JSON.parse(\`${JSON.stringify({
         services: JSON.parse(process.env.SERVICES),

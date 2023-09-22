@@ -6,6 +6,9 @@ dist
 ios
 android
 
+*.lock
+-lock.json
+
 # Logs
 logs
 *.log

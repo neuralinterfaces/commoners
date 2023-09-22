@@ -2,5 +2,11 @@
     "name": "@commoners/serial",
     "version": "0.0.0",
     "type": "module",
-    "main": "index.js"
+    "main": "./dist/serial.es.js",
+    "scripts": {
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "vite": "^4.2.1"
+    }
 }

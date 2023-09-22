@@ -1,9 +1,12 @@
 {
     "name": "@commoners/bluetooth",
     "version": "0.0.0",
-    "main": "index.js",
+    "main": "./dist/ble.es.js",
     "type": "module",
-    "dependencies" :{
-        "@capacitor-community/bluetooth-le": "~3.0.0"
+    "scripts": {
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "vite": "^4.2.1"
     }
 }

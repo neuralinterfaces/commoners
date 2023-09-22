@@ -19,7 +19,9 @@ export const generateModal = ({
   dialog.append(container)
 
   const header = document.createElement('header')
-  header.style.paddingBottom = '20px'
+  header.style.paddingBottom = '5px'
+  header.style.marginBottom = '10px'
+  header.style.borderBottom = '1px solid gainsboro'
 
   const footer = document.createElement('footer')
   footer.style.paddingTop = '20px'
@@ -27,6 +29,7 @@ export const generateModal = ({
   const main = document.createElement('div')
   main.style.overflow = 'auto'
   main.style.maxHeight = '300px'
+  main.style.minWidth = '500px'
 
   const title = document.createElement('h3')
   title.innerText = headerText
