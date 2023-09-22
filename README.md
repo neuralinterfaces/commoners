@@ -1,4 +1,8 @@
 # commoners
+[![Npm package version](https://badgen.net/npm/v/commoners)](https://npmjs.com/package/commoners)
+[![Npm package monthly downloads](https://badgen.net/npm/dm/commoners)](https://npmjs.ccom/package/commoners)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
  The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile distribution**. Only JavaScript is required; no additional languages or libraries (e.g. Dart, React, etc.) are necessary.
 
 A complete example of a COMMONERS application that connects to Bluetooth and Serial devices across multiple platforms is available at our [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) repository.
