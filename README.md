@@ -1,9 +1,9 @@
 # commoners
  The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile distribution**. Only JavaScript is required; no additional languages or libraries (e.g. Dart, React, etc.) are necessary.
 
- > **Note:** For a complete example of a COMMONERS application, visit the [commoners-starter-kit](https://github.com/commonersdev/commoners-starter-kit).
+A complete example of a COMMONERS application that connects to Bluetooth and Serial devices across multiple platforms is available at our [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) repository.
 
-## Commands
+## How To Use
 - `commoners start` - Start your project in an Electron application.
 
 - `commoners dev` - Start your project in your default browser
