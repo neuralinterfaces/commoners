@@ -1,5 +1,5 @@
 # commoners
- The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile distribution**. Only JavaScript is required; no additional languages or libraries (e.g. Dart, React, etc.) are necessary!
+ The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile distribution**. Only JavaScript is required; no additional languages or libraries (e.g. Dart, React, etc.) are necessary.
 
  > **Note:** For a complete example of a COMMONERS application, visit the [commoners-starter-kit](https://github.com/commonersdev/commoners-starter-kit).
 
