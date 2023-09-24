@@ -11,12 +11,11 @@ hero:
     alt: Commoners
   actions:
     - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
+      text: Getting Started
+      link: /introduction/getting-started
     - theme: alt
-      text: API Examples
-      link: /api-examples
-
+      text: Why Commoners?
+      link: /introduction/why
 features:
   - icon: 🌐
     title: Simple Cross-Platform Builds
