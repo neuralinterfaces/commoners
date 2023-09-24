@@ -5,6 +5,9 @@
   "type": "module",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/index.js",
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "bin": {
     "commoners": "./dist/cli.js"
   },
