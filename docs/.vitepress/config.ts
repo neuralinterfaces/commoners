@@ -4,6 +4,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Commoners",
   description: "Building Solidarity across Platforms",
+  base: './', // Ensure asset links are routed properly
 
   head: [['link', { rel: 'icon', href: '/logo.png' }]],
 
