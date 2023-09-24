@@ -1,3 +1,5 @@
+/// <reference types="vitest" />
+
 import { defineConfig, normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 
@@ -26,6 +28,9 @@ const toCopy = [
 ]
 
 export default defineConfig({
+  test: {
+
+  },
   plugins: [
     {
       name: 'add-bin-shebang',

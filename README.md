@@ -7,10 +7,7 @@
 
 A complete example of a COMMONERS application that connects to peripheral devices using Bluetooth and Serial across multiple platforms is available at our [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) repository.
 
-## Why Commoners?
-- 🖥️ 📲 Publish for web, mobile, and desktop from a single repository 
-- 📜 Only native web technologies (i.e. HTML, CSS, and JavaScript) required
-- ⚡️ Built on Vite for lightning-fast development speeds
+Read the [documentation](https://commoners.dev) to learn more.
 
 ## Getting started
 - `commoners start` - Start your project in an Electron application.

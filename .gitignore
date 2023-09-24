@@ -1,11 +1,20 @@
 .DS_Store
 node_modules
 
+# Builds
 dist
 
+# Capacitor
 ios
 android
 
+# Tests
+coverage
+
+# Docs
+.vitepress
+
+# Version Control
 *.lock
 *-lock.json
 
