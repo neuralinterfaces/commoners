@@ -2,7 +2,7 @@ import node from './node/index.js'
 import python from './python/index.js'
 
 import { extname, join } from "node:path"
-import { getFreePorts } from './utils/network.js';
+import { getFreePorts, localIP } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
 
@@ -69,7 +69,7 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
   config.abspath = join(assets, config.src) // Expose the absolute path of the file in development mode
 
   if (!config.port) config.port = (await getFreePorts(1))[0]
-  config.url = `${config.protocol ?? `http:`}//${config.hostname ?? `127.0.0.1`}:${config.port}`
+  config.url = `${config.protocol ?? `http:`}//${config.hostname ?? localIP}:${config.port}`
 
   return config
 
