@@ -111,9 +111,9 @@ import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-export const start = async (config?: UserConfig) => {
+export const createDesktopInstance = async (config?: UserConfig) => {
 
-    // Ensure project can handle start command
+    // Ensure project can handle --desktop command
     if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
         const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
         if (result) {
@@ -133,7 +133,7 @@ export const start = async (config?: UserConfig) => {
     await createServer(config, false)
 }
 
-// Run a development server that can be accessed through Electron or the browser
+// Run a development server
 export const createServer = async (config?: UserConfig | ResolvedConfig, initialize = true) => {
 
     let resolvedConfig = config as ResolvedConfig
