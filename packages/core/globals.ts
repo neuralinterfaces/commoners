@@ -37,16 +37,14 @@ export const command = {
 }
 
 // Ensure mutual exclusivity
-const desktopTargetValue = command.start || (command.build && !!cliArgs.desktop)
-
 export const target = {
-    desktop: desktopTargetValue,
+    desktop: cliArgs.desktop,
     mobile: !!isMobile,
-    web: !desktopTargetValue && !isMobile // Default to web mode
+    web: !cliArgs.desktop && !isMobile // Default to web mode
 }
 
 // ----------------- GLOBAL STATE DECLARATION -----------------
-export const MODE = process.env.MODE = (command.start || command.dev) ? 'development' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
+export const MODE = process.env.MODE = (command.start || command.dev || !command) ? 'development' : ( target.mobile || cliArgs.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
 
 export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
 

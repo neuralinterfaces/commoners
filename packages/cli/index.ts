@@ -19,8 +19,6 @@ process.on('beforeExit', onExit);
 
 const baseOptions = { target: TARGET, platform: PLATFORM }
 
-console.log('TARGET')
-
 if (command.launch) launch(baseOptions)
 else if (command.commit) commit({ message: cliArgs.message })
 else if (command.publish) publish({ message: cliArgs.message })
