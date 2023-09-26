@@ -14,7 +14,8 @@ const nodeBuiltIns = [
   "node:url",
   "node:path",
   "node:net",
-  "node:util"
+  "node:util",
+  "node:os"
 ]
 
 import { type Plugin } from 'vite';
