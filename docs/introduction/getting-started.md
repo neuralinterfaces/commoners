@@ -24,8 +24,11 @@ To use a service, you should (1) check for the existence of the service, then (2
     }
 ```
 
+If your service will be accessible from a particular URL, you'll want to make sure that the `port` used is derived from the first optional command-line argument. In Node.js, this looks like: 
 
-
+```js
+const port = process.argv[2]
+```
 
 ### Using Services in Production
 Service configurations may be different between development and production. For instance, `.py` services are commonly packaged using `pyinstaller`, which will output an `.exe` / `.pkg` file that includes all dependencies.

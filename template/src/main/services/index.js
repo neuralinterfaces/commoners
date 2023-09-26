@@ -69,7 +69,8 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
   config.abspath = join(assets, config.src) // Expose the absolute path of the file in development mode
 
   if (!config.port) config.port = (await getFreePorts(1))[0]
-  config.url = `${config.protocol ?? `http:`}//${config.hostname ?? localIP}:${config.port}`
+
+  config.url = `${config.protocol ?? `http:`}//${localIP}:${config.port}`
 
   return config
 
