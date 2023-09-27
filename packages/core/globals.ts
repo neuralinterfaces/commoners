@@ -25,11 +25,10 @@ export const COMMAND = process.env.COMMAND = passedCommand
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
 
-const isMobile = !!validMobilePlatforms.find(platform => cliArgs[platform]) || cliArgs.mobile
-
 const isDesktopCommandConsistent = (platform) => PLATFORM === platform && cliArgs[platform]
 
 const isDesktop = cliArgs.desktop || isDesktopCommandConsistent('mac') || isDesktopCommandConsistent('windows') || isDesktopCommandConsistent('linux')
+const isMobile = cliArgs.mobile || !!validMobilePlatforms.find(platform => cliArgs[platform])
 
 
 // Ensures launch with dev command is not called...
