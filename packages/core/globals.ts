@@ -27,8 +27,13 @@ export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str =>
 
 const isMobile = !!validMobilePlatforms.find(platform => cliArgs[platform]) || cliArgs.mobile
 
+const isDesktopCommandConsistent = (platform) => PLATFORM === platform && cliArgs[platform]
+
+const isDesktop = cliArgs.desktop || isDesktopCommandConsistent('mac') || isDesktopCommandConsistent('windows') || isDesktopCommandConsistent('linux')
+
+
 // Ensures launch with dev command is not called...
-const isDev = COMMAND === 'dev' || !COMMAND || (COMMAND === 'launch' && !isMobile && !cliArgs.desktop) // Is also the default launch command
+const isDev = COMMAND === 'dev' || !COMMAND || (COMMAND === 'launch' && !isMobile && !isDesktop) // Is also the default launch command
 
 export const command = {
     start: COMMAND === 'start',
@@ -41,9 +46,9 @@ export const command = {
 
 // Ensure mutual exclusivity
 export const target = {
-    desktop: cliArgs.desktop,
+    desktop: isDesktop,
     mobile: !!isMobile,
-    web: !cliArgs.desktop && !isMobile // Default to web mode
+    web: !isDesktop && !isMobile // Default to web mode
 }
 
 // ----------------- GLOBAL STATE DECLARATION -----------------
