@@ -54,23 +54,27 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
     delete config.publish
   }
 
-  const { src } = resolveConfig(config)
+  const resolvedConfig = resolveConfig(config)
+
+  const  { src } = resolvedConfig
 
   if (isValidURL(src)) {
-    config.url = src
-    delete config.src
-    return config // Abort properly when a url
+    resolvedConfig.url = src
+    delete resolvedConfig.src
   }
 
-  if (!src) return config // Return the configuration unchanged if no file or url
+  if (!resolvedConfig.src) {
+    if (resolvedConfig.url) resolvedConfig.url = resolvedConfig.url.replace(`//localhost:`, `//${localIP}:`) // Transform local IP addresses to the public URL (for mobile dev mode)
+    return resolvedConfig // Return the configuration unchanged if no file or url
+  }
 
 
-  if (src.endsWith('.ts')) config.src = src.slice(0, -2) + 'js' // Load transpiled file
-  config.abspath = join(assets, config.src) // Expose the absolute path of the file in development mode
+  if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
+  resolvedConfig.abspath = join(assets, resolvedConfig.src) // Expose the absolute path of the file in development mode
 
-  if (!config.port) config.port = (await getFreePorts(1))[0]
+  if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
 
-  config.url = `${config.protocol ?? `http:`}//${localIP}:${config.port}`
+  resolvedConfig.url = `${resolvedConfig.protocol ?? `http:`}//${localIP}:${resolvedConfig.port}`
 
   return config
 

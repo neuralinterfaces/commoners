@@ -22,7 +22,10 @@ const [ passedCommand ] = cliArgs._
 
 export const COMMAND = process.env.COMMAND = passedCommand
 
-const isMobile = validMobilePlatforms.find(platform => cliArgs[platform])
+const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
+
+const isMobile = !!validMobilePlatforms.find(platform => cliArgs[platform]) || cliArgs.mobile
 
 // Ensures launch with dev command is not called...
 const isDev = COMMAND === 'dev' || !COMMAND || (COMMAND === 'launch' && !isMobile && !cliArgs.desktop) // Is also the default launch command
@@ -48,8 +51,6 @@ export const MODE = process.env.MODE = (command.start || command.dev || !command
 
 export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
 
-const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
 // ------------------------------------------------------------
 
 // Pre-loaded configuration objects

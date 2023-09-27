@@ -7,7 +7,7 @@ import chalk from 'chalk'
 
 import { resolve } from "node:path"
 import plist from 'plist'
-import { ResolvedConfig, SupportConfigurationObject } from "../types.js"
+import { ResolvedConfig, SupportConfigurationObject, validMobilePlatforms } from "../types.js"
 
 const configName = 'capacitor.config.json'
 
@@ -81,6 +81,9 @@ const installForUser = async (pkgName, version) => {
 }
 
 export const init = async (platform, config: ResolvedConfig) => {
+
+    platform = getCorrectPlatform(platform)
+
     await checkDepsInstalled(platform, config)
     await openConfig(config, async () => {
         if (!existsSync(platform)) {
@@ -110,8 +113,15 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
     if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
 }
 
+function getCorrectPlatform(platform) {
+    return (validMobilePlatforms.includes(platform)) ? platform : platform === 'mac' ? 'ios' : 'android' 
+}
+
 
 export const open = async (platform, config: ResolvedConfig) => {
+
+    platform = getCorrectPlatform(platform)
+
     await checkDepsInstalled(platform, config)
     await openConfig(config, () => runCommand("npx cap sync"))
 

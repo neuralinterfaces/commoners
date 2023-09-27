@@ -34,7 +34,7 @@ ${
 <script type="module">
 
     // Directly import the plugins from the transpiled configuration object
-    import COMMONERS_CONFIG from "./${true ? 'dist/' : ''}.commoners/assets/commoners.config.mjs"
+    import COMMONERS_CONFIG from "./${build ? '' : 'dist/'}.commoners/assets/commoners.config.mjs"
     const { plugins } = COMMONERS_CONFIG
 
     // Set global variable
@@ -46,6 +46,30 @@ ${
         PLATFORM: process.env.PLATFORM,
         MODE: process.env.MODE
     })}\`)
+
+
+    // Prepare for async section
+    let resolveConfig;
+    const isReady = globalThis.COMMONERS.ready = new Promise(res => resolveConfig = res)
+
+    document.addEventListener("DOMContentLoaded", async function(){
+
+        await isReady
+
+        const { plugins } = COMMONERS
+        
+        // Handle Preloaded Plugin Values
+        const { __toRender = {}, loaded } = plugins
+        delete plugins.__toRender
+        const rendered = plugins.rendered = {}
+        for (let name in __toRender) {
+            try {
+                rendered[name] = __toRender[name](loaded[name])
+            } catch (e) {
+                pluginErrorMessage(name, "render", e)
+            }
+        }
+    });
 
     if (services)  globalThis.COMMONERS.services = services // Replace with sanitized services from Electron if available
 
@@ -85,68 +109,50 @@ ${
         return copy
     }
 
-    const pluginsResolved = new Promise(async (resolve, reject) => {
+    const loaded = {}
+    const __toRender = {}
+    if (plugins) {
 
-        const loaded = {}
-        const __toRender = {}
-        if (plugins) {
+        const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
 
-            const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
-    
-            // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
-            const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
-    
-            const supported = await asyncFilter(plugins, async (plugin) => {
-                try {
-                    let { isSupported } = plugin
-                    if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
-                    if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-                    return (typeof isSupported === 'function') ? await isSupported.call(plugin, COMMONERS.TARGET) : isSupported !== false
-                } catch {
-                    return false
-                }
-            })
+        // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
+        const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
-            const sanitized = supported.map((o) => sanitizePluginProperties(o, COMMONERS.TARGET))
-    
-            sanitized.forEach(({ name, preload }) => {
-                
-                loaded[name] = undefined // Register that all supported plugins are technically loaded
-    
-                try {
-                    if (preload) loaded[name] = ipcRenderer ? preload.call(ipcRenderer) : preload()
-                } catch (e) {
-                    pluginErrorMessage(name, "preload", e)
-                }
-    
-            })
-        
-            sanitized.forEach(({ name, render }) => {
-                if (render) __toRender[name] = render
-            })
-        }
-    
-        COMMONERS.plugins = { loaded, __toRender }
-        resolve()
-    })
-
-    document.addEventListener("DOMContentLoaded", async function(){
-
-        await pluginsResolved
-        const { plugins } = COMMONERS
-        
-        // Handle Preloaded Plugin Values
-        const { __toRender = {}, loaded } = plugins
-        delete plugins.__toRender
-        const rendered = plugins.rendered = {}
-        for (let name in __toRender) {
+        const supported = await asyncFilter(plugins, async (plugin) => {
             try {
-                rendered[name] = __toRender[name](loaded[name])
-            } catch (e) {
-                pluginErrorMessage(name, "render", e)
+                let { isSupported } = plugin
+                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
+                if (typeof isSupported?.check === 'function') isSupported = isSupported.check
+                return (typeof isSupported === 'function') ? await isSupported.call(plugin, COMMONERS.TARGET) : isSupported !== false
+            } catch {
+                return false
             }
-        }
-    });
+        })
+
+        const sanitized = supported.map((o) => sanitizePluginProperties(o, COMMONERS.TARGET))
+
+        sanitized.forEach(({ name, preload }) => {
+            
+            loaded[name] = undefined // Register that all supported plugins are technically loaded
+
+            try {
+                if (preload) loaded[name] = ipcRenderer ? preload.call(ipcRenderer) : preload()
+            } catch (e) {
+                pluginErrorMessage(name, "preload", e)
+            }
+
+        })
+    
+        sanitized.forEach(({ name, render }) => {
+            if (render) __toRender[name] = render
+        })
+    }
+
+    COMMONERS.plugins = { loaded, __toRender }
+
+    resolveConfig()
+
+
 </script>\n${html}`
             },
         },

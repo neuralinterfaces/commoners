@@ -111,7 +111,7 @@ import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-export const createDesktopInstance = async (config?: UserConfig) => {
+export const configureForDesktop = async () => {
 
     // Ensure project can handle --desktop command
     if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
@@ -127,33 +127,24 @@ export const createDesktopInstance = async (config?: UserConfig) => {
         } else throw new Error('This project is not compatible with desktop mode.')
     }
 
-    await clearOutputDirectory()
+}
+
+export const createServices = async (config) => {
     const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
-    await populateOutputDirectory(resolvedConfig)
-    await createServer(config, false)
+    return await createAll(resolvedConfig.services)
 }
 
 // Run a development server
-export const createServer = async (config?: UserConfig | ResolvedConfig, initialize = true) => {
+export const createServer = async (config?: UserConfig | ResolvedConfig, print = true) => {
 
-    let resolvedConfig = config as ResolvedConfig
-
-    if (initialize) {
-        resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
-        await clearOutputDirectory()
-        await populateOutputDirectory(resolvedConfig)
-
-        // Create all backend services 
-        await createAll(config.services)
-    }
-
+    const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
 
     // Create the frontend server
     const server = await createViteServer(resolveViteConfig(resolvedConfig))
     await server.listen()
 
     // Print out the URL if everything was initialized here (i.e. dev mode)
-    if (initialize) {
+    if (print) {
         console.log('\n')
         server.printUrls()
         console.log('\n')

@@ -4,8 +4,9 @@ import chalk from "chalk";
 
 // import { initGitRepo } from "./src/github/index.js";
 import { onExit as processOnExit } from "../core/utils/processes.js";
-import { cliArgs, command, COMMAND, PLATFORM, TARGET } from "../core/globals.js";
-import { build, commit, createServer, launch, loadConfigFromFile, publish, createDesktopInstance } from "../core/index.js";
+import { cliArgs, command, COMMAND, PLATFORM, target, TARGET } from "../core/globals.js";
+import { build, commit, createServer, launch, loadConfigFromFile, publish, configureForDesktop, resolveConfig, createServices } from "../core/index.js";
+import { clearOutputDirectory, populateOutputDirectory } from "../core/common.js";
 
 // Error Handling for CLI
 const onExit = (...args) => processOnExit(...args)
@@ -26,8 +27,21 @@ else {
     const config = await loadConfigFromFile() // Load configuration file only once...
     if (command.build) build(baseOptions, config)
     else if (command.dev || command.start || !command) {
-        if (TARGET === 'desktop') createDesktopInstance(config)
-        else createServer(config)
+
+        const resolvedConfig = await resolveConfig(config);
+
+        if (target.mobile) await build(baseOptions, resolvedConfig) // Create mobile build
+        else {
+            await clearOutputDirectory()
+            await populateOutputDirectory(resolvedConfig)
+        }
+
+        if (target.desktop) configureForDesktop() // Configure the desktop instance
+        else await createServices(resolvedConfig) // Run services in parallel
+
+
+        if (!target.mobile) await createServer(config, !target.desktop) // Create frontend server
+
     }
     else throw new Error(`'${COMMAND}' is an invalid command.`)
 }
