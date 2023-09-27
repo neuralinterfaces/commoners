@@ -26,8 +26,8 @@ export default async function build ({ target, platform }: BuildOptions, config?
     const { icon , services } = resolvedConfig
 
     const toBuild = {
-        frontend: cliArgs['frontend'] || !cliArgs['backend'],
-        backend: cliArgs['backend'] || !cliArgs['frontend']
+        frontend: cliArgs['frontend'] || (!cliArgs['services'] && !cliArgs.service),
+        services: cliArgs['services'] || cliArgs.service || !cliArgs['frontend']
     }
 
     if (toBuild.frontend) {
@@ -36,7 +36,7 @@ export default async function build ({ target, platform }: BuildOptions, config?
     }
 
     // Build services if not specifically the frontend
-    if (toBuild.backend) {
+    if (toBuild.services) {
         for (let name in services) {
             const service = services[name]
             let build = (service && typeof service === 'object') ? service.build : null 

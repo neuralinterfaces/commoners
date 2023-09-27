@@ -56,6 +56,15 @@ export async function resolveConfig(o: UserConfig = {}) {
 
     copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
 
+    // Remove services that are not specified
+    const selectedServices = cliArgs.service
+    if (selectedServices) {
+        const selected = !Array.isArray(selectedServices) ? [ selectedServices ] : selectedServices
+        for (let name in copy.services) {
+            if (!selected.includes(name)) delete copy.services[name]
+        }
+    }
+
     // Run PWA prebuild to specify manifest file
     if (cliArgs.pwa) {
 
