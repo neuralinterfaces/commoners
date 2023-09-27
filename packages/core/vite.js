@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 import { join, normalize } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir, target, command, cliArgs, TARGET } from "./globals";
+import { rootDir, userPkg, scopedOutDir, target, command, cliArgs, outDir } from "./globals";
 import { getIcon } from './utils/index'
 
 export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
@@ -219,6 +219,9 @@ ${
         // Define a default set of plugins and configuration options
         vite.defineConfig({
             base: './',
+            build: {
+                outDir
+            },
             plugins,
             server: { open: !withElectron },
             clearScreen: false,
