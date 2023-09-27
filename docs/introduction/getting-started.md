@@ -34,6 +34,8 @@ const port = process.argv[2]
 Service configurations may be different between development and production. For instance, `.py` services are commonly packaged using `pyinstaller`, which will output an `.exe` / `.pkg` file that includes all dependencies.
 
 The following service structure would be used to handle this case:
+
+> **Note:** The entirety of the `--outDir` (default: `dist`) folder is copied as extra resources to Electron. Include any required assets there.
 ```json
 {
     "src": "src/main.py",
@@ -41,14 +43,8 @@ The following service structure would be used to handle this case:
         "build": {
             "mac": "python -m PyInstaller --name test --onedir --clean ./src/main.py --distpath ./dist/pyinstaller",
         },
-        "desktop": {
-            "src": "./pyinstaller/test", 
-            "extraResources": [ 
-                {
-                    "from": "./dist/pyinstaller/test",
-                    "to": "pyinstaller"
-                }
-            ]
+        "local": {
+            "src": "./dist/pyinstaller/test/test"
         }
     }
 }

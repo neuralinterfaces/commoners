@@ -6,25 +6,30 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import * as services from './services/index'
 
 import main from '@electron/remote/main';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 
 // import chalk from 'chalk'
-
-
 // import util from 'node:util'
 
-// const homeDirectory = app.getPath("home");
-// const commonersDirectory = join(homeDirectory, 'COMMONERS');
-// if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
+const homeDirectory = app.getPath("home");
+const commonersDirectory = join(homeDirectory, 'COMMONERS');
+if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
 
-const isProduction = !process.env.VITE_DEV_SERVER_URL
+const writeToFile = (msg) => {
+  appendFileSync(join(commonersDirectory, `debug.log`), `${msg}\n`)
+}
+
+writeToFile('test')
+
+const devServerURL = process.env.VITE_DEV_SERVER_URL
+const isProduction = !devServerURL
 
 // Populate platform variable if it doesn't exist
 if (!process.env.PLATFORM)  process.env.PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-const commonersDist = (process.env.PLATFORM === 'windows' || !isProduction) ? join(__dirname, '..') : join(app.getAppPath(), 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
+const commonersDist = (process.env.PLATFORM === 'windows' || !isProduction) ? join(__dirname, '..') : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
-const devServerURL = process.env.VITE_DEV_SERVER_URL
 
 // Get the COMMONERS configuration file
 const configFileName = 'commoners.config.mjs'
@@ -171,17 +176,19 @@ protocol.registerSchemesAsPrivileged([{
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
-  const config = (await import(configPath)).default
+  writeToFile(`Config: ${existsSync(configPath)}`)
 
-  // Pass preconfigured properties to the main service declaration
-  const { SERVICES } = process.env
-  if (SERVICES) {
-    const preconfigured = JSON.parse(SERVICES as string)
-    for (let id in preconfigured) {
-      if (typeof config.services[id] === 'string') config.services[id] = { src: config.services[id] }
-      config.services[id] = Object.assign(config.services[id], preconfigured[id])
-    }
-  }
+  const config = (await import(configPath)).default // Requires putting the dist at the Resource Path: https://github.com/electron/electron/issues/38957
+
+  // // Pass preconfigured properties to the main service declaration
+  // const { SERVICES } = process.env
+  // if (SERVICES) {
+  //   const preconfigured = JSON.parse(SERVICES as string)
+  //   for (let id in preconfigured) {
+  //     if (typeof config.services[id] === 'string') config.services[id] = { src: config.services[id] }
+  //     config.services[id] = Object.assign(config.services[id], preconfigured[id])
+  //   }
+  // }
 
   // Set app user model id for windows
   electronApp.setAppUserModelId(`com.${customProtocolScheme}`)
@@ -193,7 +200,7 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  await services.createAll(config.services, commonersAssets) // Create all services as configured by the user / main build
+  await services.createAll(config.services, { assets: commonersAssets, root: join(dist, '..')  }) // Create all services as configured by the user / main build
 
   // Proxy the services through the custom protocol
   protocol.handle(customProtocolScheme, (req) => {
@@ -227,7 +234,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('will-quit', () => services.stop());
+app.on('before-quit', () => services.stop());
 
 // Transfer all the main console commands to the browser
 const ogConsoleMethods: any = {};

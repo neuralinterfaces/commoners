@@ -1,7 +1,7 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join } from "node:path"
+import { extname, join, sep } from "node:path"
 import { getFreePorts, localIP } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
@@ -33,7 +33,10 @@ function resolveConfig(config) {
 }
 
 
-export async function resolveService (config = {}, assets = join(process.cwd(), 'dist', '.commoners', 'assets')) {
+export async function resolveService (
+  config = {}, 
+  { assets, root } = {}
+) {
 
   const mode = process.env.MODE
   const isProduction = mode !== "development"
@@ -42,10 +45,6 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
   if (isProduction && config.publish) {
     const publishConfig = resolveConfig(config.publish)
     const internalConfig = resolveConfig(config.publish[mode]) ?? publishConfig
-    const { src } = internalConfig
-
-  // Back out to the app resource section (where Electron production runs will target)
-    if (src && !('COMMAND' in process.env) && process.env.MODE === 'local' && process.env.TARGET === 'desktop') internalConfig.src = join('..', '..', '..', '..', src)
 
     // Cascade from more to less specific information
     Object.assign(config, config.publish)
@@ -70,7 +69,14 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
 
 
   if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
-  resolvedConfig.abspath = join(assets, resolvedConfig.src) // Expose the absolute path of the file in development mode
+
+
+  // Transform the src into an absolute path if not a dist
+  const isInDist = resolvedConfig.src.includes(`${sep}dist${sep}`) // NOTE: Assuming outDir is always dist...
+
+  const base =  (isInDist ? root : assets) || assets
+  if (base) resolvedConfig.abspath = join(base, resolvedConfig.src) // Expose the absolute path of the file in development mode
+  else resolvedConfig.abspath = resolvedConfig.src // Just use the raw sourcde
 
   if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
 
@@ -81,9 +87,9 @@ export async function resolveService (config = {}, assets = join(process.cwd(), 
 }
 
 // Create and monitor arbitary processes
-export async function start (config, id, assets) {
+export async function start (config, id, roots) {
 
-  config = await resolveService(config, assets)
+  config = await resolveService(config, roots)
 
   const { src } = config
 
@@ -141,12 +147,12 @@ export function stop (id) {
     }
 }
 
-export async function resolveAll (services = {}, assets) {
+export async function resolveAll (services = {}, roots) {
 
   const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { src: config } : config])
   const serviceInfo = {}
 
-  await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, assets))) // Run sidecars automatically based on the configuration file
+  await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, roots))) // Run sidecars automatically based on the configuration file
 
   // Provide sanitized service information as an environment variable
   const propsToInclude = [ 'url' ]
@@ -162,8 +168,8 @@ export async function resolveAll (services = {}, assets) {
 }
 
 
-export async function createAll(services = {}, assets){
-  services = await resolveAll(services, assets)
-  await Promise.all(Object.entries(services).map(([id, config]) => start(config, id, assets))) // Run sidecars automatically based on the configuration file
+export async function createAll(services = {}, roots){
+  services = await resolveAll(services, roots)
+  await Promise.all(Object.entries(services).map(([id, config]) => start(config, id, roots))) // Run sidecars automatically based on the configuration file
   return services
 }

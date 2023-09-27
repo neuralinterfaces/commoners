@@ -1,10 +1,11 @@
 import path from "node:path"
-import { NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, templateDir } from "./globals.js"
+import { NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, outDir, templateDir } from "./globals.js"
 import { BaseOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
 import { build as ElectronBuilder } from 'electron-builder'
+
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 import { clearOutputDirectory, populateOutputDirectory } from "./common.js"
 
@@ -63,10 +64,10 @@ export default async function build ({ target, platform }: BuildOptions, config?
         buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
 
         // Register extra resources
-        buildConfig.mac.extraResources = buildConfig.linux.extraResources = Object.values(services).reduce((acc: string[], { extraResources }: any) => {
+        buildConfig.mac.extraResources = buildConfig.linux.extraResources = [ { from: outDir, to: outDir }, ...Object.values(services).reduce((acc: string[], { extraResources }: any) => {
             if (extraResources) acc.push(...extraResources)
             return acc
-        }, [])
+        }, [])]
 
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {

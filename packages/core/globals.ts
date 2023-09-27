@@ -11,15 +11,16 @@ import * as yaml from 'js-yaml'
 import { valid, validMobilePlatforms, WritableElectronBuilderConfig } from "./types.js";
 import chalk from "chalk";
 
-export const outDir = 'dist'
-export const scopedOutDir = path.join('dist', '.commoners')
-export const assetOutDir = path.join(scopedOutDir, 'assets')
-export const defaultMainLocation = path.join(scopedOutDir, 'main', 'index.js')
-
 export const userPkg = getJSON('package.json')
 
 export const cliArgs = minimist(process.argv.slice(2))
 const [ passedCommand ] = cliArgs._
+
+export const outDir = cliArgs.outDir ?? 'dist'
+export const scopedOutDir = path.join(outDir, '.commoners')
+export const assetOutDir = path.join(scopedOutDir, 'assets')
+export const defaultMainLocation = path.join(scopedOutDir, 'main', 'index.js')
+
 
 export const COMMAND = process.env.COMMAND = passedCommand
 
