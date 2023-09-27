@@ -2,10 +2,9 @@
 
 import chalk from "chalk";
 
-// import { initGitRepo } from "./src/github/index.js";
 import { onExit as processOnExit } from "../core/utils/processes.js";
-import { cliArgs, command, COMMAND, PLATFORM, target, TARGET } from "../core/globals.js";
-import { build, commit, createServer, launch, loadConfigFromFile, publish, configureForDesktop, resolveConfig, createServices } from "../core/index.js";
+import { command, COMMAND, PLATFORM, target, TARGET } from "../core/globals.js";
+import { build, createServer, launch, loadConfigFromFile, configureForDesktop, resolveConfig, createServices } from "../core/index.js";
 import { clearOutputDirectory, populateOutputDirectory } from "../core/common.js";
 
 // Error Handling for CLI
@@ -20,13 +19,11 @@ process.on('beforeExit', onExit);
 
 const baseOptions = { target: TARGET, platform: PLATFORM }
 
-if (command.launch) launch(baseOptions)
-else if (command.commit) commit({ message: cliArgs.message })
-else if (command.publish) publish({ message: cliArgs.message })
-else {
-    const config = await loadConfigFromFile() // Load configuration file only once...
-    if (command.build) build(baseOptions, config)
-    else if (command.dev || command.start || !command) {
+if (command.launch) launch(baseOptions) // Launch the specified build
+else if (command.build) build(baseOptions) // Build the application using the specified settings
+else if (command.dev || command.start || !command) {
+
+    const config = await loadConfigFromFile() // Load configuration file only once
 
         const resolvedConfig = await resolveConfig(config);
 
@@ -42,6 +39,6 @@ else {
 
         if (!target.mobile) await createServer(config, !target.desktop) // Create frontend server
 
-    }
-    else throw new Error(`'${COMMAND}' is an invalid command.`)
 }
+
+else throw new Error(`'${COMMAND}' is an invalid command.`)

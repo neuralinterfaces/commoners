@@ -9,6 +9,7 @@ import * as yaml from 'js-yaml'
 
 // Types
 import { valid, validMobilePlatforms, WritableElectronBuilderConfig } from "./types.js";
+import chalk from "chalk";
 
 export const outDir = 'dist'
 export const scopedOutDir = path.join('dist', '.commoners')
@@ -25,7 +26,16 @@ export const COMMAND = process.env.COMMAND = passedCommand
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
 
-const isDesktopCommandConsistent = (platform) => PLATFORM === platform && cliArgs[platform]
+const isDesktopCommandConsistent = (platform) => {
+    if (cliArgs[platform]) {
+        if (PLATFORM === platform) return true
+        else {
+            console.log(`Cannot run a command for the ${chalk.bold(platform)} platform on ${chalk.bold(PLATFORM)}`)
+            process.exit(1)
+        }
+    }
+}
+
 
 const isDesktop = cliArgs.desktop || isDesktopCommandConsistent('mac') || isDesktopCommandConsistent('windows') || isDesktopCommandConsistent('linux')
 const isMobile = cliArgs.mobile || !!validMobilePlatforms.find(platform => cliArgs[platform])

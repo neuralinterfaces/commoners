@@ -2,11 +2,8 @@ import { APPID, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMai
 import { ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from '../../template/src/main/services/index.js'
-import { clearOutputDirectory, populateOutputDirectory } from './common.js'
 
 export { default as launch } from './launch.js'
-export { default as commit } from './commit.js'
-export { default as publish } from './publish.js'
 export { default as build } from './build.js'
 
 import { ManifestOptions } from 'vite-plugin-pwa'

@@ -42,7 +42,7 @@ export default async function build ({ target, platform }: BuildOptions, config?
             let build = (service && typeof service === 'object') ? service.build : null 
             if (build && typeof build === 'object') build = build[platform] // Run based on the platform if an object
             if (build) {
-                console.log(chalk.yellow(`Running build command for commoners-${name}-service`))
+                console.log(`Running build command for the ${chalk.bold(name)} service`)
                 await spawnProcess(build)
             }
         }
