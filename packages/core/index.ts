@@ -59,9 +59,14 @@ export async function resolveConfig(o: UserConfig = {}) {
     // Remove services that are not specified
     const selectedServices = cliArgs.service
     if (selectedServices) {
-        const selected = !Array.isArray(selectedServices) ? [ selectedServices ] : selectedServices
+        const isSingleService = !Array.isArray(selectedServices)
+        const selected = isSingleService ? [ selectedServices ] : selectedServices
         for (let name in copy.services) {
             if (!selected.includes(name)) delete copy.services[name]
+            else if (isSingleService) {
+                const customPort = cliArgs.port || process.env.PORT
+                if (customPort) copy.services[name].port = customPort
+            }
         }
     }
 

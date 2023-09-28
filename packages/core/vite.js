@@ -3,7 +3,7 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import { VitePWA } from 'vite-plugin-pwa'
 
-import { join, normalize } from 'node:path'
+import { join, normalize, extname } from 'node:path'
 
 import { rootDir, userPkg, scopedOutDir, target, command, cliArgs, outDir } from "./globals";
 import { getIcon } from './utils/index'
@@ -18,10 +18,12 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
     
     const config =  { ... commonersConfig }
 
-    // Add extra global state variables
-
     // Sanitize the global configuration object
     const icon = getIcon(config.icon)
+
+    function assetPath(path) {
+        return `./${normalize(`${build ? '' : 'dist/'}.commoners/assets/${path}`)}`
+    }
 
     const plugins = [
         {
@@ -29,12 +31,12 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
             transformIndexHtml(html) {
 return `
 ${
-    icon ? `<link rel="icon" type="image/x-icon" href="./${normalize(icon)}">` : '' // Add favicon
+    icon ? `<link rel="shortcut icon" type="image/${extname(icon).slice(1)}" href="${assetPath(icon)}">` : '' // Add favicon
 }
 <script type="module">
 
     // Directly import the plugins from the transpiled configuration object
-    import COMMONERS_CONFIG from "./${build ? '' : 'dist/'}.commoners/assets/commoners.config.mjs"
+    import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs')}"
     const { plugins } = COMMONERS_CONFIG
 
     // Set global variable

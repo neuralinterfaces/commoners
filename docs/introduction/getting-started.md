@@ -24,10 +24,10 @@ To use a service, you should (1) check for the existence of the service, then (2
     }
 ```
 
-If your service will be accessible from a particular URL, you'll want to make sure that the `port` used is derived from the first optional command-line argument. In Node.js, this looks like: 
+If your service will be accessible from a particular URL, you'll want to make sure that the `port` used is derived from the `PORT` environment variable:
 
 ```js
-const port = process.argv[2]
+const port = process.env.PORT || 3000
 ```
 
 ### Using Services in Production

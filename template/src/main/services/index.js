@@ -101,7 +101,7 @@ export async function start (config, id, roots) {
 
     if (ext === '.js') process = node(config)
     else if (ext === '.py') process = python(config)
-    else if (!ext || ext === '.exe') process = spawn(config.abspath, [config.port]) // Run executables as extra resources
+    else if (!ext || ext === '.exe') process = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port } }) // Run executables as extra resources
 
     if (process) {
       const label = id ?? 'commoners-service'

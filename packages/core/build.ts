@@ -33,7 +33,7 @@ export default async function build ({ target, platform }: BuildOptions, config?
 
     if (toBuild.frontend) {
         if (target === 'mobile') await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await ViteBuild(resolveViteConfig(config, { build: true }))  // Build the standard output files using Vite. Force recognition as build
+        await ViteBuild(resolveViteConfig(resolvedConfig, { build: true }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // Build services if not specifically the frontend
