@@ -45,7 +45,7 @@ else if (command.dev || command.start || !command) {
                 await populateOutputDirectory(resolvedConfig)
             }
 
-            if (target.desktop) configureForDesktop() // Configure the desktop instance
+            if (target.desktop) await configureForDesktop() // Configure the desktop instance
             else if (runFrontendWithServices) await createServices(resolvedConfig) // Run services in parallel
 
 
