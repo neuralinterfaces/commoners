@@ -15,12 +15,6 @@ const homeDirectory = app.getPath("home");
 const commonersDirectory = join(homeDirectory, 'COMMONERS');
 if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
 
-const writeToFile = (msg) => {
-  appendFileSync(join(commonersDirectory, `debug.log`), `${msg}\n`)
-}
-
-writeToFile('test')
-
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
