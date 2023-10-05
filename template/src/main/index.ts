@@ -6,14 +6,20 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import * as services from './services/index'
 
 import main from '@electron/remote/main';
-import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 
 // import chalk from 'chalk'
 // import util from 'node:util'
 
-const homeDirectory = app.getPath("home");
-const commonersDirectory = join(homeDirectory, 'COMMONERS');
-if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
+// // --------------------- Simple Log Script ------------------------
+// import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+// const homeDirectory = app.getPath("home");
+// const commonersDirectory = join(homeDirectory, 'COMMONERS');
+// if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
+
+// const uniqueLogId = (new Date()).toUTCString()
+// const writeToDebugLog = (msg) => {
+//   appendFileSync(join(commonersDirectory, `${app.name}_${uniqueLogId}.log`), `${msg}\n`)
+// }
 
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
