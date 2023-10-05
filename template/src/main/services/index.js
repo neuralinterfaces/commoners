@@ -96,25 +96,25 @@ export async function start (config, id, roots) {
   if (isValidURL(src)) return
 
   if (src) {
-    let process;
+    let childProcess;
     const ext = extname(src)
 
-    if (ext === '.js') process = node(config)
-    else if (ext === '.py') process = python(config)
-    else if (!ext || ext === '.exe') process = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port } }) // Run executables as extra resources
+    if (ext === '.js') childProcess = node(config)
+    else if (ext === '.py') childProcess = python(config)
+    else if (!ext || ext === '.exe') childProcess = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port } }) // Run executables as extra resources
 
-    if (process) {
+    if (childProcess) {
       const label = id ?? 'commoners-service'
-      if (process.stdout) process.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
-      if (process.stderr) process.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
-      process.on('close', (code) => code === null 
+      if (childProcess.stdout) childProcess.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
+      if (childProcess.stderr) childProcess.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
+      childProcess.on('close', (code) => code === null 
                                       ? '' // Process is being closed because of a window closure from the user or the Vite HMR process
                                       : console.error(`[${label}]: exited with code ${code}`)); 
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
-      processes[id] = process
+      processes[id] = childProcess
 
       return {
-        process,
+        process: childProcess,
         info: config
       }
     } else {
