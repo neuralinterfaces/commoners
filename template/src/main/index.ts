@@ -170,8 +170,6 @@ protocol.registerSchemesAsPrivileged([{
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
-  writeToFile(`Config: ${existsSync(configPath)}`)
-
   const config = (await import(configPath)).default // Requires putting the dist at the Resource Path: https://github.com/electron/electron/issues/38957
 
   // // Pass preconfigured properties to the main service declaration
