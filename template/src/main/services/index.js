@@ -43,12 +43,12 @@ export async function resolveService (
 
 
   if (isProduction && config.publish) {
-    const publishConfig = resolveConfig(config.publish)
-    const internalConfig = resolveConfig(config.publish[mode]) ?? publishConfig
+    const publishConfig = resolveConfig(config.publish) ?? {}
+    const internalConfig = resolveConfig(config.publish[mode]) ?? {} // Block service if mode is not available
+    const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
 
     // Cascade from more to less specific information
-    Object.assign(config, config.publish)
-    Object.assign(config, internalConfig)
+    Object.assign(config, mergedConfig)
 
     delete config.publish
   }
@@ -147,6 +147,10 @@ export function stop (id) {
     }
 }
 
+function isValidService(info) {
+  return info.src || info.url
+}
+
 export async function resolveAll (services = {}, roots) {
 
   const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { src: config } : config])
@@ -157,10 +161,11 @@ export async function resolveAll (services = {}, roots) {
   // Provide sanitized service information as an environment variable
   const propsToInclude = [ 'url' ]
   const info = {} 
-  for (let id in serviceInfo) {
-    info[id] = {}
-    propsToInclude.forEach(prop => info[id][prop] = serviceInfo[id][prop])
-  }
+  Object.entries(serviceInfo).forEach(([id, sInfo]) => {
+    if (!isValidService(sInfo)) return
+    const gInfo = info[id] = {}
+    propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
+  })
 
   process.env.SERVICES = JSON.stringify(info)
 
