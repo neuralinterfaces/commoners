@@ -1,5 +1,5 @@
 import path from "node:path"
-import { NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, outDir, templateDir } from "./globals.js"
+import { NAME, RAW_NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, outDir, templateDir } from "./globals.js"
 import { BaseOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -60,8 +60,8 @@ export default async function build ({ target, platform }: BuildOptions, config?
         buildConfig.productName = NAME
 
         // NOTE: These variables don't get replaced on Windows
-        buildConfig.appId = buildConfig.appId.replace('${name}', NAME)
-        buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', NAME)
+        buildConfig.appId = buildConfig.appId.replace('${name}', RAW_NAME)
+        buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', RAW_NAME)
 
         // Register extra resources
         buildConfig.mac.extraResources = buildConfig.linux.extraResources = [ { from: outDir, to: outDir }, ...Object.values(services).reduce((acc: string[], { extraResources }: any) => {

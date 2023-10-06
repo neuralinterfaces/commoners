@@ -71,8 +71,9 @@ export const TARGET = process.env.TARGET = Object.entries(target).find(([_, valu
 // Pre-loaded configuration objects
 export const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
-export const NAME = userPkg.name // Specify the product name
-export const APPID = `com.${NAME}.app`
+export const RAW_NAME = userPkg.name
+export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
+export const APPID = `com.${RAW_NAME}.app`
 
 // Get Configuration File and Path
 export const rootDir = path.resolve(dirname(fileURLToPath(import.meta.url))); // NOTE: Files referenced relative to rootDir must be transferred to the dist
