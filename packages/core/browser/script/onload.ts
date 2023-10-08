@@ -45,7 +45,13 @@ if ( __plugins ) {
 } else COMMONERS.__ready()
 
 
-document.addEventListener("DOMContentLoaded", async function(){
+
+const onDOMReady = (callback) => {
+    if (document.readyState === "complete"  || document.readyState === "loaded" || document.readyState === "interactive") callback()
+    else document.addEventListener("DOMContentLoaded", callback)
+}
+
+onDOMReady(async function(){
 
     await COMMONERS.ready
 

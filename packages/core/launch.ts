@@ -1,7 +1,7 @@
 
-import { existsSync } from 'node:fs';
-import { NAME, getBuildConfig } from './globals.js';
-import path from 'node:path';
+import { existsSync} from 'node:fs';
+import { NAME, getBuildConfig, cliArgs, outDir } from './globals.js';
+import { join } from 'node:path';
 import chalk from 'chalk';
 
 import { spawnProcess } from './utils/processes.js'
@@ -9,7 +9,10 @@ import { spawnProcess } from './utils/processes.js'
 import * as mobile from './mobile/index.js'
 import { BaseOptions } from './types.js';
 
-import http from 'node:http'
+import { createServer } from './utils/server.js'
+import { getFreePorts } from '../../template/src/main/services/utils/network.js'
+
+import open from 'open'
 
 export default async function ({ platform, target }: BaseOptions) {
 
@@ -18,11 +21,11 @@ export default async function ({ platform, target }: BaseOptions) {
     else if (target === 'desktop') {
 
         const buildConfig = getBuildConfig()
-        const electronDistPath = path.join(process.cwd(), buildConfig.directories.output)
+        const electronDistPath = join(process.cwd(), buildConfig.directories.output)
 
         let exePath = ''
-        if (platform === 'mac') exePath = path.join(electronDistPath, platform, `${NAME}.app`)
-        else if (platform === 'windows') exePath = path.join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
+        if (platform === 'mac') exePath = join(electronDistPath, platform, `${NAME}.app`)
+        else if (platform === 'windows') exePath = join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
         else throw new Error(`Cannot launch the application for ${platform}`)
 
         if (!existsSync(exePath)) throw new Error(`${NAME} has not been built for ${platform} yet.`)
@@ -35,13 +38,26 @@ export default async function ({ platform, target }: BaseOptions) {
     } 
 
     else {
-        
-        const port = 3000;
-        const server = http.createServer();
-        console.log(host)
-        server.listen(port, host, () => {
-            console.log(`Server is running on http://${host}:${port}`);
+
+        const host = 'localhost'
+        const port = cliArgs.port || (await getFreePorts(1))[0]
+
+        const server = createServer({ 
+            port, 
+            root: outDir,
+            handler: (data) => {
+                console.log('test', data)
+            }
+        })
+
+        server.listen(parseInt(port), host, () => {
+            const url = `http://${host}:${port}`
+            console.log(`Server is running on ${chalk.cyan(url)}`);
+            open(url)
         });
+
+
+        
     }
 
         

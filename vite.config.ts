@@ -18,7 +18,8 @@ const nodeBuiltIns = [
   "node:path",
   "node:net",
   "node:util",
-  "node:os"
+  "node:os",
+  "node:http"
 ]
 
 const outputFileName = `cli.js`
