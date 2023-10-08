@@ -28,7 +28,7 @@ export const valid = {
     platform: tuple('mac', 'windows', 'linux', ...validMobilePlatforms),
 
     // Internal
-    command: tuple('start', 'dev', 'build', 'launch', 'commit', 'publish'),
+    command: tuple('start', 'dev', 'build', 'launch', 'share'),
 
     // Configuration
     icon: tuple('light', 'dark'),

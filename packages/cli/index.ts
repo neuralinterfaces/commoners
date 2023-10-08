@@ -4,7 +4,7 @@ import chalk from "chalk";
 
 import { onExit as processOnExit } from "../core/utils/processes.js";
 import { cliArgs, command, COMMAND, PLATFORM, target, TARGET } from "../core/globals.js";
-import { build, createServer, launch, loadConfigFromFile, configureForDesktop, resolveConfig, createServices } from "../core/index.js";
+import { share, build, createServer, launch, loadConfigFromFile, configureForDesktop, resolveConfig, createServices } from "../core/index.js";
 import { clearOutputDirectory, populateOutputDirectory } from "../core/common.js";
 
 // Error Handling for CLI
@@ -20,6 +20,7 @@ process.on('beforeExit', onExit);
 const baseOptions = { target: TARGET, platform: PLATFORM }
 
 if (command.launch) launch(baseOptions) // Launch the specified build
+else if (command.share) share()
 else if (command.build) build(baseOptions) // Build the application using the specified settings
 else if (command.dev || command.start || !command) {
 

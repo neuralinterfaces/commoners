@@ -5,6 +5,7 @@ import { resolveAll, createAll } from '../../template/src/main/services/index.js
 
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
+export { default as share } from './share.js'
 
 import { ManifestOptions } from 'vite-plugin-pwa'
 

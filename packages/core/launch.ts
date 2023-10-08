@@ -42,13 +42,7 @@ export default async function ({ platform, target }: BaseOptions) {
         const host = 'localhost'
         const port = cliArgs.port || (await getFreePorts(1))[0]
 
-        const server = createServer({ 
-            port, 
-            root: outDir,
-            handler: (data) => {
-                console.log('test', data)
-            }
-        })
+        const server = createServer({  root: outDir })
 
         server.listen(parseInt(port), host, () => {
             const url = `http://${host}:${port}`

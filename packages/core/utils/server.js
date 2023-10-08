@@ -5,9 +5,11 @@ import url from 'node:url';
 import { readFileSync, statSync } from 'node:fs';
 
 
-export const createServer = ({ root }) => {
+export const createServer = ({ root = process.cwd(), handler }) => {
 
     return http.createServer(function (req, res) {
+
+        if (handler) return handler(res, req, { root })
     
         // parse URL
         const parsedUrl = url.parse(req.url);
@@ -36,6 +38,7 @@ export const createServer = ({ root }) => {
         };
     
         if (statSync(pathname).isDirectory()) pathname += '/index' + ext;
+
     
         res.setHeader('Content-type', map[ext] || 'text/plain' );
         res.end(readFileSync(pathname));
