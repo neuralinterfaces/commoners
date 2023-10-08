@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { COMMAND, MODE, NAME, PLATFORM, TARGET, assetOutDir, configPath, outDir, scopedOutDir, userPkg } from "./globals.js"
+import { COMMAND, MODE, NAME, PLATFORM, RAW_NAME, TARGET, assetOutDir, configPath, outDir, rootDir, scopedOutDir, userPkg } from "./globals.js"
 import { dirname, extname, join, parse, relative, sep } from "node:path"
 
 import { isValidURL } from './utils/url.js'
@@ -49,6 +49,12 @@ export const getAssets = async (config?: UserConfig) => {
             }
         }] : [{ text: 'export default {}', output: 'commoners.config.mjs'}]
     }
+
+    // Bundle onload script for the browser
+    assets.bundle.push({
+        input: join(rootDir, 'packages', 'core', 'browser', 'script', 'onload.ts'),
+        output: 'onload.mjs'
+    })
     
     // Copy Services Only in Development / Electron Builds
     if (COMMAND !== 'build' || TARGET === 'desktop') Object.values(resolvedConfig.services).forEach(o => addServiceAssets.call(assets, o))
@@ -70,7 +76,7 @@ export const clearOutputDirectory = () => {
 export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
     mkdirSync(assetOutDir, { recursive: true }) // Ensure base and asset output directory exists
 
-    writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+    writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${RAW_NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
     const assets = await getAssets(config)
 
@@ -86,7 +92,7 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
         if (hasMetadata && 'text' in info && hasMetadata && hasExplicitOutput) writeFileSync(join(assetOutDir, output), info.text)
         else if (hasExplicitInput) {
             const ext = extname(input)
-            const outPath = join(assetOutDir, input)
+            const outPath = hasExplicitOutput ? join(assetOutDir, output) : join(assetOutDir, input)
             const outDir = dirname(outPath)
             const root = dirname(input)
 
@@ -106,7 +112,7 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
             else {
 
                 const resolvedExtension = hasExplicitOutput ? extname(output) : (hasMetadata ? output?.extension : '') || 'js'
-                const outfile = hasExplicitOutput ? output : join(outDir, `${parse(input).name}.${resolvedExtension}`)
+                const outfile = hasExplicitOutput ? outPath : join(outDir, `${parse(input).name}.${resolvedExtension}`)
 
                 const baseConfig: esbuild.BuildOptions = {
                     entryPoints: [input],

@@ -26,6 +26,7 @@ const outputFilePath = join(__dirname, 'dist', outputFileName)
 
 const toCopy = [
   'template',
+  'packages/core/browser/script',
 ]
 
 export default defineConfig({

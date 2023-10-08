@@ -40,7 +40,7 @@ ${
     const { plugins } = COMMONERS_CONFIG
 
     // Set global variable
-    const { ipcRenderer, services } = globalThis.__COMMONERS ?? {} // Grab temporary variables
+    const { services } = globalThis.__COMMONERS ?? {} // Grab temporary variables
 
     globalThis.COMMONERS = JSON.parse(\`${JSON.stringify({
         services: JSON.parse(process.env.SERVICES),
@@ -49,113 +49,13 @@ ${
         MODE: process.env.MODE
     })}\`)
 
+    if (plugins) globalThis.COMMONERS.__plugins = plugins
+    if (services) globalThis.COMMONERS.services = services // Replace with sanitized services from Electron if available
 
-    // Prepare for async section
-    let resolveConfig;
-    const isReady = globalThis.COMMONERS.ready = new Promise(res => resolveConfig = res)
+    import("${assetPath('onload.mjs')}")
 
-    document.addEventListener("DOMContentLoaded", async function(){
-
-        await isReady
-
-        const { plugins } = COMMONERS
-        
-        // Handle Preloaded Plugin Values
-        const { __toRender = {}, loaded } = plugins
-        delete plugins.__toRender
-        const rendered = plugins.rendered = {}
-        for (let name in __toRender) {
-            try {
-                rendered[name] = __toRender[name](loaded[name])
-            } catch (e) {
-                pluginErrorMessage(name, "render", e)
-            }
-        }
-    });
-
-    if (services)  globalThis.COMMONERS.services = services // Replace with sanitized services from Electron if available
-
-    // Injected environment from the COMMONERS build process
-    const pluginErrorMessage = (name, type, e) => console.error(\`[commoners] \${name} plugin (\${type}) failed to execute:\`, e)
-
-    const removablePluginProps = ['preload', 'render']
-
-    const sanitizePluginProperties = (plugin, target) => {
-        const copy = {...plugin}
-
-        const assumeRemoval = 'main' in copy && target !== 'desktop' // Always clear main when not an electron build
-
-        if (assumeRemoval) delete copy.main 
-
-        // Assume true if no main; assume false if main
-        const willRemove = (v) => assumeRemoval ? !v : v === false
-
-        // Remove any top-level properties that are flagged as unsupported
-        const isSupported = copy.isSupported?.[target] ?? copy.isSupported // Drill to the target
-
-        if (isSupported && typeof isSupported === 'object') {
-            let { properties } = isSupported
-
-            if (!isSupported.check) properties = isSupported // isSupported is the property dictionary
-
-            if (willRemove(properties)) {
-                properties = isSupported.properties = {}
-                removablePluginProps.forEach(prop => properties[prop] = false)
-            }
-            
-            if (properties && typeof properties === 'object') removablePluginProps.forEach(prop => {
-                if (willRemove(properties[prop])) delete copy[prop]
-            })
-        }
-
-        return copy
-    }
-
-    const loaded = {}
-    const __toRender = {}
-    if (plugins) {
-
-        const getFnFromString = (str) => (0, eval)(\`(\${str})\`)
-
-        // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
-        const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
-
-        const supported = await asyncFilter(plugins, async (plugin) => {
-            try {
-                let { isSupported } = plugin
-                if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
-                if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-                return (typeof isSupported === 'function') ? await isSupported.call(plugin, COMMONERS.TARGET) : isSupported !== false
-            } catch {
-                return false
-            }
-        })
-
-        const sanitized = supported.map((o) => sanitizePluginProperties(o, COMMONERS.TARGET))
-
-        sanitized.forEach(({ name, preload }) => {
-            
-            loaded[name] = undefined // Register that all supported plugins are technically loaded
-
-            try {
-                if (preload) loaded[name] = ipcRenderer ? preload.call(ipcRenderer) : preload()
-            } catch (e) {
-                pluginErrorMessage(name, "preload", e)
-            }
-
-        })
-    
-        sanitized.forEach(({ name, render }) => {
-            if (render) __toRender[name] = render
-        })
-    }
-
-    COMMONERS.plugins = { loaded, __toRender }
-
-    resolveConfig()
-
-
-</script>\n${html}`
+</script>
+\n${html}`
             },
         },
     ]
