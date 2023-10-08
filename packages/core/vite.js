@@ -52,6 +52,16 @@ ${
     if (plugins) globalThis.COMMONERS.__plugins = plugins
     if (services) globalThis.COMMONERS.services = services // Replace with sanitized services from Electron if available
 
+    COMMONERS.ready = new Promise(res => {
+        const ogRes = res
+        res = () => {
+            ogRes()
+            delete COMMONERS.__ready
+        }
+        
+        COMMONERS.__ready = res
+    })    
+
     import("${assetPath('onload.mjs')}")
 
 </script>

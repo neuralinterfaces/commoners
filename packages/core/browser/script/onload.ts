@@ -1,9 +1,8 @@
 import { asyncFilter, pluginErrorMessage, sanitizePluginProperties } from "./utils";
 
-const { ipcRenderer } = globalThis.__COMMONERS ?? {} // Grab temporary variables
-
-const { __plugins } = globalThis.COMMONERS
-delete globalThis.COMMONERS.__plugins
+const { ipcRenderer } = globalThis.__COMMONERS ?? {}
+const { __plugins } = COMMONERS
+delete COMMONERS.__plugins
 
 if ( __plugins ) {
 
@@ -40,13 +39,15 @@ if ( __plugins ) {
     })
 
     COMMONERS.plugins = { loaded, __toRender }
-
+    COMMONERS.__ready()
 })
 
-} 
+} else COMMONERS.__ready()
 
 
 document.addEventListener("DOMContentLoaded", async function(){
+
+    await COMMONERS.ready
 
     const { plugins } = COMMONERS
     

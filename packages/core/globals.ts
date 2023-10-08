@@ -43,13 +43,13 @@ const isMobile = cliArgs.mobile || !!validMobilePlatforms.find(platform => cliAr
 
 
 // Ensures launch with dev command is not called...
-const isDev = COMMAND === 'dev' || !COMMAND || (COMMAND === 'launch' && !isMobile && !isDesktop) // Is also the default launch command
+const isDev = COMMAND === 'dev' || !COMMAND
 
 export const command = {
     start: COMMAND === 'start',
     dev: isDev,
     build: COMMAND === 'build',
-    launch: !isDev && COMMAND === 'launch',
+    launch: COMMAND === 'launch',
     commit: COMMAND === 'commit',
     publish: COMMAND === 'publish'
 }

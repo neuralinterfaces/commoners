@@ -7,8 +7,9 @@ import chalk from 'chalk';
 import { spawnProcess } from './utils/processes.js'
 
 import * as mobile from './mobile/index.js'
-import build from './build.js';
 import { BaseOptions } from './types.js';
+
+import http from 'node:http'
 
 export default async function ({ platform, target }: BaseOptions) {
 
@@ -33,7 +34,15 @@ export default async function ({ platform, target }: BaseOptions) {
         console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
     } 
 
-    else return await build({ target, platform }) // TODO: Create Build Command
+    else {
+        
+        const port = 3000;
+        const server = http.createServer();
+        console.log(host)
+        server.listen(port, host, () => {
+            console.log(`Server is running on http://${host}:${port}`);
+        });
+    }
 
         
 }
