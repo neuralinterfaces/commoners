@@ -222,6 +222,7 @@ ${
         vite.defineConfig({
             base: './',
             build: {
+                emptyOutDir: false,
                 outDir
             },
             plugins,

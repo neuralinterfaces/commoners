@@ -12,10 +12,10 @@ import { loadConfigFromFile, resolveConfig } from "./index.js"
 
 type AssetInfo = string | {
     input: string,
-    output?: {
+    output?: string | {
         extension?: 'mjs' | 'cjs'
     }
-}
+}  | { text?: string, output: string }
 
 type AssetsCollection = {
     copy: AssetInfo[],
@@ -47,7 +47,7 @@ export const getAssets = async (config?: UserConfig) => {
             output: {
                 extension: 'mjs'
             }
-        }] : []
+        }] : [{ text: 'export default {}', output: 'commoners.config.mjs'}]
     }
     
     // Copy Services Only in Development / Electron Builds
@@ -68,7 +68,7 @@ export const clearOutputDirectory = () => {
 }
 
 export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
-    mkdirSync(scopedOutDir, { recursive: true }) // Ensure base output directory exists
+    mkdirSync(assetOutDir, { recursive: true }) // Ensure base and asset output directory exists
 
     writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
@@ -79,44 +79,54 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
 
         const hasMetadata = typeof info !== 'string'
         const input = hasMetadata ? info.input : info
+        const output = hasMetadata ? info.output : null
+        const hasExplicitOutput = typeof output === 'string'
+        const hasExplicitInput = typeof input === 'string'
 
-        const ext = extname(input)
-        const outPath = join(assetOutDir, input)
-        const outDir = dirname(outPath)
-        const root = dirname(input)
+        if (hasMetadata && 'text' in info && hasMetadata && hasExplicitOutput) writeFileSync(join(assetOutDir, output), info.text)
+        else if (hasExplicitInput) {
+            const ext = extname(input)
+            const outPath = join(assetOutDir, input)
+            const outDir = dirname(outPath)
+            const root = dirname(input)
 
-        // Bundle HTML Files using Vite
-        if (ext === '.html') await vite.build({
-            logLevel: 'silent',
-            base: "./",
-            root,
-            build: {
-                outDir: relative(root, outDir),
-                rollupOptions: { input: input }
-            },
-        })
 
-        // Build JavaScript Files using ESBuild
-        else {
-            const resolvedExtension = (hasMetadata ? info.output?.extension : '') || 'js'
-            const outfile = join(outDir, `${parse(input).name}.${resolvedExtension}`)
-
-            const baseConfig: esbuild.BuildOptions = {
-                entryPoints: [input],
-                bundle: true,
+            // Bundle HTML Files using Vite
+            if (ext === '.html') await vite.build({
                 logLevel: 'silent',
-                outfile,
-            }
+                base: "./",
+                root,
+                build: {
+                    outDir: relative(root, outDir),
+                    rollupOptions: { input: input }
+                },
+            })
 
-            if (resolvedExtension === 'mjs') await esbuild.build({ ...baseConfig, format: 'esm' })
-            else if (resolvedExtension === 'cjs') await esbuild.build({ ...baseConfig, format: 'cjs' })
-            else return await esbuild.build({ ...baseConfig,  format: 'esm' })
-                .catch(() => esbuild.build({
-                    ...baseConfig,
-                    external: ['*.node'],
-                    platform: 'node'
-                }))
-        }
+            // Build JavaScript Files using ESBuild
+            else {
+
+                const resolvedExtension = hasExplicitOutput ? extname(output) : (hasMetadata ? output?.extension : '') || 'js'
+                const outfile = hasExplicitOutput ? output : join(outDir, `${parse(input).name}.${resolvedExtension}`)
+
+                const baseConfig: esbuild.BuildOptions = {
+                    entryPoints: [input],
+                    bundle: true,
+                    logLevel: 'silent',
+                    outfile,
+                }
+
+                if (resolvedExtension === 'mjs') await esbuild.build({ ...baseConfig, format: 'esm' })
+                else if (resolvedExtension === 'cjs') await esbuild.build({ ...baseConfig, format: 'cjs' })
+                else return await esbuild.build({ ...baseConfig,  format: 'esm' })
+                    .catch(() => esbuild.build({
+                        ...baseConfig,
+                        external: ['*.node'],
+                        platform: 'node'
+                    }))
+            }
+        } 
+        
+        else console.warn('Asset not transferred to the build:', input)
     }))
 
     // Copy static assets

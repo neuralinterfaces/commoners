@@ -22,8 +22,6 @@ export default async function build ({ target, platform }: BuildOptions, config?
 
     const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
 
-    await clearOutputDirectory()
-
     const { icon , services } = resolvedConfig
 
     const toBuild = {
@@ -31,12 +29,17 @@ export default async function build ({ target, platform }: BuildOptions, config?
         services: cliArgs['services'] || cliArgs.service || !cliArgs['frontend']
     }
 
+    // Clear only if both are going to be rebuilt
+    if (toBuild.frontend && toBuild.services) await clearOutputDirectory()
+
+
+    // Build frontend
     if (toBuild.frontend) {
         if (target === 'mobile') await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
         await ViteBuild(resolveViteConfig(resolvedConfig, { build: true }))  // Build the standard output files using Vite. Force recognition as build
     }
 
-    // Build services if not specifically the frontend
+    // Build services
     if (toBuild.services) {
         for (let name in services) {
             const service = services[name]
