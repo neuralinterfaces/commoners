@@ -34,6 +34,12 @@ export default defineConfig({
         items: [
           { text: 'Official Plugins', link: '/plugins/official' }
         ]
+      },
+      {
+        text: 'Future Documentation',
+        items: [
+          { text: 'Walkthroughs', link: '/pending/walkthroughs' }
+        ]
       }
     ],
 
