@@ -71,18 +71,15 @@ const globals : {
   send: (...args) => onWindowReady(() => mainWindow.webContents.send(...args))
 }
 
-function createAppWindows(config) {
-
+function createAppWindows(config, opts = config.electron ?? {}) {
 
 // Replace with getIcon (?)
 const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
 const linuxIcon = config.icon?.linux || defaultIcon
 
-
 const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
-
-  const splashURL = config.electron?.splash
+  const splashURL = opts.splash
 
   if (splashURL) {
     const splash = new BrowserWindow({
@@ -100,7 +97,15 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
     globals.splash = splash // Replace splash entry with the active window
   }
 
+  // ------------------- Avoid window creation if the user has specified not to -------------------
+  const plugins = config.plugins ?? []
+  const windowOpts = opts.window
+  if (windowOpts === false || windowOpts === null) {
+    plugins.forEach(plugin => plugin.main && plugin.main.call(ipcMain, null, globals) )
+    return
+  }
 
+  // ------------------- Create the main window -------------------  
   const preload = join(commonersDist, 'preload', 'index.js')
 
   const windowConfig = {
@@ -112,7 +117,7 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
     webPreferences: {
       sandbox: false
     },
-    ...config.electron?.window ?? {} // Merge User-Defined Window Variables
+    ...opts.window ?? {} // Merge User-Defined Window Variables
   }
 
   // Ensure preload is added
@@ -129,7 +134,7 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
   }
 
   // Activate specified plugins from the configuration file
-  if ('plugins' in config) config.plugins.forEach(plugin => (plugin.main) ? plugin.main.call(ipcMain, mainWindow, globals) : '' )
+  plugins.forEach(plugin => plugin.main && plugin.main.call(ipcMain, mainWindow, globals))
 
   mainWindow.on('ready-to-show', () => {
 
@@ -226,9 +231,7 @@ app.whenReady().then(async () => {
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })

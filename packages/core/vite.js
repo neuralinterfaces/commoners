@@ -57,7 +57,7 @@ ${
         res = (...args) => {
             ogRes(...args)
             delete COMMONERS.__ready
-            ipcRenderer.send('COMMONERS:ready')
+            if (ipcRenderer) ipcRenderer.send('COMMONERS:ready')
         }
         
         COMMONERS.__ready = res
