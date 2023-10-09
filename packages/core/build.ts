@@ -97,7 +97,7 @@ export default async function build ({ target, platform }: BuildOptions, config?
 
         if (cliArgs.publish) opts.publish = typeof cliArgs.publish === 'string' ? cliArgs.publish : 'always'
 
-        await ElectronBuilder(cliArgs)
+        await ElectronBuilder(opts)
     }
 
     else if (target === 'mobile') {

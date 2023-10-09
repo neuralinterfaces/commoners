@@ -72,7 +72,7 @@ export const getAssets = async (config?: UserConfig) => {
 
 
 export const clearOutputDirectory = () => {
-    if (existsSync(scopedOutDir)) rmSync(scopedOutDir, { recursive: true, force: true }) // Clear output directory
+    if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
 export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
