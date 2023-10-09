@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "A cross-platform development kit for everyone",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "type": "module",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/index.js",
