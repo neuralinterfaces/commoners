@@ -37,6 +37,6 @@ try {
         }
     }
     const res = (results["en0"] ?? results["Wi-Fi"])?.[0]
-    if (res) localIP = res
+    if (res) localIP = process.env.COMMONERS_LOCAL_IP = res
 
 } catch { }

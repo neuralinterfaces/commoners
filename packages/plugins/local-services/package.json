@@ -1,0 +1,12 @@
+{
+    "name": "@commoners/local-services",
+    "version": "0.0.0",
+    "main": "./dist/ble.es.js",
+    "type": "module",
+    "scripts": {
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "vite": "^4.2.1"
+    }
+}

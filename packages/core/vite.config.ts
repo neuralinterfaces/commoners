@@ -8,19 +8,10 @@ const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', '..', 'package.json')).toString())
 
-const nodeBuiltIns = [
-  "node:child_process",
-  "node:fs",
-  "node:url",
-  "node:path",
-  "node:net",
-  "node:util",
-  "node:os"
-]
-
 import { type Plugin } from 'vite';
 import { exec } from 'child_process';
 import chalk from "chalk";
+import { nodeBuiltIns } from "./utils/config";
 
 const dts: Plugin = {
   name: 'dts-generator',

@@ -34,6 +34,7 @@
     "chalk": "^5.2.0",
     "clui": "^0.3.6",
     "configstore": "^6.0.0",
+    "dotenv": "^16.3.1",
     "electron": "^26.2.1",
     "electron-builder": "^23.6.0",
     "esbuild": "^0.17.19",

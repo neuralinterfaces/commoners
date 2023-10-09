@@ -56,6 +56,8 @@ Plugins are collections of JavaScript functions that run at different points dur
 2. `preload` - Before the DOM is loaded 
 3. `render` - After the DOM is loaded 
 
+> **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
+
 To declare a plugin, you simply add the relevant configuration object in the `plugins` array of the `commoners.config.js` file:
 ```js
 export default {
@@ -91,3 +93,11 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
         // ....
     }
 ```
+
+For code executed in the `main` function, there are several global variables available to you by default:
+- `COMMONERS_PLATFORM` - The current build platform (`mac`, `windows`, `linux`, `ios`, or `android`)
+- `COMMONERS_TARGET` - The current build target (`desktop`, `mobile`, or `web`)
+- `COMMONERS_MODE` - The current build mode (`development`, `local`, or `remote`)
+- `COMMONERS_LOCAL_IP` - The local IP address of the current machine
+
+Additional global variables will be loaded from your `.env` file, if present.

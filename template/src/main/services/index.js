@@ -38,7 +38,7 @@ export async function resolveService (
   { assets, root } = {}
 ) {
 
-  const mode = process.env.MODE
+  const mode = process.env.COMMONERS_MODE
   const isProduction = mode !== "development"
 
 
@@ -167,7 +167,7 @@ export async function resolveAll (services = {}, roots) {
     propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
   })
 
-  process.env.SERVICES = JSON.stringify(info)
+  process.env.COMMONERS_SERVICES = JSON.stringify(info)
 
   return serviceInfo
 }

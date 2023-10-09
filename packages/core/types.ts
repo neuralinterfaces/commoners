@@ -159,7 +159,7 @@ export type CommonersGlobalObject = {
     MODE: ModeType,
     plugins: ExposedPlugins,
     services: ExposedPlugins,
-    ready: Promise<void>,
+    ready: Promise<ExposedPlugins['loaded']>,
     __ready: Function, // Resolve Function
     __plugins: AnyObj // Raw Plugins
 }

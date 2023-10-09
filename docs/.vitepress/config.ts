@@ -28,6 +28,12 @@ export default defineConfig({
           { text: 'Why Commoners', link: '/introduction/why' },
           { text: 'CLI', link: '/introduction/cli' },
         ]
+      },
+      {
+        text: 'Plugins',
+        items: [
+          { text: 'Official Plugins', link: '/plugins/official' }
+        ]
       }
     ],
 

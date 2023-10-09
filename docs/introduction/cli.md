@@ -29,3 +29,10 @@ Build the project assets
 Launch your built application
 
 > **Note:** No service-related options available for this command
+
+## commoners share
+Share the application's services
+- `--port` - The port to use for the service gateway (`number`)
+- `--service [name]` - For specific service(s) (`string`)
+
+> **Note:** No service-related options available for this command

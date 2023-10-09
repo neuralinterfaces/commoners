@@ -2,7 +2,7 @@ import { ipcRenderer } from 'electron'
 import { contextBridge } from 'electron'
 
 const globalVariableName = '__COMMONERS'
-const services = process.env.SERVICES
+const services = process.env.COMMONERS_SERVICES
 
 const TEMP_COMMONERS = { 
     services: services ? JSON.parse(services) : null, // Ensure correct ports

@@ -39,10 +39,10 @@ if ( __plugins ) {
     })
 
     COMMONERS.plugins = { loaded, __toRender }
-    COMMONERS.__ready()
+    COMMONERS.__ready(loaded)
 })
 
-} else COMMONERS.__ready()
+} else COMMONERS.__ready({})
 
 
 

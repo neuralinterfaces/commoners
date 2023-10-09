@@ -1,4 +1,4 @@
-import { APPID, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, userPkg } from './globals.js'
+import { APPID, COMMAND, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, userPkg } from './globals.js'
 import { ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from '../../template/src/main/services/index.js'
@@ -65,7 +65,7 @@ export async function resolveConfig(o: UserConfig = {}) {
         for (let name in copy.services) {
             if (!selected.includes(name)) delete copy.services[name]
             else if (isSingleService) {
-                const customPort = cliArgs.port || process.env.PORT
+                const customPort = cliArgs.port || (COMMAND === 'dev' ? process.env.PORT : null)
                 if (customPort) copy.services[name].port = customPort
             }
         }

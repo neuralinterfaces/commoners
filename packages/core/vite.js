@@ -40,13 +40,13 @@ ${
     const { plugins } = COMMONERS_CONFIG
 
     // Set global variable
-    const { services } = globalThis.__COMMONERS ?? {} // Grab temporary variables
+    const { services, ipcRenderer } = globalThis.__COMMONERS ?? {} // Grab temporary variables
 
     globalThis.COMMONERS = JSON.parse(\`${JSON.stringify({
-        services: JSON.parse(process.env.SERVICES),
-        TARGET: process.env.TARGET,
-        PLATFORM: process.env.PLATFORM,
-        MODE: process.env.MODE
+        services: JSON.parse(process.env.COMMONERS_SERVICES),
+        TARGET: process.env.COMMONERS_TARGET,
+        PLATFORM: process.env.COMMONERS_PLATFORM,
+        MODE: process.env.COMMONERS_MODE
     })}\`)
 
     if (plugins) globalThis.COMMONERS.__plugins = plugins
@@ -54,9 +54,10 @@ ${
 
     COMMONERS.ready = new Promise(res => {
         const ogRes = res
-        res = () => {
-            ogRes()
+        res = (...args) => {
+            ogRes(...args)
             delete COMMONERS.__ready
+            ipcRenderer.send('COMMONERS:ready')
         }
         
         COMMONERS.__ready = res
@@ -115,7 +116,7 @@ ${
                         minify: build,
                         outDir: join(scopedOutDir, 'preload'),
                         rollupOptions: {
-                            external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
+                            external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {})
                         },
                     },
                 },

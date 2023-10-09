@@ -6,21 +6,11 @@ import { viteStaticCopy } from 'vite-plugin-static-copy'
 import url from "node:url";
 import { join, resolve } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
+import { nodeBuiltIns } from "./packages/core/utils/config";
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
 const pkg = JSON.parse(readFileSync('./package.json').toString())
-
-const nodeBuiltIns = [
-  "node:child_process",
-  "node:fs",
-  "node:url",
-  "node:path",
-  "node:net",
-  "node:util",
-  "node:os",
-  "node:http"
-]
 
 const outputFileName = `cli.js`
 const outputFilePath = join(__dirname, 'dist', outputFileName)

@@ -39,15 +39,15 @@ export const getAssets = async (config?: UserConfig) => {
 
     const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
 
+    const configExtensionTargets = ['cjs', 'mjs']
+
     // Transfer configuration file and related services
     const assets: AssetsCollection = {
         copy: [],
-        bundle: configPath ? [{
+        bundle: configExtensionTargets.map(ext => { return configPath ? {
             input: configPath.split(sep).slice(-1)[0],
-            output: {
-                extension: 'mjs'
-            }
-        }] : [{ text: 'export default {}', output: 'commoners.config.mjs'}]
+            output: { extension: ext }
+        } : { text: 'export default {}', output: `commoners.config.${ext}` } })
     }
 
     // Bundle onload script for the browser
@@ -86,13 +86,13 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
         const hasMetadata = typeof info !== 'string'
         const input = hasMetadata ? info.input : info
         const output = hasMetadata ? info.output : null
-        const hasExplicitOutput = typeof output === 'string'
+        const explicitOutput = typeof output === 'string' ? output : null
         const hasExplicitInput = typeof input === 'string'
 
-        if (hasMetadata && 'text' in info && hasMetadata && hasExplicitOutput) writeFileSync(join(assetOutDir, output), info.text)
+        if (hasMetadata && 'text' in info && hasMetadata && explicitOutput) writeFileSync(join(assetOutDir, explicitOutput), info.text)
         else if (hasExplicitInput) {
             const ext = extname(input)
-            const outPath = hasExplicitOutput ? join(assetOutDir, output) : join(assetOutDir, input)
+            const outPath = explicitOutput ? join(assetOutDir, explicitOutput) : join(assetOutDir, input)
             const outDir = dirname(outPath)
             const root = dirname(input)
 
@@ -111,8 +111,8 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
             // Build JavaScript Files using ESBuild
             else {
 
-                const resolvedExtension = hasExplicitOutput ? extname(output) : (hasMetadata ? output?.extension : '') || 'js'
-                const outfile = hasExplicitOutput ? outPath : join(outDir, `${parse(input).name}.${resolvedExtension}`)
+                const resolvedExtension = explicitOutput ? extname(explicitOutput).slice(1) : (hasMetadata ? output?.extension : '') || 'js'
+                const outfile = explicitOutput ? outPath : join(outDir, `${parse(input).name}.${resolvedExtension}`)
 
                 const baseConfig: esbuild.BuildOptions = {
                     entryPoints: [input],
@@ -121,14 +121,16 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
                     outfile,
                 }
 
-                if (resolvedExtension === 'mjs') await esbuild.build({ ...baseConfig, format: 'esm' })
-                else if (resolvedExtension === 'cjs') await esbuild.build({ ...baseConfig, format: 'cjs' })
-                else return await esbuild.build({ ...baseConfig,  format: 'esm' })
-                    .catch(() => esbuild.build({
-                        ...baseConfig,
-                        external: ['*.node'],
-                        platform: 'node'
-                    }))
+                // Force a build format if the proper extension is specified
+                const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
+
+
+                const buildForNode = () => buildForBrowser({ platform: 'node', external: [ "*.node" ] })
+                
+                const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
+                
+                if (resolvedExtension === 'cjs') buildForNode()
+                else buildForBrowser().catch(buildForNode) // Externalize all node dependencies
             }
         } 
         

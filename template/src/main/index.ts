@@ -25,19 +25,18 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
 // Populate platform variable if it doesn't exist
-if (!process.env.PLATFORM)  process.env.PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+if (!process.env.COMMONERS_PLATFORM)  process.env.COMMONERS_PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-const commonersDist = (process.env.PLATFORM === 'windows' || !isProduction) ? join(__dirname, '..') : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
+const commonersDist = (process.env.COMMONERS_PLATFORM === 'windows' || !isProduction) ? join(__dirname, '..') : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
 
 // Get the COMMONERS configuration file
-const configFileName = 'commoners.config.mjs'
-const configPath = join(commonersAssets, configFileName)
+const configPath = join(commonersAssets, 'commoners.config.cjs') // Load the .mjs config version
 
 // Populate other global variables if they don't exist
-if (!process.env.TARGET) process.env.TARGET = 'desktop'
-if (!process.env.MODE)  process.env.MODE = isProduction ? 'local' : 'development'; // NOTE: Could be remote
+if (!process.env.COMMONERS_TARGET) process.env.COMMONERS_TARGET = 'desktop'
+if (!process.env.COMMONERS_MODE)  process.env.COMMONERS_MODE = isProduction ? 'local' : 'development'; // NOTE: Could be remote
 
 let mainWindow;
 
@@ -55,7 +54,8 @@ const globals : {
   mainInitialized: boolean,
   mainWindow?: BrowserWindow
   splash?: BrowserWindow,
-  userRestarted: boolean
+  userRestarted: boolean,
+  send: Function
 } = {
   firstOpen: true,
   mainInitialized: false,
@@ -68,6 +68,7 @@ const globals : {
     readyQueue = []
   },
   userRestarted: false,
+  send: (...args) => onWindowReady(() => mainWindow.webContents.send(...args))
 }
 
 function createAppWindows(config) {
@@ -78,7 +79,7 @@ const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.ico
 const linuxIcon = config.icon?.linux || defaultIcon
 
 
-const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
+const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
 
   const splashURL = config.electron?.splash
@@ -132,8 +133,6 @@ const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linux
 
   mainWindow.on('ready-to-show', () => {
 
-    globals.mainWindow = mainWindow
-
     if (globals.splash) {
       setTimeout(() => {
         if (globals.splash) {
@@ -146,6 +145,8 @@ const platformDependentWindowConfig = (process.env.PLATFORM === 'linux' && linux
      } 
      
      else mainWindow.show()
+
+     ipcMain.on('COMMONERS:ready', () =>  globals.mainWindow = mainWindow) // Is ready to receive IPC messages
 
   })
 
@@ -176,7 +177,7 @@ protocol.registerSchemesAsPrivileged([{
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
 
-  const config = (await import(configPath)).default // Requires putting the dist at the Resource Path: https://github.com/electron/electron/issues/38957
+  const config = require(configPath).default // (await import (configPath)).default // // Requires putting the dist at the Resource Path: https://github.com/electron/electron/issues/38957
 
   // // Pass preconfigured properties to the main service declaration
   // const { SERVICES } = process.env
@@ -222,7 +223,7 @@ app.whenReady().then(async () => {
 
   app.on('activate', async function () {
     if (BrowserWindow.getAllWindows().length === 0) await createAppWindows(config)
-    })
+  })
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common

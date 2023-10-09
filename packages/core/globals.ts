@@ -11,6 +11,10 @@ import * as yaml from 'js-yaml'
 import { valid, validMobilePlatforms, WritableElectronBuilderConfig } from "./types.js";
 import chalk from "chalk";
 
+// Environment Variables
+import dotenv from 'dotenv'
+dotenv.config()
+
 export const userPkg = getJSON('package.json')
 
 export const cliArgs = minimist(process.argv.slice(2))
@@ -22,10 +26,10 @@ export const assetOutDir = path.join(scopedOutDir, 'assets')
 export const defaultMainLocation = path.join(scopedOutDir, 'main', 'index.js')
 
 
-export const COMMAND = process.env.COMMAND = passedCommand
+export const COMMAND = process.env.COMMONERS_COMMAND = passedCommand
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-export const PLATFORM = process.env.PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
+export const PLATFORM = process.env.COMMONERS_PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
 
 const isDesktopCommandConsistent = (platform) => {
     if (cliArgs[platform]) {
@@ -61,9 +65,9 @@ export const target = {
 }
 
 // ----------------- GLOBAL STATE DECLARATION -----------------
-export const MODE = process.env.MODE = (command.start || command.dev || command.share || !command) ? 'development' : ( target.mobile || target.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
+export const MODE = process.env.COMMONERS_MODE = (command.start || command.dev || command.share || !command) ? 'development' : ( target.mobile || target.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
 
-export const TARGET = process.env.TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
+export const TARGET = process.env.COMMONERS_TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
 
 // ------------------------------------------------------------
 
