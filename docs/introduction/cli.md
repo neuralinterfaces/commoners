@@ -24,6 +24,8 @@ Build the project assets
 
 ### Additional Options
 - `--pwa` - As a Progressive Web App
+- `--desktop --publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish))
+    - **Note:** While [other providers](https://www.electron.build/configuration/publish.html#publishers) are possible to use, they have not been tested with this command.
 
 ## commoners launch
 Launch your built application
