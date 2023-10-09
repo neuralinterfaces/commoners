@@ -4,7 +4,7 @@ import { BaseOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
-import { build as ElectronBuilder } from 'electron-builder'
+import { CliOptions, build as ElectronBuilder } from 'electron-builder'
 
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 import { clearOutputDirectory, populateOutputDirectory } from "./common.js"
@@ -93,7 +93,11 @@ export default async function build ({ target, platform }: BuildOptions, config?
         buildConfig.win.icon = winIcon ? path.join(assetOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
         buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
 
-        await ElectronBuilder({ config: buildConfig as any })
+        const opts: CliOptions = { config: buildConfig as any }
+
+        if (cliArgs.publish) opts.publish = typeof cliArgs.publish === 'string' ? cliArgs.publish : 'always'
+
+        await ElectronBuilder(cliArgs)
     }
 
     else if (target === 'mobile') {

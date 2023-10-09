@@ -23,20 +23,20 @@ export function main(
   win.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
     // Add listeners to handle ports being added or removed before the callback for `select-serial-port` is called.
     win.webContents.session.on('serial-port-added', (event, port) => {
-      win.webContents.send("serial.added", port);
+      win.webContents.send(`${name}.added`, port);
     })
 
     win.webContents.session.on('serial-port-removed', (event, port) => {
-      win.webContents.send("serial.removed", port);
+      win.webContents.send(`${name}.removed`, port);
     })
 
-    win.webContents.send("serial.request", portList);
+    win.webContents.send(`${name}.request`, portList);
 
     event.preventDefault()
     selectPortCallback = callback
 
     // NOTE: Ensure this is only called once
-    this.on("serial.select", (
+    this.on(`${name}.select`, (
       _evt, //: IpcMainEvent, 
       port //: string
     ) => {
@@ -55,10 +55,10 @@ export function preload(
 ) {
 
   return {
-    added: (callback) => this.on("serial.added", (_, port) => callback(port)),
-    removed: (callback) => this.on("serial.removed", (_, port) => callback(port)),
-    select: (port) => this.send("serial.select", port),
-    onRequest: (callback) => this.on("serial.request", (_, value) => callback(value)),
+    added: (callback) => this.on(`${name}.added`, (_, port) => callback(port)),
+    removed: (callback) => this.on(`${name}.removed`, (_, port) => callback(port)),
+    select: (port) => this.send(`${name}.select`, port),
+    onRequest: (callback) => this.on(`${name}.request`, (_, value) => callback(value)),
   }
 }
 

@@ -13,9 +13,9 @@ export function main (
     
     autoUpdater.channel = "latest";
 
-    autoUpdater.on("update-available", () => win.webContents.send("autoupdate.available"));
-    autoUpdater.on("update-downloaded", () => win.webContents.send("autoupdate.downloaded"));
-    this.on("autoupdate.restart", () => autoUpdater.quitAndInstall());
+    autoUpdater.on("update-available", () => win.webContents.send(`${name}.available`));
+    autoUpdater.on("update-downloaded", () => win.webContents.send(`${name}.downloaded`));
+    this.on(`${name}.restart`, () => autoUpdater.quitAndInstall());
 
     win.webContents.once("dom-ready", () => {
         if (globals.updateChecked == false) autoUpdater.checkForUpdatesAndNotify()
@@ -32,13 +32,13 @@ export function preload(
 ) {
 
     return {
-        onAvailable: () => this.on("autoupdate.available", () => {
-            this.removeAllListeners("autoupdate.available");
+        onAvailable: () => this.on(`${name}.available`, () => {
+            this.removeAllListeners(`${name}.available`);
             console.warn("A new update is available. Downloading now...")
         }),
 
-        onDownloaded: () => this.on("autoupdate.downloaded", async () => {
-            this.removeAllListeners("autoupdate.downloaded");
+        onDownloaded: () => this.on(`${name}.downloaded`, async () => {
+            this.removeAllListeners(`${name}.downloaded`);
             console.warn("Update downloaded. It will be installed when you close and relaunch the app.")
             // this.send("restart-to-update");
           })

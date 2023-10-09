@@ -43,8 +43,8 @@ function main(
 
     const active: { [x: string]: string[] } = {}
 
-    this.on("local-services:get", () => {
-        Object.values(active).flat().forEach(service => send("local-services:found", service))
+    this.on(`${name}.get`, () => {
+        Object.values(active).flat().forEach(service => send(`${name}.found`, service))
     })
 
     // Check for available services every 2 seconds
@@ -71,14 +71,14 @@ function main(
                                 if (commoners) {
                                     if (isValidService && isValidService(ip, commoners) === false) return // Skip invalid services
                                     active[ip] = services
-                                    services.forEach(port => send("local-services:found", (getURL(ip, port))))
+                                    services.forEach(port => send(`${name}.found`, (getURL(ip, port))))
                                 }
                             });
 
                         } else res.destroy()
                     })
                 } else if (active[ip]) {
-                    active[ip].forEach(port => send("local-services:closed", getURL(ip, port)));
+                    active[ip].forEach(port => send(`${name}.closed`, getURL(ip, port)));
                     delete active[ip]
                 }
             });
@@ -88,9 +88,9 @@ function main(
 
 export function preload() {
     return {
-        get: () => this.send("local-services:get"),
-        onFound: (callback) => this.on("local-services:found", (_, service) => callback(service)),
-        onClosed: (callback) => this.on("local-services:closed", (_, service) => callback(service)),
+        get: () => this.send(`${name}.get`),
+        onFound: (callback) => this.on(`${name}.found`, (_, service) => callback(service)),
+        onClosed: (callback) => this.on(`${name}.closed`, (_, service) => callback(service)),
     }
 }
 

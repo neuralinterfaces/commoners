@@ -35,7 +35,7 @@ export function main (
     // Enable Web Bluetooth
     let selectBluetoothCallback;
 
-    this.on("bluetooth.select", (
+    this.on(`${name}.select`, (
       _evt, //: IpcMainEvent, 
       value //: string
     ) => {
@@ -54,9 +54,9 @@ export function main (
 
       event.preventDefault()
       
-      if (!selectBluetoothCallback) win.webContents.send("bluetooth.open", devices); // Initial request always starts at zero
+      if (!selectBluetoothCallback) win.webContents.send(`${name}.open`, devices); // Initial request always starts at zero
 
-      win.webContents.send("bluetooth.update", devices);
+      win.webContents.send(`${name}.update`, devices);
 
       selectBluetoothCallback = callback
 
@@ -68,9 +68,9 @@ export function preload(
   // this: IpcRenderer
 ) {
     return {
-        onOpen: (callback) =>this.on("bluetooth.open", () => callback()),
-        onUpdate: (callback) => this.on("bluetooth.update", (_, devices) => callback(devices)),
-        select: (deviceID) => this.send("bluetooth.select", deviceID),
+        onOpen: (callback) =>this.on(`${name}.open`, () => callback()),
+        onUpdate: (callback) => this.on(`${name}.update`, (_, devices) => callback(devices)),
+        select: (deviceID) => this.send(`${name}.select`, deviceID),
     }
 }
 

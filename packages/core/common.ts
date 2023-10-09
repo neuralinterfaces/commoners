@@ -55,6 +55,8 @@ export const getAssets = async (config?: UserConfig) => {
         input: join(rootDir, 'packages', 'core', 'browser', 'script', 'onload.ts'),
         output: 'onload.mjs'
     })
+
+    if (existsSync('.env')) assets.copy.push('.env') // Copy .env file if it exists
     
     // Copy Services Only in Development / Electron Builds
     if (COMMAND !== 'build' || TARGET === 'desktop') Object.values(resolvedConfig.services).forEach(o => addServiceAssets.call(assets, o))

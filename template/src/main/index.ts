@@ -7,6 +7,8 @@ import * as services from './services/index'
 
 import main from '@electron/remote/main';
 
+import dotenv from 'dotenv'
+
 // import chalk from 'chalk'
 // import util from 'node:util'
 
@@ -31,8 +33,11 @@ const commonersDist = (process.env.COMMONERS_PLATFORM === 'windows' || !isProduc
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
 
+
+if (isProduction) dotenv.config({ path: join(commonersAssets, '.env') }) // Load the .env file in production
+
 // Get the COMMONERS configuration file
-const configPath = join(commonersAssets, 'commoners.config.cjs') // Load the .mjs config version
+const configPath = join(commonersAssets, 'commoners.config.cjs') // Load the .cjs config version
 
 // Populate other global variables if they don't exist
 if (!process.env.COMMONERS_TARGET) process.env.COMMONERS_TARGET = 'desktop'
@@ -41,13 +46,15 @@ if (!process.env.COMMONERS_MODE)  process.env.COMMONERS_MODE = isProduction ? 'l
 let mainWindow;
 
 function send(this: BrowserWindow, channel: string, ...args: any[]) {
-  return this.webContents.send(channel, ...args)
+  try {
+    return this.webContents.send(channel, ...args)
+  } catch (e) {} // Catch in case messages are registered as sendable for a window that has been closed
 }
 
 type ReadyFunction = (win: BrowserWindow) => any
 let readyQueue: ReadyFunction[] = []
-const onWindowReady = (f: ReadyFunction) => (globals.mainWindow) ? f(globals.mainWindow) : readyQueue.push(f)
 
+const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
 
 const globals : {
   firstOpen: boolean,
@@ -59,16 +66,8 @@ const globals : {
 } = {
   firstOpen: true,
   mainInitialized: false,
-  get mainWindow(){
-    return mainWindow
-  },
-  set mainWindow(v) {
-    mainWindow = v
-    if (v) readyQueue.forEach(f => onWindowReady(f))
-    readyQueue = []
-  },
   userRestarted: false,
-  send: (...args) => onWindowReady(() => mainWindow.webContents.send(...args))
+  send: (channel, ...args) => onWindowReady((win) => send.call(win, channel, ...args))
 }
 
 function createAppWindows(config, opts = config.electron ?? {}) {
@@ -124,19 +123,19 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
   if (!('preload' in windowConfig.webPreferences)) windowConfig.webPreferences.preload = preload
 
   // Create the browser window.
-  const mainWindow = new BrowserWindow(windowConfig)
+  const win = new BrowserWindow(windowConfig)
   if (windowConfig.webPreferences.enableRemoteModule) {
     if (!globals.mainInitialized) {
       main.initialize()
       globals.mainInitialized = true
     }
-    main.enable(mainWindow.webContents);
+    main.enable(win.webContents);
   }
 
   // Activate specified plugins from the configuration file
-  plugins.forEach(plugin => plugin.main && plugin.main.call(ipcMain, mainWindow, globals))
+  plugins.forEach(plugin => plugin.main && plugin.main.call(ipcMain, win, globals))
 
-  mainWindow.on('ready-to-show', () => {
+  win.on('ready-to-show', () => {
 
     if (globals.splash) {
       setTimeout(() => {
@@ -144,30 +143,34 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
           globals.splash.close();
           delete globals.splash
         }
-        mainWindow.show();
+        win.show();
         globals.firstOpen = false
       }, globals.firstOpen ? 1000 : 200);
      } 
      
-     else mainWindow.show()
+     else win.show()
 
-     ipcMain.on('COMMONERS:ready', () =>  globals.mainWindow = mainWindow) // Is ready to receive IPC messages
+     ipcMain.on('COMMONERS:ready', () =>{
+      mainWindow = win
+      readyQueue.forEach(f => f(win))
+      readyQueue = []
+     }) // Is ready to receive IPC messages
 
   })
 
-  mainWindow.once('close', () => globals.mainWindow = undefined) // De-register the main window
+  win.once('close', () => mainWindow = undefined) // De-register the main window
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
   // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
-  if (is.dev && devServerURL) mainWindow.loadURL(devServerURL) 
-  else mainWindow.loadFile(join(dist, 'index.html'))
+  if (is.dev && devServerURL) win.loadURL(devServerURL) 
+  else win.loadFile(join(dist, 'index.html'))
 
-  return mainWindow
+  return win
 }
 
 // Custom Protocol Support (https://www.electronjs.org/docs/latest/api/protocol#protocolregisterschemesasprivilegedcustomschemes)
@@ -177,22 +180,10 @@ protocol.registerSchemesAsPrivileged([{
   privileges: { supportFetchAPI: true }
 }])
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// This method will be called when Electron has initialized
 app.whenReady().then(async () => {
 
   const config = require(configPath).default // (await import (configPath)).default // // Requires putting the dist at the Resource Path: https://github.com/electron/electron/issues/38957
-
-  // // Pass preconfigured properties to the main service declaration
-  // const { SERVICES } = process.env
-  // if (SERVICES) {
-  //   const preconfigured = JSON.parse(SERVICES as string)
-  //   for (let id in preconfigured) {
-  //     if (typeof config.services[id] === 'string') config.services[id] = { src: config.services[id] }
-  //     config.services[id] = Object.assign(config.services[id], preconfigured[id])
-  //   }
-  // }
 
   // Set app user model id for windows
   electronApp.setAppUserModelId(`com.${customProtocolScheme}`)
@@ -243,7 +234,7 @@ const ogConsoleMethods: any = {};
 ['log', 'warn', 'error'].forEach(method => {
   const ogMethod = ogConsoleMethods[method] = console[method]
   console[method] = (...args) => {
-    onWindowReady(win => send.call(win, `console.${method}`, ...args))
+    onWindowReady(win => send.call(win, `COMMONERS:console.${method}`, ...args))
     ogMethod(...args)
   }
 })
