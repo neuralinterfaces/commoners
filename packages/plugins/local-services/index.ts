@@ -12,6 +12,10 @@ function checkPort(port, host, callback) {
     socket.connect(port, host);
 }
 
+function getURL(host, port) {
+    return `http://${host}:${port}`
+}
+
 
 const name = 'local-services'
 
@@ -52,7 +56,7 @@ function main(
             checkPort(port, ip, (_, status) => {
                 if (status == "open") {
 
-                    http.get(`http://${ip}:${port}`, res => {
+                    http.get(getURL(ip, port), res => {
 
                         if (res.statusCode === 200) {
 
@@ -67,14 +71,14 @@ function main(
                                 if (commoners) {
                                     if (isValidService && isValidService(ip, commoners) === false) return // Skip invalid services
                                     active[ip] = services
-                                    services.forEach(port => send("local-services:found", `http://${ip}:${port}`))
+                                    services.forEach(port => send("local-services:found", (getURL(ip, port))))
                                 }
                             });
 
                         } else res.destroy()
                     })
                 } else if (active[ip]) {
-                    active[ip].forEach(service => send("local-services:closed", service));
+                    active[ip].forEach(port => send("local-services:closed", getURL(ip, port)));
                     delete active[ip]
                 }
             });
