@@ -36,9 +36,10 @@ export default defineConfig({
         ]
       },
       {
-        text: 'Future Documentation',
+        text: 'Roadmap',
         items: [
-          { text: 'Walkthroughs', link: '/pending/walkthroughs' }
+          { text: 'Features', link: '/roadmap/features' },
+          { text: 'Walkthroughs', link: '/roadmap/walkthroughs' },
         ]
       }
     ],
