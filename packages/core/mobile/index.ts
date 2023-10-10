@@ -87,6 +87,8 @@ export const init = async (platform, config: ResolvedConfig) => {
     await checkDepsInstalled(platform, config)
     await openConfig(config, async () => {
         if (!existsSync(platform)) {
+            
+            console.log(chalk.cyanBright(`[commoners]: Initializing ${platform} project...`))
             await runCommand(`npx cap add ${platform} && npx cap copy`)
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
@@ -95,8 +97,7 @@ export const init = async (platform, config: ResolvedConfig) => {
                 const xml = plist.parse(readFileSync(plistPath, 'utf8')) as any;
                 xml.NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to connect and interact with peripheral BLE devices."
                 xml.UIBackgroundModes = ["bluetooth-central"]
-                writeFileSync(plistPath, plist.build(xml));
-            }
+                writeFileSync(plistPath, plist.build(xml));}
         }
     })
 }

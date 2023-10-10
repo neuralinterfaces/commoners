@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { createServer } from './utils/server.js'
 import { createServices, loadConfigFromFile, resolveConfig } from './index.js';
 
-import { localIP } from '../../template/src/main/services/utils/network.js'
+import { getLocalIP } from '../../template/src/main/services/utils/network.js'
 import { cliArgs } from './globals.js';
 
 export default async function () {
@@ -33,7 +33,7 @@ export default async function () {
     server.listen(
         port, 
         '0.0.0.0', // All IPs
-        () => console.log(`Services shared at ${chalk.cyan(`http://${localIP}:${port}`)}\n`)
+        () => console.log(`Services shared at ${chalk.cyan(`http://${getLocalIP()}:${port}`)}\n`)
     );
 
 }

@@ -37,4 +37,4 @@ Share the application's services
 - `--port` - The port to use for the service gateway (`number`)
 - `--service [name]` - For specific service(s) (`string`)
 
-> **Note:** No service-related options available for this command
+> **Note:** To be shared, you must internally configure your service to be hosted on `0.0.0.0` rather than `localhost`.

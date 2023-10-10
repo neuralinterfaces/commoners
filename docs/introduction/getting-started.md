@@ -1,6 +1,39 @@
 # Getting Started
 `commoners` allows anyone to build their application for web, desktop, and mobile.
 
+## Build Targets
+`commoners` relies on [Vite](https://vitejs.dev) to generate the essential frontend files for each build target.
+
+### Web
+Web builds are the default build target. These builds are intended to be deployed to a web server, and are accessible from any device with a web browser.
+
+#### PWA
+Progressive Web Apps (PWAs) are web applications that can be installed on a device and accessed from the home screen. PWAs are supported on most modern browsers, and can be installed on both desktop and mobile devices—though they will have limited access to native features.
+
+`commoners` relies on [vite-plugin-pwa]() to generate the necessary files for a PWA. To enable this feature, simply add the `--pwa` flag to your build command.
+
+### Desktop
+Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
+
+`commoners` relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--desktop` flag to your build command.
+
+
+### Mobile
+Mobile builds are intended to be installed on a user's mobile device. These builds are accessible from the home screen, and have access to native features.
+
+`commoners` relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--mobile` flag to your build command.
+
+#### iOS
+If you are building for iOS, you will need to install the following dependencies:
+- [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12)
+- [CocoaPods](https://cocoapods.org)
+
+> **Note:** If your pods are not installed automatically, you may need to update gems (`sudo gem update --system`) and / or reinstall an older version of CocoaPods (`sudo gem install cocoapods:1.10.2`) for the CLI tool to properly initialize your project.
+
+#### Android
+If you are building for Android, you will need to install the following dependencies:
+- [Android Studio](https://developer.android.com/studio)
+
 ## Services
 Services are independent processes that the main application depends on. These may be `local` or `remote` based on the distributed application files.
 
@@ -95,9 +128,9 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
 ```
 
 For code executed in the `main` function, there are several global variables available to you by default:
+
 - `COMMONERS_PLATFORM` - The current build platform (`mac`, `windows`, `linux`, `ios`, or `android`)
 - `COMMONERS_TARGET` - The current build target (`desktop`, `mobile`, or `web`)
 - `COMMONERS_MODE` - The current build mode (`development`, `local`, or `remote`)
-- `COMMONERS_LOCAL_IP` - The local IP address of the current machine
 
 Additional global variables will be loaded from your `.env` file, if present.

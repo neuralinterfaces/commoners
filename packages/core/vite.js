@@ -31,7 +31,7 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
             transformIndexHtml(html) {
 return `
 ${
-    icon ? `<link rel="shortcut icon" type="image/${extname(icon).slice(1)}" href="${assetPath(icon)}">` : '' // Add favicon
+    icon ? `<link rel="shortcut icon" href="${assetPath(icon)}" type="image/${extname(icon).slice(1)}" >` : '' // Add favicon
 }
 <script type="module">
 

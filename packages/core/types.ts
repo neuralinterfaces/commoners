@@ -120,7 +120,7 @@ type ElectronOptions = {
 
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
-    icon?: IconType
+    icon: IconType
     plugins: PluginType[],
     electron: ElectronOptions
     pwa: PWAOptions

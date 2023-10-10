@@ -1,4 +1,4 @@
-import { APPID, COMMAND, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, userPkg } from './globals.js'
+import { APPID, COMMAND, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, templateDir, userPkg } from './globals.js'
 import { ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from '../../template/src/main/services/index.js'
@@ -54,6 +54,8 @@ export async function resolveConfig(o: UserConfig = {}) {
     const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
 
     if (!copy.electron) copy.electron = {}
+
+    if (!copy.icon) copy.icon = resolve(templateDir, 'resources', 'icon.png')
 
     copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
 
@@ -117,7 +119,7 @@ export async function resolveConfig(o: UserConfig = {}) {
 
 import { createServer as createViteServer } from 'vite'
 import { resolveViteConfig } from './vite.js'
-import { extname, join, normalize, sep } from 'node:path'
+import { extname, join, normalize, resolve, sep } from 'node:path'
 import chalk from 'chalk'
 import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'

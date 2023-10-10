@@ -18,25 +18,39 @@ export async function getFreePorts(n = 1) {
     })
 }
 
+let localIP;
 
-export let localIP = 'localhost'
+export const getLocalIP = (force = false) => {
 
-try {
+    if (!localIP) {
+    
+        localIP = 'localhost'
 
-    const nets = networkInterfaces();
-    const results = {}
+        const { COMMONERS_COMMAND, COMMONERS_TARGET } = process.env
 
-    for (const name of Object.keys(nets)) {
-        for (const net of nets[name]) {
-            if (net.family === 'IPv4' && !net.internal) {
-                if (!results[name]) {
-                    results[name] = [];
+        if (force !== true && (COMMONERS_COMMAND !== 'share' && COMMONERS_TARGET !== 'mobile')) return localIP
+
+        try {
+
+            const nets = networkInterfaces();
+            const results = {}
+        
+            for (const name of Object.keys(nets)) {
+                for (const net of nets[name]) {
+                    if (net.family === 'IPv4' && !net.internal) {
+                        if (!results[name]) {
+                            results[name] = [];
+                        }
+                        results[name].push(net.address);
+                    }
                 }
-                results[name].push(net.address);
             }
-        }
-    }
-    const res = (results["en0"] ?? results["Wi-Fi"])?.[0]
-    if (res) localIP = process.env.COMMONERS_LOCAL_IP = res
 
-} catch { }
+            const res = (results["en0"] ?? results["Wi-Fi"])?.[0]
+            if (res) localIP = res
+        
+        } catch { }
+    }
+
+    return localIP
+}

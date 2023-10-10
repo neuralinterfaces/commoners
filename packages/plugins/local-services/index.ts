@@ -1,5 +1,4 @@
 
-
 function checkPort(port, host, callback) {
     const net = require('node:net');
     let socket = new net.Socket(), status: null | 'open' | 'closed' = null;
@@ -14,6 +13,42 @@ function checkPort(port, host, callback) {
 
 function getURL(host, port) {
     return `http://${host}:${port}`
+}
+
+
+let localIP;
+
+function getLocalIP () {
+
+    if (!localIP) {
+    
+        localIP = 'localhost'
+
+        const { networkInterfaces } = require('node:os');
+
+        try {
+
+            const nets = networkInterfaces();
+            const results = {}
+        
+            for (const name of Object.keys(nets)) {
+                for (const net of nets[name]) {
+                    if (net.family === 'IPv4' && !net.internal) {
+                        if (!results[name]) {
+                            results[name] = [];
+                        }
+                        results[name].push(net.address);
+                    }
+                }
+            }
+
+            const res = (results["en0"] ?? results["Wi-Fi"])?.[0]
+            if (res) localIP = res
+        
+        } catch { }
+    }
+
+    return localIP
 }
 
 
@@ -39,7 +74,8 @@ function main(
     if (!port) return console.error(`[commoners:local-services] No port provided`)
 
     const http = require('node:http');
-    const localIP = process.env.COMMONERS_LOCAL_IP as string // Provided by COMMONERS
+
+    const localIP = getLocalIP()
 
     const active: { [x: string]: string[] } = {}
 

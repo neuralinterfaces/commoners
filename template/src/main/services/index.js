@@ -2,7 +2,7 @@ import node from './node/index.js'
 import python from './python/index.js'
 
 import { extname, join, sep } from "node:path"
-import { getFreePorts, localIP } from './utils/network.js';
+import { getFreePorts, getLocalIP } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
 
@@ -62,8 +62,13 @@ export async function resolveService (
     delete resolvedConfig.src
   }
 
+  resolvedConfig.host = getLocalIP()
+
   if (!resolvedConfig.src) {
-    if (resolvedConfig.url) resolvedConfig.url = resolvedConfig.url.replace(`//localhost:`, `//${localIP}:`) // Transform local IP addresses to the public URL (for mobile dev mode)
+    if (resolvedConfig.url) {
+      const newHost = `//${resolvedConfig.host}:`
+      resolvedConfig.url = resolvedConfig.url.replace(`//localhost:`, newHost) // Transform local IP addresses
+    }
     return resolvedConfig // Return the configuration unchanged if no file or url
   }
 
@@ -80,7 +85,7 @@ export async function resolveService (
 
   if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
 
-  resolvedConfig.url = `${resolvedConfig.protocol ?? `http:`}//${localIP}:${resolvedConfig.port}`
+  resolvedConfig.url = `${resolvedConfig.protocol ?? `http:`}//${resolvedConfig.host}:${resolvedConfig.port}`
 
   return config
 
@@ -101,7 +106,7 @@ export async function start (config, id, roots) {
 
     if (ext === '.js') childProcess = node(config)
     else if (ext === '.py') childProcess = python(config)
-    else if (!ext || ext === '.exe') childProcess = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port } }) // Run executables as extra resources
+    else if (!ext || ext === '.exe') childProcess = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port, HOST: config.host } }) // Run executables as extra resources
 
     if (childProcess) {
       const label = id ?? 'commoners-service'
