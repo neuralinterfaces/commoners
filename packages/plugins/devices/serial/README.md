@@ -3,9 +3,9 @@ A plugin for connecting to Serial devices on both **web** and **desktop** using 
 
 ## Example
 ```js
-import bluetoothPlugin from '@commoners/bluetooth'
+import serialPlugin from '@commoners/serial'
 
 export default {
-    plugins: [ bluetoothPlugin ]
+    plugins: [ serialPlugin ]
 }
 ```
