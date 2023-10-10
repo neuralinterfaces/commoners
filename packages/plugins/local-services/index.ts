@@ -105,7 +105,7 @@ function main(
                             res.on('end', () => {
                                 const { commoners, services = [] } = JSON.parse(Buffer.concat(data).toString());
                                 if (commoners) {
-                                    if (isValidService && isValidService(ip, commoners) === false) return // Skip invalid services
+                                    if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
                                     active[ip] = services
                                     services.forEach(port => send(`${name}.found`, (getURL(ip, port))))
                                 }
