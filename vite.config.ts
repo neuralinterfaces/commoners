@@ -16,8 +16,7 @@ const outputFileName = `cli.js`
 const outputFilePath = join(__dirname, 'dist', outputFileName)
 
 const toCopy = [
-  'template',
-  'packages/core/browser/script',
+  join('packages', 'core', 'templates'),
 ]
 
 export default defineConfig({

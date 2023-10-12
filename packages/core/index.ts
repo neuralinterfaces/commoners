@@ -1,7 +1,7 @@
 import { APPID, COMMAND, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, templateDir, userPkg } from './globals.js'
 import { ResolvedConfig, UserConfig } from './types.js'
 
-import { resolveAll, createAll } from '../../template/src/main/services/index.js'
+import { resolveAll, createAll } from './templates/services/index.js'
 
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
@@ -55,7 +55,7 @@ export async function resolveConfig(o: UserConfig = {}) {
 
     if (!copy.electron) copy.electron = {}
 
-    if (!copy.icon) copy.icon = resolve(templateDir, 'resources', 'icon.png')
+    if (!copy.icon) copy.icon = resolve(templateDir, 'icon.png')
 
     copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
 

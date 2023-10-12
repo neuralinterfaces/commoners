@@ -11,14 +11,12 @@ asarUnpack: # REPLACED
 afterSign: build/notarize.cjs # AUGMENTED
 win:
   executableName: ${name}
-  icon: build/icon.png # AUGMENTED
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
-  icon: build/icon.icns # AUGMENTED
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -32,8 +30,6 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org # TO UPDATE
-  category: Utility # TO UPDATE
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false

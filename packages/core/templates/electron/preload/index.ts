@@ -7,8 +7,8 @@ const services = process.env.COMMONERS_SERVICES
 const TEMP_COMMONERS = { 
     services: services ? JSON.parse(services) : null, // Ensure correct ports
     ipcRenderer: {
-        on: (...args) => ipcRenderer.on(...args),
-        send: (...args) => ipcRenderer.send(...args)
+        on: (channel, listener) => ipcRenderer.on(channel, listener),
+        send: (channel, ...args) => ipcRenderer.send(channel, ...args)
     }
 }
 

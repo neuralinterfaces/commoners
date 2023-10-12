@@ -55,6 +55,7 @@ ${
     COMMONERS.ready = new Promise(res => {
         const ogRes = res
         res = (...args) => {
+            console.log('READY!')
             ogRes(...args)
             delete COMMONERS.__ready
             if (ipcRenderer) ipcRenderer.send('COMMONERS:ready')
@@ -89,10 +90,12 @@ ${
 
     if (withElectron) {
 
+        const electronTemplateBase = join('packages', 'core', 'templates', 'electron')
+
         const electronPluginConfig = electron([
             {
                 // Main-Process entry file of the Electron App.
-                entry: join(rootDir, 'template/src/main/index.ts'),
+                entry: join(rootDir, join(electronTemplateBase, 'main', 'index.ts')),
                 onstart: (options) => options.startup(),
                 vite: {
                     logLevel: 'silent',
@@ -107,7 +110,7 @@ ${
                 },
             },
             {
-                entry: join(rootDir, 'template/src/preload/index.ts'),
+                entry: join(rootDir,  join(electronTemplateBase, 'preload', 'index.ts')),
                 onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
                 vite: {
                     logLevel: 'silent',

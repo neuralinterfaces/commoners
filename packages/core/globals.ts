@@ -80,8 +80,8 @@ export const APPID = `com.${RAW_NAME}.app`
 
 // Get Configuration File and Path
 export const rootDir = path.resolve(dirname(fileURLToPath(import.meta.url))); // NOTE: Files referenced relative to rootDir must be transferred to the dist
-export const templateDir = path.join(rootDir, 'template')
-export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(path.join(templateDir, 'electron-builder.yml')).toString())
+export const templateDir = path.join(rootDir, 'packages', 'core', 'templates')
+export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(path.join(templateDir, 'electron', 'electron-builder.yml')).toString())
 
 // Get package file
 export const commonersPkg = getJSON(path.join(rootDir, 'package.json'))

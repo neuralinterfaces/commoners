@@ -41,6 +41,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# New stuff
-build

@@ -3,7 +3,7 @@ import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import * as services from './services/index'
+import * as services from '../../services/index'
 
 import main from '@electron/remote/main';
 
@@ -174,7 +174,7 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
 }
 
 // Custom Protocol Support (https://www.electronjs.org/docs/latest/api/protocol#protocolregisterschemesasprivilegedcustomschemes)
-const customProtocolScheme = app.name.toLowerCase().replaceAll(' ', '-')
+const customProtocolScheme = app.name.toLowerCase().split(' ').join('-')
 protocol.registerSchemesAsPrivileged([{
   scheme: customProtocolScheme,
   privileges: { supportFetchAPI: true }

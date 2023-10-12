@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { createServer } from './utils/server.js'
 import { createServices, loadConfigFromFile, resolveConfig } from './index.js';
 
-import { getLocalIP } from '../../template/src/main/services/utils/network.js'
+import { getLocalIP } from './templates/services/utils/network.js'
 import { cliArgs } from './globals.js';
 
 export default async function () {

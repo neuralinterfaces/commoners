@@ -10,7 +10,7 @@ import * as mobile from './mobile/index.js'
 import { BaseOptions } from './types.js';
 
 import { createServer } from './utils/server.js'
-import { getFreePorts } from '../../template/src/main/services/utils/network.js'
+import { getFreePorts } from './templates/services/utils/network.js'
 
 import open from 'open'
 
