@@ -3,7 +3,7 @@ import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import * as services from '../../services/index'
+import * as services from '../services/index'
 
 import main from '@electron/remote/main';
 
@@ -105,7 +105,7 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
   }
 
   // ------------------- Create the main window -------------------  
-  const preload = join(commonersDist, 'preload', 'index.js')
+  const preload = join(commonersDist, 'preload.js')
 
   const windowConfig = {
     width: 900,

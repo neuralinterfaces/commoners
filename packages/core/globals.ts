@@ -23,7 +23,7 @@ const [ passedCommand ] = cliArgs._
 export const outDir = cliArgs.outDir ?? 'dist'
 export const scopedOutDir = path.join(outDir, '.commoners')
 export const assetOutDir = path.join(scopedOutDir, 'assets')
-export const defaultMainLocation = path.join(scopedOutDir, 'main', 'index.js')
+export const defaultMainLocation = path.join(scopedOutDir, 'main.js')
 
 
 export const COMMAND = process.env.COMMONERS_COMMAND = passedCommand

@@ -9,7 +9,7 @@ import { CliOptions, build as ElectronBuilder } from 'electron-builder'
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 import { clearOutputDirectory, populateOutputDirectory } from "./common.js"
 
-import { resolveViteConfig } from './vite.js'
+import { resolveViteConfig } from './vite/index.js'
 import { spawnProcess } from './utils/processes.js'
 
 import { build as ViteBuild } from 'vite'

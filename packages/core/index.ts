@@ -118,7 +118,7 @@ export async function resolveConfig(o: UserConfig = {}) {
 }
 
 import { createServer as createViteServer } from 'vite'
-import { resolveViteConfig } from './vite.js'
+import { resolveViteConfig } from './vite/index.js'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import chalk from 'chalk'
 import { unlink, writeFileSync } from 'node:fs'
