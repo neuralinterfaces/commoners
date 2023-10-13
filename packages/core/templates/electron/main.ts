@@ -29,7 +29,7 @@ const isProduction = !devServerURL
 // Populate platform variable if it doesn't exist
 if (!process.env.COMMONERS_PLATFORM)  process.env.COMMONERS_PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-const commonersDist = (process.env.COMMONERS_PLATFORM === 'windows' || !isProduction) ? join(__dirname, '..') : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
+const commonersDist = (process.env.COMMONERS_PLATFORM === 'windows' || !isProduction) ? __dirname : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
 

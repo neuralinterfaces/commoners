@@ -129,15 +129,16 @@ export const configureForDesktop = async () => {
 
     // Ensure project can handle --desktop command
     if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
-        const result = await yesNo('This COMMONERS project is not configured for desktop. Would you like to initialize it?')
+        const result = await yesNo('This project is not properly configured for desktop. Would you like to initialize it?')
         if (result) {
             const copy: any = {}
             console.log(chalk.green('Added a main entry to your package.json'))
+            delete userPkg.main // Delete existing main entry
             Object.entries(userPkg).forEach(([name, value], i) => {
                 if (i === 3) copy.main = defaultMainLocation
                 copy[name] = value
             })
-            writeFileSync('package.json', JSON.stringify(copy, null, 2))
+            writeFileSync('package.json', JSON.stringify(copy, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
         } else throw new Error('This project is not compatible with desktop mode.')
     }
 

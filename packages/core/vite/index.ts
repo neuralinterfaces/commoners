@@ -14,8 +14,6 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
     const withElectron = ('electron' in opts) ? opts.electron : target.desktop
     const build = ('build' in opts) ? opts.build : command.build
     const pwa = ('pwa' in opts) ? opts.pwa : cliArgs.pwa
-
-    const sourcemap = !build    
     
     const plugins: vite.Plugin[] = [ commonersPlugin({ config: commonersConfig, build })]
 
@@ -28,7 +26,7 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
         const viteOpts = {
             logLevel: 'silent',
             build: {
-                sourcemap,
+                // sourcemap: !build,
                 minify: build,
                 outDir: scopedOutDir,
                 rollupOptions: {
