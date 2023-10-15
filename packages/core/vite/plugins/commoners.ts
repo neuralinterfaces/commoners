@@ -39,7 +39,6 @@ export default ({ config, build }) => {
             COMMONERS.ready = new Promise(res => {
                 const ogRes = res
                 res = (...args) => {
-                    console.log('READY!')
                     ogRes(...args)
                     delete COMMONERS.__ready
                     if (ipcRenderer) ipcRenderer.send('COMMONERS:ready')
