@@ -157,9 +157,11 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     await runCommand(`npx cap open ${platform}`)
 }
 
-export const run = async (platform) => {
+export const run = async (target) => {
 
-    throw new Error('This command has not been configured for mobile platforms yet...')
+    const platform = getCorrectPlatform(target)
+
+    throw new Error(`This command has not been configured for ${platform} yet...`)
         
     // if (existsSync(platform))  {
     //     console.log(chalk.red(`This project is not initialized for ${platform}`))
