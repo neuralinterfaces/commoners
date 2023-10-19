@@ -12,13 +12,9 @@ import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types
 import { loadConfigFromFile, resolveConfig } from '../index.js'
 
 // Run a development server
-export const createServer = async (config: UserConfig | ResolvedConfig | string, opts: ServerOptions = {})  => {
-
-    if (typeof config === 'string')  config = await loadConfigFromFile(config)
-    const resolvedConfig = await resolveConfig(config)
-
+export const createServer = async (config: ResolvedConfig, opts: ServerOptions = {})  => {
     // Create the frontend server
-    const server = await vite.createServer(resolveViteConfig(resolvedConfig, opts, false))
+    const server = await vite.createServer(resolveViteConfig(config, opts, false))
     await server.listen()
 
     // Print out the URL if everything was initialized here (i.e. dev mode)

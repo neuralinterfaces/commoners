@@ -5,7 +5,7 @@
     "packages"
   ],
   "scripts": {
-    "build": "npm run build:cli && npm run build:core",
+    "build": "npm run build:core && npm run build:cli",
     "build:cli": "cd packages/cli && npm run build",
     "build:core": "cd packages/core && npm run build",
     "watch": "cd packages/cli && npm run watch",

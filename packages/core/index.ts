@@ -1,4 +1,4 @@
-import { join, normalize, resolve } from 'node:path'
+import { join, normalize } from 'node:path'
 import chalk from 'chalk'
 import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
@@ -49,7 +49,7 @@ export async function loadConfigFromFile(filepath: string) {
     await writeFileSync(fileNameTmp, text)
 
     try {
-        return resolveConfig((await import(fileUrl)).default)
+        return (await import(fileUrl)).default as UserConfig
     } finally {
         unlink(fileNameTmp, () => { }) // Ignore errors
     }
@@ -114,8 +114,6 @@ export const configureForDesktop = async (outDir = defaultOutDir) => {
 
 }
 
-export const createServices = async (config: UserConfig | string, port?: number) => {
-    if (typeof config === 'string')  config = await loadConfigFromFile(config)
-    const resolvedConfig = await resolveConfig(config)
-    return await createAll(resolvedConfig.services, port) as ResolvedConfig['services']
+export const createServices = async (services: ResolvedConfig['services'], port?: number) => {
+    return await createAll(services, port) as ResolvedConfig['services']
 }

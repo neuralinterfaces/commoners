@@ -34,7 +34,7 @@ export default async function build (
 
     const assetOutDir = getAssetOutDir(outDir)
 
-    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath))
+    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services })
 
     const toBuild = {
         frontend: frontend || !services,

@@ -44,7 +44,7 @@ export const ensureTargetConsistent = (target: TargetType) => {
         else if (target === 'android') return target // Linux and Windows can build for android
     }
 
-    console.log(`Cannot run commoneres for ${chalk.bold(target)} on ${chalk.bold(PLATFORM)}`)
+    console.log(`Cannot run a commoners command for ${chalk.bold(target)} on ${chalk.bold(PLATFORM)}`)
     process.exit(1)
 }
 

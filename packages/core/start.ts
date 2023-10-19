@@ -26,7 +26,9 @@ export default async function ( configPath: string, options: StartOptions ) {
     // Create URLs that will be shared with the frontend
     if (target === 'mobile' ) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
 
-    const createAllServices = () => createServices(resolvedConfig) // Run services in parallel
+
+    const { services: resolvedServices } = resolvedConfig
+    const createAllServices = () => createServices(resolvedServices) // Run services in parallel
 
     // Only run services
     if (onlyRunServices) await createAllServices()
@@ -60,7 +62,7 @@ export default async function ( configPath: string, options: StartOptions ) {
         if (!isDesktop && runFrontendWithServices) await createAllServices()
 
         // Serve the frontend (if not mobile)
-        if (!isMobile) await createServer(config, { 
+        if (!isMobile) await createServer(resolvedConfig, { 
             printUrls: !isDesktop, 
             target
         })

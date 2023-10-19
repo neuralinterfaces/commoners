@@ -22,9 +22,9 @@ export default async function (
     if (typeof config === 'string') config = await loadConfigFromFile(config)
     const resolvedConfig = await resolveConfig(config, { services, customPort: port })
 
-    resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
+    const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 
-    const activeServices = await createServices(resolvedConfig)
+    const activeServices = await createServices(resolvedServices)
 
     if (!sharePort) throw new Error(`No port specified.`)
 

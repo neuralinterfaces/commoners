@@ -14,7 +14,6 @@ import {
     // Resolved Values
     TARGET,
     COMMAND,
-    PLATFORM,
 
     // Booleans
     outDir,
@@ -28,7 +27,6 @@ const customGlobalPort = port || process.env.PORT // Railway and simple sharing 
 
 const buildOptions = {
     target: TARGET, 
-    platform: PLATFORM,
     frontend: cliArgs.frontend,
     services: cliArgs.service && cliArgs.services,
     publish: cliArgs.publish,
@@ -39,7 +37,6 @@ const buildOptions = {
 // Launch the specified build
 if (COMMAND === 'launch') launch({ 
     target: TARGET, 
-    platform: PLATFORM, 
     outDir, 
     port 
 })
