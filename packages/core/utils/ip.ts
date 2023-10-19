@@ -1,5 +1,3 @@
-import { networkInterfaces } from "node:os";
-
 let localIP;
 
 export const getLocalIP = (networkInterfaces) => {

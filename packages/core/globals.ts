@@ -5,6 +5,9 @@ import { fileURLToPath } from 'node:url';
 import minimist from 'minimist';
 import { readFileSync } from "node:fs";
 
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+
 import * as yaml from 'js-yaml'
 
 import chalk from "chalk";
@@ -14,7 +17,6 @@ import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, valid,
 
 // Environment Variables
 import dotenv from 'dotenv'
-import { Target } from "electron-builder";
 dotenv.config()
 
 export const userPkg = getJSON('package.json')
@@ -55,8 +57,14 @@ export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.sl
 export const APPID = `com.${RAW_NAME}.app`
 
 // Get Configuration File and Path
-export const rootDir = path.resolve(dirname(fileURLToPath(import.meta.url))); // NOTE: Files referenced relative to rootDir must be transferred to the dist
-export const templateDir = path.join(rootDir, '..', 'templates')
+const knownPath = 'packages/core/dist/index.js'
+
+const __dirname = path.resolve(dirname(fileURLToPath(import.meta.url)))
+
+// Swap resolved root directories when the library is imported (e.g. from the distributed cli)
+export const rootDir = (__dirname.slice(-knownPath.length) === knownPath) ? __dirname : dirname(require.resolve('@commoners/solidarity'))
+
+export const templateDir = path.join(rootDir, 'templates')
 export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(path.join(templateDir, 'electron', 'electron-builder.yml')).toString())
 
 // Get package file

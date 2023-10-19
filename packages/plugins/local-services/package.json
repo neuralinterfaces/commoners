@@ -1,6 +1,6 @@
 {
     "name": "@commoners/local-services",
-    "version": "0.0.2",
+    "version": "0.0.25",
     "main": "./dist/local-services.es.js",
     "type": "module",
     "scripts": {

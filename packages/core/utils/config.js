@@ -7,4 +7,5 @@ export const nodeBuiltIns = [
     "node:util",
     "node:os",
     "node:http",
+    "node:module"
   ]

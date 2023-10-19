@@ -9,5 +9,14 @@ A complete example of a COMMONERS application that connects to peripheral device
 
 Read the [documentation](https://commoners.dev) to learn more.
 
+## Local Development
+To get started with local development of the CLI, you'll need to use `npm link` to connect the packages together:
+```
+cd packages/core
+npm link
+cd ../packages/cli
+npm link @commoners/solidarity
+```
+
 ## Acknowledgments
 `commoners` is maintained by Garrett Flynn, who originally developed the tool to streamline development of the [NWB GUIDE](https://github.com/neurodatawithoutborders/nwb-guide) application and support future hybrid application development for [Catalyst Neuro](https://github.com/catalystneuro).

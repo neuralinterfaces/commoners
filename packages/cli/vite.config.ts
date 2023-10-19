@@ -15,6 +15,11 @@ const pkgCore = JSON.parse(readFileSync(join('..', 'core', 'package.json')).toSt
 const outputFileName = `cli.js`
 const outputFilePath = join(__dirname, 'dist', outputFileName)
 
+const external = new Set([
+  ...Object.keys(pkg.dependencies),
+  ...Object.keys(pkgCore.dependencies),
+  ...nodeBuiltIns
+])
 
 export default defineConfig({
   test: {
@@ -39,15 +44,11 @@ export default defineConfig({
       // Could also be a dictionary or array of multiple entry points
       entry: resolve(__dirname, 'index'),
       name: 'commoners',
-      formats: ['es'], // 'cjs'],
+      formats: [ 'es' ],
       fileName: (format) => outputFileName
     },
     rollupOptions: {
-      external: [
-        ...Object.keys(pkg.dependencies),
-        ...Object.keys(pkgCore.dependencies),
-        ...nodeBuiltIns
-      ],
+      external: Array.from(external),
     },
   },
 })

@@ -1,6 +1,6 @@
 {
     "name": "@commoners/bluetooth",
-    "version": "0.0.1",
+    "version": "0.0.25",
     "main": "./dist/ble.es.js",
     "type": "module",
     "scripts": {
