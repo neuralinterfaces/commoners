@@ -143,7 +143,7 @@ export const buildAssets = async ({
 
             // Build JavaScript Files using ESBuild
             else {
-
+                
                 const resolvedExtension = explicitOutput ? extname(explicitOutput).slice(1) : (hasMetadata ? output?.extension : '') || 'js'
                 const outfile = explicitOutput ? outPath : join(outDir, `${parse(input).name}.${resolvedExtension}`)
 

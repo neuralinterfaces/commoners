@@ -1,4 +1,4 @@
-import { generateModal } from '../common.js'
+import createModal from '../modal.js';
 
 export const name = 'serial'
 
@@ -54,7 +54,8 @@ export function load() {
   const select = (port) => this.send(`${name}.select`, port)
   const onRequest =(callback) => this.on(`${name}.request`, (_, value) => callback(value))
 
-  const modal = generateModal({
+
+  const modal = createModal({
     headerText: 'Available Serial Ports',
     added,
     removed,

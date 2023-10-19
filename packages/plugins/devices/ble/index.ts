@@ -1,4 +1,4 @@
-import { generateModal } from '../common.js'
+import createModal from '../modal.js'
 
 export const name = 'bluetooth'
 
@@ -69,7 +69,7 @@ export function load() {
 
   const select = (deviceID) => this.send(`${name}.select`, deviceID)
 
-  const modal = generateModal({
+  const modal = createModal({
     headerText: 'Available BLE Devices',
     mapDeviceToInfo: (o) => {
       return {
@@ -80,6 +80,7 @@ export function load() {
 
     onClose: (device) => select(device)
   })
+
 
   let latestDevices = ''
 
