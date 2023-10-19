@@ -1,13 +1,13 @@
 import path from "node:path"
-import { NAME, RAW_NAME, assetOutDir, dependencies, getBuildConfig, outDir, templateDir } from "./globals.js"
-import { BaseOptions, ResolvedConfig } from "./types.js"
+import { NAME, RAW_NAME, dependencies, getBuildConfig, defaultOutDir, getAssetOutDir, templateDir, ensureTargetConsistent } from "./globals.js"
+import { BuildOptions } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
-import { CliOptions, build as ElectronBuilder, PublishOptions } from 'electron-builder'
+import { CliOptions, build as ElectronBuilder } from 'electron-builder'
 
 import { loadConfigFromFile, resolveConfig } from "./index.js"
-import { clearOutputDirectory, populateOutputDirectory } from "./common.js"
+import { clear, buildAssets } from "./common.js"
 
 import { resolveViteConfig } from './vite/index.js'
 import { spawnProcess } from './utils/processes.js'
@@ -16,49 +16,50 @@ import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
 
 // Types
-export type BuildOptions = BaseOptions & {
-    frontend?: boolean,
-    services?: boolean,
-    service?: string | string[],
-    publish?: PublishOptions['publish']
-}
+export default async function build (
+    configPath: string, // Require configuration path
+    options: BuildOptions
+) {
 
-export default async function build ({ 
-    target, 
-    platform,
-    frontend,
-    services,
-    service,
-    publish
-}: BuildOptions, config?: ResolvedConfig) {
+    const { 
+        frontend,
+        services,
+        publish,
+        outDir = defaultOutDir
+    } = options
 
-    const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
+    const target = ensureTargetConsistent(options.target)
+
+    const isDesktop = target === 'desktop'
+
+    const assetOutDir = getAssetOutDir(outDir)
+
+    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath))
 
     const toBuild = {
-        frontend: frontend || (!services && !service),
-        services: services || service || !frontend
+        frontend: frontend || !services,
+        services: services || !frontend
     }
 
     // Clear only if both are going to be rebuilt
-    if (toBuild.frontend && toBuild.services) await clearOutputDirectory()
-
+    if (toBuild.frontend && toBuild.services) await clear(outDir)
 
     // Build frontend
     if (toBuild.frontend) {
         if (target === 'mobile') await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
         await ViteBuild(resolveViteConfig(resolvedConfig, { 
-            electron: target === 'desktop',
-            pwa: target === 'pwa'
+            target,
+            outDir
         }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // Build services
     if (toBuild.services) {
-        const services = resolvedConfig
+        const { services } = resolvedConfig
         for (let name in services) {
             const service = services[name]
             let build = (service && typeof service === 'object') ? service.build : null 
-            if (build && typeof build === 'object') build = build[platform] // Run based on the platform if an object
+            if (build && typeof build === 'function') build = build() // Run based on the platform if an object
             if (build) {
                 console.log(`Running build command for the ${chalk.bold(name)} service`)
                 await spawnProcess(build)
@@ -66,11 +67,18 @@ export default async function build ({
         }
     }
 
+
     // Create the standard output files
-    await populateOutputDirectory(resolvedConfig)
+    await buildAssets({
+        config: configPath,
+        outDir,
+        services: isDesktop
+    })
     
     // ------------------------- Target-Specific Build Steps -------------------------
-    if (target === 'desktop') {
+    if (isDesktop) {
+
+        const { services } = resolvedConfig
 
         const buildConfig = getBuildConfig()
 
@@ -81,10 +89,13 @@ export default async function build ({
         buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', RAW_NAME)
 
         // Register extra resources
-        buildConfig.mac.extraResources = buildConfig.linux.extraResources = [ { from: outDir, to: outDir }, ...Object.values(services).reduce((acc: string[], { extraResources }: any) => {
-            if (extraResources) acc.push(...extraResources)
-            return acc
-        }, [])]
+        buildConfig.mac.extraResources = buildConfig.linux.extraResources = [ 
+            // { from: outDir, to: outDir }, 
+            ...Object.values(services).reduce((acc: string[], { extraResources }: any) => {
+                if (extraResources) acc.push(...extraResources)
+                return acc
+            }, [])
+        ]
 
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {
@@ -117,7 +128,8 @@ export default async function build ({
     }
 
     else if (target === 'mobile') {
-        await mobile.init(platform, resolvedConfig)
-        await mobile.open(platform, resolvedConfig)
+        const mobileOpts = { target, outDir }
+        await mobile.init(mobileOpts, resolvedConfig)
+        await mobile.open(mobileOpts, resolvedConfig)
     }
 }

@@ -4,6 +4,16 @@ const { ipcRenderer } = globalThis.__COMMONERS ?? {}
 const { __plugins } = COMMONERS
 delete COMMONERS.__plugins
 
+
+let target = COMMONERS.TARGET
+
+const desktopTargets = ['desktop', 'mac', 'windows', 'linux']
+const mobileTargets = ['mobile', 'android', 'ios']
+
+if (desktopTargets.includes(target)) target = 'desktop';
+else if (mobileTargets.includes(target)) target = 'mobile';
+else target = 'web' 
+
 if ( __plugins ) {
 
     const loaded = {}
@@ -11,15 +21,15 @@ if ( __plugins ) {
     asyncFilter(__plugins, async (plugin) => {
         try {
             let { isSupported } = plugin
-            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[COMMONERS.TARGET]
+            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[target]
             if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-            return (typeof isSupported === 'function') ? await isSupported.call(plugin, COMMONERS.TARGET) : isSupported !== false
+            return (typeof isSupported === 'function') ? await isSupported.call(plugin, target) : isSupported !== false
         } catch {
             return false
         }
     }).then(supported => {
 
-    const sanitized = supported.map((o) => sanitizePluginProperties(o, COMMONERS.TARGET))
+    const sanitized = supported.map((o) => sanitizePluginProperties(o, target))
 
     sanitized.forEach(({ name, load }) => {
         

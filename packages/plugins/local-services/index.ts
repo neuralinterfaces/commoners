@@ -1,3 +1,6 @@
+import { getLocalIP } from "../../core/utils/ip";
+
+import pkg from './package.json'
 
 function checkPort(port, host, callback) {
     const net = require('node:net');
@@ -14,43 +17,6 @@ function checkPort(port, host, callback) {
 function getURL(host, port) {
     return `http://${host}:${port}`
 }
-
-
-let localIP;
-
-function getLocalIP () {
-
-    if (!localIP) {
-    
-        localIP = 'localhost'
-
-        const { networkInterfaces } = require('node:os');
-
-        try {
-
-            const nets = networkInterfaces();
-            const results = {}
-        
-            for (const name of Object.keys(nets)) {
-                for (const net of nets[name]) {
-                    if (net.family === 'IPv4' && !net.internal) {
-                        if (!results[name]) {
-                            results[name] = [];
-                        }
-                        results[name].push(net.address);
-                    }
-                }
-            }
-
-            const res = (results["en0"] ?? results["Wi-Fi"])?.[0]
-            if (res) localIP = res
-        
-        } catch { }
-    }
-
-    return localIP
-}
-
 
 const name = 'local-services'
 
@@ -73,14 +39,16 @@ function loadDesktop(
     if (!port && process.env.PORT) port = parseInt(process.env.PORT) // Fallback to the port provided by the environment
     if (!port) return console.error(`[commoners:local-services] No port provided`)
 
+    console.log(`[${pkg.name}]: Searching for local services on port ${port}\n`)
+
     const http = require('node:http');
 
-    const localIP = getLocalIP()
+    const localIP = getLocalIP(require('node:os').networkInterfaces)
 
     const active: { [x: string]: string[] } = {}
 
     this.on(`${name}.get`, () => {
-        Object.values(active).flat().forEach(service => send(`${name}.found`, service))
+        Object.entries(active).map(([ip, ports]) => ports.map(port => getURL(ip, port))).flat().forEach(service => send(`${name}.found`, service))
     })
 
     // Check for available services every 2 seconds
@@ -107,7 +75,7 @@ function loadDesktop(
                                 if (commoners) {
                                     if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
                                     active[ip] = services
-                                    services.forEach(port => send(`${name}.found`, (getURL(ip, port))))
+                                    services.forEach(port => send(`${name}.found`, getURL(ip, port)))
                                 }
                             });
 
@@ -125,8 +93,8 @@ function loadDesktop(
 export function load() {
     return {
         get: () => this.send(`${name}.get`),
-        onFound: (callback) => this.on(`${name}.found`, (_, service) => callback(service)),
-        onClosed: (callback) => this.on(`${name}.closed`, (_, service) => callback(service)),
+        onFound: (callback) => this.on(`${name}.found`, (_, url) => callback(url)),
+        onClosed: (callback) => this.on(`${name}.closed`, (_, url) => callback(url)),
     }
 }
 

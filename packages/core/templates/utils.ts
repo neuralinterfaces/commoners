@@ -6,14 +6,14 @@ export const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predica
 export const pluginErrorMessage = (name, type, e) => console.error(`[commoners] ${name} plugin (${type}) failed to execute:`, e)
 
 
-const removablePluginProps = ['preload', 'render']
+const removablePluginProperties = [ 'load' ]
 
 export const sanitizePluginProperties = (plugin, target) => {
     const copy = {...plugin}
 
-    const assumeRemoval = 'main' in copy && target !== 'desktop' // Always clear main when not an electron build
+    const assumeRemoval = 'loadDesktop' in copy && target !== 'desktop' // Always clear main when not an electron build
 
-    if (assumeRemoval) delete copy.main 
+    if (assumeRemoval) delete copy.loadDesktop 
 
     // Assume true if no main; assume false if main
     const willRemove = (v) => assumeRemoval ? !v : v === false
@@ -22,17 +22,8 @@ export const sanitizePluginProperties = (plugin, target) => {
     const isSupported = copy.isSupported?.[target] ?? copy.isSupported // Drill to the target
 
     if (isSupported && typeof isSupported === 'object') {
-        let { properties } = isSupported
-
-        if (!isSupported.check) properties = isSupported // isSupported is the property dictionary
-
-        if (willRemove(properties)) {
-            properties = isSupported.properties = {}
-            removablePluginProps.forEach(prop => properties[prop] = false)
-        }
-        
-        if (properties && typeof properties === 'object') removablePluginProps.forEach(prop => {
-            if (willRemove(properties[prop])) delete copy[prop]
+        removablePluginProperties.forEach(prop => {
+            if (willRemove(isSupported[prop])) delete copy[prop]
         })
     }
 

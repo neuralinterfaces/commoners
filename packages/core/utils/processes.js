@@ -3,6 +3,20 @@ import { spawn } from "node:child_process";
 
 let children = {}
 
+const kill = (code) => {
+    for (const child in children) children[child].kill()
+    process.exit();
+}
+
+// Ensure all processes are killed
+process.on('uncaughtException', (e) => {
+    console.error(e)
+    kill()
+})
+
+process.on('beforeExit', kill);
+
+
 export const runCommand = async (string, customEnv, opts) => {
     const splitCommand = string.split(' ')
     const [command, ...args] = splitCommand
@@ -39,9 +53,4 @@ export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
         });
     })
 
-}
-
-export const kill = (code) => {
-    for (const child in children) children[child].kill()
-    process.exit();
 }

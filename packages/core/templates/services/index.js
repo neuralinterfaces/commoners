@@ -2,7 +2,7 @@ import node from './node/index.js'
 import python from './python/index.js'
 
 import { extname, join, sep } from "node:path"
-import { getFreePorts, getLocalIP } from './utils/network.js';
+import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
 
@@ -19,7 +19,7 @@ export const isValidURL = (s) => {
 };
 
 // ------------------------------------------------------------------------------------
-
+let willKillProcesses
 let processes = {}
 
 export const handlers = {
@@ -38,13 +38,11 @@ export async function resolveService (
   { assets, root } = {}
 ) {
 
-  const mode = process.env.COMMONERS_MODE
-  const isProduction = mode !== "development"
+  const productionMode = process.env.COMMONERS_MODE
 
-
-  if (isProduction && config.publish) {
+  if (productionMode && config.publish) {
     const publishConfig = resolveConfig(config.publish) ?? {}
-    const internalConfig = resolveConfig(config.publish[mode]) ?? {} // Block service if mode is not available
+    const internalConfig = resolveConfig(config.publish[productionMode]) ?? {} // Block service if mode is not available
     const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
 
     // Cascade from more to less specific information
@@ -61,16 +59,8 @@ export async function resolveService (
     resolvedConfig.url = src
     delete resolvedConfig.src
   }
-
-  resolvedConfig.host = getLocalIP()
-
-  if (!resolvedConfig.src) {
-    if (resolvedConfig.url) {
-      const newHost = `//${resolvedConfig.host}:`
-      resolvedConfig.url = resolvedConfig.url.replace(`//localhost:`, newHost) // Transform local IP addresses
-    }
-    return resolvedConfig // Return the configuration unchanged if no file or url
-  }
+  
+  if (!resolvedConfig.src) return resolvedConfig // Return the configuration unchanged if no file or url
 
 
   if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
@@ -83,10 +73,11 @@ export async function resolveService (
   if (base) resolvedConfig.abspath = join(base, resolvedConfig.src) // Expose the absolute path of the file in development mode
   else resolvedConfig.abspath = resolvedConfig.src // Just use the raw sourcde
 
+    // Always create a URL for local services
+  if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
   if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
-
-  resolvedConfig.url = `${resolvedConfig.protocol ?? `http:`}//${resolvedConfig.host}:${resolvedConfig.port}`
-
+  if (!resolvedConfig.url) resolvedConfig.url = `http://localhost:${resolvedConfig.port}`
+  
   return config
 
 }

@@ -1,5 +1,5 @@
 import { BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
-import { Configuration as ElectronBuilderConfiguration } from 'electron-builder'
+import { Configuration as ElectronBuilderConfiguration, PublishOptions } from 'electron-builder'
 import { ManifestOptions } from 'vite-plugin-pwa'
 
 export function tuple<T extends string[]>(...o: T) {
@@ -8,9 +8,31 @@ export function tuple<T extends string[]>(...o: T) {
 
 type AnyObj = { [x:string]: any }
 
-export type BaseOptions = {
+type OutDirType = string
+
+export type PortType = number
+
+export type StartOptions = BuildOptions  & { port: PortType }
+
+export type ServiceOptions = boolean | string | string[]
+
+export type BuildOptions = {
     target: TargetType,
-    platform: PlatformType
+    frontend?: boolean,
+    services?: ServiceOptions,
+    publish?: boolean | PublishOptions['publish'],
+    outDir?: string
+}
+
+export type ShareOptions = {
+    port?: PortType,
+    services?: ServiceOptions
+}
+
+export type LaunchOptions = {
+    target: TargetType,
+    outDir?: OutDirType
+    port?: PortType
 }
 
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
@@ -18,14 +40,17 @@ type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
 export type WritableElectronBuilderConfig = DeepWriteable<ElectronBuilderConfiguration>
 
 // ------------------- Support -------------------
-export const validMobilePlatforms =  tuple('ios', 'android')
+export const validMobileTargets =  ['ios', 'android']
+
+export const validDesktopTargets = ['mac', 'windows', 'linux']
+
+export const universalTargetTypes = ['desktop', 'mobile',  'pwa', 'web']
 
 export const valid = {
 
     // Derived
-    target: tuple('desktop', 'mobile', 'pwa', undefined),
+    target: tuple(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets),
     mode:  tuple('development', 'local', 'remote'),
-    platform: tuple('mac', 'windows', 'linux', ...validMobilePlatforms),
 
     // Internal
     command: tuple('start', 'dev', 'build', 'launch', 'share'),
@@ -35,9 +60,19 @@ export const valid = {
 
 }
 
-type TargetType = typeof valid.target[number]
-type ModeType = typeof valid.mode[number]
-type PlatformType = typeof valid.platform[number]
+export type ViteOptions = {
+    outDir?: string,
+    target?: TargetType
+}
+
+export type ServerOptions = {
+    printUrls?: boolean
+} & ViteOptions
+
+
+export type TargetType = typeof valid.target[number]
+export type ModeType = typeof valid.mode[number]
+// export type PlatformType = typeof validDesktopTargets[number]
 
 
 // ------------------- Services -------------------
@@ -48,12 +83,8 @@ type BaseServiceMetadata = (LocalServiceMetadata | RemoteServiceMetadata)
 type ExtraServiceMetadata = {
     // Common
     port?: number,
-    build?: string | {[x in PlatformType]?: string},
+    build?: string | (() => string), // e.g. could respond to platform
     extraResources?: ElectronBuilderConfiguration['extraResources'], // NOTE: Replace with electron-builder type
-
-    // Uncommon
-    protocol?: string,
-    hostname?: string,
 }
 
 type PublishedServiceMetadata = { 
@@ -64,7 +95,9 @@ type PublishedServiceMetadata = {
 }
 
 type GeneratedServiceMetadata = {
-    abspath: string
+    abspath: string,
+    url: string
+    host: string,
 }
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
@@ -93,7 +126,7 @@ export type PluginType = {
     load?: (this: IpcRenderer) => LoadedPlugin
 }
 
-type ValidNestedProperty = TargetType | PlatformType | ModeType
+// type ValidNestedProperty = TargetType | PlatformType | ModeType
 
 // ------------------- Icon -------------------
 type BaseIconType = string //| {[x in PlatformType]?: string}
@@ -154,8 +187,6 @@ type ExposedPlugins = {
 
 export type CommonersGlobalObject = {
     TARGET: TargetType,
-    PLATFORM: PlatformType,
-    MODE: ModeType,
     plugins: ExposedPlugins,
     services: ExposedPlugins,
     ready: Promise<ExposedPlugins['loaded']>,

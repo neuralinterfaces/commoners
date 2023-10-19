@@ -4,15 +4,19 @@ import { getIcon } from '../../utils/index'
 
 const assetPath = (path, isBuild) => `./${normalize(`${isBuild ? '' : 'dist/'}.commoners/assets/${path}`)}`
 
-export default ({ config, build }) => {
+export default ({ 
+    config, 
+    build, 
+    TARGET, 
+    MODE
+}) => {
 
     const icon = getIcon(config.icon)
 
     const globalObject = {
         services: JSON.parse(process.env.COMMONERS_SERVICES),
-        TARGET: process.env.COMMONERS_TARGET,
-        PLATFORM: process.env.COMMONERS_PLATFORM,
-        MODE: process.env.COMMONERS_MODE
+        TARGET,
+        MODE
     }
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, build)}" type="image/${extname(icon).slice(1)}" >` : ''

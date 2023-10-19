@@ -38,7 +38,6 @@ export const createServer = ({ root = process.cwd(), handler }) => {
         };
     
         if (statSync(pathname).isDirectory()) pathname += '/index' + ext;
-
     
         res.setHeader('Content-type', map[ext] || 'text/plain' );
         res.end(readFileSync(pathname));

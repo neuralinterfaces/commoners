@@ -27,9 +27,9 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
 // Populate platform variable if it doesn't exist
-if (!process.env.COMMONERS_PLATFORM)  process.env.COMMONERS_PLATFORM = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-const commonersDist = (process.env.COMMONERS_PLATFORM === 'windows' || !isProduction) ? __dirname : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
+const commonersDist = (platform === 'windows' || !isProduction) ? __dirname : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
 const commonersAssets = join(commonersDist, 'assets')
 const dist = join(commonersDist, '..') 
 
@@ -39,9 +39,9 @@ if (isProduction) dotenv.config({ path: join(commonersAssets, '.env') }) // Load
 // Get the COMMONERS configuration file
 const configPath = join(commonersAssets, 'commoners.config.cjs') // Load the .cjs config version
 
-// Populate other global variables if they don't exist
-if (!process.env.COMMONERS_TARGET) process.env.COMMONERS_TARGET = 'desktop'
-if (!process.env.COMMONERS_MODE)  process.env.COMMONERS_MODE = isProduction ? 'local' : 'development'; // NOTE: Could be remote
+// Populate global variables
+process.env.COMMONERS_TARGET = 'desktop'
+if (isProduction) process.env.COMMONERS_MODE = 'local';
 
 let mainWindow;
 
@@ -76,7 +76,7 @@ function createAppWindows(config, opts = config.electron ?? {}) {
 const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
 const linuxIcon = config.icon?.linux || defaultIcon
 
-const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
+const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
   const splashURL = opts.splash
 
@@ -100,7 +100,7 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
   const plugins = config.plugins ?? []
   const windowOpts = opts.window
   if (windowOpts === false || windowOpts === null) {
-    plugins.forEach(plugin => plugin.main && plugin.main.call(ipcMain, null, globals) )
+    plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call(ipcMain, null, globals) )
     return
   }
 
@@ -133,7 +133,7 @@ const platformDependentWindowConfig = (process.env.COMMONERS_PLATFORM === 'linux
   }
 
   // Activate specified plugins from the configuration file
-  plugins.forEach(plugin => plugin.main && plugin.main.call(ipcMain, win, globals))
+  plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call(ipcMain, win, globals))
 
   win.on('ready-to-show', () => {
 
@@ -195,6 +195,7 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // NOTE: Services cannot be filtered in desktop mode
   await services.createAll(config.services, { assets: commonersAssets, root: join(dist, '..')  }) // Create all services as configured by the user / main build
 
   // Proxy the services through the custom protocol
@@ -227,7 +228,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('before-quit', () => services.stop());
+// app.on('before-quit', () => services.stop());
 
 // Transfer all the main console commands to the browser
 const ogConsoleMethods: any = {};

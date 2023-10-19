@@ -40,7 +40,6 @@
     "touch": "^3.1.0",
     "vite": "^4.2.1",
     "vite-plugin-electron": "^0.11.2",
-    "vite-plugin-electron-renderer": "^0.14.5",
     "vite-plugin-pwa": "^0.16.4"
   },
   "devDependencies": {

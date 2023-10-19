@@ -19,18 +19,15 @@ export const isSupported = {
         }
       }
     },
-    properties: false
+    load: false
   },
   web: {
     check: async () => await navigator.bluetooth.getAvailability(),
-    properties: false
+    load: false
   }
 }
 
-export function main (
-  // this: IpcMain, 
-  win//: BrowserWindow
-) {
+export function loadDesktop ( win ) {
 
     // Enable Web Bluetooth
     let selectBluetoothCallback;

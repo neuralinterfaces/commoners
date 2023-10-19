@@ -1,13 +1,13 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { NAME, APPID, userPkg, outDir } from "../globals.js"
+import { NAME, APPID, userPkg } from "../globals.js"
 import * as assets from './assets.js'
 
 import chalk from 'chalk'
 
 import { resolve } from "node:path"
 import plist from 'plist'
-import { ResolvedConfig, SupportConfigurationObject, validMobilePlatforms } from "../types.js"
+import { ResolvedConfig, SupportConfigurationObject, validMobileTargets } from "../types.js"
 
 const configName = 'capacitor.config.json'
 
@@ -17,7 +17,9 @@ const possibleConfigNames = [
     'capacitor.config.ts'
 ]
 
-const getBaseConfig = () => {
+const getBaseConfig = ({
+    outDir
+}) => {
     return {
         appId: APPID.replaceAll('-', ''),
         appName: NAME,
@@ -49,14 +51,25 @@ export const prebuild = ({ plugins }) => {
     accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin)) ? setParent(false) : '')
 }
 
+type MobileOptions = {
+    target: string,
+    outDir: string
+}
+
+
+type ConfigOptions = {
+    plugins: ResolvedConfig['plugins'],
+    outDir: string
+}
+
 // Create a temporary Capacitor configuration file if the user has not defined one
-export const openConfig = async ({ plugins }: ResolvedConfig, callback) => {
+export const openConfig = async ({ plugins, outDir }: ConfigOptions, callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a: number, b: boolean) => a + (b ? 1 : 0), 0) > 0
 
     if (!isUserDefined) {
 
-        const config = getBaseConfig()
+        const config = getBaseConfig({ outDir })
         
         getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
             if (isInstalled(ref.plugin)) {
@@ -80,12 +93,16 @@ const installForUser = async (pkgName, version) => {
     await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
 }
 
-export const init = async (platform, config: ResolvedConfig) => {
+export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    platform = getCorrectPlatform(platform)
+    const platform = getCorrectPlatform(target)
 
     await checkDepsInstalled(platform, config)
-    await openConfig(config, async () => {
+    
+    await openConfig({
+        plugins: config.plugins,
+        outDir
+    }, async () => {
         if (!existsSync(platform)) {
             
             console.log(chalk.cyanBright(`[commoners]: Initializing ${platform} project...`))
@@ -114,17 +131,21 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
     if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
 }
 
-function getCorrectPlatform(platform) {
-    return (validMobilePlatforms.includes(platform)) ? platform : platform === 'mac' ? 'ios' : 'android' 
+function getCorrectPlatform(target) {
+    return (validMobileTargets.includes(target)) ? target : target === 'mac' ? 'ios' : 'android' 
 }
 
 
-export const open = async (platform, config: ResolvedConfig) => {
+export const open = async ({ platform, outDir }: MobileOptions, config: ResolvedConfig) => {
 
     platform = getCorrectPlatform(platform)
 
     await checkDepsInstalled(platform, config)
-    await openConfig(config, () => runCommand("npx cap sync"))
+
+    await openConfig({
+        plugins: config.plugins,
+        outDir
+    }, () => runCommand("npx cap sync"))
 
     if (assets.has(config)) {
         const info = assets.create(config)

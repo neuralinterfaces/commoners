@@ -1,22 +1,31 @@
 
 import { existsSync} from 'node:fs';
-import { NAME, getBuildConfig, outDir } from './globals.js';
+import { NAME, getBuildConfig, PLATFORM, ensureTargetConsistent, defaultOutDir } from './globals.js';
 import { join } from 'node:path';
 import chalk from 'chalk';
 
 import { spawnProcess } from './utils/processes.js'
 
 import * as mobile from './mobile/index.js'
-import { BaseOptions } from './types.js';
+import { LaunchOptions } from './types.js';
 
 import { createServer } from './utils/server.js'
 import { getFreePorts } from './templates/services/utils/network.js'
 
 import open from 'open'
+import { cpus } from 'node:os';
 
-export default async function ({ platform, target }: BaseOptions, port?: number) {
+export default async function (options: LaunchOptions) {
 
-    if (target === 'mobile') return await mobile.run(platform)
+    const { 
+        outDir = defaultOutDir, 
+        port 
+    } = options
+
+    const target = ensureTargetConsistent(options.target)
+
+
+    if (target === 'mobile') return await mobile.run(target)
 
     else if (target === 'desktop') {
 
@@ -24,14 +33,17 @@ export default async function ({ platform, target }: BaseOptions, port?: number)
         const electronDistPath = join(process.cwd(), buildConfig.directories.output)
 
         let exePath = ''
-        if (platform === 'mac') exePath = join(electronDistPath, platform, `${NAME}.app`)
-        else if (platform === 'windows') exePath = join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
-        else throw new Error(`Cannot launch the application for ${platform}`)
+        if (PLATFORM === 'mac') {
+            const cpuModel = cpus()[0].model
+            let isMx = /Apple\sM\d+/.test(cpuModel)
+            exePath = join(electronDistPath, `${PLATFORM}${isMx ? '-arm64' : ''}`, `${NAME}.app`)
+        } else if (PLATFORM === 'windows') exePath = join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
+        else throw new Error(`Cannot launch the application for ${PLATFORM}`)
 
-        if (!existsSync(exePath)) throw new Error(`${NAME} has not been built for ${platform} yet.`)
+        if (!existsSync(exePath)) throw new Error(`${NAME} has not been built for ${PLATFORM} yet.`)
 
         const debugPort = 8315;
-        await spawnProcess(platform === 'mac' ? 'open' : 'start', [exePath, '--args', `--remote-debugging-port=${debugPort}`]);
+        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${exePath}'`, '--args', `--remote-debugging-port=${debugPort}`]);
 
         console.log(chalk.green(`${NAME} launched!`))
         console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))

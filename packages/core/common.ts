@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { COMMAND, MODE, NAME, PLATFORM, RAW_NAME, TARGET, assetOutDir, configPath, outDir, rootDir, scopedOutDir, userPkg } from "./globals.js"
+import { RAW_NAME, rootDir, userPkg, getAssetOutDir, getScopedOutDir, defaultOutDir, templateDir } from "./globals.js"
 import { dirname, extname, join, parse, relative, sep } from "node:path"
 
 import { isValidURL } from './utils/url.js'
@@ -7,7 +7,7 @@ import { copyAsset } from './utils/copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { ResolvedConfig, UserService, UserConfig } from "./types.js"
+import { UserService, UserConfig, ResolvedConfig } from "./types.js"
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 
 type AssetInfo = string | {
@@ -22,6 +22,8 @@ type AssetsCollection = {
     bundle: AssetInfo[]
 }
 
+type AssetServicesArgument = boolean | ResolvedConfig['services']
+
 const jsExtensions = ['.js', '.ts']
 
 function addServiceAssets(this: AssetsCollection, config: UserService) {
@@ -35,9 +37,18 @@ function addServiceAssets(this: AssetsCollection, config: UserService) {
 }
 
 // Derive assets to be transferred to the COMMONERS folder
-export const getAssets = async (config?: UserConfig) => {
 
-    const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
+// NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
+
+export const getAssets = async (config: UserConfig | string, services: AssetServicesArgument = false) => {
+    
+    let configPath
+
+    if (typeof config === 'string') {
+        configPath = config
+        config = await loadConfigFromFile(config)
+    }
+    const resolvedConfig = await resolveConfig(config)
 
     const configExtensionTargets = ['cjs', 'mjs']
 
@@ -58,11 +69,19 @@ export const getAssets = async (config?: UserConfig) => {
 
     if (existsSync('.env')) assets.copy.push('.env') // Copy .env file if it exists
     
-    // Copy Services Only in Development / Electron Builds
-    if (COMMAND !== 'build' || TARGET === 'desktop') Object.values(resolvedConfig.services).forEach(o => addServiceAssets.call(assets, o))
+    // Copy Provided Services
+    if (services) {
+        if (typeof services === 'boolean') services = resolvedConfig.services
+        Object.values(services).forEach(o => addServiceAssets.call(assets, o))
+    }
 
     // Copy Icons
-    if (resolvedConfig.icon) assets.copy.push(...(typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon))
+    if (resolvedConfig.icon) {
+
+        const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
+
+        assets.copy.push(...icons)
+    }
 
     // Bundle Splash Page
     if (resolvedConfig.electron.splash) assets.bundle.push(resolvedConfig.electron.splash)
@@ -71,16 +90,28 @@ export const getAssets = async (config?: UserConfig) => {
 }
 
 
-export const clearOutputDirectory = () => {
+export const clear = (outDir: string = defaultOutDir) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
-export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
+export const buildAssets = async ({
+    config, 
+    outDir = defaultOutDir,
+    services = {}
+}: {
+    config: ResolvedConfig | string,
+    outDir?: string,
+    services?: AssetServicesArgument
+}) => {
+
+    const assetOutDir = getAssetOutDir(outDir)
+    const scopedOutDir = getScopedOutDir(outDir)
+
     mkdirSync(assetOutDir, { recursive: true }) // Ensure base and asset output directory exists
 
     writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${RAW_NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
-    const assets = await getAssets(config)
+    const assets = await getAssets(config, services)
 
     // Create an assets folder with copied assets (ESM)
     await Promise.all(assets.bundle.map(async info => {
@@ -140,7 +171,7 @@ export const populateOutputDirectory = async ( config: ResolvedConfig ) => {
     }))
 
     // Copy static assets
-    assets.copy.map(src => copyAsset(src))
+    assets.copy.map(info => copyAsset(info, { outDir }))
 
     // Create yml file for dist
     writeFileSync(join(outDir, '_config.yml'), `include: ['.commoners']`)

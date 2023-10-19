@@ -1,11 +1,12 @@
 import { copyFileSync, mkdirSync, lstatSync, cpSync } from "node:fs"
-import { assetOutDir } from "../globals"
+import { getAssetOutDir } from "../globals"
 import { basename, dirname, join } from "node:path"
 
-export const copyAsset = (src, maintainStructure = true) => {
-    const outPath = join(assetOutDir, maintainStructure ? src : basename(src))
-    const outDir = dirname(outPath)
-    mkdirSync(outDir, {recursive: true})
-    if (lstatSync(src).isDirectory()) cpSync(src, outPath, {recursive: true});
-    else copyFileSync(src, outPath)
+export const copyAsset = (input, { outDir }, maintainStructure = true) => {
+    const output =  join(getAssetOutDir(outDir), maintainStructure ? input : basename(input))
+
+    const out = dirname(output)
+    mkdirSync(out, {recursive: true})
+    if (lstatSync(input).isDirectory()) cpSync(input, output, {recursive: true});
+    else copyFileSync(input, output)
 }

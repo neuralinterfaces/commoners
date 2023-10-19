@@ -1,29 +1,51 @@
 import * as vite from 'vite'
+
 import electron from 'vite-plugin-electron'
-import renderer from 'vite-plugin-electron-renderer'
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
-import { extname, join, sep } from 'node:path'
+import { extname, join, resolve, sep } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir, outDir, NAME, APPID, assetOutDir } from "../globals.js";
+import { rootDir, userPkg, getScopedOutDir, NAME, APPID, getAssetOutDir, defaultOutDir } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
-import { ResolvedConfig, UserConfig } from '../types.js'
+import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types.js'
+import { loadConfigFromFile, resolveConfig } from '../index.js'
 
-type Options = {
-    electron?: boolean,
-    pwa?: boolean
+// Run a development server
+export const createServer = async (config: UserConfig | ResolvedConfig | string, opts: ServerOptions = {})  => {
+
+    if (typeof config === 'string')  config = await loadConfigFromFile(config)
+    const resolvedConfig = await resolveConfig(config)
+
+    // Create the frontend server
+    const server = await vite.createServer(resolveViteConfig(resolvedConfig, opts, false))
+    await server.listen()
+
+    // Print out the URL if everything was initialized here (i.e. dev mode)
+    if (opts.printUrls !== false) {
+        console.log('\n')
+        server.printUrls()
+        console.log('\n')
+    }
 }
 
-const resolvePWAOptions = (opts = {}, { icon }: UserConfig) => {
+
+type PWAOptions = {
+    icon: UserConfig['icon'],
+    outDir: string
+}
+
+const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
 
     const pwaOpts = { ...opts } as Partial<VitePWAOptions>
 
     if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
     else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [ pwaOpts.includeAssets ]
 
-    const fromHTMLPath = join(...assetOutDir.split(sep).slice(1))
+    const fromHTMLPath = join(...getAssetOutDir(outDir).split(sep).slice(1))
     const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)).map(str => join(fromHTMLPath, str)) : [] // Provide full path of the icon
+
+    console.log('Icons', icons)
 
     pwaOpts.includeAssets.push(...icons) // Include specified assets
 
@@ -57,17 +79,26 @@ const resolvePWAOptions = (opts = {}, { icon }: UserConfig) => {
     return pwaOpts as ResolvedConfig['pwa']
 }
 
-export const resolveViteConfig = (commonersConfig = {}, opts: Options = {}, build = true) => {
+export const resolveViteConfig = (
+    commonersConfig: ResolvedConfig, 
+    { 
+        target, 
+        outDir = defaultOutDir 
+    }: ViteOptions = {}, 
+    build = true
+) => {
 
-    const withElectron = opts.electron
+    const isDesktop = target === 'desktop'
     
-    const pwa = resolvePWAOptions(opts.pwa, commonersConfig)
-    
-    const plugins: vite.Plugin[] = [ commonersPlugin({ config: commonersConfig, build })]
+    const plugins: vite.Plugin[] = [ commonersPlugin({ 
+        config: commonersConfig, 
+        build,
+        TARGET: target,
+        MODE: process.env.COMMONERS_MODE ?? 'development'
+    })]
 
-    if (build && pwa) plugins.push(VitePWA({ registerType: 'autoUpdate',  ...commonersConfig.pwa }))
-
-    if (withElectron) {
+    // Desktop Build
+    if (isDesktop) {
 
         const electronTemplateBase = join(rootDir, 'templates', 'electron')
 
@@ -76,22 +107,21 @@ export const resolveViteConfig = (commonersConfig = {}, opts: Options = {}, buil
             build: {
                 // sourcemap: !build,
                 minify: build,
-                outDir: scopedOutDir,
+                outDir: getScopedOutDir(outDir),
                 rollupOptions: {
                     external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
                 }
             }
         }
 
-
         const electronPluginConfig = electron([
             {
-                entry: join(electronTemplateBase, 'main.ts'),
+                entry: resolve(electronTemplateBase, 'main.ts'),
                 onstart: (options) => options.startup(),
                 vite: viteOpts
             },
             {
-                entry: join(electronTemplateBase, 'preload.ts'),
+                entry: resolve(electronTemplateBase, 'preload.ts'),
                 onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
                 vite: viteOpts
             }
@@ -99,8 +129,17 @@ export const resolveViteConfig = (commonersConfig = {}, opts: Options = {}, buil
 
         plugins.push(electronPluginConfig)
 
-        // NOTE: Remove?
-        plugins.push(renderer()) // Use Node.js API in the Renderer-process
+    } 
+    
+    // PWA Build
+    else if (target === 'pwa') {
+        
+        const opts = resolvePWAOptions(commonersConfig.pwa, {
+            icon: commonersConfig.icon,
+            outDir: outDir
+        })
+
+        plugins.push(VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
 
     // Define a default set of plugins and configuration options
@@ -111,7 +150,7 @@ export const resolveViteConfig = (commonersConfig = {}, opts: Options = {}, buil
             outDir
         },
         plugins,
-        server: { open: !withElectron },
+        server: { open: !isDesktop },
         clearScreen: false,
     })
 }

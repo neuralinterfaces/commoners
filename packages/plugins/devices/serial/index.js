@@ -5,18 +5,15 @@ export const name = 'serial'
 export const isSupported = {
   desktop: true,
   mobile: () => {
-    return COMMONERS.PLATFORM === 'android'
+    return COMMONERS.TARGET === 'android'
   },
   web: {
     check: async () => 'serial' in navigator, 
-    properties: false
+    load: false
   }
 }
 
-export function loadDesktop(
-  // this: IpcMain, 
-  win//: BrowserWindow
-) {
+export function loadDesktop( win ) {
 
   let selectPortCallback;
 
@@ -50,7 +47,7 @@ export function loadDesktop(
   win.webContents.session.setDevicePermissionHandler((details) => true)
 }
 
-export function render() {
+export function load() {
 
   const added = (callback) => this.on(`${name}.added`, (_, port) => callback(port))
   const removed = (callback) => this.on(`${name}.removed`, (_, port) => callback(port))

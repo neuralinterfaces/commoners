@@ -1,5 +1,5 @@
 import path from "node:path";
-import { getJSON, resolveFile } from "./utils/files.js";
+import { getJSON } from "./utils/files.js";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import minimist from 'minimist';
@@ -7,9 +7,10 @@ import { readFileSync } from "node:fs";
 
 import * as yaml from 'js-yaml'
 
-// Types
-import { valid, validMobilePlatforms, WritableElectronBuilderConfig } from "./types.js";
 import chalk from "chalk";
+
+// Types
+import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, valid, validDesktopTargets, validMobileTargets } from "./types.js";
 
 // Environment Variables
 import dotenv from 'dotenv'
@@ -20,60 +21,34 @@ export const userPkg = getJSON('package.json')
 export const cliArgs = minimist(process.argv.slice(2))
 const [ passedCommand ] = cliArgs._
 
-export const outDir = cliArgs.outDir ?? 'dist'
-export const scopedOutDir = path.join(outDir, '.commoners')
-export const assetOutDir = path.join(scopedOutDir, 'assets')
-export const defaultMainLocation = path.join(scopedOutDir, 'main.js')
 
+export const defaultOutDir = 'dist'
+export const getScopedOutDir = (outDir) =>  path.join(outDir, '.commoners')
+export const getAssetOutDir = (outDir) =>  path.join(getScopedOutDir(outDir), 'assets')
+export const getDefaultMainLocation = (outDir) =>  path.join(getScopedOutDir(outDir), 'main.js')
 
 export const COMMAND = process.env.COMMONERS_COMMAND = passedCommand
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-export const PLATFORM = process.env.COMMONERS_PLATFORM = (validMobilePlatforms.find(str => cliArgs[str]) || getOS()) as typeof valid.platform[number] // Declared Mobile OR Implicit Desktop Patform
 
-const isDesktopCommandConsistent = (platform) => {
-    if (cliArgs[platform]) {
-        if (PLATFORM === platform) return true
-        else {
-            console.log(`Cannot run a command for the ${chalk.bold(platform)} platform on ${chalk.bold(PLATFORM)}`)
-            process.exit(1)
-        }
+export const PLATFORM = getOS()  // Declared Mobile OR Implicit Desktop Patform
+
+export const ensureTargetConsistent = (target: TargetType) => {
+
+    if (!target) target = 'web' // Default to web target
+
+    if (universalTargetTypes.includes(target)) return target
+    if (validDesktopTargets.includes(target) && PLATFORM === target) return target // Desktop platforms match
+    else if (validMobileTargets.includes(target)) {
+        if (PLATFORM === 'mac') return target // Mac can build for all mobile platforms
+        else if (target === 'android') return target // Linux and Windows can build for android
     }
+
+    console.log(`Cannot run commoneres for ${chalk.bold(target)} on ${chalk.bold(PLATFORM)}`)
+    process.exit(1)
 }
-
-
-const isDesktop = cliArgs.desktop || isDesktopCommandConsistent('mac') || isDesktopCommandConsistent('windows') || isDesktopCommandConsistent('linux')
-const isMobile = cliArgs.mobile || !!validMobilePlatforms.find(platform => cliArgs[platform])
-
-
-// Ensures launch with dev command is not called...
-const isDev = COMMAND === 'dev' || !COMMAND
-
-export const command = {
-    start: COMMAND === 'start',
-    dev: isDev,
-    build: COMMAND === 'build',
-    launch: COMMAND === 'launch',
-    share: COMMAND === 'share'
-}
-
-// Ensure mutual exclusivity
-export const target = {
-    desktop: isDesktop,
-    mobile: !!isMobile,
-    pwa: cliArgs.pwa
-}
-
-// ----------------- GLOBAL STATE DECLARATION -----------------
-export const MODE = process.env.COMMONERS_MODE = (command.start || command.dev || command.share || !command) ? 'development' : ( target.desktop ? 'local' : 'remote' ) as typeof valid.platform[number] // Always a development environment command
-
-export const TARGET = process.env.COMMONERS_TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
-
-// ------------------------------------------------------------
 
 // Pre-loaded configuration objects
-export const configPath = resolveFile('commoners.config', ['.ts', '.js'])
-
 export const RAW_NAME = userPkg.name
 export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
 export const APPID = `com.${RAW_NAME}.app`
@@ -87,20 +62,20 @@ export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(rea
 const corePkg = getJSON(path.join(rootDir, 'package.json'))
 export const dependencies = corePkg.dependencies
 
-const resolveKey = (key) => {
-    if (valid.mode.includes(key)) return MODE
-    else if (valid.platform.includes(key)) return PLATFORM
-    else if (valid.target.includes(key)) return TARGET
-    return
-}
+// const resolveKey = (key) => {
+//     if (valid.mode.includes(key)) return MODE
+//     else if (valid.platform.includes(key)) return PLATFORM
+//     else if (valid.target.includes(key)) return TARGET
+//     return
+// }
 
-export const resolvePlatformSpecificValue = (o) => {
-    if (o && typeof o === 'object') {
-        const resolvedKey = Object.keys(o).find(resolveKey)
-        if (resolvedKey) return resolvePlatformSpecificValue(o[resolvedKey]) // Return resolved value
-    } 
+// export const resolvePlatformSpecificValue = (o) => {
+//     if (o && typeof o === 'object') {
+//         const resolvedKey = Object.keys(o).find(resolveKey)
+//         if (resolvedKey) return resolvePlatformSpecificValue(o[resolvedKey]) // Return resolved value
+//     } 
     
-    else if (typeof o === 'function') return resolvePlatformSpecificValue(o())
+//     else if (typeof o === 'function') return resolvePlatformSpecificValue(o())
     
-    return o             
-}
+//     return o             
+// }

@@ -1,13 +1,10 @@
-import { createServer as createViteServer } from 'vite'
-import { extname, join, normalize, resolve, sep } from 'node:path'
+import { join, normalize, resolve } from 'node:path'
 import chalk from 'chalk'
 import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { resolveViteConfig } from './vite/index.js'
-
-import { COMMAND, cliArgs, dependencies, configPath, defaultMainLocation, userPkg, templateDir } from './globals.js'
+import { dependencies, getDefaultMainLocation, userPkg, templateDir, defaultOutDir } from './globals.js'
 import { ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
@@ -15,25 +12,16 @@ import { resolveAll, createAll } from './templates/services/index.js'
 import { yesNo } from "./utils/inquirer.js";
 
 // Exports
-import { kill } from './utils/processes.js'
-import { clearOutputDirectory, populateOutputDirectory } from './common.js'
-
 export * as globals from './globals.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'
-
-export {
-    kill,
-    clearOutputDirectory,
-    populateOutputDirectory
-}
+export { default as start } from './start.js'
 
 export const defineConfig = (o: UserConfig): UserConfig => o
 
 // NOTE: Simplified from https://github.com/vitejs/vite/blob/c7969597caba80cf5d3348cba9f18ad9d14e9295/packages/vite/src/node/config.ts
-export async function loadConfigFromFile(filepath: string = configPath) {
-    if (!filepath) return
+export async function loadConfigFromFile(filepath: string) {
 
     // Bundle config file
     const result = await build({
@@ -67,40 +55,49 @@ export async function loadConfigFromFile(filepath: string = configPath) {
     }
 }
 
+type ResolveOptions = {
+    services?: string | string[] | boolean,
+    customPort?: number
+}
 
-export async function resolveConfig(o: UserConfig = {}) {
+export async function resolveConfig(
+    o: UserConfig = {}, 
+    { 
+        services, 
+        customPort
+    } : ResolveOptions = {}
+) {
 
     const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
 
     if (!copy.electron) copy.electron = {}
 
-    if (!copy.icon) copy.icon = resolve(templateDir, 'icon.png')
+    if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
+
+    const isServiceOptionBoolean = typeof services === 'boolean'
+    if (isServiceOptionBoolean && !services) copy.services = undefined // Unset services (if set to false)
 
     copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
 
+    // Remove unspecified services
+    if (services && !isServiceOptionBoolean) {
 
-    // NOTE: MOVE SO THIS IS FILTERED LATER
-    // Remove services that are not specified
-    const selectedServices = cliArgs.service
+        const selected = typeof services === 'string' ? [ services ] : services
+        const isSingleService = selected.length === 1
 
-    if (selectedServices) {
-        const isSingleService = !Array.isArray(selectedServices)
-        const selected = isSingleService ? [ selectedServices ] : selectedServices
         for (let name in copy.services) {
             if (!selected.includes(name)) delete copy.services[name]
-            else if (isSingleService) {
-                const customPort = cliArgs.port || (COMMAND === 'dev' ? process.env.PORT : null)
-                if (customPort) copy.services[name].port = customPort
-            }
+            else if (isSingleService && customPort) copy.services[name].port = customPort
         }
     }
 
     return copy as ResolvedConfig
 }
 
-export const configureForDesktop = async () => {
+export const configureForDesktop = async (outDir = defaultOutDir) => {
 
     // Ensure project can handle --desktop command
+    const defaultMainLocation = getDefaultMainLocation(outDir)
     if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
         const result = await yesNo('This project is not properly configured for desktop. Would you like to initialize it?')
         if (result) {
@@ -117,32 +114,8 @@ export const configureForDesktop = async () => {
 
 }
 
-export const createServices = async (config) => {
-    const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
-    return await createAll(resolvedConfig.services)
-}
-
-type Options = {
-    pwa?: boolean
-}
-
-type ServerOptions = {
-    printUrls?: boolean,
-} & Options
-
-// Run a development server
-export const createServer = async (config?: UserConfig | ResolvedConfig, opts: ServerOptions = {}) => {
-
-    const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
-
-    // Create the frontend server
-    const server = await createViteServer(resolveViteConfig(resolvedConfig, opts, false))
-    await server.listen()
-
-    // Print out the URL if everything was initialized here (i.e. dev mode)
-    if (opts.printUrls === false) {
-        console.log('\n')
-        server.printUrls()
-        console.log('\n')
-    }
+export const createServices = async (config: UserConfig | string, port?: number) => {
+    if (typeof config === 'string')  config = await loadConfigFromFile(config)
+    const resolvedConfig = await resolveConfig(config)
+    return await createAll(resolvedConfig.services, port) as ResolvedConfig['services']
 }
