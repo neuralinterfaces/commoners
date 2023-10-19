@@ -4,7 +4,7 @@ import { build, configureForDesktop, createServices, loadConfigFromFile, resolve
 import { updateServicesWithLocalIP } from "./utils/ip.js";
 import { buildAssets, clear } from "./common.js";
 import { createServer } from "./vite/index.js";
-import { ensureTargetConsistent } from "./globals.js";
+import { ensureTargetConsistent, isDesktop, isMobile } from "./globals.js";
 
 
 export default async function ( configPath: string, options: StartOptions ) {
@@ -23,8 +23,10 @@ export default async function ( configPath: string, options: StartOptions ) {
     });
 
 
+    const isMobileTarget = isMobile(target)
+
     // Create URLs that will be shared with the frontend
-    if (target === 'mobile' ) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
+    if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
 
 
     const { services: resolvedServices } = resolvedConfig
@@ -37,12 +39,10 @@ export default async function ( configPath: string, options: StartOptions ) {
     else {
 
         const runFrontendWithServices = !frontend || services
-
-        const isMobile = target === 'mobile'
-        const isDesktop = target === 'desktop'
+        const isDesktopTarget = isDesktop(target)
 
         // Build for mobile before moving forward
-        if (isMobile) await build(configPath, options)
+        if (isMobileTarget) await build(configPath, options)
 
         // Manually clear and build the output assets
         else {
@@ -51,19 +51,19 @@ export default async function ( configPath: string, options: StartOptions ) {
             await buildAssets({
                 config: configPath, // NOTE: Configuration path is required for proper plugin transfer...
                 outDir,
-                services: isDesktop
+                services: isDesktopTarget
             })
         }
 
         // Configure the desktop instance
-        if (isDesktop) await configureForDesktop(outDir) // Configure the desktop instance
+        if (isDesktopTarget) await configureForDesktop(outDir) // Configure the desktop instance
 
         // Create all services
-        if (!isDesktop && runFrontendWithServices) await createAllServices()
+        if (!isDesktopTarget && runFrontendWithServices) await createAllServices()
 
         // Serve the frontend (if not mobile)
-        if (!isMobile) await createServer(resolvedConfig, { 
-            printUrls: !isDesktop, 
+        if (!isMobileTarget) await createServer(resolvedConfig, { 
+            printUrls: !isDesktopTarget, 
             target
         })
 

@@ -1,5 +1,5 @@
 import path from "node:path"
-import { NAME, RAW_NAME, dependencies, getBuildConfig, defaultOutDir, getAssetOutDir, templateDir, ensureTargetConsistent } from "./globals.js"
+import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, defaultOutDir, getAssetOutDir, templateDir, ensureTargetConsistent, isMobile } from "./globals.js"
 import { BuildOptions } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -30,7 +30,7 @@ export default async function build (
 
     const target = ensureTargetConsistent(options.target)
 
-    const isDesktop = target === 'desktop'
+    const isDesktopBuild = isDesktop(target)
 
     const assetOutDir = getAssetOutDir(outDir)
 
@@ -46,7 +46,7 @@ export default async function build (
 
     // Build frontend
     if (toBuild.frontend) {
-        if (target === 'mobile') await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
+        if (isMobile(target)) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
         await ViteBuild(resolveViteConfig(resolvedConfig, { 
             target,
             outDir
@@ -72,11 +72,11 @@ export default async function build (
     await buildAssets({
         config: configPath,
         outDir,
-        services: isDesktop
+        services: isDesktopBuild
     })
     
     // ------------------------- Target-Specific Build Steps -------------------------
-    if (isDesktop) {
+    if (isDesktopBuild) {
 
         const { services } = resolvedConfig
 
@@ -127,7 +127,7 @@ export default async function build (
         await ElectronBuilder(opts)
     }
 
-    else if (target === 'mobile') {
+    else if (isMobile(target)) {
         const mobileOpts = { target, outDir }
         await mobile.init(mobileOpts, resolvedConfig)
         await mobile.open(mobileOpts, resolvedConfig)

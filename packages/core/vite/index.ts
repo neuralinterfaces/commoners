@@ -5,11 +5,10 @@ import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve, sep } from 'node:path'
 
-import { rootDir, userPkg, getScopedOutDir, NAME, APPID, getAssetOutDir, defaultOutDir } from "../globals.js";
+import { rootDir, userPkg, getScopedOutDir, NAME, APPID, getAssetOutDir, defaultOutDir, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types.js'
-import { loadConfigFromFile, resolveConfig } from '../index.js'
 
 // Run a development server
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = {})  => {
@@ -84,7 +83,7 @@ export const resolveViteConfig = (
     build = true
 ) => {
 
-    const isDesktop = target === 'desktop'
+    const isDesktopTarget = isDesktop(target)
     
     const plugins: vite.Plugin[] = [ commonersPlugin({ 
         config: commonersConfig, 
@@ -94,7 +93,7 @@ export const resolveViteConfig = (
     })]
 
     // Desktop Build
-    if (isDesktop) {
+    if (isDesktopTarget) {
 
         const electronTemplateBase = join(rootDir, 'templates', 'electron')
 
@@ -146,7 +145,7 @@ export const resolveViteConfig = (
             outDir
         },
         plugins,
-        server: { open: !isDesktop },
+        server: { open: !isDesktopTarget },
         clearScreen: false,
     })
 }

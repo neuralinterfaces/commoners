@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { NAME, APPID, userPkg } from "../globals.js"
+import { NAME, APPID, userPkg, PLATFORM } from "../globals.js"
 import * as assets from './assets.js'
 
 import chalk from 'chalk'
@@ -132,13 +132,13 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
 }
 
 function getCorrectPlatform(target) {
-    return (validMobileTargets.includes(target)) ? target : target === 'mac' ? 'ios' : 'android' 
+    return (validMobileTargets.includes(target)) ? target : PLATFORM === 'mac' ? 'ios' : 'android' 
 }
 
 
-export const open = async ({ platform, outDir }: MobileOptions, config: ResolvedConfig) => {
+export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    platform = getCorrectPlatform(platform)
+    const platform = getCorrectPlatform(target)
 
     await checkDepsInstalled(platform, config)
 

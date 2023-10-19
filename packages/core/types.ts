@@ -40,17 +40,17 @@ type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
 export type WritableElectronBuilderConfig = DeepWriteable<ElectronBuilderConfiguration>
 
 // ------------------- Support -------------------
-export const validMobileTargets =  ['ios', 'android']
+export const validMobileTargets =  ['ios', 'android', 'mobile']
 
-export const validDesktopTargets = ['mac', 'windows', 'linux']
+export const validDesktopTargets = ['mac', 'windows', 'linux', 'desktop']
 
 export const universalTargetTypes = ['desktop', 'mobile',  'pwa', 'web']
 
 export const valid = {
 
     // Derived
-    target: tuple(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets),
-    mode:  tuple('development', 'local', 'remote'),
+    target: tuple(...Array.from(new Set(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets))),
+    mode:  tuple('local', 'remote'),
 
     // Internal
     command: tuple('start', 'dev', 'build', 'launch', 'share'),

@@ -1,6 +1,6 @@
 
 import { existsSync} from 'node:fs';
-import { NAME, getBuildConfig, PLATFORM, ensureTargetConsistent, defaultOutDir } from './globals.js';
+import { NAME, getBuildConfig, PLATFORM, ensureTargetConsistent, defaultOutDir, isMobile, isDesktop } from './globals.js';
 import { join } from 'node:path';
 import chalk from 'chalk';
 
@@ -25,9 +25,9 @@ export default async function (options: LaunchOptions) {
     const target = ensureTargetConsistent(options.target)
 
 
-    if (target === 'mobile') return await mobile.run(target)
+    if (isMobile(target)) return await mobile.run(target)
 
-    else if (target === 'desktop') {
+    else if (isDesktop(target)) {
 
         const buildConfig = getBuildConfig()
         const electronDistPath = join(process.cwd(), buildConfig.directories.output)

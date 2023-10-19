@@ -14,6 +14,7 @@ import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, valid,
 
 // Environment Variables
 import dotenv from 'dotenv'
+import { Target } from "electron-builder";
 dotenv.config()
 
 export const userPkg = getJSON('package.json')
@@ -33,16 +34,16 @@ const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform
 
 export const PLATFORM = getOS()  // Declared Mobile OR Implicit Desktop Patform
 
+export const isDesktop = (target: TargetType) => validDesktopTargets.includes(target)
+export const isMobile = (target: TargetType) => validMobileTargets.includes(target)
+
 export const ensureTargetConsistent = (target: TargetType) => {
 
     if (!target) target = 'web' // Default to web target
 
     if (universalTargetTypes.includes(target)) return target
-    if (validDesktopTargets.includes(target) && PLATFORM === target) return target // Desktop platforms match
-    else if (validMobileTargets.includes(target)) {
-        if (PLATFORM === 'mac') return target // Mac can build for all mobile platforms
-        else if (target === 'android') return target // Linux and Windows can build for android
-    }
+    if (isDesktop(target) && PLATFORM === target) return target // Desktop platforms match
+    else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android')) return target // Linux and Windows can build for android
 
     console.log(`Cannot run a commoners command for ${chalk.bold(target)} on ${chalk.bold(PLATFORM)}`)
     process.exit(1)
