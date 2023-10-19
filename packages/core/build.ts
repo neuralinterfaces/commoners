@@ -23,8 +23,8 @@ export default async function build (
 ) {
 
     const { 
-        frontend,
-        services,
+        frontend: buildFrontend,
+        services: buildServices,
         publish,
         outDir = defaultOutDir
     } = options
@@ -35,13 +35,14 @@ export default async function build (
 
     const assetOutDir = getAssetOutDir(outDir)
 
-    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services })
-    resolvedConfig.services = resolvedServices
+    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services: buildServices })
+    if (resolvedServices) resolvedConfig.services = resolvedServices
 
+    const { services } = resolvedConfig
 
     const toBuild = {
-        frontend: frontend || !services,
-        services: services || !frontend
+        frontend: buildFrontend || !buildServices,
+        services: buildServices || !buildFrontend
     }
 
     // Clear only if both are going to be rebuilt
