@@ -132,7 +132,8 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
 }
 
 function getCorrectPlatform(target) {
-    return (validMobileTargets.includes(target)) ? target : PLATFORM === 'mac' ? 'ios' : 'android' 
+    if (target === 'mobile') return PLATFORM === 'mac' ? 'ios' : 'android'
+    else return target
 }
 
 

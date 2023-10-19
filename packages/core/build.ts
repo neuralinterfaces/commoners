@@ -1,6 +1,6 @@
 import path from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, defaultOutDir, getAssetOutDir, templateDir, ensureTargetConsistent, isMobile } from "./globals.js"
-import { BuildOptions } from "./types.js"
+import { BuildOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
@@ -18,7 +18,8 @@ import chalk from "chalk"
 // Types
 export default async function build (
     configPath: string, // Require configuration path
-    options: BuildOptions
+    options: BuildOptions,
+    resolvedServices: ResolvedConfig['services']
 ) {
 
     const { 
@@ -35,6 +36,8 @@ export default async function build (
     const assetOutDir = getAssetOutDir(outDir)
 
     const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services })
+    resolvedConfig.services = resolvedServices
+
 
     const toBuild = {
         frontend: frontend || !services,
@@ -55,7 +58,6 @@ export default async function build (
 
     // Build services
     if (toBuild.services) {
-        const { services } = resolvedConfig
         for (let name in services) {
             const service = services[name]
             let build = (service && typeof service === 'object') ? service.build : null 
@@ -77,8 +79,6 @@ export default async function build (
     
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isDesktopBuild) {
-
-        const { services } = resolvedConfig
 
         const buildConfig = getBuildConfig()
 

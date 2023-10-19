@@ -104,7 +104,7 @@ type LocalServicesPluginOptions = {
     port: number
 }
 
-export default ( port: number, isValid?: (ip: string, env: any) => boolean ) => {
+export default ( isValid?: (ip: string, env: any) => boolean, port?: number ) => {
     return {
         name,
         isSupported,

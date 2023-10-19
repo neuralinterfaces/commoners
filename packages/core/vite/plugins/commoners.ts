@@ -13,8 +13,15 @@ export default ({
 
     const icon = getIcon(config.icon)
 
+    const propsToInclude = [ 'url' ]
+    const services = {} 
+    Object.entries(config.services).forEach(([id, sInfo]) => {
+      const gInfo = services[id] = {}
+      propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
+    })
+
     const globalObject = {
-        services: JSON.parse(process.env.COMMONERS_SERVICES),
+        services,
         TARGET,
         MODE
     }

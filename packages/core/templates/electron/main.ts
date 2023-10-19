@@ -196,7 +196,9 @@ app.whenReady().then(async () => {
   })
 
   // NOTE: Services cannot be filtered in desktop mode
-  await services.createAll(config.services, { assets: commonersAssets, root: join(dist, '..')  }) // Create all services as configured by the user / main build
+  const resolved = await services.createAll(config.services, { assets: commonersAssets, root: join(dist, '..')  }) // Create all services as configured by the user / main build
+  process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose for elect
+
 
   // Proxy the services through the custom protocol
   protocol.handle(customProtocolScheme, (req) => {

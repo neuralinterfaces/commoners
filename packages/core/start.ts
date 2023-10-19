@@ -28,8 +28,8 @@ export default async function ( configPath: string, options: StartOptions ) {
     // Create URLs that will be shared with the frontend
     if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
 
-
     const { services: resolvedServices } = resolvedConfig
+    
     const createAllServices = () => createServices(resolvedServices) // Run services in parallel
 
     // Only run services
@@ -42,7 +42,7 @@ export default async function ( configPath: string, options: StartOptions ) {
         const isDesktopTarget = isDesktop(target)
 
         // Build for mobile before moving forward
-        if (isMobileTarget) await build(configPath, options)
+        if (isMobileTarget) await build(configPath, options, resolvedServices)
 
         // Manually clear and build the output assets
         else {

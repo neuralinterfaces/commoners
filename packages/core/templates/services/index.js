@@ -19,7 +19,6 @@ export const isValidURL = (s) => {
 };
 
 // ------------------------------------------------------------------------------------
-let willKillProcesses
 let processes = {}
 
 export const handlers = {
@@ -147,23 +146,24 @@ function isValidService(info) {
   return info.src || info.url
 }
 
+export function sanitize(services) {
+  const propsToInclude = [ 'url' ]
+  const info = {} 
+  Object.entries(services).forEach(([id, sInfo]) => {
+    if (!isValidService(sInfo)) return
+    const gInfo = info[id] = {}
+    propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
+  })
+
+  return info
+}
+
 export async function resolveAll (services = {}, roots) {
 
   const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { src: config } : config])
   const serviceInfo = {}
 
   await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, roots))) // Run sidecars automatically based on the configuration file
-
-  // Provide sanitized service information as an environment variable
-  const propsToInclude = [ 'url' ]
-  const info = {} 
-  Object.entries(serviceInfo).forEach(([id, sInfo]) => {
-    if (!isValidService(sInfo)) return
-    const gInfo = info[id] = {}
-    propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
-  })
-
-  process.env.COMMONERS_SERVICES = JSON.stringify(info)
 
   return serviceInfo
 }

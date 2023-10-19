@@ -12,16 +12,19 @@ type OutDirType = string
 
 export type PortType = number
 
-export type StartOptions = BuildOptions  & { port: PortType }
-
-export type ServiceOptions = boolean | string | string[]
-
-export type BuildOptions = {
+type UniversalBuildOptions = {
     target: TargetType,
     frontend?: boolean,
     services?: ServiceOptions,
-    publish?: boolean | PublishOptions['publish'],
     outDir?: string
+}
+
+export type StartOptions = UniversalBuildOptions  & { port: PortType }
+
+export type ServiceOptions = boolean | string | string[]
+
+export type BuildOptions = UniversalBuildOptions & {
+    publish?: boolean | PublishOptions['publish'],
 }
 
 export type ShareOptions = {
