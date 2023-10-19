@@ -6,20 +6,14 @@ import {
     launch, 
     start, 
 } 
-// from "@commoners/solidarity";
-from "../core/index";
+from "@commoners/solidarity";
 
 import {
-
-    // Resolved Values
     TARGET,
     COMMAND,
-
-    // Booleans
     outDir,
     cliArgs,
     configPath
-
 } from './globals'
 
 const port = cliArgs.port

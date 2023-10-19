@@ -2,7 +2,7 @@
   "name": "@commoners/monorepo",
   "private": true,
   "workspaces": [
-    "packages"
+    "packages/*"
   ],
   "scripts": {
     "build": "npm run build:core && npm run build:cli",
