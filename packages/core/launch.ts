@@ -1,6 +1,6 @@
 
 import { existsSync} from 'node:fs';
-import { NAME, getBuildConfig, cliArgs, outDir } from './globals.js';
+import { NAME, getBuildConfig, outDir } from './globals.js';
 import { join } from 'node:path';
 import chalk from 'chalk';
 
@@ -14,7 +14,7 @@ import { getFreePorts } from './templates/services/utils/network.js'
 
 import open from 'open'
 
-export default async function ({ platform, target }: BaseOptions) {
+export default async function ({ platform, target }: BaseOptions, port?: number) {
 
     if (target === 'mobile') return await mobile.run(platform)
 
@@ -40,12 +40,13 @@ export default async function ({ platform, target }: BaseOptions) {
     else {
 
         const host = 'localhost'
-        const port = cliArgs.port || (await getFreePorts(1))[0]
 
         const server = createServer({  root: outDir })
 
-        server.listen(parseInt(port), host, () => {
-            const url = `http://${host}:${port}`
+        const resolvedPort = port || (await getFreePorts(1))[0]
+
+        server.listen(parseInt(resolvedPort), host, () => {
+            const url = `http://${host}:${resolvedPort}`
             console.log(`Server is running on ${chalk.cyan(url)}`);
             open(url)
         });

@@ -1,17 +1,24 @@
 import { defineConfig } from "vite";
 
 import url from "node:url";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { readFileSync } from "node:fs";
-
-const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
-
-const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', '..', 'package.json')).toString())
 
 import { type Plugin } from 'vite';
 import { exec } from 'child_process';
 import chalk from "chalk";
 import { nodeBuiltIns } from "./utils/config";
+
+import { normalizePath } from "vite";
+import { viteStaticCopy } from 'vite-plugin-static-copy'
+
+const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
+
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json')).toString())
+
+const toCopy = [
+  join('templates'),
+]
 
 const dts: Plugin = {
   name: 'dts-generator',
@@ -30,7 +37,26 @@ const dts: Plugin = {
 };
 
 export default defineConfig({
-  plugins: [ dts ],
+  plugins: [ 
+    dts,
+    
+    viteStaticCopy({
+      targets: [
+        {
+          src: normalizePath(resolve(__dirname, 'package.json')),
+          dest: "./",
+        },
+              
+        // NOTE: All of these are required for now to resolve template builds
+        ...toCopy.map(path => {
+          return {
+            src: normalizePath(resolve(__dirname, path)) + '/[!.]*',
+            dest: join(path),
+          }
+        })
+      ],
+    }) 
+  ],
   build: {
     emptyOutDir: false,
     target: 'node16',

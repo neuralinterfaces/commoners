@@ -1,19 +1,67 @@
 import * as vite from 'vite'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
-import { VitePWA } from 'vite-plugin-pwa'
+import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
-import { join } from 'node:path'
+import { extname, join, sep } from 'node:path'
 
-import { rootDir, userPkg, scopedOutDir, target, command, cliArgs, outDir } from "../globals.js";
+import { rootDir, userPkg, scopedOutDir, outDir, NAME, APPID, assetOutDir } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
+import { ResolvedConfig, UserConfig } from '../types.js'
 
-export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
+type Options = {
+    electron?: boolean,
+    pwa?: boolean
+}
 
-    const withElectron = ('electron' in opts) ? opts.electron : target.desktop
-    const build = ('build' in opts) ? opts.build : command.build
-    const pwa = ('pwa' in opts) ? opts.pwa : cliArgs.pwa
+const resolvePWAOptions = (opts = {}, { icon }: UserConfig) => {
+
+    const pwaOpts = { ...opts } as Partial<VitePWAOptions>
+
+    if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
+    else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [ pwaOpts.includeAssets ]
+
+    const fromHTMLPath = join(...assetOutDir.split(sep).slice(1))
+    const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)).map(str => join(fromHTMLPath, str)) : [] // Provide full path of the icon
+
+    pwaOpts.includeAssets.push(...icons) // Include specified assets
+
+    const baseManifest = {
+        id: `?${APPID}=1`,
+
+        start_url: '.',
+
+        theme_color: '#ffffff', // copy.design?.theme_color ?? 
+        background_color: "#fff",
+        display: 'standalone',
+
+        // Dynamic
+        name: NAME,
+
+        // short_name: NAME,
+        description: userPkg.description,
+
+        // Generated
+        icons: icons.map(src => {
+            return {
+                src,
+                type: `image/${extname(src).slice(1)}`,
+                sizes: 'any'
+            }
+        })
+    } as Partial<ManifestOptions>
+
+    pwaOpts.manifest = ('manifest' in pwaOpts) ? { ...baseManifest, ...pwaOpts.manifest } : baseManifest // Naive merge
+
+    return pwaOpts as ResolvedConfig['pwa']
+}
+
+export const resolveViteConfig = (commonersConfig = {}, opts: Options = {}, build = true) => {
+
+    const withElectron = opts.electron
+    
+    const pwa = resolvePWAOptions(opts.pwa, commonersConfig)
     
     const plugins: vite.Plugin[] = [ commonersPlugin({ config: commonersConfig, build })]
 
@@ -21,7 +69,7 @@ export const resolveViteConfig = (commonersConfig = {}, opts = {}) => {
 
     if (withElectron) {
 
-        const electronTemplateBase = join(rootDir, 'packages', 'core', 'templates', 'electron')
+        const electronTemplateBase = join(rootDir, 'templates', 'electron')
 
         const viteOpts = {
             logLevel: 'silent',

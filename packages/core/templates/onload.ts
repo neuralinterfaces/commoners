@@ -7,7 +7,6 @@ delete COMMONERS.__plugins
 if ( __plugins ) {
 
     const loaded = {}
-    const __toRender = {}
 
     asyncFilter(__plugins, async (plugin) => {
         try {
@@ -22,51 +21,20 @@ if ( __plugins ) {
 
     const sanitized = supported.map((o) => sanitizePluginProperties(o, COMMONERS.TARGET))
 
-    sanitized.forEach(({ name, preload }) => {
+    sanitized.forEach(({ name, load }) => {
         
         loaded[name] = undefined // Register that all supported plugins are technically loaded
 
         try {
-            if (preload) loaded[name] = ipcRenderer ? preload.call(ipcRenderer) : preload()
+            if (load) loaded[name] = ipcRenderer ? load.call(ipcRenderer) : load()
         } catch (e) {
-            pluginErrorMessage(name, "preload", e)
+            pluginErrorMessage(name, "load", e)
         }
 
     })
 
-    sanitized.forEach(({ name, render }) => {
-        if (render) __toRender[name] = render
-    })
-
-    COMMONERS.plugins = { loaded, __toRender }
+    COMMONERS.plugins = loaded
     COMMONERS.__ready(loaded)
 })
 
 } else COMMONERS.__ready({})
-
-
-
-const onDOMReady = (callback) => {
-    if (document.readyState === "complete"  || document.readyState === "loaded" || document.readyState === "interactive") callback()
-    else document.addEventListener("DOMContentLoaded", callback)
-}
-
-onDOMReady(async function(){
-
-    await COMMONERS.ready
-
-    const { plugins } = COMMONERS
-    
-    // Handle Preloaded Plugin Values
-    const { __toRender = {}, loaded = {} } = plugins
-    delete plugins.__toRender
-    
-    const rendered = plugins.rendered = {}
-    for (let name in __toRender) {
-        try {
-            rendered[name] = __toRender[name](loaded[name])
-        } catch (e) {
-            pluginErrorMessage(name, "render", e)
-        }
-    }
-});

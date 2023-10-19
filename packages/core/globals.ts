@@ -61,11 +61,11 @@ export const command = {
 export const target = {
     desktop: isDesktop,
     mobile: !!isMobile,
-    web: !isDesktop && !isMobile // Default to web mode
+    pwa: cliArgs.pwa
 }
 
 // ----------------- GLOBAL STATE DECLARATION -----------------
-export const MODE = process.env.COMMONERS_MODE = (command.start || command.dev || command.share || !command) ? 'development' : ( target.mobile || target.web ? 'remote' : 'local' ) as typeof valid.platform[number] // Always a development environment command
+export const MODE = process.env.COMMONERS_MODE = (command.start || command.dev || command.share || !command) ? 'development' : ( target.desktop ? 'local' : 'remote' ) as typeof valid.platform[number] // Always a development environment command
 
 export const TARGET = process.env.COMMONERS_TARGET = Object.entries(target).find(([_, value]) => value)?.[0] as typeof valid.target[number] // return the key of the first true target
 
@@ -80,11 +80,12 @@ export const APPID = `com.${RAW_NAME}.app`
 
 // Get Configuration File and Path
 export const rootDir = path.resolve(dirname(fileURLToPath(import.meta.url))); // NOTE: Files referenced relative to rootDir must be transferred to the dist
-export const templateDir = path.join(rootDir, 'packages', 'core', 'templates')
+export const templateDir = path.join(rootDir, '..', 'templates')
 export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(path.join(templateDir, 'electron', 'electron-builder.yml')).toString())
 
 // Get package file
-export const commonersPkg = getJSON(path.join(rootDir, 'package.json'))
+const corePkg = getJSON(path.join(rootDir, 'package.json'))
+export const dependencies = corePkg.dependencies
 
 const resolveKey = (key) => {
     if (valid.mode.includes(key)) return MODE

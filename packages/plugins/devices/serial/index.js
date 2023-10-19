@@ -13,7 +13,7 @@ export const isSupported = {
   }
 }
 
-export function main(
+export function loadDesktop(
   // this: IpcMain, 
   win//: BrowserWindow
 ) {
@@ -50,19 +50,12 @@ export function main(
   win.webContents.session.setDevicePermissionHandler((details) => true)
 }
 
-export function preload(
-  // this: IpcRenderer
-) {
+export function render() {
 
-  return {
-    added: (callback) => this.on(`${name}.added`, (_, port) => callback(port)),
-    removed: (callback) => this.on(`${name}.removed`, (_, port) => callback(port)),
-    select: (port) => this.send(`${name}.select`, port),
-    onRequest: (callback) => this.on(`${name}.request`, (_, value) => callback(value)),
-  }
-}
-
-export function render({ onRequest, added, removed, select }) {
+  const added = (callback) => this.on(`${name}.added`, (_, port) => callback(port))
+  const removed = (callback) => this.on(`${name}.removed`, (_, port) => callback(port))
+  const select = (port) => this.send(`${name}.select`, port)
+  const onRequest =(callback) => this.on(`${name}.request`, (_, value) => callback(value))
 
   const modal = generateModal({
     headerText: 'Available Serial Ports',
@@ -85,6 +78,13 @@ export function render({ onRequest, added, removed, select }) {
 
   document.body.append(modal)
 
-  return { modal } 
+  return {
+    modal,
+
+    added, 
+    removed,
+    select,
+    onRequest
+  }
 
 }

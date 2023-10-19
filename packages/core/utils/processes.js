@@ -1,6 +1,5 @@
 import chalk from "chalk";
 import { spawn } from "node:child_process";
-import { rootDir } from "../globals";
 
 let children = {}
 
@@ -14,7 +13,7 @@ export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
     return new Promise((resolve) => {
         
         // NOTE: We don't need this in production builds...
-        const customPath = `${rootDir}/node_modules/.bin`  // Include this library's node_modules in the PATH
+        const customPath = `${process.cwd()}/node_modules/.bin`  // Include this library's node_modules in the PATH
 
         const proc = spawn(command, args, { 
             shell: true, 
@@ -42,7 +41,7 @@ export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
 
 }
 
-export const onExit = (code) => {
+export const kill = (code) => {
     for (const child in children) children[child].kill()
     process.exit();
 }

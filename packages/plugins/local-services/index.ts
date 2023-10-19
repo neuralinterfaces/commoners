@@ -60,7 +60,7 @@ const isSupported = {
     web: false
 }
 
-function main(
+function loadDesktop(
     _, 
     { send },
     {
@@ -122,7 +122,7 @@ function main(
     }, 2 * 1000)
 }
 
-export function preload() {
+export function load() {
     return {
         get: () => this.send(`${name}.get`),
         onFound: (callback) => this.on(`${name}.found`, (_, service) => callback(service)),
@@ -140,7 +140,7 @@ export default ( port: number, isValid?: (ip: string, env: any) => boolean ) => 
     return {
         name,
         isSupported,
-        main: function (...args) { main.call(this, ...args, { port, isValid }) },
-        preload
+        loadDesktop: function (...args) { loadDesktop.call(this, ...args, { port, isValid }) },
+        load
     }
 }

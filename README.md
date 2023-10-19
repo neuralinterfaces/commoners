@@ -9,13 +9,8 @@ A complete example of a COMMONERS application that connects to peripheral device
 
 Read the [documentation](https://commoners.dev) to learn more.
 
-## Build Notes
-### iOS
-#### Fix Pods Issue
-Run the following commands on the terminal and try again:
-```
-cd ios/App
-pod install
-```
+## Developer Notes
+For testing the CLI, install `packages/core` and `packages/cli` globally.
 
-If you add any Capacitor plugins to your dependencies, you'll need to run this again.
+## Acknowledgments
+`commoners` is maintained by Garrett Flynn, who originally developed the tool to streamline development of the [NWB GUIDE](https://github.com/neurodatawithoutborders/nwb-guide) application and support future hybrid application development for [Catalyst Neuro](https://github.com/catalystneuro).

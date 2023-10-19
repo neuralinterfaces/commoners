@@ -1,15 +1,33 @@
-import { APPID, COMMAND, NAME, assetOutDir, cliArgs, commonersPkg, configPath, defaultMainLocation, templateDir, userPkg } from './globals.js'
+import { createServer as createViteServer } from 'vite'
+import { extname, join, normalize, resolve, sep } from 'node:path'
+import chalk from 'chalk'
+import { unlink, writeFileSync } from 'node:fs'
+import { build } from 'esbuild'
+import { pathToFileURL } from 'node:url'
+
+import { resolveViteConfig } from './vite/index.js'
+
+import { COMMAND, cliArgs, dependencies, configPath, defaultMainLocation, userPkg, templateDir } from './globals.js'
 import { ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
 
+import { yesNo } from "./utils/inquirer.js";
+
+// Exports
+import { kill } from './utils/processes.js'
+import { clearOutputDirectory, populateOutputDirectory } from './common.js'
+
+export * as globals from './globals.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'
 
-import { ManifestOptions } from 'vite-plugin-pwa'
-
-import { yesNo } from "./utils/inquirer.js";
+export {
+    kill,
+    clearOutputDirectory,
+    populateOutputDirectory
+}
 
 export const defineConfig = (o: UserConfig): UserConfig => o
 
@@ -27,7 +45,7 @@ export async function loadConfigFromFile(filepath: string = configPath) {
         platform: 'node',
         bundle: true,
         format: 'esm',
-        external: [...Object.keys(commonersPkg.dependencies)] // Ensure that COMMONERS dependencies are external
+        external: [...Object.keys(dependencies)] // Ensure that COMMONERS dependencies are external
     })
 
     const { text } = result.outputFiles[0]
@@ -49,6 +67,7 @@ export async function loadConfigFromFile(filepath: string = configPath) {
     }
 }
 
+
 export async function resolveConfig(o: UserConfig = {}) {
 
     const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
@@ -59,8 +78,11 @@ export async function resolveConfig(o: UserConfig = {}) {
 
     copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
 
+
+    // NOTE: MOVE SO THIS IS FILTERED LATER
     // Remove services that are not specified
     const selectedServices = cliArgs.service
+
     if (selectedServices) {
         const isSingleService = !Array.isArray(selectedServices)
         const selected = isSingleService ? [ selectedServices ] : selectedServices
@@ -73,57 +95,8 @@ export async function resolveConfig(o: UserConfig = {}) {
         }
     }
 
-    // Run PWA prebuild to specify manifest file
-    if (cliArgs.pwa) {
-
-        const pwaOpts = ((!('pwa' in copy)) ? {} : copy.pwa) as Partial<ResolvedConfig['pwa']>
-        if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
-
-        const fromHTMLPath = join(...assetOutDir.split(sep).slice(1))
-        const icons = copy.icon ? (typeof copy.icon === 'string' ? [copy.icon] : Object.values(copy.icon)).map(str => join(fromHTMLPath, str)) : [] // Provide full path of the icon
-
-        pwaOpts.includeAssets.push(...icons) // Include specified assets
-
-        const baseManifest = {
-            id: `?${APPID}=1`,
-
-            start_url: '.',
-
-            theme_color: '#ffffff', // copy.design?.theme_color ?? 
-            background_color: "#fff",
-            display: 'standalone',
-
-            // Dynamic
-            name: NAME,
-
-            // short_name: NAME,
-            description: userPkg.description,
-
-            // Generated
-            icons: icons.map(src => {
-                return {
-                    src,
-                    type: `image/${extname(src).slice(1)}`,
-                    sizes: 'any'
-                }
-            })
-        } as Partial<ManifestOptions>
-
-        pwaOpts.manifest = ('manifest' in pwaOpts) ? { ...baseManifest, ...pwaOpts.manifest } : baseManifest // Naive merge
-
-        copy.pwa = pwaOpts as ResolvedConfig['pwa']
-    }
-
     return copy as ResolvedConfig
 }
-
-import { createServer as createViteServer } from 'vite'
-import { resolveViteConfig } from './vite/index.js'
-import { extname, join, normalize, resolve, sep } from 'node:path'
-import chalk from 'chalk'
-import { unlink, writeFileSync } from 'node:fs'
-import { build } from 'esbuild'
-import { pathToFileURL } from 'node:url'
 
 export const configureForDesktop = async () => {
 
@@ -149,17 +122,25 @@ export const createServices = async (config) => {
     return await createAll(resolvedConfig.services)
 }
 
+type Options = {
+    pwa?: boolean
+}
+
+type ServerOptions = {
+    printUrls?: boolean,
+} & Options
+
 // Run a development server
-export const createServer = async (config?: UserConfig | ResolvedConfig, print = true) => {
+export const createServer = async (config?: UserConfig | ResolvedConfig, opts: ServerOptions = {}) => {
 
     const resolvedConfig = await resolveConfig(config || await loadConfigFromFile());
 
     // Create the frontend server
-    const server = await createViteServer(resolveViteConfig(resolvedConfig))
+    const server = await createViteServer(resolveViteConfig(resolvedConfig, opts, false))
     await server.listen()
 
     // Print out the URL if everything was initialized here (i.e. dev mode)
-    if (print) {
+    if (opts.printUrls === false) {
         console.log('\n')
         server.printUrls()
         console.log('\n')

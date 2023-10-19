@@ -24,11 +24,11 @@ Mobile builds are intended to be installed on a user's mobile device. These buil
 `commoners` relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--mobile` flag to your build command.
 
 #### iOS
-If you are building for iOS, you will need to install the following dependencies:
+If you are building for iOS, you will need to install the following dependencies on your Mac:
 - [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12)
-- [CocoaPods](https://cocoapods.org)
-
-> **Note:** If your pods are not installed automatically, you may need to update gems (`sudo gem update --system`) and / or reinstall an older version of CocoaPods (`sudo gem install cocoapods:1.10.2`) for the CLI tool to properly initialize your project.
+- An [older version](https://stackoverflow.com/questions/68809929/unicode-normalization-not-appropriate-for-ascii-8bit) of [CocoaPods](https://cocoapods.org)
+    - Run `sudo gem install cocoapods:1.10.2`, which may require you to install Ruby on top of the system version
+    - If you're working on a Mac M1 / M2, this configuration may get [quite complicated](https://stackoverflow.com/questions/69012676/install-older-ruby-versions-on-a-m1-macbook)
 
 #### Android
 If you are building for Android, you will need to install the following dependencies:
@@ -85,9 +85,9 @@ The following service structure would be used to handle this case:
 
 ## Plugins
 Plugins are collections of JavaScript functions that run at different points during app initialization. These points include:
-1. `main` - Immediately on Electron main process instantiation (`desktop` builds only)
-2. `preload` - Before the DOM is loaded 
-3. `render` - After the DOM is loaded 
+
+1. `load` - After the DOM is loaded 
+2. `loadDesktop` - Immediately on Electron main process instantiation (`desktop` builds only)
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
 
@@ -98,20 +98,12 @@ export default {
         {
             name: 'selective-builds',
             isSupported: {
-                desktop: {
-                    render: false,
-                    preload: false
-                },
-                mobile: {
-                    render: false
-                },
                 web: {
-                    preload: false
+                    load: false
                 }
             },
-            main: () => console.log('desktop build (main)'),
-            preload: () => console.log(COMMONERS.TARGET + ' build (preload)'),
-            render: () => console.log(COMMONERS.TARGET + ' build (render)'),
+            loadDesktop: () => console.log('desktop build (load)'),
+            load: () => console.log(COMMONERS.TARGET + ' build (load)')
         }
     ]
 }

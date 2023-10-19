@@ -4,15 +4,13 @@ import { createServer } from './utils/server.js'
 import { createServices, loadConfigFromFile, resolveConfig } from './index.js';
 
 import { getLocalIP } from './templates/services/utils/network.js'
-import { cliArgs } from './globals.js';
 
-export default async function () {
+export default async function (port) {
 
     const config = await loadConfigFromFile() // Load configuration file only once
     const resolvedConfig = await resolveConfig(config);
     const services = await createServices(resolvedConfig)
 
-    const port = cliArgs.port || process.env.PORT
     if (!port) throw new Error(`No port specified.`)
 
     // Always pass the available servers

@@ -64,17 +64,13 @@ export function main (
 
 }
 
-export function preload(
-  // this: IpcRenderer
-) {
-    return {
-        onOpen: (callback) =>this.on(`${name}.open`, () => callback()),
-        onUpdate: (callback) => this.on(`${name}.update`, (_, devices) => callback(devices)),
-        select: (deviceID) => this.send(`${name}.select`, deviceID),
-    }
-}
+export function load() {
 
-export function render({ onOpen, onUpdate, select }) {
+  const onOpen = (callback) => this.on(`${name}.open`, () => callback())
+
+  const onUpdate = (callback) => this.on(`${name}.update`, (_, devices) => callback(devices))
+
+  const select = (deviceID) => this.send(`${name}.select`, deviceID)
 
   const modal = generateModal({
     headerText: 'Available BLE Devices',
@@ -104,5 +100,10 @@ export function render({ onOpen, onUpdate, select }) {
 
   document.body.append(modal)
 
-  return { modal }
+  return { 
+    onOpen, 
+    onUpdate,
+    select,
+    modal 
+  }
 }

@@ -27,7 +27,7 @@ export function main (
     });
 }
 
-export function preload(
+export function load(
   // this: IpcRenderer
 ) {
 

@@ -52,7 +52,7 @@ export const getAssets = async (config?: UserConfig) => {
 
     // Bundle onload script for the browser
     assets.bundle.push({
-        input: join(rootDir, 'packages', 'core', 'templates', 'onload.ts'),
+        input: join(rootDir, 'templates', 'onload.ts'),
         output: 'onload.mjs'
     })
 

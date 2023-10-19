@@ -1,10 +1,10 @@
 import path from "node:path"
-import { NAME, RAW_NAME, assetOutDir, cliArgs, commonersPkg, getBuildConfig, outDir, templateDir } from "./globals.js"
+import { NAME, RAW_NAME, assetOutDir, dependencies, getBuildConfig, outDir, templateDir } from "./globals.js"
 import { BaseOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
-import { CliOptions, build as ElectronBuilder } from 'electron-builder'
+import { CliOptions, build as ElectronBuilder, PublishOptions } from 'electron-builder'
 
 import { loadConfigFromFile, resolveConfig } from "./index.js"
 import { clearOutputDirectory, populateOutputDirectory } from "./common.js"
@@ -16,17 +16,27 @@ import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
 
 // Types
-export type BuildOptions = BaseOptions & {}
+export type BuildOptions = BaseOptions & {
+    frontend?: boolean,
+    services?: boolean,
+    service?: string | string[],
+    publish?: PublishOptions['publish']
+}
 
-export default async function build ({ target, platform }: BuildOptions, config?: ResolvedConfig) {
+export default async function build ({ 
+    target, 
+    platform,
+    frontend,
+    services,
+    service,
+    publish
+}: BuildOptions, config?: ResolvedConfig) {
 
     const resolvedConfig = await resolveConfig(config ||  await loadConfigFromFile())
 
-    const { icon , services } = resolvedConfig
-
     const toBuild = {
-        frontend: cliArgs['frontend'] || (!cliArgs['services'] && !cliArgs.service),
-        services: cliArgs['services'] || cliArgs.service || !cliArgs['frontend']
+        frontend: frontend || (!services && !service),
+        services: services || service || !frontend
     }
 
     // Clear only if both are going to be rebuilt
@@ -36,11 +46,15 @@ export default async function build ({ target, platform }: BuildOptions, config?
     // Build frontend
     if (toBuild.frontend) {
         if (target === 'mobile') await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await ViteBuild(resolveViteConfig(resolvedConfig, { build: true }))  // Build the standard output files using Vite. Force recognition as build
+        await ViteBuild(resolveViteConfig(resolvedConfig, { 
+            electron: target === 'desktop',
+            pwa: target === 'pwa'
+        }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // Build services
     if (toBuild.services) {
+        const services = resolvedConfig
         for (let name in services) {
             const service = services[name]
             let build = (service && typeof service === 'object') ? service.build : null 
@@ -74,28 +88,30 @@ export default async function build ({ target, platform }: BuildOptions, config?
 
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {
-            const electronVersion = commonersPkg.dependencies.electron
+            const electronVersion = dependencies.electron
             if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
             else buildConfig.electronVersion = electronVersion
         }
 
-        const defaultIcon = getIcon(icon)
+        const defaultIcon = getIcon(resolvedConfig.icon)
 
         // TODO: Get platform-specific icon
         const macIcon = defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
         const winIcon = macIcon // icon && typeof icon === 'object' && 'win' in icon ? icon.win : defaultIcon
 
         // Ensure proper absolute paths are provided for Electron build
-        buildConfig.directories.buildResources = path.join(templateDir, buildConfig.directories.buildResources)
-        buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(templateDir, buildConfig.afterSign) : buildConfig.afterSign
-        buildConfig.mac.entitlementsInherit = path.join(templateDir, buildConfig.mac.entitlementsInherit)
+        const electronTemplateDir = path.join(templateDir, 'electron')
+        
+        buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
+        buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
+        buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
         buildConfig.mac.icon = macIcon ? path.join(assetOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
         buildConfig.win.icon = winIcon ? path.join(assetOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
         buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
 
         const opts: CliOptions = { config: buildConfig as any }
 
-        if (cliArgs.publish) opts.publish = typeof cliArgs.publish === 'string' ? cliArgs.publish : 'always'
+        if (publish) opts.publish = typeof publish === 'string' ? publish : 'always'
 
         await ElectronBuilder(opts)
     }

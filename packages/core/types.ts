@@ -23,7 +23,7 @@ export const validMobilePlatforms =  tuple('ios', 'android')
 export const valid = {
 
     // Derived
-    target: tuple('desktop', 'mobile', 'web'),
+    target: tuple('desktop', 'mobile', 'pwa', undefined),
     mode:  tuple('development', 'local', 'remote'),
     platform: tuple('mac', 'windows', 'linux', ...validMobilePlatforms),
 
@@ -89,9 +89,8 @@ export type PluginType = {
     name: string,
     isSupported?: ResolvedSupportType | SupportConfigurationObject
     
-    main?: (this: IpcMain, win: BrowserWindow) => void, // TO PASS TO RENDER
-    preload?: (this: IpcRenderer) => LoadedPlugin,
-    render?: (loaded: LoadedPlugin) => AnyObj
+    loadDesktop?: (this: IpcMain, win: BrowserWindow) => void, // TO PASS TO RENDER
+    load?: (this: IpcRenderer) => LoadedPlugin
 }
 
 type ValidNestedProperty = TargetType | PlatformType | ModeType

@@ -2,25 +2,41 @@
 
 import chalk from "chalk";
 
-import { onExit as processOnExit } from "../core/utils/processes.js";
-import { cliArgs, command, COMMAND, PLATFORM, target, TARGET } from "../core/globals.js";
-import { share, build, createServer, launch, loadConfigFromFile, configureForDesktop, resolveConfig, createServices } from "../core/index.js";
-import { clearOutputDirectory, populateOutputDirectory } from "../core/common.js";
+import { 
+    kill as killAllActiveProcesses, 
+    clearOutputDirectory, 
+    populateOutputDirectory,
+    
+    // Main command hadlers
+    share, 
+    build, 
+    createServer, 
+    launch, 
+    createServices, 
+
+    // Utilities
+    loadConfigFromFile, 
+    configureForDesktop, 
+    resolveConfig, 
+    globals 
+
+} from "@commoners/solidarity";
+
+const { cliArgs, command, COMMAND, PLATFORM, target, TARGET } = globals
+
 
 // Error Handling for CLI
-const onExit = (...args) => processOnExit(...args)
-
 process.on('uncaughtException', (e) => {
     console.error(chalk.red(e))
-    processOnExit()
+    killAllActiveProcesses()
 })
 
-process.on('beforeExit', onExit);
+process.on('beforeExit', killAllActiveProcesses);
 
 const baseOptions = { target: TARGET, platform: PLATFORM }
 
-if (command.launch) launch(baseOptions) // Launch the specified build
-else if (command.share) share()
+if (command.launch) launch(baseOptions, cliArgs.port) // Launch the specified build
+else if (command.share) share(cliArgs.port || process.env.PORT)
 else if (command.build) build(baseOptions) // Build the application using the specified settings
 else if (command.dev || command.start || !command) {
 
@@ -50,7 +66,10 @@ else if (command.dev || command.start || !command) {
             else if (runFrontendWithServices) await createServices(resolvedConfig) // Run services in parallel
 
 
-            if (!target.mobile) await createServer(config, !target.desktop) // Create frontend server
+            if (!target.mobile) await createServer(config, { 
+                printUrls: !target.desktop,
+                pwa: cliArgs.pwa
+            }) // Create frontend server
 
         }
 
