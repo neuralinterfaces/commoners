@@ -1,7 +1,8 @@
 {
     "name": "@commoners/bluetooth",
-    "version": "0.0.25",
+    "version": "0.0.28",
     "main": "./dist/ble.es.js",
+    "license": "AGPL-3.0-or-later",
     "type": "module",
     "scripts": {
         "build": "vite build"

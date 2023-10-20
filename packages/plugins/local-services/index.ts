@@ -1,4 +1,4 @@
-import { getLocalIP } from "../../core/utils/ip";
+import { getLocalIP } from "../../core/utils/ip/cross-platform";
 
 import pkg from './package.json'
 

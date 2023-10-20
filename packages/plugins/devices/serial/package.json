@@ -1,6 +1,7 @@
 {
     "name": "@commoners/serial",
-    "version": "0.0.25",
+    "version": "0.0.28",
+    "license": "AGPL-3.0-or-later",
     "type": "module",
     "main": "./dist/serial.es.js",
     "scripts": {
