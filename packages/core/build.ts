@@ -72,7 +72,7 @@ export default async function build (
             let build = (service && typeof service === 'object') ? service.build : null 
             if (build && typeof build === 'function') build = build() // Run based on the platform if an object
             if (build) {
-                console.log(`Running build command for the ${chalk.bold(name)} service`)
+                console.log(`\nRunning build command for the ${chalk.bold(name)} service\n`)
                 await spawnProcess(build)
             }
         }
