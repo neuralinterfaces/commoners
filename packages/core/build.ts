@@ -1,4 +1,4 @@
-import path from "node:path"
+import path, { basename, extname } from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, defaultOutDir, getAssetOutDir, templateDir, ensureTargetConsistent, isMobile } from "./globals.js"
 import { BuildOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
@@ -14,6 +14,7 @@ import { spawnProcess } from './utils/processes.js'
 
 import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
+
 
 // Types
 export default async function build (
@@ -69,8 +70,10 @@ export default async function build (
         for (let name in services) {
             const service = services[name]
 
-            let build = (service && typeof service === 'object') ? service.build : null 
+            let build = (service && typeof service === 'object') ? service.build : null
+
             if (build && typeof build === 'function') build = build() // Run based on the platform if an object
+
             if (build) {
                 console.log(`\nRunning build command for the ${chalk.bold(name)} service\n`)
                 await spawnProcess(build)

@@ -6,6 +6,10 @@ import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
 
+const autobuildExtensions = {
+    node: ['.js', '.cjs', '.mjs', '.ts']
+}
+
 // ------------------------------------ COPIED ---------------------------------------
 
 // NOTE: From core/utils/url.js to remove the need to copy this asset...
@@ -34,24 +38,39 @@ function resolveConfig(config) {
 
 export async function resolveService (
   config = {}, 
+  name,
   { assets, root } = {}
 ) {
 
 
   const productionMode = process.env.COMMONERS_MODE
 
-  if (productionMode && config.publish) {
-    const publishConfig = resolveConfig(config.publish) ?? {}
-    const internalConfig = resolveConfig(config.publish[productionMode]) ?? {} // Block service if mode is not available
-    const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
-
-    // Cascade from more to less specific information
-    Object.assign(config, mergedConfig)
-
-    delete config.publish
-  }
-
   const resolvedConfig = resolveConfig(config)
+
+  if (productionMode && resolvedConfig.publish) {
+    const publishConfig = resolveConfig(resolvedConfig.publish) ?? {}
+    const internalConfig = resolveConfig(resolvedConfig.publish[productionMode]) ?? {} // Block service if mode is not available
+
+    const hasLocalEntry = publishConfig.local
+
+    const __src = resolvedConfig.src
+    const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
+    
+    // Cascade from more to less specific information
+    Object.assign(resolvedConfig, mergedConfig)
+
+    // Define default build command
+    if (!resolvedConfig.build && __src && hasLocalEntry && autobuildExtensions.node.includes(extname(__src))) {
+        const pkgOut = `./${join('.commoners', 'services', name)}`
+        const rollupOut = `./${join('.commoners', 'services', name, `${name}.js`)}`
+        resolvedConfig.build =  `rollup ${__src} -o ${rollupOut} --format cjs && pkg ${rollupOut} --target node16 --out-path ${pkgOut}`
+        resolvedConfig.src = pkgOut      
+    }
+
+    delete resolvedConfig.publish
+    delete resolvedConfig.local
+    delete resolvedConfig.remote
+  }
 
   const  { src } = resolvedConfig
 
@@ -85,7 +104,7 @@ export async function resolveService (
 // Create and monitor arbitary processes
 export async function start (config, id, roots) {
 
-  config = await resolveService(config, roots)
+  config = await resolveService(config, id, roots)
 
   const { src } = config
 
@@ -164,7 +183,7 @@ export async function resolveAll (services = {}, roots) {
   const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { src: config } : config])
   const serviceInfo = {}
 
-  await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, roots))) // Run sidecars automatically based on the configuration file
+  await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, id, roots))) // Run sidecars automatically based on the configuration file
 
   return serviceInfo
 }
