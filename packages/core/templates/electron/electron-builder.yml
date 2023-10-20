@@ -5,7 +5,7 @@ directories:
   output: build
 files:
   - "dist/**/*" # Include the COMMOMERS output directory
-  - "!node_modules"
+  # - "!node_modules"
 asarUnpack: # REPLACED
   - resources/**
 afterSign: build/notarize.cjs # AUGMENTED

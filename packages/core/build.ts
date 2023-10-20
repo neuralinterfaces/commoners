@@ -119,7 +119,7 @@ export default async function build (
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
         buildConfig.mac.icon = macIcon ? path.join(assetOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
         buildConfig.win.icon = winIcon ? path.join(assetOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
-        buildConfig.includeSubNodeModules = true // Allow for grabbing workspace dependencies
+        buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 
         const opts: CliOptions = { config: buildConfig as any }
 
