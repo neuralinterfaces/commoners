@@ -2,7 +2,6 @@ import path from "node:path";
 import { getJSON } from "./utils/files.js";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import minimist from 'minimist';
 import { readFileSync } from "node:fs";
 
 import { createRequire } from 'node:module';
@@ -21,16 +20,10 @@ dotenv.config()
 
 export const userPkg = getJSON('package.json')
 
-export const cliArgs = minimist(process.argv.slice(2))
-const [ passedCommand ] = cliArgs._
-
-
 export const defaultOutDir = 'dist'
 export const getScopedOutDir = (outDir) =>  path.join(outDir, '.commoners')
 export const getAssetOutDir = (outDir) =>  path.join(getScopedOutDir(outDir), 'assets')
 export const getDefaultMainLocation = (outDir) =>  path.join(getScopedOutDir(outDir), 'main.js')
-
-export const COMMAND = process.env.COMMONERS_COMMAND = passedCommand
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 

@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@commoners/solidarity": "0.0.26",
-    "chalk": "^5.2.0"
+    "chalk": "^5.2.0",
+    "minimist": "^1.2.8"
   },
   "devDependencies": {
     "@types/node": "16.18.21",

@@ -19,7 +19,7 @@ import chalk from "chalk"
 export default async function build (
     configPath: string, // Require configuration path
     options: BuildOptions,
-    resolvedServices: ResolvedConfig['services']
+    localServices?: ResolvedConfig['services']
 ) {
 
     const { 
@@ -28,15 +28,20 @@ export default async function build (
         publish,
         outDir = defaultOutDir
     } = options
-
+    
     const target = ensureTargetConsistent(options.target)
 
     const isDesktopBuild = isDesktop(target)
 
+    // If no local services, this is a production build of some sort
+    if (!localServices) process.env.COMMONERS_MODE = isDesktopBuild ? 'local' : 'remote'
+
     const assetOutDir = getAssetOutDir(outDir)
 
     const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services: buildServices })
-    if (resolvedServices) resolvedConfig.services = resolvedServices
+    
+    // Ensure local services are resolved with the same information
+    if (localServices) resolvedConfig.services = localServices
 
     const { services } = resolvedConfig
 
@@ -61,6 +66,7 @@ export default async function build (
     if (toBuild.services) {
         for (let name in services) {
             const service = services[name]
+
             let build = (service && typeof service === 'object') ? service.build : null 
             if (build && typeof build === 'function') build = build() // Run based on the platform if an object
             if (build) {

@@ -40,8 +40,6 @@ const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
     const fromHTMLPath = join(...getAssetOutDir(outDir).split(sep).slice(1))
     const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)).map(str => join(fromHTMLPath, str)) : [] // Provide full path of the icon
 
-    console.log('Icons', icons)
-
     pwaOpts.includeAssets.push(...icons) // Include specified assets
 
     const baseManifest = {

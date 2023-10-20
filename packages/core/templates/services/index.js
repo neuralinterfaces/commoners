@@ -37,6 +37,7 @@ export async function resolveService (
   { assets, root } = {}
 ) {
 
+
   const productionMode = process.env.COMMONERS_MODE
 
   if (productionMode && config.publish) {

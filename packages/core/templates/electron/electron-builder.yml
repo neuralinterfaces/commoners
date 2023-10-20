@@ -32,6 +32,6 @@ linux:
     - deb
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+npmRebuild: true
 publish:
   provider: github # Default to GitHub

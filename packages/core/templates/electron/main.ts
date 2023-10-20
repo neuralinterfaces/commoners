@@ -40,7 +40,6 @@ if (isProduction) dotenv.config({ path: join(commonersAssets, '.env') }) // Load
 const configPath = join(commonersAssets, 'commoners.config.cjs') // Load the .cjs config version
 
 // Populate global variables
-process.env.COMMONERS_TARGET = 'desktop'
 if (isProduction) process.env.COMMONERS_MODE = 'local';
 
 let mainWindow;
