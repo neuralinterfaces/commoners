@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "A cross-platform development kit for everyone",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "type": "module",
   "engines": {
     "node": ">=16.0.0"
@@ -19,7 +19,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@commoners/solidarity": "0.0.25",
+    "@commoners/solidarity": "0.0.26",
     "chalk": "^5.2.0"
   },
   "devDependencies": {

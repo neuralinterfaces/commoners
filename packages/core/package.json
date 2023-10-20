@@ -1,7 +1,7 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "type": "module",
   "types": "./dist/types/index.d.ts",
   "main": "./dist/index.js",
