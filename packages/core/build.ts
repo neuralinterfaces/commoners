@@ -97,7 +97,7 @@ export default async function build (
 
         // Register extra resources
         buildConfig.mac.extraResources = buildConfig.linux.extraResources = [ 
-            // { from: outDir, to: outDir }, 
+            { from: outDir, to: outDir }, 
             ...Object.values(services).reduce((acc: string[], { extraResources }: any) => {
                 if (extraResources) acc.push(...extraResources)
                 return acc
