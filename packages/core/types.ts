@@ -14,7 +14,6 @@ export type PortType = number
 
 type UniversalBuildOptions = {
     target: TargetType,
-    frontend?: boolean,
     services?: ServiceOptions,
     outDir?: string
 }

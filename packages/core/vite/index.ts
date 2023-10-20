@@ -132,7 +132,7 @@ export const resolveViteConfig = (
             outDir: outDir
         })
 
-        plugins.push(VitePWA({ registerType: 'autoUpdate',  ...opts }))
+        plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
 
     // Define a default set of plugins and configuration options

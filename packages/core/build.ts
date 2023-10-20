@@ -23,11 +23,12 @@ export default async function build (
 ) {
 
     const { 
-        frontend: buildFrontend,
-        services: buildServices,
+        services: rebuildServices,
         publish,
         outDir = defaultOutDir
     } = options
+
+    const onlyBuildServices = !options.target && rebuildServices
     
     const target = ensureTargetConsistent(options.target)
 
@@ -38,23 +39,24 @@ export default async function build (
 
     const assetOutDir = getAssetOutDir(outDir)
 
-    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services: buildServices })
+    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { services: rebuildServices })
     
     // Ensure local services are resolved with the same information
     if (localServices) resolvedConfig.services = localServices
 
     const { services } = resolvedConfig
 
-    const toBuild = {
-        frontend: buildFrontend || !buildServices,
-        services: buildServices || !buildFrontend
+
+    const toRebuild = {
+        frontend: !onlyBuildServices, // Rebuild frontend unless services are explicitly requested
+        services: rebuildServices // Must explicitly decide to build services (if not desktop build)
     }
 
     // Clear only if both are going to be rebuilt
-    if (toBuild.frontend && toBuild.services) await clear(outDir)
+    if (toRebuild.frontend && toRebuild.services) await clear(outDir)
 
     // Build frontend
-    if (toBuild.frontend) {
+    if (toRebuild.frontend) {
         if (isMobile(target)) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
         await ViteBuild(resolveViteConfig(resolvedConfig, { 
             target,
@@ -63,7 +65,7 @@ export default async function build (
     }
 
     // Build services
-    if (toBuild.services) {
+    if (toRebuild.services) {
         for (let name in services) {
             const service = services[name]
 

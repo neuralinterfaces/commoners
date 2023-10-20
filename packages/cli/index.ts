@@ -21,7 +21,6 @@ const customGlobalPort = port || process.env.PORT // Railway and simple sharing 
 
 const buildOptions = {
     target: TARGET, 
-    frontend: cliArgs.frontend,
     services: cliArgs.service || cliArgs.services,
     publish: cliArgs.publish,
     outDir

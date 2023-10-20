@@ -5,7 +5,8 @@ import { createServices, loadConfigFromFile, resolveConfig } from './index.js';
 
 import { ResolvedConfig, UserConfig, ShareOptions, PortType } from './types.js';
 
-import { getLocalIP, updateServicesWithLocalIP } from './utils/ip.js'
+import { updateServicesWithLocalIP } from './utils/ip/index.js'
+import { getLocalIP } from './utils/ip/cross-platform.js'
 
 import { networkInterfaces } from 'node:os';
 
@@ -20,7 +21,7 @@ export default async function (
 ) {
 
     if (typeof config === 'string') config = await loadConfigFromFile(config)
-    const resolvedConfig = await resolveConfig(config, { services, customPort: port })
+    const resolvedConfig = await resolveConfig(config, { services, customPort: sharePort === port ? undefined : port })
 
     const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 

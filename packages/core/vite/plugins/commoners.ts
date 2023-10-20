@@ -1,6 +1,6 @@
 
 import { normalize, extname } from 'node:path'
-import { getIcon } from '../../utils/index'
+import { getIcon } from '../../utils/index.js'
 
 const assetPath = (path, isBuild) => `./${normalize(`${isBuild ? '' : 'dist/'}.commoners/assets/${path}`)}`
 

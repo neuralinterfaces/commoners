@@ -1,7 +1,7 @@
 import { StartOptions } from "./types.js";
 
 import { build, configureForDesktop, createServices, loadConfigFromFile, resolveConfig } from './index.js'
-import { updateServicesWithLocalIP } from "./utils/ip.js";
+import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAssets, clear } from "./common.js";
 import { createServer } from "./vite/index.js";
 import { ensureTargetConsistent, isDesktop, isMobile } from "./globals.js";
@@ -9,11 +9,11 @@ import { ensureTargetConsistent, isDesktop, isMobile } from "./globals.js";
 
 export default async function ( configPath: string, options: StartOptions ) {
 
-    const { outDir, frontend, services, port } = options
+    const { outDir, services, port } = options
+
+    const onlyRunServices = !options.target && services
 
     const target = ensureTargetConsistent(options.target)
-
-    const onlyRunServices = !frontend && services
 
     const config = await loadConfigFromFile(configPath) // Load configuration file only once
 
@@ -38,7 +38,6 @@ export default async function ( configPath: string, options: StartOptions ) {
     // Run services alongside the frontend
     else {
 
-        const runFrontendWithServices = !frontend || services
         const isDesktopTarget = isDesktop(target)
 
         // Build for mobile before moving forward
@@ -59,7 +58,7 @@ export default async function ( configPath: string, options: StartOptions ) {
         if (isDesktopTarget) await configureForDesktop(outDir) // Configure the desktop instance
 
         // Create all services
-        if (!isDesktopTarget && runFrontendWithServices) await createAllServices()
+        await createAllServices()
 
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) await createServer(resolvedConfig, { 

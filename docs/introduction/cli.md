@@ -12,15 +12,16 @@ The CLI commands for `commoners` share the same options structure:
     - `--ios` - For iOS
     - `--android` - For Android
 
-- `--frontend` - Frontend resources only (`boolean`)
-- `--services` - All services defined in the configuration file (`boolean`)
-- `--service [name]` - For specific service(s) (`string`)
+- `--services` - Apply action to **all services** defined in the configuration file (`boolean`)
+- `--service [name]` - Apply action to **specific service(s)** (`string`). Can be used multiple times.
 
 ## commoners
 Start your project in development mode 
 
 ## commoners build
 Build the project assets
+
+> **Note:** To minimize rebuilding, you must manually specify `--services` to build what you need. For instance, your first `--desktop` should be accompanied by `--services` to build all services—though you may omit this until you change your service files.
 
 ### Additional Options
 - `--pwa` - As a Progressive Web App
