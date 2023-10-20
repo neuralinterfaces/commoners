@@ -51,16 +51,18 @@ export async function resolveService (
     const publishConfig = resolveConfig(resolvedConfig.publish) ?? {}
     const internalConfig = resolveConfig(resolvedConfig.publish[productionMode]) ?? {} // Block service if mode is not available
 
-    const hasLocalEntry = publishConfig.local
-
     const __src = resolvedConfig.src
+
+    // Ensure source is detected as local for all conditions
+    const isLocalSrc = publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote)
+
     const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
     
     // Cascade from more to less specific information
     Object.assign(resolvedConfig, mergedConfig)
 
     // Define default build command
-    if (!resolvedConfig.build && __src && hasLocalEntry && autobuildExtensions.node.includes(extname(__src))) {
+    if (!resolvedConfig.build && __src && isLocalSrc && autobuildExtensions.node.includes(extname(__src))) {
         const pkgOut = `./${join('.commoners', 'services', name)}`
         const rollupOut = `./${join('.commoners', 'services', name, `${name}.js`)}`
         resolvedConfig.build =  `rollup ${__src} -o ${rollupOut} --format cjs && pkg ${rollupOut} --target node16 --out-path ${pkgOut}`
