@@ -1,6 +1,6 @@
 
 import { existsSync} from 'node:fs';
-import { NAME, getBuildConfig, PLATFORM, ensureTargetConsistent, defaultOutDir, isMobile, isDesktop } from './globals.js';
+import { NAME, getBuildConfig, PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath } from './globals.js';
 import { join } from 'node:path';
 import chalk from 'chalk';
 
@@ -17,12 +17,15 @@ import { cpus } from 'node:os';
 
 export default async function (options: LaunchOptions) {
 
+    const target = ensureTargetConsistent(options.target)
+
+    
     const { 
-        outDir = defaultOutDir, 
+        outDir = join(globalWorkspacePath, target),
         port 
     } = options
 
-    const target = ensureTargetConsistent(options.target)
+    console.log('Launch out dir', outDir)
 
 
     if (isMobile(target)) return await mobile.run(target)

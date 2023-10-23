@@ -28,7 +28,6 @@
     "electron": "^26.2.1",
     "electron-builder": "^23.6.0",
     "esbuild": "^0.17.19",
-    "inquirer": "^9.1.5",
     "js-yaml": "^4.1.0",
     "open": "^9.1.0",
     "pkg": "^5.8.1",

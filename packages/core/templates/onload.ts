@@ -7,7 +7,7 @@ delete COMMONERS.__plugins
 
 let target = COMMONERS.TARGET
 
-const desktopTargets = ['desktop', 'mac', 'windows', 'linux']
+const desktopTargets = ['desktop', 'electron', 'tauri']
 const mobileTargets = ['mobile', 'android', 'ios']
 
 if (desktopTargets.includes(target)) target = 'desktop';

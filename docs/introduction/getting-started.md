@@ -127,6 +127,5 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
 For code executed in the `main` function, there are several global variables available to you by default:
 
 - `COMMONERS_TARGET` - The current build target (`"desktop"`, `"mobile"`, `"pwa"`, or `undefined`)
-- `COMMONERS_MODE` - The current build mode (`"local"`, or `"remote"`, or `undefined`)
 
 Additional global variables will be loaded from your `.env` file, if present.

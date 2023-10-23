@@ -95,21 +95,19 @@ const installForUser = async (pkgName, version) => {
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    const platform = getCorrectPlatform(target)
-
-    await checkDepsInstalled(platform, config)
+    await checkDepsInstalled(target, config)
     
     await openConfig({
         plugins: config.plugins,
         outDir
     }, async () => {
-        if (!existsSync(platform)) {
+        if (!existsSync(target)) {
             
-            console.log(chalk.cyanBright(`[commoners]: Initializing ${platform} project...`))
-            await runCommand(`npx cap add ${platform} && npx cap copy`)
+            console.log(chalk.cyanBright(`[commoners]: Initializing ${target} project...`))
+            await runCommand(`npx cap add ${target} && npx cap copy`)
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
-            if (platform === 'ios') {
+            if (target === 'ios') {
                 const plistPath = resolve('ios/App/App/info.plist')
                 const xml = plist.parse(readFileSync(plistPath, 'utf8')) as any;
                 xml.NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to connect and interact with peripheral BLE devices."
@@ -131,17 +129,10 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
     if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
 }
 
-function getCorrectPlatform(target) {
-    if (target === 'mobile') return PLATFORM === 'mac' ? 'ios' : 'android'
-    else return target
-}
-
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    const platform = getCorrectPlatform(target)
-
-    await checkDepsInstalled(platform, config)
+    await checkDepsInstalled(target, config)
 
     await openConfig({
         plugins: config.plugins,
@@ -150,18 +141,16 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
     if (assets.has(config)) {
         const info = assets.create(config)
-        await runCommand(`npx capacitor-assets generate --${platform}`) // Generate assets
+        await runCommand(`npx capacitor-assets generate --${target}`) // Generate assets
         assets.cleanup(info)
     }
 
-    await runCommand(`npx cap open ${platform}`)
+    await runCommand(`npx cap open ${target}`)
 }
 
 export const run = async (target) => {
 
-    const platform = getCorrectPlatform(target)
-
-    throw new Error(`This command has not been configured for ${platform} yet...`)
+    throw new Error(`This command has not been configured for ${target} yet...`)
         
     // if (existsSync(platform))  {
     //     console.log(chalk.red(`This project is not initialized for ${platform}`))

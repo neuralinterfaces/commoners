@@ -2,13 +2,13 @@
 import { normalize, extname } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 
-const assetPath = (path, isBuild) => `./${normalize(`${isBuild ? '' : 'dist/'}.commoners/assets/${path}`)}`
+const assetPath = (path, outDir, isBuild) => `./${normalize(`${isBuild ? '' : `${outDir}/`}/${path}`)}`
 
 export default ({ 
     config, 
     build, 
-    TARGET, 
-    MODE
+    outDir,
+    TARGET
 }) => {
 
     const icon = getIcon(config.icon)
@@ -22,11 +22,10 @@ export default ({
 
     const globalObject = {
         services,
-        TARGET,
-        MODE
+        TARGET
     }
 
-    const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, build)}" type="image/${extname(icon).slice(1)}" >` : ''
+    const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
 
     return {
         name: 'commoners',
@@ -36,7 +35,7 @@ export default ({
             <script type="module">
 
             // Directly import the plugins from the transpiled configuration object
-            import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs', build)}"
+            import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs', outDir, build)}"
             const { plugins } = COMMONERS_CONFIG
 
             // Set global variable
@@ -58,10 +57,10 @@ export default ({
                 COMMONERS.__ready = res
             })    
 
-            import("${assetPath('onload.mjs', build)}")
+            import("${assetPath('onload.mjs', outDir, build)}")
 
             </script>
             \n${html}`
-        },
+        }
     }
 }

@@ -44,7 +44,7 @@ export type WritableElectronBuilderConfig = DeepWriteable<ElectronBuilderConfigu
 // ------------------- Support -------------------
 export const validMobileTargets =  ['ios', 'android', 'mobile']
 
-export const validDesktopTargets = ['mac', 'windows', 'linux', 'desktop']
+export const validDesktopTargets = ['desktop', 'electron', 'tauri']
 
 export const universalTargetTypes = ['desktop', 'mobile',  'pwa', 'web']
 
@@ -63,7 +63,7 @@ export const valid = {
 }
 
 export type ViteOptions = {
-    outDir?: string,
+    outDir: string,
     target?: TargetType
 }
 
@@ -86,7 +86,6 @@ type ExtraServiceMetadata = {
     // Common
     port?: number,
     build?: string | (() => string), // e.g. could respond to platform
-    extraResources?: ElectronBuilderConfiguration['extraResources'], // NOTE: Replace with electron-builder type
 }
 
 type PublishedServiceMetadata = { 
@@ -104,7 +103,7 @@ type GeneratedServiceMetadata = {
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
 
-type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedServiceMetadata
+export type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedServiceMetadata
 
 // ------------------- Plugins -------------------
 type LoadedPlugin = { [x:string]: any }

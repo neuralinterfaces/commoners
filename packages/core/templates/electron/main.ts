@@ -9,38 +9,7 @@ import main from '@electron/remote/main';
 
 import dotenv from 'dotenv'
 
-// import chalk from 'chalk'
-// import util from 'node:util'
-
-// // --------------------- Simple Log Script ------------------------
-// import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
-// const homeDirectory = app.getPath("home");
-// const commonersDirectory = join(homeDirectory, 'COMMONERS');
-// if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
-
-// const uniqueLogId = (new Date()).toUTCString()
-// const writeToDebugLog = (msg) => {
-//   appendFileSync(join(commonersDirectory, `${app.name}_${uniqueLogId}.log`), `${msg}\n`)
-// }
-
-const devServerURL = process.env.VITE_DEV_SERVER_URL
-const isProduction = !devServerURL
-
-// Populate platform variable if it doesn't exist
-const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-
-const commonersDist = (platform === 'windows' || !isProduction) ? __dirname : join(process.resourcesPath, 'dist', '.commoners') // NOTE: __dirname will be resolved since this is going to be transpiled into CommonJS
-const commonersAssets = join(commonersDist, 'assets')
-const dist = join(commonersDist, '..') 
-
-
-if (isProduction) dotenv.config({ path: join(commonersAssets, '.env') }) // Load the .env file in production
-
-// Get the COMMONERS configuration file
-const configPath = join(commonersAssets, 'commoners.config.cjs') // Load the .cjs config version
-
-// Populate global variables
-if (isProduction) process.env.COMMONERS_MODE = 'local';
+process.env.COMMONERS_ELECTRON = true
 
 let mainWindow;
 
@@ -69,6 +38,45 @@ const globals : {
   send: (channel, ...args) => onWindowReady((win) => send.call(win, channel, ...args))
 }
 
+
+// Transfer all the main console commands to the browser
+const ogConsoleMethods: any = {};
+['log', 'warn', 'error'].forEach(method => {
+  const ogMethod = ogConsoleMethods[method] = console[method]
+  console[method] = (...args) => {
+    onWindowReady(win => send.call(win, `COMMONERS:console.${method}`, ...args))
+    ogMethod(...args)
+  }
+})
+
+// import chalk from 'chalk'
+// import util from 'node:util'
+
+// // --------------------- Simple Log Script ------------------------
+// import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
+// const homeDirectory = app.getPath("home");
+// const commonersDirectory = join(homeDirectory, 'COMMONERS');
+// if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
+
+// const uniqueLogId = (new Date()).toUTCString()
+// const writeToDebugLog = (msg) => {
+//   appendFileSync(join(commonersDirectory, `${app.name}_${uniqueLogId}.log`), `${msg}\n`)
+// }
+
+const devServerURL = process.env.VITE_DEV_SERVER_URL
+const isProduction = !devServerURL
+
+// Populate platform variable if it doesn't exist
+const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+
+const outDir = (platform === 'windows' || !isProduction) ? __dirname : join(process.resourcesPath, '.commoners', '.temp', 'electron') // 'dist' is always used for Electron builds
+
+
+if (isProduction) dotenv.config({ path: join(outDir, '.env') }) // Load the .env file in production
+
+// Get the COMMONERS configuration file
+const configPath = join(outDir, 'commoners.config.cjs') // Load the .cjs config version
+
 function createAppWindows(config, opts = config.electron ?? {}) {
 
 // Replace with getIcon (?)
@@ -89,7 +97,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
       transparent: true,
     });
 
-    const completeSplashPath = join(commonersAssets, splashURL)
+    const completeSplashPath = join(outDir, splashURL)
     splash.loadFile(completeSplashPath)
 
     globals.splash = splash // Replace splash entry with the active window
@@ -104,7 +112,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   }
 
   // ------------------- Create the main window -------------------  
-  const preload = join(commonersDist, 'preload.js')
+  const preload = join(outDir, 'preload.js')
 
   const windowConfig = {
     width: 900,
@@ -167,7 +175,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && devServerURL) win.loadURL(devServerURL) 
-  else win.loadFile(join(dist, 'index.html'))
+  else win.loadFile(join(outDir, 'index.html'))
 
   return win
 }
@@ -194,9 +202,15 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
+
+  // Create all services as configured by the user / main build
   // NOTE: Services cannot be filtered in desktop mode
-  const resolved = await services.createAll(config.services, { assets: commonersAssets, root: join(dist, '..')  }) // Create all services as configured by the user / main build
-  process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose for elect
+  const resolved = await services.createAll(config.services, { 
+    mode: isProduction ? 'local' : undefined, 
+    base: outDir
+  })
+  
+  process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
 
 
   // Proxy the services through the custom protocol
@@ -229,14 +243,4 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// app.on('before-quit', () => services.stop());
-
-// Transfer all the main console commands to the browser
-const ogConsoleMethods: any = {};
-['log', 'warn', 'error'].forEach(method => {
-  const ogMethod = ogConsoleMethods[method] = console[method]
-  console[method] = (...args) => {
-    onWindowReady(win => send.call(win, `COMMONERS:console.${method}`, ...args))
-    ogMethod(...args)
-  }
-})
+app.on('before-quit', () => services.stop());

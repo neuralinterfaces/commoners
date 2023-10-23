@@ -5,7 +5,7 @@ import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve, sep } from 'node:path'
 
-import { rootDir, userPkg, getScopedOutDir, NAME, APPID, getAssetOutDir, defaultOutDir, isDesktop } from "../globals.js";
+import { rootDir, userPkg, NAME, APPID, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types.js'
@@ -22,6 +22,8 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
         server.printUrls()
         console.log('\n')
     }
+
+    return server
 }
 
 
@@ -37,7 +39,8 @@ const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
     if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
     else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [ pwaOpts.includeAssets ]
 
-    const fromHTMLPath = join(...getAssetOutDir(outDir).split(sep).slice(1))
+    const fromHTMLPath = join(...outDir.split(sep).slice(1))
+
     const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)).map(str => join(fromHTMLPath, str)) : [] // Provide full path of the icon
 
     pwaOpts.includeAssets.push(...icons) // Include specified assets
@@ -76,8 +79,8 @@ export const resolveViteConfig = (
     commonersConfig: ResolvedConfig, 
     { 
         target, 
-        outDir = defaultOutDir 
-    }: ViteOptions = {}, 
+        outDir 
+    }: ViteOptions, 
     build = true
 ) => {
 
@@ -86,8 +89,8 @@ export const resolveViteConfig = (
     const plugins: vite.Plugin[] = [ commonersPlugin({ 
         config: commonersConfig, 
         build,
-        TARGET: target,
-        MODE: process.env.COMMONERS_MODE ?? 'development'
+        outDir,
+        TARGET: target
     })]
 
     // Desktop Build
@@ -100,7 +103,7 @@ export const resolveViteConfig = (
             build: {
                 // sourcemap: !build,
                 minify: build,
-                outDir: getScopedOutDir(outDir),
+                outDir,
                 rollupOptions: {
                     external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
                 }

@@ -1,14 +1,17 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { RAW_NAME, rootDir, userPkg, getAssetOutDir, getScopedOutDir, defaultOutDir, templateDir } from "./globals.js"
+import { RAW_NAME, rootDir, userPkg } from "../globals.js"
 import { dirname, extname, join, parse, relative, sep } from "node:path"
 
-import { isValidURL } from './utils/url.js'
-import { copyAsset } from './utils/copy.js'
+import { isValidURL } from './url.js'
+import { copyAsset } from './copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { UserService, UserConfig, ResolvedConfig } from "./types.js"
-import { loadConfigFromFile, resolveConfig } from "./index.js"
+import { ResolvedService, ResolvedConfig } from "../types.js"
+import { loadConfigFromFile, resolveConfig } from "../index.js"
+
+import { spawnProcess } from './processes.js'
+import chalk from "chalk"
 
 type AssetInfo = string | {
     input: string,
@@ -24,10 +27,10 @@ type AssetsCollection = {
 
 type AssetServicesArgument = boolean | ResolvedConfig['services']
 
-const jsExtensions = ['.js', '.ts']
+const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
-function addServiceAssets(this: AssetsCollection, config: UserService) {
-    const filepath = typeof config === 'string' ? config : (config as any).src
+function addServiceAssets(this: AssetsCollection, config: ResolvedService) {
+    const filepath = config.src
 
     if (!filepath) return // Do not copy if file doesn't exist
     if (isValidURL(filepath)) return // Do not copy if file is a url
@@ -36,19 +39,45 @@ function addServiceAssets(this: AssetsCollection, config: UserService) {
     else this.copy.push(filepath)
 }
 
+
+async function buildService(service, name, force = false){
+
+        let build = (service && typeof service === 'object') ? service.build : null
+
+        if (!build) return
+
+        const hasBeenBuilt = existsSync(service.src)
+        if (hasBeenBuilt && !force) return
+
+        if (typeof build === 'function') build = build() // Run based on the platform if an object
+
+        if (build) {
+            console.log(`\nRunning build command for the ${chalk.bold(name)} service\n`)
+            await spawnProcess(build)
+        }
+}
+
 // Derive assets to be transferred to the COMMONERS folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 
-export const getAssets = async (config: UserConfig | string, services: AssetServicesArgument = false) => {
+export const getAssets = async (config: AssetConfig, services: AssetServicesArgument = false, buildServices = false) => {
     
-    let configPath
+    let configPath, resolvedConfig
 
     if (typeof config === 'string') {
         configPath = config
         config = await loadConfigFromFile(config)
-    }
-    const resolvedConfig = await resolveConfig(config)
+    } 
+    
+    if (config && typeof config === 'object' && 'path' in config) {
+        configPath = config.path
+        resolvedConfig = config.resolved
+    } 
+    
+    else resolvedConfig = await resolveConfig(config)
+
+
 
     const configExtensionTargets = ['cjs', 'mjs']
 
@@ -72,7 +101,11 @@ export const getAssets = async (config: UserConfig | string, services: AssetServ
     // Copy Provided Services
     if (services) {
         if (typeof services === 'boolean') services = resolvedConfig.services
-        Object.values(services).forEach(o => addServiceAssets.call(assets, o))
+
+        await Promise.all(Object.entries(services).map(async ([name, o]) => {
+            addServiceAssets.call(assets, o)
+            await buildService(o, name)
+        }))
     }
 
     // Copy Icons
@@ -90,26 +123,26 @@ export const getAssets = async (config: UserConfig | string, services: AssetServ
 }
 
 
-export const clear = (outDir: string = defaultOutDir) => {
+export const clear = (outDir: string) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
+
+type AssetConfig = { path: string, resolved: ResolvedConfig } | ResolvedConfig | string
 export const buildAssets = async ({
     config, 
-    outDir = defaultOutDir,
-    services = {}
+    outDir,
+    services = {},
+    buildServices = false
 }: {
-    config: ResolvedConfig | string,
-    outDir?: string,
+    config: AssetConfig,
+    outDir: string,
     services?: AssetServicesArgument
 }) => {
 
-    const assetOutDir = getAssetOutDir(outDir)
-    const scopedOutDir = getScopedOutDir(outDir)
+    mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
 
-    mkdirSync(assetOutDir, { recursive: true }) // Ensure base and asset output directory exists
-
-    writeFileSync(join(scopedOutDir, 'package.json'), JSON.stringify({ name: `commoners-${RAW_NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+    writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-${RAW_NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
     const assets = await getAssets(config, services)
 
@@ -122,11 +155,11 @@ export const buildAssets = async ({
         const explicitOutput = typeof output === 'string' ? output : null
         const hasExplicitInput = typeof input === 'string'
 
-        if (hasMetadata && 'text' in info && hasMetadata && explicitOutput) writeFileSync(join(assetOutDir, explicitOutput), info.text)
+        if (hasMetadata && 'text' in info && hasMetadata && explicitOutput) writeFileSync(join(outDir, explicitOutput), info.text)
         else if (hasExplicitInput) {
             const ext = extname(input)
-            const outPath = explicitOutput ? join(assetOutDir, explicitOutput) : join(assetOutDir, input)
-            const outDir = dirname(outPath)
+            const outPath = explicitOutput ? join(outDir, explicitOutput) : join(outDir, input)
+
             const root = dirname(input)
 
 
@@ -136,7 +169,7 @@ export const buildAssets = async ({
                 base: "./",
                 root,
                 build: {
-                    outDir: relative(root, outDir),
+                    outDir: relative(root, dirname(outPath)),
                     rollupOptions: { input: input }
                 },
             })
@@ -145,7 +178,7 @@ export const buildAssets = async ({
             else {
                 
                 const resolvedExtension = explicitOutput ? extname(explicitOutput).slice(1) : (hasMetadata ? output?.extension : '') || 'js'
-                const outfile = explicitOutput ? outPath : join(outDir, `${parse(input).name}.${resolvedExtension}`)
+                const outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
 
                 const baseConfig: esbuild.BuildOptions = {
                     entryPoints: [input],
@@ -172,7 +205,4 @@ export const buildAssets = async ({
 
     // Copy static assets
     assets.copy.map(info => copyAsset(info, { outDir }))
-
-    // Create yml file for dist
-    writeFileSync(join(outDir, '_config.yml'), `include: ['.commoners']`)
 }

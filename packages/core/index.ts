@@ -1,15 +1,12 @@
 import { join, normalize } from 'node:path'
-import chalk from 'chalk'
 import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, userPkg, templateDir, defaultOutDir } from './globals.js'
-import { ResolvedConfig, UserConfig } from './types.js'
+import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit } from './globals.js'
+import { ModeType, ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
-
-import { yesNo } from "./utils/inquirer.js";
 
 // Exports
 export * as globals from './globals.js'
@@ -57,14 +54,16 @@ export async function loadConfigFromFile(filepath: string) {
 
 type ResolveOptions = {
     services?: string | string[] | boolean,
-    customPort?: number
+    customPort?: number,
+    mode?: ModeType
 }
 
 export async function resolveConfig(
     o: UserConfig = {}, 
     { 
         services, 
-        customPort
+        customPort,
+        mode
     } : ResolveOptions = {}
 ) {
 
@@ -77,7 +76,7 @@ export async function resolveConfig(
     const isServiceOptionBoolean = typeof services === 'boolean'
     if (isServiceOptionBoolean && !services) copy.services = undefined // Unset services (if set to false)
 
-    copy.services = await resolveAll(copy.services) // Always resolve all backend services before going forward
+    copy.services = await resolveAll(copy.services, { mode }) // Always resolve all backend services before going forward
 
     // Remove unspecified services
     if (services && !isServiceOptionBoolean) {
@@ -94,22 +93,16 @@ export async function resolveConfig(
     return copy as ResolvedConfig
 }
 
-export const configureForDesktop = async (outDir = defaultOutDir) => {
+const writePackageJSON = (o) => {
+    writeFileSync('package.json', JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
+}
 
-    // Ensure project can handle --desktop command
+// Ensure project can handle --desktop command
+export const configureForDesktop = async (outDir) => {
     const defaultMainLocation = getDefaultMainLocation(outDir)
     if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
-        const result = await yesNo('This project is not properly configured for desktop. Would you like to initialize it?')
-        if (result) {
-            const copy: any = {}
-            console.log(chalk.green('Added a main entry to your package.json'))
-            delete userPkg.main // Delete existing main entry
-            Object.entries(userPkg).forEach(([name, value], i) => {
-                if (i === 3) copy.main = defaultMainLocation
-                copy[name] = value
-            })
-            writeFileSync('package.json', JSON.stringify(copy, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
-        } else throw new Error('This project is not compatible with desktop mode.')
+        onExit(() =>  writePackageJSON(userPkg)) // Write back the original package.json on exit
+        writePackageJSON({...userPkg, main: defaultMainLocation})
     }
 
 }

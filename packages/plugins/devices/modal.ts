@@ -24,24 +24,34 @@ export default (props: ModalProps) => {
 
       dialog {
         padding: 0;
+        display: flex;
       }
 
       section {
-        padding: 16px
+        position: relative;
+        display: grid;
+        grid-template-rows: min-content 1fr min-content;
+        overflow: hidden;
       }
     
       header {
-        padding-bottom: 5px;
-        margin-bottom: 10px;
+        padding: 16px;
+        padding-bottom: 10px;
+
+        background: white;
         border-bottom: 1px solid gainsboro;
       }
     
       footer {
-        padding-top: 20px;
+        padding: 16px;
+        padding-top: 10px;
+        background: white;
+        border-top: 1px solid gainsboro;
       }
     
       main {
-        overflow: auto,
+        padding: 0px 16px;
+        overflow: auto;
         max-height: 300px;
         min-width: 500px;
       }
