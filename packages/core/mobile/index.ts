@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { NAME, APPID, userPkg, PLATFORM } from "../globals.js"
+import { NAME, APPID, userPkg, onExit } from "../globals.js"
 import * as assets from './assets.js'
 
 import chalk from 'chalk'
@@ -78,12 +78,11 @@ export const openConfig = async ({ plugins, outDir }: ConfigOptions, callback) =
         })
 
         writeFileSync(configName, JSON.stringify(config, null, 2))
+
+        onExit(() => rmSync(configName)) // Remove configuration if not specified by the user
     }
 
     await callback()
-
-    // Remove configuration if not specified by the user
-    if (!isUserDefined) rmSync(configName)
 
 }
 

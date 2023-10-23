@@ -9,6 +9,7 @@ import { rootDir, userPkg, NAME, APPID, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types.js'
+import chalk from 'chalk';
 
 // Run a development server
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = {})  => {
@@ -137,6 +138,8 @@ export const resolveViteConfig = (
 
         plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
+
+    console.log(`\n✊ Compiling ${chalk.bold('frontend')} with ${chalk.bold('vite')}...\n`)
 
     // Define a default set of plugins and configuration options
     return vite.defineConfig({

@@ -78,7 +78,7 @@ export type ModeType = typeof valid.mode[number]
 
 
 // ------------------- Services -------------------
-type LocalServiceMetadata = { src: string }
+type LocalServiceMetadata = { src: string, base: string }
 type RemoteServiceMetadata = { url: string }
 
 type BaseServiceMetadata = (LocalServiceMetadata | RemoteServiceMetadata)

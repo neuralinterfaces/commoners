@@ -24,7 +24,7 @@ resolveTarget('desktop', ['electron', 'tauri'])
 resolveTarget('mobile', ['android', 'ios'])
 resolveTarget('web', ['pwa'])
 
-console.log(`${COMMAND ? COMMAND[0].toUpperCase() + COMMAND.slice(1) : 'Start'}ing your application for ${chalk[TARGET ? 'green' : 'yellow'](chalk.bold(TARGET ?? 'web'))}.\n`)
+console.log(`\n✊ ${COMMAND ? COMMAND[0].toUpperCase() + COMMAND.slice(1) : 'Start'}ing your application for ${chalk[TARGET ? 'green' : 'yellow'](chalk.bold(TARGET ?? 'web'))}.\n`)
 
 export {
     TARGET

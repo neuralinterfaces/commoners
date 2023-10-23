@@ -12,6 +12,7 @@ import { clear, buildAssets } from "./utils/assets.js"
 import { resolveViteConfig } from './vite/index.js'
 
 import { build as ViteBuild } from 'vite'
+import chalk from "chalk"
 
 const tempElectronDir = join(globalTempDir, 'electron')
 
@@ -81,6 +82,8 @@ export default async function build (
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isDesktopBuild) {
 
+        console.log(`\n✊ Building for ${chalk.bold('desktop')} with ${chalk.bold('electron-builder')}...\n`)
+
         await configureForDesktop(outDir) // Temporarily configure for temp directory
 
         const buildConfig = getBuildConfig()
@@ -90,8 +93,7 @@ export default async function build (
         buildConfig.directories.output = options.outDir ?? defaultOutDir
 
         buildConfig.files = [ 
-            `${outDir}/**/*`, 
-            `${globalWorkspacePath}/services/**` // Include all service files
+            `${outDir}/**`, 
         ]
 
         // NOTE: These variables don't get replaced on Windows

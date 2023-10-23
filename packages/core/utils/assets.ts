@@ -29,14 +29,13 @@ type AssetServicesArgument = boolean | ResolvedConfig['services']
 
 const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
-function addServiceAssets(this: AssetsCollection, config: ResolvedService) {
-    const filepath = config.src
+function addServiceAssets(this: AssetsCollection, { src, base }: Partial<ResolvedService>) {
 
-    if (!filepath) return // Do not copy if file doesn't exist
-    if (isValidURL(filepath)) return // Do not copy if file is a url
+    if (!src) return // Do not copy if file doesn't exist
+    if (isValidURL(src)) return // Do not copy if file is a url
 
-    if (jsExtensions.includes(extname(filepath))) this.bundle.push(filepath)
-    else this.copy.push(filepath)
+    if (jsExtensions.includes(extname(src))) this.bundle.push(src)
+    else this.copy.push(base ?? src)
 }
 
 

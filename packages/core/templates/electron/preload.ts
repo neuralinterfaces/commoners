@@ -12,6 +12,9 @@ const TEMP_COMMONERS = {
     }
 }
 
+
+console.log('PRELOAD (services)', services)
+
 // Expose ipcRenderer
 if (process.contextIsolated) {
   try {

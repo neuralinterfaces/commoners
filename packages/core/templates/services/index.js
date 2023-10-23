@@ -5,6 +5,7 @@ import { extname, join, sep } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 const autobuildExtensions = {
     node: ['.js', '.cjs', '.mjs', '.ts']
@@ -48,6 +49,8 @@ export async function resolveService (
   } = {}
 ) {
 
+  if (config.__resolved) return config // Return the configuration unchanged if no file or url
+
 
   const resolvedConfig = resolveConfig(config)
 
@@ -84,25 +87,32 @@ export async function resolveService (
     delete resolvedConfig.remote
   }
 
-  const  { src } = resolvedConfig
+  let { src } = resolvedConfig
 
   if (isValidURL(src)) {
     resolvedConfig.url = src
     delete resolvedConfig.src
   }
   
-  if (!resolvedConfig.src) return resolvedConfig // Return the configuration unchanged if no file or url
+  if (!src) return resolvedConfig // Return the configuration unchanged if no file or url
 
 
   if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
 
-  if (base) resolvedConfig.abspath = join(base, resolvedConfig.src) // Expose the absolute path of the file in development mode
-  else resolvedConfig.abspath = resolvedConfig.src // Just use the raw sourcde
+  // NOTE: Base must be contained in project root
+  if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
+
+  if (base) resolvedConfig.abspath = join(base, src) // Expose the absolute path of the file in development mode
+  else resolvedConfig.abspath = src // Just use the raw sourcde
 
     // Always create a URL for local services
   if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
   if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
   if (!resolvedConfig.url) resolvedConfig.url = `http://localhost:${resolvedConfig.port}`
+
+  resolvedConfig.src = src
+
+  Object.defineProperty(resolvedConfig, '__resolved', { value: true })
   
   return config
 
@@ -121,10 +131,16 @@ export async function start (config, id, opts) {
     let childProcess;
     const ext = extname(src)
 
-    if (ext === '.js') childProcess = node(config)
-    else if (ext === '.py') childProcess = python(config)
-    else if (!ext || ext === '.exe') childProcess = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port, HOST: config.host } }) // Run executables as extra resources
+    let error;
 
+    try {
+      if (ext === '.js') childProcess = node(config)
+      else if (ext === '.py') childProcess = python(config)
+      else if (!ext || ext === '.exe') childProcess = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port, HOST: config.host } })
+    } catch (e) {
+      error = e
+    }
+    
     if (childProcess) {
       const label = id ?? 'commoners-service'
       if (childProcess.stdout) childProcess.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
@@ -139,9 +155,9 @@ export async function start (config, id, opts) {
         process: childProcess,
         info: config
       }
+
     } else {
-      console.warn(`Cannot create the ${id} service from a ${ext} file...`)
-      // console.warn(chalk.yellow(`Cannot create services from files with a ${ext} extension...`))
+      console.warn(`Cannot create the ${id} service from a ${ext} file...`, error)
     }
 
   }
@@ -198,6 +214,8 @@ export async function resolveAll (services = {}, opts) {
 
 export async function createAll(services = {}, opts){
   services = await resolveAll(services, opts)
+
   await Promise.all(Object.entries(services).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file
+
   return services
 }

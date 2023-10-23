@@ -1,3 +1,6 @@
+// --------------------------------------------------------------------------------------------------------------
+// For a more basic Electron example, see: https://github.com/electron/electron-quick-start/blob/main/main.js
+// --------------------------------------------------------------------------------------------------------------
 
 import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'node:path'
@@ -69,13 +72,11 @@ const isProduction = !devServerURL
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-const outDir = (platform === 'windows' || !isProduction) ? __dirname : join(process.resourcesPath, '.commoners', '.temp', 'electron') // 'dist' is always used for Electron builds
 
-
-if (isProduction) dotenv.config({ path: join(outDir, '.env') }) // Load the .env file in production
+if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .env file in production
 
 // Get the COMMONERS configuration file
-const configPath = join(outDir, 'commoners.config.cjs') // Load the .cjs config version
+const configPath = join(__dirname, 'commoners.config.cjs') // Load the .cjs config version
 
 function createAppWindows(config, opts = config.electron ?? {}) {
 
@@ -97,7 +98,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
       transparent: true,
     });
 
-    const completeSplashPath = join(outDir, splashURL)
+    const completeSplashPath = join(__dirname, splashURL)
     splash.loadFile(completeSplashPath)
 
     globals.splash = splash // Replace splash entry with the active window
@@ -112,7 +113,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   }
 
   // ------------------- Create the main window -------------------  
-  const preload = join(outDir, 'preload.js')
+  const preload = join(__dirname, 'preload.js')
 
   const windowConfig = {
     width: 900,
@@ -175,7 +176,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && devServerURL) win.loadURL(devServerURL) 
-  else win.loadFile(join(outDir, 'index.html'))
+  else win.loadFile(join(__dirname, 'index.html'))
 
   return win
 }
@@ -203,15 +204,19 @@ app.whenReady().then(async () => {
   })
 
 
-  // Create all services as configured by the user / main build
-  // NOTE: Services cannot be filtered in desktop mode
-  const resolved = await services.createAll(config.services, { 
-    mode: isProduction ? 'local' : undefined, 
-    base: outDir
-  })
-  
-  process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
+  // try {
+    // Create all services as configured by the user / main build
+    // NOTE: Services cannot be filtered in desktop mode
+    const resolved = await services.createAll(config.services, { 
+      mode: isProduction ? 'local' : undefined, 
+      base: __dirname
+    })
+    
+    if (resolved) process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
 
+  // } catch (e) {
+  //   console.error('CAUTH', e)
+  // }
 
   // Proxy the services through the custom protocol
   protocol.handle(customProtocolScheme, (req) => {
