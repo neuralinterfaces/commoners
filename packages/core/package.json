@@ -1,7 +1,7 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "types": "./dist/types/index.d.ts",
