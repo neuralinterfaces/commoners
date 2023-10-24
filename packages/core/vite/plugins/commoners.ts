@@ -1,7 +1,7 @@
 
 import { normalize, extname } from 'node:path'
 import { getIcon } from '../../utils/index.js'
-import { isDesktop, isMobile } from '../../globals.js'
+import { isDesktop, isMobile, NAME, VERSION } from '../../globals.js'
 
 const assetPath = (path, outDir, isBuild) => `./${normalize(`${isBuild ? '' : `${outDir}/`}/${path}`)}`
 
@@ -25,6 +25,8 @@ export default ({
     const isMobileTarget = isMobile(TARGET)
 
     const globalObject = {
+        NAME,
+        VERSION,
         services,
         TARGET: isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
     }

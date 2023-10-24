@@ -84,6 +84,7 @@ export const ensureTargetConsistent = (target: TargetType) => {
 // Pre-loaded configuration objects
 export const RAW_NAME = userPkg.name
 export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
+export const VERSION = userPkg.version
 export const APPID = `com.${RAW_NAME}.app`
 
 // Get Configuration File and Path
