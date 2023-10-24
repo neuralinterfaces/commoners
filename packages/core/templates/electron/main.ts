@@ -210,7 +210,7 @@ app.whenReady().then(async () => {
   const resolved = await services.createAll(config.services, { 
     mode: isProduction ? 'local' : undefined, 
     base: __dirname,
-    onClose: (id, code) => onWindowReady((win) => send.call(win,`service:${id}:close`, code)),
+    onClose: (id, code) => onWindowReady((win) => send.call(win,`service:${id}:closed`, code)),
     onLog: (id, msg) => onWindowReady((win) => send.call(win,`service:${id}:log`, msg.toString()))
   })
   

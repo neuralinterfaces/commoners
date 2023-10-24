@@ -16,14 +16,39 @@ const TEMP_COMMONERS = {
 
 for (let name in TEMP_COMMONERS.services) {
     const service = TEMP_COMMONERS.services[name]
-    service.onLog = (listener) => on(`service:${name}:log`, (_, msg) => {
-      listener(msg)
-      service.logged = true
+
+    const listeners = {
+        active: [],
+        closed: []
+    } as {
+      [key: string]: Function[]
+    }
+
+    on(`service:${name}:log`, (_) => {
+      if (!service.active) {
+        service.active = true
+        service.closed = false
+        listeners.active.forEach(f => f())
+        listeners.active = []
+      }
     })
-    service.onClose = (listener) => on(`service:${name}:close`, (_, code) => {
+
+    on(`service:${name}:closed`, (_, code) => {
       service.closed = true
-      listener(code)
+      service.active = false
+      listeners.closed.forEach(f => f(code))
+      listeners.closed = []
     })
+
+    service.onActive = (listener) => {
+      if (service.active) listener()
+      listeners.active.push(listener)
+    }
+
+    service.onClose = (listener) => {
+      if (service.closed) listener()
+      listeners.closed.push(listener)
+    }
 }
 
 // Expose ipcRenderer
