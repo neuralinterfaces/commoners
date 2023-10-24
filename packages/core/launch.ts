@@ -19,28 +19,28 @@ export default async function (options: LaunchOptions) {
 
     const target = ensureTargetConsistent(options.target)
 
+    console.log(`\n✊ Launching ${chalk.greenBright(NAME)} for ${target}\n`)
+
     
     const { 
         outDir = join(globalWorkspacePath, target),
         port 
     } = options
 
-    console.log('Launch out dir', outDir)
 
-
-    if (isMobile(target)) return await mobile.run(target)
+    if (isMobile(target)) {
+        await mobile.launch(target)
+        console.log(chalk.gray(`Opened native build tool for ${target}`))
+    }
 
     else if (isDesktop(target)) {
-
-        const buildConfig = getBuildConfig()
-        const electronDistPath = join(process.cwd(), buildConfig.directories.output)
 
         let exePath = ''
         if (PLATFORM === 'mac') {
             const cpuModel = cpus()[0].model
             let isMx = /Apple\sM\d+/.test(cpuModel)
-            exePath = join(electronDistPath, `${PLATFORM}${isMx ? '-arm64' : ''}`, `${NAME}.app`)
-        } else if (PLATFORM === 'windows') exePath = join(electronDistPath, 'win-unpacked', `${NAME}.exe`)
+            exePath = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`, `${NAME}.app`)
+        } else if (PLATFORM === 'windows') exePath = join(outDir, 'win-unpacked', `${NAME}.exe`)
         else throw new Error(`Cannot launch the application for ${PLATFORM}`)
 
         if (!existsSync(exePath)) throw new Error(`${NAME} has not been built for ${PLATFORM} yet.`)
@@ -48,7 +48,6 @@ export default async function (options: LaunchOptions) {
         const debugPort = 8315;
         await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${exePath}'`, '--args', `--remote-debugging-port=${debugPort}`]);
 
-        console.log(chalk.green(`${NAME} launched!`))
         console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
     } 
 
@@ -62,7 +61,7 @@ export default async function (options: LaunchOptions) {
 
         server.listen(parseInt(resolvedPort), host, () => {
             const url = `http://${host}:${resolvedPort}`
-            console.log(`Server is running on ${chalk.cyan(url)}`);
+            console.log(chalk.gray(`Server is running on ${chalk.cyan(url)}`))
             open(url)
         });
 

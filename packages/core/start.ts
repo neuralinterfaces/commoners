@@ -4,16 +4,20 @@ import { build, configureForDesktop, createServices, loadConfigFromFile, resolve
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAssets } from "./utils/assets.js";
 import { createServer } from "./vite/index.js";
-import { ensureTargetConsistent, globalTempDir, isDesktop, isMobile } from "./globals.js";
+import { NAME, ensureTargetConsistent, globalTempDir, isDesktop, isMobile } from "./globals.js";
+import chalk from "chalk";
 
 
 export default async function ( configPath: string, options: StartOptions ) {
+
 
         const { services, port } = options
 
         const onlyRunServices = !options.target && services
 
         const target = ensureTargetConsistent(options.target)
+
+        console.log(`\n✊ Starting ${chalk.greenBright(NAME)} for ${target}\n`)
 
         const config = await loadConfigFromFile(configPath) // Load configuration file only once
 
@@ -30,7 +34,10 @@ export default async function ( configPath: string, options: StartOptions ) {
 
         const { services: resolvedServices } = resolvedConfig
         
-        const createAllServices = () => createServices(resolvedServices) // Run services in parallel
+        const createAllServices = () => {
+            console.log(`\n✊ Creating ${chalk.bold('Services')}\n`)
+            createServices(resolvedServices) // Run services in parallel
+        }
 
         // Only run services
         if (onlyRunServices) await createAllServices()
@@ -49,7 +56,7 @@ export default async function ( configPath: string, options: StartOptions ) {
                 await buildAssets({
                     config: configPath, // NOTE: Configuration path is required for proper plugin transfer...
                     outDir: globalTempDir,
-                    services: isDesktopTarget
+                    services: false
                 })
 
             }

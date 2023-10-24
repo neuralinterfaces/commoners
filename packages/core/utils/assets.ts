@@ -25,33 +25,27 @@ type AssetsCollection = {
     bundle: AssetInfo[]
 }
 
-type AssetServicesArgument = boolean | ResolvedConfig['services']
+type AssetServiceOption = boolean | 'electron' | 'electron-rebuild'
 
 const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
-function addServiceAssets(this: AssetsCollection, { src, base }: Partial<ResolvedService>) {
-
-    if (!src) return // Do not copy if file doesn't exist
-    if (isValidURL(src)) return // Do not copy if file is a url
-
-    if (jsExtensions.includes(extname(src))) this.bundle.push(src)
-    else this.copy.push(base ?? src)
+function addServiceAssets(this: AssetsCollection, src?: string) {
+    if (jsExtensions.includes(extname(src))) this.bundle.push(src) // Bundle JavaScript files
+    else this.copy.push(src) // Copy directories
 }
 
 
-async function buildService(service, name, force = false){
-
-        let build = (service && typeof service === 'object') ? service.build : null
+async function buildService({ build, outPath }, name, force = false){
 
         if (!build) return
 
-        const hasBeenBuilt = existsSync(service.src)
+        const hasBeenBuilt = existsSync(outPath)
         if (hasBeenBuilt && !force) return
 
         if (typeof build === 'function') build = build() // Run based on the platform if an object
 
         if (build) {
-            console.log(`\nRunning build command for the ${chalk.bold(name)} service\n`)
+            console.log(`\n✊ Building the ${chalk.bold(name)} service\n`)
             await spawnProcess(build)
         }
 }
@@ -60,7 +54,7 @@ async function buildService(service, name, force = false){
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 
-export const getAssets = async (config: AssetConfig, services: AssetServicesArgument = false, buildServices = false) => {
+export const getAssets = async (config: AssetConfig, services?: AssetServiceOption ) => {
     
     let configPath, resolvedConfig
 
@@ -75,8 +69,6 @@ export const getAssets = async (config: AssetConfig, services: AssetServicesArgu
     } 
     
     else resolvedConfig = await resolveConfig(config)
-
-
 
     const configExtensionTargets = ['cjs', 'mjs']
 
@@ -97,14 +89,30 @@ export const getAssets = async (config: AssetConfig, services: AssetServicesArgu
 
     if (existsSync('.env')) assets.copy.push('.env') // Copy .env file if it exists
     
-    // Copy Provided Services
-    if (services) {
-        if (typeof services === 'boolean') services = resolvedConfig.services
+    // Handle Provided Services (copy / build)
+    if (services !== false) {
 
-        await Promise.all(Object.entries(services).map(async ([name, o]) => {
-            addServiceAssets.call(assets, o)
-            await buildService(o, name)
-        }))
+        const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+       
+        for (const [name, o] of Object.entries(resolvedServices)) {
+
+            const resolved = o.base ?? o.src
+
+            if (!resolved) continue // Do not copy if file doesn't exist
+
+            const isURL = isValidURL(resolved)
+
+            const hasBuild = o.build
+
+            const isElectron = services === 'electron' || services === 'electron-rebuild' 
+            if (hasBuild && isURL && isElectron) continue // Do not copy if file is a url (Electron-only)
+
+            const forceRebuild = services === 'electron-rebuild' || services === true
+            
+            if (!isURL) addServiceAssets.call(assets, resolved)
+
+            await buildService({ build: o.build, outPath: resolved }, name, forceRebuild)
+        }
     }
 
     // Copy Icons
@@ -131,12 +139,11 @@ type AssetConfig = { path: string, resolved: ResolvedConfig } | ResolvedConfig |
 export const buildAssets = async ({
     config, 
     outDir,
-    services = {},
-    buildServices = false
+    services,
 }: {
     config: AssetConfig,
     outDir: string,
-    services?: AssetServicesArgument
+    services?: AssetServiceOption
 }) => {
 
     mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists

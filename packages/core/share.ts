@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 
 import { createServer } from './utils/server.js'
-import { createServices, loadConfigFromFile, resolveConfig } from './index.js';
+import { NAME, createServices, loadConfigFromFile, resolveConfig } from './index.js';
 
 import { ResolvedConfig, UserConfig, ShareOptions, PortType } from './types.js';
 
@@ -19,6 +19,8 @@ export default async function (
         port,
     }: ShareOptions = {}
 ) {
+
+    console.log(`\n✊ Sharing ${chalk.greenBright(NAME)} services ${services ? `(${services})` : ''}\n`)
 
     if (typeof config === 'string') config = await loadConfigFromFile(config)
     const resolvedConfig = await resolveConfig(config, { services, customPort: sharePort === port ? undefined : port })

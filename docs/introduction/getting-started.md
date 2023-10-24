@@ -10,7 +10,7 @@ Web builds are the default build target. These builds are intended to be deploye
 #### PWA
 Progressive Web Apps (PWAs) are web applications that can be installed on a device and accessed from the home screen. PWAs are supported on most modern browsers, and can be installed on both desktop and mobile devices—though they will have limited access to native features.
 
-`commoners` relies on [vite-plugin-pwa]() to generate the necessary files for a PWA. To enable this feature, simply add the `--pwa` flag to your build command.
+`commoners` relies on [vite-plugin-pwa]() to generate the necessary files for a PWA. To enable this feature, simply add the `--web pwa` flag to your build command.
 
 ### Desktop
 Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
@@ -72,8 +72,6 @@ const port = process.env.PORT || 3000
 Service configurations may be different between development and production. For instance, `.py` services are commonly packaged using `pyinstaller`, which will output an `.exe` / `.pkg` file that includes all dependencies.
 
 The following service structure would be used to handle this case:
-
-> **Note:** The entirety of the `--outDir` (default: `dist`) folder is copied as extra resources to Electron. Include any required assets there.
 ```json
 {
     "src": "src/main.py",
@@ -92,7 +90,7 @@ The following service structure would be used to handle this case:
 Plugins are collections of JavaScript functions that run at different points during app initialization. These points include:
 
 1. `load` - After the DOM is loaded 
-2. `loadDesktop` - Immediately on Electron main process instantiation (`desktop` builds only)
+2. `loadDesktop` - Immediately on Electron main process instantiation (`--desktop` builds only)
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
 
@@ -124,8 +122,4 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
     }
 ```
 
-For code executed in the `main` function, there are several global variables available to you by default:
-
-- `COMMONERS_TARGET` - The current build target (`"desktop"`, `"mobile"`, `"pwa"`, or `undefined`)
-
-Additional global variables will be loaded from your `.env` file, if present.
+Global variables will be loaded from your `.env` file (if present). which you can use in `loadDesktop` functions.

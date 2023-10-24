@@ -72,6 +72,7 @@ const isProduction = !devServerURL
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
+// const __dirnameUnpacked = __dirname.replace('app.asar', 'app.asar.unpacked')
 
 if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .env file in production
 
@@ -204,19 +205,14 @@ app.whenReady().then(async () => {
   })
 
 
-  // try {
-    // Create all services as configured by the user / main build
-    // NOTE: Services cannot be filtered in desktop mode
-    const resolved = await services.createAll(config.services, { 
-      mode: isProduction ? 'local' : undefined, 
-      base: __dirname
-    })
-    
-    if (resolved) process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
-
-  // } catch (e) {
-  //   console.error('CAUTH', e)
-  // }
+  // Create all services as configured by the user / main build
+  // NOTE: Services cannot be filtered in desktop mode
+  const resolved = await services.createAll(config.services, { 
+    mode: isProduction ? 'local' : undefined, 
+    base: __dirname
+  })
+  
+  if (resolved) process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
 
   // Proxy the services through the custom protocol
   protocol.handle(customProtocolScheme, (req) => {

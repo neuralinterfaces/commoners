@@ -1,10 +1,9 @@
 appId: com.${name}.app
 productName: cross-platform-app # UPDATED
+asar: false # Ensures service binaries can be executed
 directories:
   buildResources: build # AUGMENTED
   output: build
-asarUnpack: # REPLACED
-  - resources/**
 afterSign: build/notarize.cjs # AUGMENTED
 win:
   executableName: ${name}

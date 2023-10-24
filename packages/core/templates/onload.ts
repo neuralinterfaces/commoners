@@ -4,6 +4,10 @@ const { ipcRenderer } = globalThis.__COMMONERS ?? {}
 const { __plugins } = COMMONERS
 delete COMMONERS.__plugins
 
+COMMONERS.checkPath = (path) => {
+    ipcRenderer.send('checkPath', path)
+}
+
 
 let target = COMMONERS.TARGET
 

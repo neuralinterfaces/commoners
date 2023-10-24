@@ -139,7 +139,7 @@ export const resolveViteConfig = (
         plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
 
-    console.log(`\n✊ Compiling ${chalk.bold('frontend')} with ${chalk.bold('vite')}...\n`)
+    console.log(`\n✊ ${chalk.bold('vite')}\n`)
 
     // Define a default set of plugins and configuration options
     return vite.defineConfig({

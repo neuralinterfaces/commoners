@@ -102,7 +102,7 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     }, async () => {
         if (!existsSync(target)) {
             
-            console.log(chalk.cyanBright(`[commoners]: Initializing ${target} project...`))
+            console.log(`\n✊ ${chalk.bold('capacitor')} - Initialize\n`)
             await runCommand(`npx cap add ${target} && npx cap copy`)
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
@@ -133,6 +133,8 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
     await checkDepsInstalled(target, config)
 
+    console.log(`\n✊ ${chalk.bold('capacitor')} - Open\n`)
+
     await openConfig({
         plugins: config.plugins,
         outDir
@@ -147,9 +149,9 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     await runCommand(`npx cap open ${target}`)
 }
 
-export const run = async (target) => {
+export const launch = async (target) => {
 
-    throw new Error(`This command has not been configured for ${target} yet...`)
+    throw new Error(`Cannot launch for ${target} yet...`)
         
     // if (existsSync(platform))  {
     //     console.log(chalk.red(`This project is not initialized for ${platform}`))

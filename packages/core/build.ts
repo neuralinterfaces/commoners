@@ -1,5 +1,5 @@
-import path, { dirname, join } from "node:path"
-import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, onExit } from "./globals.js"
+import path, { join } from "node:path"
+import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath } from "./globals.js"
 import { BuildOptions, ResolvedConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -13,8 +13,10 @@ import { resolveViteConfig } from './vite/index.js'
 
 import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
+import { existsSync, rmSync, symlinkSync } from "node:fs"
 
 const tempElectronDir = join(globalTempDir, 'electron')
+const tempMobileDir = join(globalTempDir, 'mobile')
 
 // Types
 export default async function build (
@@ -32,20 +34,25 @@ export default async function build (
         publish,
     } = options
 
+    const onlyBuildServices = !options.target && rebuildServices
+
+    console.log(`\n✊ Building ${chalk.greenBright(NAME)}${onlyBuildServices ? ' services' : `for ${target}`}\n`)
+
 
     // Setup cleanup commands for after desktop build
+    const isElectronBuild = target === 'electron'
     const isDesktopBuild = isDesktop(target)
+    const isMobileBuild = isMobile(target)
 
-
-    const outDir = isDesktopBuild ? tempElectronDir : (options.outDir ?? defaultOutDir)
-
-    const onlyBuildServices = !options.target && rebuildServices
+    let outDir = options.outDir ?? defaultOutDir
+    if (isElectronBuild) outDir = tempElectronDir
+    else if (isMobileBuild) outDir = tempMobileDir
     
     const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { 
         services: rebuildServices,
 
         // If no local services, this is a production build of some sort
-        mode: localServices ? undefined : (isDesktopBuild ? 'local' : 'remote')
+        mode: localServices ? undefined : (isDesktopBuild || onlyBuildServices ? 'local' : 'remote')
     })
     
     // Ensure local services are resolved with the same information
@@ -62,7 +69,7 @@ export default async function build (
 
     // Build assets
     if (toRebuild.assets) {
-        if (isMobile(target)) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
+        if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
         await ViteBuild(resolveViteConfig(resolvedConfig, { 
             target,
             outDir
@@ -70,19 +77,21 @@ export default async function build (
     }
 
     // Create the standard output files
+
     await buildAssets({
         config: {
             path: configPath,
             resolved: resolvedConfig
         },
         outDir,
-        services: isDesktopBuild || toRebuild.services,
+
+        services: isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false
     })
     
     // ------------------------- Target-Specific Build Steps -------------------------
-    if (isDesktopBuild) {
+    if (isElectronBuild) {
 
-        console.log(`\n✊ Building for ${chalk.bold('desktop')} with ${chalk.bold('electron-builder')}...\n`)
+        console.log(`\n✊ ${chalk.bold('electron-builder')}\n`)
 
         await configureForDesktop(outDir) // Temporarily configure for temp directory
 
@@ -131,9 +140,10 @@ export default async function build (
 
     }
 
-    else if (isMobile(target)) {
+    else if (isMobileBuild) {
         const mobileOpts = { target, outDir }
         await mobile.init(mobileOpts, resolvedConfig)
         await mobile.open(mobileOpts, resolvedConfig)
     }
+    
 }

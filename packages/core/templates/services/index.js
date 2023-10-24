@@ -1,11 +1,10 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join, sep } from "node:path"
+import { extname, join } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
 
 const autobuildExtensions = {
     node: ['.js', '.cjs', '.mjs', '.ts']
@@ -37,8 +36,13 @@ function resolveConfig(config) {
 }
 
 
-const globalServiceWorkspacePath = '.commoners/services'
+const globalWorkspacePath = '.commoners'
+const globalServiceWorkspacePath = `${globalWorkspacePath}/services`
 
+// Ensure source is detected as local for all conditions
+export function isLocal(publishConfig) {
+  return !!(publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote))
+}
 
 export async function resolveService (
   config = {}, 
@@ -54,15 +58,11 @@ export async function resolveService (
 
   const resolvedConfig = resolveConfig(config)
 
-
   if (mode && resolvedConfig.publish) {
     const publishConfig = resolveConfig(resolvedConfig.publish) ?? {}
     const internalConfig = resolveConfig(resolvedConfig.publish[mode]) ?? {} // Block service if mode is not available
 
     const __src = resolvedConfig.src
-
-    // Ensure source is detected as local for all conditions
-    const isLocalSrc = publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote)
 
     const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
     
@@ -70,20 +70,20 @@ export async function resolveService (
     Object.assign(resolvedConfig, mergedConfig)
 
     // Define default build command
-    if (!resolvedConfig.build && __src && isLocalSrc) {
+    if (
+      !resolvedConfig.build 
+      && __src 
+    ) {
       if (autobuildExtensions.node.includes(extname(__src))) {
-        const outDir = process.env.COMMONERS_ELECTRON ? '' : globalServiceWorkspacePath
+        const outDir = globalServiceWorkspacePath // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
         const pkgOut = `./${join(outDir, name)}`
         const rollupOut = `./${join(outDir, name, `${name}.js`)}`
         resolvedConfig.build =  `rollup ${__src} -o ${rollupOut} --format cjs && pkg ${rollupOut} --target node16 --out-path ${pkgOut}`
-        resolvedConfig.src = `./${join(pkgOut, name)}`     
-      } else if (process.env.COMMONERS_ELECTRON){
-          resolvedConfig.src = resolvedConfig.src.replace(`${globalServiceWorkspacePath}${sep}`, '') // All custom services must go here
+        if (isLocal(publishConfig)) resolvedConfig.src = `./${join(pkgOut, name)}`   
       }
     }
 
     delete resolvedConfig.publish
-    delete resolvedConfig.local
     delete resolvedConfig.remote
   }
 
@@ -123,7 +123,7 @@ export async function start (config, id, opts) {
 
   config = await resolveService(config, id, opts)
 
-  const { src } = config
+  const { src, abspath } = config
 
   if (isValidURL(src)) return
 
@@ -136,7 +136,7 @@ export async function start (config, id, opts) {
     try {
       if (ext === '.js') childProcess = node(config)
       else if (ext === '.py') childProcess = python(config)
-      else if (!ext || ext === '.exe') childProcess = spawn(config.abspath, [], { env: { ...process.env, PORT: config.port, HOST: config.host } })
+      else if (!ext || ext === '.exe') childProcess = spawn(abspath, [], { env: { ...process.env, PORT: config.port, HOST: config.host } })
     } catch (e) {
       error = e
     }
@@ -157,7 +157,7 @@ export async function start (config, id, opts) {
       }
 
     } else {
-      console.warn(`Cannot create the ${id} service from a ${ext} file...`, error)
+      console.warn(`Cannot create the ${id} service from a ${ext ?? 'executable'} file...`, error)
     }
 
   }

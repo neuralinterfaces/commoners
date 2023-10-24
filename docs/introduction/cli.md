@@ -1,41 +1,40 @@
 # CLI Commands
-The CLI commands for `commoners` share the same options structure:
 
-- `--web` - Default option (`boolean`)
-
-- `--desktop` - For your current desktop platform (`boolean`)
-    - `--mac` - For Mac
-    - `--windows` - For Windows
-    - `--linux` - For Linux
-
-- `--mobile` - For the mobile platform corresponding to your build enviroment (`boolean`)
-    - `--ios` - For iOS
-    - `--android` - For Android
-
-- `--services` - Apply action to **all services** defined in the configuration file (`boolean`)
-- `--service [name]` - Apply action to **specific service(s)** (`string`). Can be used multiple times.
-
-## commoners
+## Main Commands
+### commoners
 Start your project in development mode 
 
-## commoners build
+### commoners build
 Build the project assets
-
-> **Note:** To minimize rebuilding, you must manually specify `--services` to build what you need. For instance, your first `--desktop` should be accompanied by `--services` to build all services—though you may omit this until you change your service files.
-
-### Additional Options
-- `--pwa` - As a Progressive Web App
-- `--desktop --publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish))
+- `--outDir [path]` - The output directory for the build (`string`)
+- `--publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish)) (`--desktop` only)
     - **Note:** While [other providers](https://www.electron.build/configuration/publish.html#publishers) are possible to use, they have not been tested with this command.
 
-## commoners launch
+### commoners launch
 Launch your built application
+- `--outDir [path]` - The output directory of the build to launch (`string`)
 
-> **Note:** No service-related options available for this command
-
-## commoners share
+### commoners share
 Share the application's services
 - `--port` - The port to use for the service gateway (`number`)
 - `--service [name]` - For specific service(s) (`string`)
 
-> **Note:** To be shared, you must internally configure your service to be hosted on `0.0.0.0` rather than `localhost`.
+## Shared Options
+The CLI commands for `commoners` share a similar options structure:
+
+### Target Platform (`commoners` / `build` / `launch`)
+The following commands are mutually exclusive, and will determine the target platform for the command.
+- `--web [target]` - Default option (`boolean`/ `string`)
+    - `pwa` - As a Progressive Web App (`build` only)
+
+- `--desktop [target]` - For your current desktop platform (`boolean`/ `string`)
+    - `electron` - Build with Electron
+    - `tauri` - Build with Tauri (TBD)
+
+- `--mobile [target]` - For the mobile platform corresponding to your build enviroment (`boolean`/ `string`)
+    - `ios` - For iOS
+    - `android` - For Android
+
+### Service Selection (`commoners` / `build`)
+- `--services` - Apply action to **all services** defined in the configuration file (`boolean`)
+- `--service [name]` - Apply action to **specific service(s)** (`string`). Can be used multiple times.

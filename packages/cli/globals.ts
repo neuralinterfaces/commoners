@@ -4,6 +4,8 @@ import minimist from 'minimist';
 import { resolveFile } from "./utils.js";
 import chalk from 'chalk';
 
+import { NAME } from "@commoners/solidarity";
+
 export const cliArgs = minimist(process.argv.slice(2))
 const [ passedCommand ] = cliArgs._
 
@@ -23,8 +25,6 @@ let TARGET
 resolveTarget('desktop', ['electron', 'tauri'])
 resolveTarget('mobile', ['android', 'ios'])
 resolveTarget('web', ['pwa'])
-
-console.log(`\n✊ ${COMMAND ? COMMAND[0].toUpperCase() + COMMAND.slice(1) : 'Start'}ing your application for ${chalk[TARGET ? 'green' : 'yellow'](chalk.bold(TARGET ?? 'web'))}.\n`)
 
 export {
     TARGET
