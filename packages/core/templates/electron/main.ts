@@ -209,7 +209,9 @@ app.whenReady().then(async () => {
   // NOTE: Services cannot be filtered in desktop mode
   const resolved = await services.createAll(config.services, { 
     mode: isProduction ? 'local' : undefined, 
-    base: __dirname
+    base: __dirname,
+    onClose: (id, code) => onWindowReady((win) => send.call(win,`service:${id}:close`, code)),
+    onLog: (id, msg) => onWindowReady((win) => send.call(win,`service:${id}:log`, msg.toString()))
   })
   
   if (resolved) process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)

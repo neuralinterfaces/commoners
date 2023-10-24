@@ -143,11 +143,18 @@ export async function start (config, id, opts) {
     
     if (childProcess) {
       const label = id ?? 'commoners-service'
-      if (childProcess.stdout) childProcess.stdout.on('data', (data) => console.log(`[${label}]: ${data}`));
+      if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
+        if (opts.onLog) opts.onLog(id, data)
+        console.log(`[${label}]: ${data}`)
+      });
       if (childProcess.stderr) childProcess.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
-      childProcess.on('close', (code) => code === null 
-                                      ? '' // Process is being closed because of a window closure from the user or the Vite HMR process
-                                      : console.error(`[${label}]: exited with code ${code}`)); 
+      childProcess.on('close', (code) => {
+        if (code !== null) {
+          if (opts.onClose) opts.onClose(id, code)
+          delete processes[id]
+          console.error(`[${label}]: exited with code ${code}`)
+        }
+      }); 
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
       processes[id] = childProcess
 
