@@ -1,6 +1,6 @@
 {
     "name": "@commoners/bluetooth",
-    "version": "0.0.28",
+    "version": "0.0.29",
     "main": "./dist/ble.es.js",
     "license": "AGPL-3.0-or-later",
     "type": "module",
