@@ -204,17 +204,28 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-
   // Create all services as configured by the user / main build
   // NOTE: Services cannot be filtered in desktop mode
   const resolved = await services.createAll(config.services, { 
     mode: isProduction ? 'local' : undefined, 
     base: __dirname,
-    onClose: (id, code) => onWindowReady((win) => send.call(win,`service:${id}:closed`, code)),
-    onLog: (id, msg) => onWindowReady((win) => send.call(win,`service:${id}:log`, msg.toString()))
+    onClose: (id, code) => onWindowReady((win) => {
+      send.call(win,`service:${id}:closed`, code)
+    }),
+    onLog: (id, msg) => onWindowReady((win) => {
+      send.call(win,`service:${id}:log`, msg.toString())
+    }),
   })
-  
-  if (resolved) process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
+
+  if (resolved) {
+    
+    for (let id in resolved) {
+      const service = resolved[id]
+      ipcMain.on(`service:${id}:status`, (event) => event.returnValue = service.status)
+    }
+
+    process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
+  }
 
   // Proxy the services through the custom protocol
   protocol.handle(customProtocolScheme, (req) => {

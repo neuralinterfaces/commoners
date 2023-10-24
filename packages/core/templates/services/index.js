@@ -112,6 +112,8 @@ export async function resolveService (
 
   resolvedConfig.src = src
 
+  resolvedConfig.status = null
+
   Object.defineProperty(resolvedConfig, '__resolved', { value: true })
   
   return config
@@ -144,12 +146,14 @@ export async function start (config, id, opts = {}) {
     if (childProcess) {
       const label = id ?? 'commoners-service'
       if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
+        config.status = true
         if (opts.onLog) opts.onLog(id, data)
         console.log(`[${label}]: ${data}`)
       });
       if (childProcess.stderr) childProcess.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
       childProcess.on('close', (code) => {
         if (code !== null) {
+          config.status = false
           if (opts.onClose) opts.onClose(id, code)
           delete processes[id]
           console.error(`[${label}]: exited with code ${code}`)
