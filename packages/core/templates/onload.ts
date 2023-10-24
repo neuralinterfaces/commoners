@@ -1,22 +1,8 @@
 import { asyncFilter, pluginErrorMessage, sanitizePluginProperties } from "./utils";
 
 const { ipcRenderer } = globalThis.__COMMONERS ?? {}
-const { __plugins } = COMMONERS
+const { __plugins, TARGET, __ready } = COMMONERS
 delete COMMONERS.__plugins
-
-COMMONERS.checkPath = (path) => {
-    ipcRenderer.send('checkPath', path)
-}
-
-
-let target = COMMONERS.TARGET
-
-const desktopTargets = ['desktop', 'electron', 'tauri']
-const mobileTargets = ['mobile', 'android', 'ios']
-
-if (desktopTargets.includes(target)) target = 'desktop';
-else if (mobileTargets.includes(target)) target = 'mobile';
-else target = 'web' 
 
 if ( __plugins ) {
 
@@ -25,15 +11,15 @@ if ( __plugins ) {
     asyncFilter(__plugins, async (plugin) => {
         try {
             let { isSupported } = plugin
-            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[target]
+            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[TARGET]
             if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-            return (typeof isSupported === 'function') ? await isSupported.call(plugin, target) : isSupported !== false
+            return (typeof isSupported === 'function') ? await isSupported.call(plugin, TARGET) : isSupported !== false
         } catch {
             return false
         }
     }).then(supported => {
 
-    const sanitized = supported.map((o) => sanitizePluginProperties(o, target))
+    const sanitized = supported.map((o) => sanitizePluginProperties(o, TARGET))
 
     sanitized.forEach(({ name, load }) => {
         
@@ -48,7 +34,7 @@ if ( __plugins ) {
     })
 
     COMMONERS.plugins = loaded
-    COMMONERS.__ready(loaded)
+    __ready(loaded)
 })
 
-} else COMMONERS.__ready({})
+} else __ready({})

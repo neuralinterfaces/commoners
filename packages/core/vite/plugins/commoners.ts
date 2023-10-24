@@ -1,6 +1,7 @@
 
 import { normalize, extname } from 'node:path'
 import { getIcon } from '../../utils/index.js'
+import { isDesktop, isMobile } from '../../globals.js'
 
 const assetPath = (path, outDir, isBuild) => `./${normalize(`${isBuild ? '' : `${outDir}/`}/${path}`)}`
 
@@ -20,9 +21,12 @@ export default ({
       propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
     })
 
+    const isDesktopTarget = isDesktop(TARGET)
+    const isMobileTarget = isMobile(TARGET)
+
     const globalObject = {
         services,
-        TARGET
+        TARGET: isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
     }
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''

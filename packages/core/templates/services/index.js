@@ -119,7 +119,7 @@ export async function resolveService (
 }
 
 // Create and monitor arbitary processes
-export async function start (config, id, opts) {
+export async function start (config, id, opts = {}) {
 
   config = await resolveService(config, id, opts)
 

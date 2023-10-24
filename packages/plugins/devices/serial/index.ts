@@ -8,7 +8,7 @@ export const isSupported = {
     return COMMONERS.TARGET === 'android'
   },
   web: {
-    check: async () => 'serial' in navigator, 
+    check: async () => 'serial' in navigator,
     load: false
   }
 }

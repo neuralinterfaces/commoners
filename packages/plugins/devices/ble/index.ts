@@ -22,7 +22,7 @@ export const isSupported = {
     load: false
   },
   web: {
-    check: async () => await navigator.bluetooth.getAvailability(),
+    check: async () => (await navigator.bluetooth?.getAvailability()) === true,
     load: false
   }
 }
