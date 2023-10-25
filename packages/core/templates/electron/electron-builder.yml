@@ -1,5 +1,5 @@
 appId: com.${name}.app
-productName: cross-platform-app # UPDATED
+productName: ${name} # UPDATED
 asar: false # Ensures service binaries can be executed
 directories:
   buildResources: build # AUGMENTED
@@ -12,8 +12,10 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+
 mac:
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED
+  gatekeeperAssess: false # Ensures invalid code signing does not block builds
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.

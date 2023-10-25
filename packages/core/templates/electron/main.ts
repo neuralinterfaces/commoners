@@ -144,6 +144,13 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   // Activate specified plugins from the configuration file
   plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call(ipcMain, win, globals))
 
+  ipcMain.on('COMMONERS:ready', () =>{
+    mainWindow = win
+    readyQueue.forEach(f => f(win))
+    readyQueue = []
+   }) // Is ready to receive IPC messages
+
+
   win.on('ready-to-show', () => {
 
     if (globals.splash) {
@@ -158,13 +165,6 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
      } 
      
      else win.show()
-
-     ipcMain.on('COMMONERS:ready', () =>{
-      mainWindow = win
-      readyQueue.forEach(f => f(win))
-      readyQueue = []
-     }) // Is ready to receive IPC messages
-
   })
 
   win.once('close', () => mainWindow = undefined) // De-register the main window

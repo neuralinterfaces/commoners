@@ -148,7 +148,8 @@ type PWAOptions = {
 // ------------------- Electron -------------------
 type ElectronOptions = {
     splash?: string,
-    window?: BrowserWindowConstructorOptions
+    window?: BrowserWindowConstructorOptions,
+    build?: ElectronBuilderConfiguration
 }
 
 // ------------------- Configuration Object Declaration -------------------

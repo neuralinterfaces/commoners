@@ -78,7 +78,11 @@ export async function resolveService (
         const outDir = globalServiceWorkspacePath // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
         const pkgOut = `./${join(outDir, name)}`
         const rollupOut = `./${join(outDir, name, `${name}.js`)}`
-        resolvedConfig.build =  `rollup ${__src} -o ${rollupOut} --format cjs && pkg ${rollupOut} --target node16 --out-path ${pkgOut}`
+        resolvedConfig.build =  {
+          src: __src,
+          rollupOut,
+          pkgOut
+        }
         if (isLocal(publishConfig)) resolvedConfig.src = `./${join(pkgOut, name)}`   
       }
     }

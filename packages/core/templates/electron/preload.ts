@@ -49,6 +49,7 @@ for (let name in TEMP_COMMONERS.services) {
       if (service.status === false) listener()
       listeners.closed.push(listener)
     }
+
 }
 
 // Expose ipcRenderer

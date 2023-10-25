@@ -1,6 +1,6 @@
 import path, { join } from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath } from "./globals.js"
-import { BuildOptions, ResolvedConfig } from "./types.js"
+import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
@@ -13,7 +13,9 @@ import { resolveViteConfig } from './vite/index.js'
 
 import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
-import { existsSync, rmSync, symlinkSync } from "node:fs"
+
+import merge from './utils/merge.js'
+import { lstatSync } from "node:fs"
 
 const tempElectronDir = join(globalTempDir, 'electron')
 const tempMobileDir = join(globalTempDir, 'mobile')
@@ -36,7 +38,7 @@ export default async function build (
 
     const onlyBuildServices = !options.target && rebuildServices
 
-    console.log(`\n✊ Building ${chalk.greenBright(NAME)}${onlyBuildServices ? ' services' : `for ${target}`}\n`)
+    console.log(`\n✊ Building ${chalk.greenBright(NAME)} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
 
 
     // Setup cleanup commands for after desktop build
@@ -78,7 +80,7 @@ export default async function build (
 
     // Create the standard output files
 
-    await buildAssets({
+    const toUnpack = await buildAssets({
         config: {
             path: configPath,
             resolved: resolvedConfig
@@ -95,7 +97,7 @@ export default async function build (
 
         await configureForDesktop(outDir) // Temporarily configure for temp directory
 
-        const buildConfig = getBuildConfig()
+        const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
         buildConfig.productName = NAME
 
@@ -104,6 +106,13 @@ export default async function build (
         buildConfig.files = [ 
             `${outDir}/**`, 
         ]
+
+        // // Dynamic asar unpacking (which doesn't work for services)
+        // buildConfig.asar = true
+        // buildConfig.asarUnpack = toUnpack.map(p => {
+        //     if (lstatSync(p).isDirectory()) return join(p, '**')
+        //     else return p
+        // })
 
         // NOTE: These variables don't get replaced on Windows
         buildConfig.appId = buildConfig.appId.replace('${name}', RAW_NAME)

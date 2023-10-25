@@ -16,10 +16,6 @@ Progressive Web Apps (PWAs) are web applications that can be installed on a devi
 Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
 
 `commoners` relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--desktop` flag to your build command.
-
-To ensure code-signing is disabled for local builds, you'll want to run [the following command](https://stackoverflow.com/questions/55434460/cant-build-electron-app-without-code-signing) in your terminal:
-```
-export CSC_IDENTITY_AUTO_DISCOVERY=false
 ```
 
 

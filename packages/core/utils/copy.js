@@ -8,4 +8,6 @@ export const copyAsset = (input, { outDir }, maintainStructure = true) => {
     mkdirSync(out, {recursive: true})
     if (lstatSync(input).isDirectory()) cpSync(input, output, {recursive: true});
     else copyFileSync(input, output)
+
+    return output
 }

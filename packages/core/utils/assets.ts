@@ -1,17 +1,24 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { RAW_NAME, rootDir, userPkg } from "../globals.js"
-import { dirname, extname, join, parse, relative, sep } from "node:path"
+import { basename, dirname, extname, join, parse, relative, sep } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { ResolvedService, ResolvedConfig } from "../types.js"
+import { ResolvedConfig } from "../types.js"
 import { loadConfigFromFile, resolveConfig } from "../index.js"
+
+import pkg from 'pkg'
+import { build as ViteBuild } from 'vite'
+import { nodeBuiltIns } from "./config.js";
+
+
 
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
+import { rollup } from "rollup"
 
 type AssetInfo = string | {
     input: string,
@@ -42,11 +49,44 @@ async function buildService({ build, outPath }, name, force = false){
         const hasBeenBuilt = existsSync(outPath)
         if (hasBeenBuilt && !force) return
 
-        if (typeof build === 'function') build = build() // Run based on the platform if an object
+        console.log(`\n✊ Building the ${chalk.bold(name)} service\n`)
+
+        // Default Configuration
+        if (typeof build === 'object') {
+            const { src, rollupOut, pkgOut } = build
+
+            await ViteBuild({
+                logLevel: 'silent',
+                build: {
+                    outDir: dirname(rollupOut),
+                    lib: {
+                        entry: src,
+                        name,
+                        formats: ['cjs'],
+                        fileName: () => basename(rollupOut)
+                    },
+                    rollupOptions: { 
+                        external: [
+                            ...nodeBuiltIns
+                        ]
+                    }
+                },
+            })
+
+ 
+            await pkg.exec([rollupOut, '--target', 'node16', '--out-path', pkgOut]);
+
+            rmSync(rollupOut, { force: true })
+
+            return pkgOut
+        }
+
+        // Dynamic Configuration
+        if (typeof build === 'function') build = build()
 
         if (build) {
-            console.log(`\n✊ Building the ${chalk.bold(name)} service\n`)
             await spawnProcess(build)
+            return outPath
         }
 }
 
@@ -152,6 +192,8 @@ export const buildAssets = async ({
 
     const assets = await getAssets(config, services)
 
+    const outputs = []
+
     // Create an assets folder with copied assets (ESM)
     await Promise.all(assets.bundle.map(async info => {
 
@@ -201,8 +243,10 @@ export const buildAssets = async ({
                 
                 const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
                 
-                if (resolvedExtension === 'cjs') buildForNode()
-                else buildForBrowser().catch(buildForNode) // Externalize all node dependencies
+                if (resolvedExtension === 'cjs') await buildForNode()
+                else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
+
+                outputs.push(outfile)
             }
         } 
         
@@ -210,5 +254,7 @@ export const buildAssets = async ({
     }))
 
     // Copy static assets
-    assets.copy.map(info => copyAsset(info, { outDir }))
+    assets.copy.map(info => outputs.push(copyAsset(info, { outDir })))
+
+    return outputs
 }
