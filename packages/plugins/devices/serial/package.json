@@ -1,7 +1,7 @@
 {
     "name": "@commoners/serial",
     "version": "0.0.28",
-    "license": "AGPL-3.0-or-later",
+    "license": "MIT",
     "type": "module",
     "main": "./dist/serial.es.js",
     "scripts": {

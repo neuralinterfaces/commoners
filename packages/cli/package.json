@@ -3,7 +3,7 @@
   "description": "A cross-platform development kit for everyone",
   "version": "0.0.30",
   "type": "module",
-  "license": "AGPL-3.0-or-later",
+  "license": "MIT",
   "engines": {
     "node": ">=16.0.0"
   },

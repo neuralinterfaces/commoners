@@ -16,7 +16,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: `Released under the AGPL License.`,
+      message: `Released under the MIT License.`,
       copyright: 'Copyright © 2023 Garrett Flynn & Commoners Contributors',
     },
 
