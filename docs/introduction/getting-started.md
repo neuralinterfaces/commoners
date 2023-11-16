@@ -49,11 +49,11 @@ export default {
 }
 ```
 
-To use a service, you should (1) check for the existence of the service, then (2) instantiate the appropriate URL from the `COMMONERS` global object:
+To use a service, you should (1) check for the existence of the service, then (2) instantiate the appropriate URL from the `commoners` global object:
 
 ```js
     if ('test' in COMMMONERS.services) {
-        const url = new URL(COMMONERS.services.test.url)
+        const url = new URL(commoners.services.test.url)
         // ....
     }
 ```
@@ -102,7 +102,7 @@ export default {
                 }
             },
             loadDesktop: () => console.log('desktop build (load)'),
-            load: () => console.log(COMMONERS.TARGET + ' build (load)')
+            load: () => console.log(commoners.target + ' build (load)')
         }
     ]
 }

@@ -25,7 +25,7 @@ const dts: Plugin = {
   buildEnd: (error?: Error) => {
     if (!error) {
       return new Promise((res, rej) => {
-        exec(`tsc --emitDeclarationOnly --outDir ../../dist/types`,{
+        exec(`tsc --emitDeclarationOnly --outDir ./dist/types`,{
           cwd: __dirname
         }, (err, stdout, stderr) => {
           console.log(chalk.yellow(stdout))

@@ -20,6 +20,8 @@ export const defineConfig = (o: UserConfig): UserConfig => o
 // NOTE: Simplified from https://github.com/vitejs/vite/blob/c7969597caba80cf5d3348cba9f18ad9d14e9295/packages/vite/src/node/config.ts
 export async function loadConfigFromFile(filepath: string) {
 
+    if (!filepath) return {} as UserConfig
+
     // Bundle config file
     const result = await build({
         absWorkingDir: process.cwd(),
@@ -30,7 +32,7 @@ export async function loadConfigFromFile(filepath: string) {
         platform: 'node',
         bundle: true,
         format: 'esm',
-        external: [...Object.keys(dependencies)] // Ensure that COMMONERS dependencies are external
+        external: [...Object.keys(dependencies)] // Ensure that Commoners dependencies are external
     })
 
     const { text } = result.outputFiles[0]

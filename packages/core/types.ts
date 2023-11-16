@@ -78,10 +78,7 @@ export type ModeType = typeof valid.mode[number]
 
 
 // ------------------- Services -------------------
-type LocalServiceMetadata = { src: string, base: string }
-type RemoteServiceMetadata = { url: string }
-
-type BaseServiceMetadata = (LocalServiceMetadata | RemoteServiceMetadata)
+type BaseServiceMetadata = ({ src: string, base: string } | { url: string })
 type ExtraServiceMetadata = {
     // Common
     port?: number,
@@ -114,7 +111,7 @@ type UserSupportType = ResolvedSupportType | (() => ResolvedSupportType)
 export type SupportConfigurationObject = {
     [x in TargetType]?: UserSupportType
 } & {
-    mobile?: {
+    mobile?: boolean | {
         capacitor?: any // Capacitor Plugin Configuration Object
     }
 }
@@ -188,7 +185,9 @@ type ExposedPlugins = {
 }
 
 export type CommonersGlobalObject = {
-    TARGET: TargetType,
+    name: string,
+    version: string,
+    target: TargetType,
     plugins: ExposedPlugins,
     services: ExposedPlugins,
     ready: Promise<ExposedPlugins['loaded']>,
@@ -197,5 +196,5 @@ export type CommonersGlobalObject = {
 }
 
 declare global {
-    const COMMONERS: CommonersGlobalObject
+    const commoners: CommonersGlobalObject
   }

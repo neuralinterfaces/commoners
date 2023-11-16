@@ -1,6 +1,6 @@
 import * as vite from 'vite'
 
-import electron from 'vite-plugin-electron'
+import ElectronVitePlugin from 'vite-plugin-electron'
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve, sep } from 'node:path'
@@ -11,8 +11,11 @@ import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types.js'
 import chalk from 'chalk';
 
+const defaultOutDir = join(rootDir, 'dist')
+
 // Run a development server
-export const createServer = async (config: ResolvedConfig, opts: ServerOptions = {})  => {
+export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
+
     // Create the frontend server
     const server = await vite.createServer(resolveViteConfig(config, opts, false))
     await server.listen()
@@ -91,7 +94,7 @@ export const resolveViteConfig = (
         config: commonersConfig, 
         build,
         outDir,
-        TARGET: target
+        target
     })]
 
     // Desktop Build
@@ -111,7 +114,8 @@ export const resolveViteConfig = (
             }
         }
 
-        const electronPluginConfig = electron([
+        // @ts-ignore
+        const electronPluginConfig = ElectronVitePlugin([
             {
                 entry: resolve(electronTemplateBase, 'main.ts'),
                 onstart: (options) => options.startup(),
@@ -136,6 +140,7 @@ export const resolveViteConfig = (
             outDir: outDir
         })
 
+        // @ts-ignore
         plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
 

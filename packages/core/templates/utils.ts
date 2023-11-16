@@ -2,7 +2,7 @@
 export const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predicate)).then((results) => arr.filter((_v, index) => results[index]));
 
 
-// Injected environment from the COMMONERS build process
+// Injected environment from the Commoners build process
 export const pluginErrorMessage = (name, type, e) => console.error(`[commoners] ${name} plugin (${type}) failed to execute:`, e)
 
 

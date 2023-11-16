@@ -2,9 +2,6 @@ import minimist from 'minimist';
 
 // Utilities
 import { resolveFile } from "./utils.js";
-import chalk from 'chalk';
-
-import { NAME } from "@commoners/solidarity";
 
 export const cliArgs = minimist(process.argv.slice(2))
 const [ passedCommand ] = cliArgs._

@@ -47,7 +47,7 @@ const ogConsoleMethods: any = {};
 ['log', 'warn', 'error'].forEach(method => {
   const ogMethod = ogConsoleMethods[method] = console[method]
   console[method] = (...args) => {
-    onWindowReady(win => send.call(win, `COMMONERS:console.${method}`, ...args))
+    onWindowReady(win => send.call(win, `commoners:console.${method}`, ...args))
     ogMethod(...args)
   }
 })
@@ -58,7 +58,7 @@ const ogConsoleMethods: any = {};
 // // --------------------- Simple Log Script ------------------------
 // import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 // const homeDirectory = app.getPath("home");
-// const commonersDirectory = join(homeDirectory, 'COMMONERS');
+// const commonersDirectory = join(homeDirectory, 'commoners');
 // if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
 
 // const uniqueLogId = (new Date()).toUTCString()
@@ -76,7 +76,7 @@ const platform = process.platform === 'win32' ? 'windows' : (process.platform ==
 
 if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .env file in production
 
-// Get the COMMONERS configuration file
+// Get the Commoners configuration file
 const configPath = join(__dirname, 'commoners.config.cjs') // Load the .cjs config version
 
 function createAppWindows(config, opts = config.electron ?? {}) {
@@ -144,7 +144,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   // Activate specified plugins from the configuration file
   plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call(ipcMain, win, globals))
 
-  ipcMain.on('COMMONERS:ready', () =>{
+  ipcMain.on('commoners:ready', () =>{
     mainWindow = win
     readyQueue.forEach(f => f(win))
     readyQueue = []

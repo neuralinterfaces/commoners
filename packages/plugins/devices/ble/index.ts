@@ -43,7 +43,7 @@ export function loadDesktop ( win ) {
     // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
     win.webContents.session.setBluetoothPairingHandler((details, callback) => {
       if (details.pairingKind === 'confirm') callback({ confirmed: true })
-      else console.error(`COMMONERS Bluetooth Extension does not support devices that need ${details.pairingKind} permissions.`)
+      else console.error(`Commoners Bluetooth Extension does not support devices that need ${details.pairingKind} permissions.`)
     })
 
     win.webContents.on('select-bluetooth-device', (event, devices, callback) => {

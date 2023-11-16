@@ -9,7 +9,7 @@ export default ({
     config, 
     build, 
     outDir,
-    TARGET
+    target
 }) => {
 
     const icon = getIcon(config.icon)
@@ -21,14 +21,14 @@ export default ({
       propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
     })
 
-    const isDesktopTarget = isDesktop(TARGET)
-    const isMobileTarget = isMobile(TARGET)
+    const isDesktopTarget = isDesktop(target)
+    const isMobileTarget = isMobile(target)
 
     const globalObject = {
-        NAME,
-        VERSION,
+        name: NAME,
+        version: VERSION,
         services,
-        TARGET: isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
+        target: isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
     }
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
@@ -45,22 +45,22 @@ export default ({
             const { plugins } = COMMONERS_CONFIG
 
             // Set global variable
-            const { services, ipcRenderer } = globalThis.__COMMONERS ?? {} // Grab temporary variables
+            const { services, ipcRenderer } = globalThis.__commoners ?? {} // Grab temporary variables
 
-            globalThis.COMMONERS = JSON.parse(\`${JSON.stringify(globalObject)}\`)
+            globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
 
-            if (plugins) globalThis.COMMONERS.__plugins = plugins
-            if (services) globalThis.COMMONERS.services = services // Replace with sanitized services from Electron if available
+            if (plugins) globalThis.commoners.__plugins = plugins
+            if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
 
-            COMMONERS.ready = new Promise(res => {
+            commoners.ready = new Promise(res => {
                 const ogRes = res
                 res = (...args) => {
                     ogRes(...args)
-                    delete COMMONERS.__ready
-                    if (ipcRenderer) ipcRenderer.send('COMMONERS:ready')
+                    delete commoners.__ready
+                    if (ipcRenderer) ipcRenderer.send('commoners:ready')
                 }
                 
-                COMMONERS.__ready = res
+                commoners.__ready = res
             })    
 
             import("${assetPath('onload.mjs', outDir, build)}")

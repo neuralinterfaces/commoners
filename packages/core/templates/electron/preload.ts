@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 import { contextBridge } from 'electron'
 
-const globalVariableName = '__COMMONERS'
+const globalVariableName = '__commoners'
 const services = process.env.COMMONERS_SERVICES
 
 const on = (channel, listener) => ipcRenderer.on(channel, listener)
@@ -64,5 +64,5 @@ if (process.contextIsolated) {
 }
 
 // Proxy console methods from the main process
-["log", "warn", "error"].forEach((method) => ipcRenderer.on(`COMMONERS:console.${method}`, (_, ...args) => console[method](`[commoners-main-process]`, ...args)));
+["log", "warn", "error"].forEach((method) => ipcRenderer.on(`commoners:console.${method}`, (_, ...args) => console[method](`[commoners-main-process]`, ...args)));
 

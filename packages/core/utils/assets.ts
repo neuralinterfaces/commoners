@@ -7,25 +7,22 @@ import { copyAsset } from './copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { ResolvedConfig } from "../types.js"
+import { ResolvedConfig, UserConfig } from "../types.js"
 import { loadConfigFromFile, resolveConfig } from "../index.js"
 
 import pkg from 'pkg'
 import { build as ViteBuild } from 'vite'
 import { nodeBuiltIns } from "./config.js";
 
-
-
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
-import { rollup } from "rollup"
 
-type AssetInfo = string | {
+type AssetInfo = string | { text: string, output: string } | {
     input: string,
     output?: string | {
-        extension?: 'mjs' | 'cjs'
+        extension: 'mjs' | 'cjs', // JavaScript
     }
-}  | { text?: string, output: string }
+}
 
 type AssetsCollection = {
     copy: AssetInfo[],
@@ -90,7 +87,7 @@ async function buildService({ build, outPath }, name, force = false){
         }
 }
 
-// Derive assets to be transferred to the COMMONERS folder
+// Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 
@@ -100,25 +97,24 @@ export const getAssets = async (config: AssetConfig, services?: AssetServiceOpti
 
     if (typeof config === 'string') {
         configPath = config
-        config = await loadConfigFromFile(config)
-    } 
-    
-    if (config && typeof config === 'object' && 'path' in config) {
+        resolvedConfig = await resolveConfig(await loadConfigFromFile(config))
+    }  else if (config && typeof config === 'object' && 'path' in config) {
         configPath = config.path
         resolvedConfig = config.resolved
     } 
     
-    else resolvedConfig = await resolveConfig(config)
+    else resolvedConfig = await resolveConfig(config as UserConfig)
 
-    const configExtensionTargets = ['cjs', 'mjs']
+    const configExtensionTargets: ['cjs', 'mjs'] = ['cjs', 'mjs']
 
     // Transfer configuration file and related services
+    
     const assets: AssetsCollection = {
         copy: [],
         bundle: configExtensionTargets.map(ext => { return configPath ? {
             input: configPath.split(sep).slice(-1)[0],
             output: { extension: ext }
-        } : { text: 'export default {}', output: `commoners.config.${ext}` } })
+        } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } })
     }
 
     // Bundle onload script for the browser
@@ -134,15 +130,16 @@ export const getAssets = async (config: AssetConfig, services?: AssetServiceOpti
 
         const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
        
-        for (const [name, o] of Object.entries(resolvedServices)) {
+        for (const [name, resolvedService] of Object.entries(resolvedServices)) {
 
-            const resolved = o.base ?? o.src
+            // @ts-ignore
+            const resolved = resolvedService.base ?? resolvedService.src 
 
             if (!resolved) continue // Do not copy if file doesn't exist
 
             const isURL = isValidURL(resolved)
 
-            const hasBuild = o.build
+            const hasBuild = resolvedService.build
 
             const isElectron = services === 'electron' || services === 'electron-rebuild' 
             if (hasBuild && isURL && isElectron) continue // Do not copy if file is a url (Electron-only)
@@ -151,7 +148,7 @@ export const getAssets = async (config: AssetConfig, services?: AssetServiceOpti
             
             if (!isURL) addServiceAssets.call(assets, resolved)
 
-            await buildService({ build: o.build, outPath: resolved }, name, forceRebuild)
+            await buildService({ build: resolvedService.build, outPath: resolved }, name, forceRebuild)
         }
     }
 
@@ -160,7 +157,7 @@ export const getAssets = async (config: AssetConfig, services?: AssetServiceOpti
 
         const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
 
-        assets.copy.push(...icons)
+        assets.copy.push(...icons as string[])
     }
 
     // Bundle Splash Page
@@ -176,6 +173,7 @@ export const clear = (outDir: string) => {
 
 
 type AssetConfig = { path: string, resolved: ResolvedConfig } | ResolvedConfig | string
+
 export const buildAssets = async ({
     config, 
     outDir,
@@ -197,35 +195,43 @@ export const buildAssets = async ({
     // Create an assets folder with copied assets (ESM)
     await Promise.all(assets.bundle.map(async info => {
 
-        const hasMetadata = typeof info !== 'string'
-        const input = hasMetadata ? info.input : info
-        const output = hasMetadata ? info.output : null
-        const explicitOutput = typeof output === 'string' ? output : null
+        const output = typeof info === 'string' ? null : info.output
+
+        // Just copy text to the output file
+        if (typeof info !== 'string' && 'text' in info) {
+            if (typeof output === 'string') return writeFileSync(join(outDir, output), info.text)
+            else return // Nowhere to write the text
+        }
+
+        // Transform an input file in some way
+        const input = typeof info === 'string' ? info : info.input
         const hasExplicitInput = typeof input === 'string'
 
-        if (hasMetadata && 'text' in info && hasMetadata && explicitOutput) writeFileSync(join(outDir, explicitOutput), info.text)
-        else if (hasExplicitInput) {
+        if (hasExplicitInput) {
             const ext = extname(input)
-            const outPath = explicitOutput ? join(outDir, explicitOutput) : join(outDir, input)
+            const outPath = typeof output === 'string' ? join(outDir, output) : join(outDir, input)
 
             const root = dirname(input)
 
-
             // Bundle HTML Files using Vite
-            if (ext === '.html') await vite.build({
-                logLevel: 'silent',
-                base: "./",
-                root,
-                build: {
-                    outDir: relative(root, dirname(outPath)),
-                    rollupOptions: { input: input }
-                },
-            })
+            if (ext === '.html') {
+                await vite.build({
+                    logLevel: 'silent',
+                    base: "./",
+                    root,
+                    build: {
+                        emptyOutDir: false, // Ensure assets already built are maintained
+                        outDir: relative(root, dirname(outPath)),
+                        rollupOptions: { input: input }
+                    },
+                })
+
+            }
 
             // Build JavaScript Files using ESBuild
             else {
                 
-                const resolvedExtension = explicitOutput ? extname(explicitOutput).slice(1) : (hasMetadata ? output?.extension : '') || 'js'
+                const resolvedExtension = typeof output === 'string' ? extname(output).slice(1) : output.extension
                 const outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
 
                 const baseConfig: esbuild.BuildOptions = {
@@ -249,8 +255,6 @@ export const buildAssets = async ({
                 outputs.push(outfile)
             }
         } 
-        
-        else console.warn('Asset not transferred to the build:', input)
     }))
 
     // Copy static assets

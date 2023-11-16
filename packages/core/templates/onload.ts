@@ -1,8 +1,8 @@
 import { asyncFilter, pluginErrorMessage, sanitizePluginProperties } from "./utils";
 
-const { ipcRenderer } = globalThis.__COMMONERS ?? {}
-const { __plugins, TARGET, __ready } = COMMONERS
-delete COMMONERS.__plugins
+const { ipcRenderer } = globalThis.__commoners ?? {}
+const { __plugins, target, __ready } = commoners
+delete commoners.__plugins
 
 if ( __plugins ) {
 
@@ -11,15 +11,15 @@ if ( __plugins ) {
     asyncFilter(__plugins, async (plugin) => {
         try {
             let { isSupported } = plugin
-            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[TARGET]
+            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[target]
             if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-            return (typeof isSupported === 'function') ? await isSupported.call(plugin, TARGET) : isSupported !== false
+            return (typeof isSupported === 'function') ? await isSupported.call(plugin, target) : isSupported !== false
         } catch {
             return false
         }
     }).then(supported => {
 
-    const sanitized = supported.map((o) => sanitizePluginProperties(o, TARGET))
+    const sanitized = supported.map((o) => sanitizePluginProperties(o, target))
 
     sanitized.forEach(({ name, load }) => {
         
@@ -33,7 +33,7 @@ if ( __plugins ) {
 
     })
 
-    COMMONERS.plugins = loaded
+    commoners.plugins = loaded
     __ready(loaded)
 })
 
