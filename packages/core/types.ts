@@ -51,7 +51,7 @@ export const universalTargetTypes = ['desktop', 'mobile',  'pwa', 'web']
 export const valid = {
 
     // Derived
-    target: tuple(...Array.from(new Set(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets))),
+    target: tuple(...Array.from(new Set(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets))), // NOTE: Really these should transform to the relevant universal type
     mode:  tuple('local', 'remote'),
 
     // Internal
@@ -175,25 +175,35 @@ type ExposedServices = {
     }
 }
 
-type ExposedPlugins = {
-    loaded: {
-        [x:string]: LoadedPlugin
-    },
-    rendered: {
-        [x:string]: AnyObj
-    },
+type ExposedDesktopServices = {
+    [x:string]: {
+        url: string,
+        onActivityDetected: () => void,
+        onClosed: () => void,
+        status: null | boolean
+    }
 }
 
-export type CommonersGlobalObject = {
+type ExposedPlugins = {
+    [x:string]: LoadedPlugin
+}
+
+type BaseCommonersGlobalObject = {
     name: string,
     version: string,
-    target: TargetType,
     plugins: ExposedPlugins,
-    services: ExposedPlugins,
-    ready: Promise<ExposedPlugins['loaded']>,
+    ready: Promise<ExposedPlugins>,
     __ready: Function, // Resolve Function
     __plugins: AnyObj // Raw Plugins
 }
+
+export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
+    target: TargetType,
+    services: ExposedServices,
+}) | (BaseCommonersGlobalObject & {
+    target: 'desktop',
+    services: ExposedDesktopServices
+})
 
 declare global {
     const commoners: CommonersGlobalObject
