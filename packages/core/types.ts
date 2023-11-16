@@ -120,7 +120,11 @@ export type PluginType = {
     name: string,
     isSupported?: ResolvedSupportType | SupportConfigurationObject
     
-    loadDesktop?: (this: IpcMain, win: BrowserWindow) => void, // TO PASS TO RENDER
+    loadDesktop?: (this: {
+        on: IpcMain['on'],
+        send: (channel: string, ...args: any[]) => void,
+        open: () => {}
+    }, win: BrowserWindow) => void, // TO PASS TO RENDER
     load?: (this: IpcRenderer) => LoadedPlugin
 }
 

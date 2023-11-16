@@ -6,10 +6,10 @@ import { buildAssets } from "./utils/assets.js";
 import { createServer } from "./vite/index.js";
 import { NAME, ensureTargetConsistent, globalTempDir, isDesktop, isMobile } from "./globals.js";
 import chalk from "chalk";
+import { existsSync } from "node:fs";
 
 
 export default async function ( configPath: string, options: StartOptions ) {
-
 
         const { services, port } = options
 

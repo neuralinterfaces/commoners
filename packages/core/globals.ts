@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import { getJSON } from "./utils/files.js";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -20,7 +20,18 @@ dotenv.config()
 
 export const globalWorkspacePath = '.commoners'
 
+export const userPkg = getJSON('package.json')
+// Pre-loaded configuration objects
+export const RAW_NAME = userPkg.name
+export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
+export const VERSION = userPkg.version
+export const APPID = `com.${RAW_NAME}.app`
+
 export const globalTempDir = join(globalWorkspacePath, '.temp')
+if (existsSync(globalTempDir)) {
+    console.error(`\n✊ Only one development build for ${chalk.redBright(NAME)} can be run at a time\n`)
+    process.exit()
+}
 
 const callbacks = []
 export const onExit = (callback) => callbacks.push(callback)
@@ -46,8 +57,6 @@ onExit(() => {
     rmSync(globalTempDir, { recursive: true, force: true })
 })
 
-
-export const userPkg = getJSON('package.json')
 
 export const getDefaultMainLocation = (outDir) =>  {
     return join(outDir, 'main.js')
@@ -80,12 +89,6 @@ export const ensureTargetConsistent = (target: TargetType) => {
     console.log(`Cannot run a commoners command for ${chalk.bold(target)} on ${chalk.bold(PLATFORM)}`)
     process.exit(1)
 }
-
-// Pre-loaded configuration objects
-export const RAW_NAME = userPkg.name
-export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
-export const VERSION = userPkg.version
-export const APPID = `com.${RAW_NAME}.app`
 
 // Get Configuration File and Path
 const knownPath = 'packages/core/dist/index.js'

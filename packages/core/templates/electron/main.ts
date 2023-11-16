@@ -19,7 +19,7 @@ let mainWindow;
 function send(this: BrowserWindow, channel: string, ...args: any[]) {
   try {
     return this.webContents.send(channel, ...args)
-  } catch (e) {} // Catch in case messages are registered as sendable for a window that has been closed
+  } catch (e) { } // Catch in case messages are registered as sendable for a window that has been closed
 }
 
 type ReadyFunction = (win: BrowserWindow) => any
@@ -27,7 +27,7 @@ let readyQueue: ReadyFunction[] = []
 
 const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
 
-const globals : {
+const globals: {
   firstOpen: boolean,
   mainInitialized: boolean,
   mainWindow?: BrowserWindow
@@ -79,13 +79,30 @@ if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .
 // Get the Commoners configuration file
 const configPath = join(__dirname, 'commoners.config.cjs') // Load the .cjs config version
 
+
+// --------------- App Window Management ---------------
+function restoreWindow() {
+  console.log('RESTORE!')
+  if (mainWindow) mainWindow.isMinimized() ? mainWindow.restore() : mainWindow.focus();
+  return mainWindow
+}
+
+function makeSingleInstance() {
+  if (process.mas) return;
+  if (!app.requestSingleInstanceLock()) app.exit(); // Skip quit callbacks
+  else app.on("second-instance", () => restoreWindow());
+}
+
+makeSingleInstance();
+
+
 function createAppWindows(config, opts = config.electron ?? {}) {
 
-// Replace with getIcon (?)
-const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
-const linuxIcon = config.icon?.linux || defaultIcon
+  // Replace with getIcon (?)
+  const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
+  const linuxIcon = config.icon?.linux || defaultIcon
 
-const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
+  const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
   const splashURL = opts.splash
 
@@ -108,8 +125,16 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   // ------------------- Avoid window creation if the user has specified not to -------------------
   const plugins = config.plugins ?? []
   const windowOpts = opts.window
-  if (windowOpts === false || windowOpts === null) {
-    plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call(ipcMain, null, globals) )
+  const noWindowCreation = windowOpts === false || windowOpts === null
+
+  const instantiatePlugins = (win: BrowserWindow | null = null) => plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call({
+    on: (channel, callback) => ipcMain.on(channel, callback),
+    send: (channel, ...args) => win ? send.call(win, channel, ...args) : '', // Safe send to the main window if it exists
+    open: () => restoreWindow() || createAppWindows(config),
+  }, win, globals))
+
+  if (noWindowCreation) {
+    instantiatePlugins()
     return
   }
 
@@ -142,13 +167,13 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
   }
 
   // Activate specified plugins from the configuration file
-  plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call(ipcMain, win, globals))
+  instantiatePlugins(win)
 
-  ipcMain.on('commoners:ready', () =>{
+  ipcMain.on('commoners:ready', () => {
     mainWindow = win
     readyQueue.forEach(f => f(win))
     readyQueue = []
-   }) // Is ready to receive IPC messages
+  }) // Is ready to receive IPC messages
 
 
   win.on('ready-to-show', () => {
@@ -162,9 +187,9 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
         win.show();
         globals.firstOpen = false
       }, globals.firstOpen ? 1000 : 200);
-     } 
-     
-     else win.show()
+    }
+
+    else win.show()
   })
 
   win.once('close', () => mainWindow = undefined) // De-register the main window
@@ -176,7 +201,7 @@ const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { ic
 
   // HMR for renderer base on commoners cli.
   // Load the remote URL for development or the local html file for production.
-  if (is.dev && devServerURL) win.loadURL(devServerURL) 
+  if (is.dev && devServerURL) win.loadURL(devServerURL)
   else win.loadFile(join(__dirname, 'index.html'))
 
   return win
@@ -206,19 +231,19 @@ app.whenReady().then(async () => {
 
   // Create all services as configured by the user / main build
   // NOTE: Services cannot be filtered in desktop mode
-  const resolved = await services.createAll(config.services, { 
-    mode: isProduction ? 'local' : undefined, 
+  const resolved = await services.createAll(config.services, {
+    mode: isProduction ? 'local' : undefined,
     base: __dirname,
     onClose: (id, code) => onWindowReady((win) => {
-      send.call(win,`service:${id}:closed`, code)
+      send.call(win, `service:${id}:closed`, code)
     }),
     onLog: (id, msg) => onWindowReady((win) => {
-      send.call(win,`service:${id}:log`, msg.toString())
+      send.call(win, `service:${id}:log`, msg.toString())
     }),
   })
 
   if (resolved) {
-    
+
     for (let id in resolved) {
       const service = resolved[id]
       ipcMain.on(`service:${id}:status`, (event) => event.returnValue = service.status)
@@ -243,7 +268,7 @@ app.whenReady().then(async () => {
     return new Response(`${pathname} is not a valid request`, {
       status: 404
     })
-})
+  })
 
   await createAppWindows(config) // Start the application from scratch
 

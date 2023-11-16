@@ -20,20 +20,20 @@ Share the application's services
 - `--service [name]` - For specific service(s) (`string`)
 
 ## Shared Options
-The CLI commands for `commoners` share a similar options structure:
+Many CLI commands for `commoners` share a similar options structure:
 
 ### Target Platform (`commoners` / `build` / `launch`)
-The following commands are mutually exclusive, and will determine the target platform for the command.
-- `--web [target]` - Default option (`boolean`/ `string`)
-    - `pwa` - As a Progressive Web App (`build` only)
-
-- `--desktop [target]` - For your current desktop platform (`boolean`/ `string`)
-    - `electron` - Build with Electron
-    - `tauri` - Build with Tauri (TBD)
-
-- `--mobile [target]` - For the mobile platform corresponding to your build enviroment (`boolean`/ `string`)
-    - `ios` - For iOS
-    - `android` - For Android
+Specify the target platform for the command.
+- `--target [target]`
+    - `web` - Default option
+        - `pwa` - As a Progressive Web App (`build` only)
+    - `desktop` - For your current desktop platform (`boolean`/ `string`)
+        - `electron` - Build with Electron
+        - `tauri` - Build with Tauri (TBD)
+    - `mobile` - For the mobile platform corresponding to your build enviroment 
+        - `ios` - For iOS (`ios` only)
+        - `android` - For Android
+    
 
 ### Service Selection (`commoners` / `build`)
 - `--services` - Apply action to **all services** defined in the configuration file (`boolean`)

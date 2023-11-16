@@ -10,18 +10,19 @@ export const outDir = cliArgs.outDir
 
 export const COMMAND = passedCommand as string
 
-function resolveTarget(entry, allowed: string[]){
-    if (cliArgs[entry]) {
-        const resolved = (typeof cliArgs[entry] === 'string' ) ? cliArgs[entry] : entry
-        if (!allowed || allowed.includes(resolved) || entry === resolved) TARGET = resolved
-        else throw new Error(`'${resolved}' is not a valid ${entry} target. Allowed targets: ${allowed.join(', ')}`)
-    }
-}
+let TARGET = 'web'
 
-let TARGET
-resolveTarget('desktop', ['electron', 'tauri'])
-resolveTarget('mobile', ['android', 'ios'])
-resolveTarget('web', ['pwa'])
+const desktopTargets = ['desktop','electron', 'tauri']
+const mobileTargets = ['mobile', 'android', 'ios']
+const webTargets = ['web', 'pwa']
+
+const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
+
+const target = cliArgs.target
+if (typeof target === 'string') {
+    if (!allTargets.includes(target)) throw new Error(`'${target}' is not a valid target. Allowed targets: ${allTargets.join(', ')}`)
+    TARGET = target
+}
 
 export {
     TARGET
