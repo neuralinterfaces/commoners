@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
+import { App, BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
 import { Configuration as ElectronBuilderConfiguration, PublishOptions } from 'electron-builder'
 import { ManifestOptions } from 'vite-plugin-pwa'
 
@@ -120,11 +120,19 @@ export type PluginType = {
     name: string,
     isSupported?: ResolvedSupportType | SupportConfigurationObject
     
-    loadDesktop?: (this: {
-        on: IpcMain['on'],
-        send: (channel: string, ...args: any[]) => void,
-        open: () => {}
-    }, win: BrowserWindow) => void, // TO PASS TO RENDER
+    desktop?: {
+        load?: (this: {
+            on: IpcMain['on'],
+            send: (channel: string, ...args: any[]) => void,
+            open: () => {}
+        }, win: BrowserWindow) => void, // TO PASS TO RENDER
+        
+        preload?: (this: {
+            app: App,
+            open: () => {}
+        }) => void, // TO PASS TO MAIN
+    }
+
     load?: (this: IpcRenderer) => LoadedPlugin
 }
 
@@ -206,7 +214,9 @@ export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
     services: ExposedServices,
 }) | (BaseCommonersGlobalObject & {
     target: 'desktop',
-    services: ExposedDesktopServices
+    services: ExposedDesktopServices,
+    quit: () => void,
+    electron: any // TODO: Replace with real Electron type
 })
 
 declare global {

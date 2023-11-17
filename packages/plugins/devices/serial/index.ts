@@ -13,38 +13,40 @@ export const isSupported = {
   }
 }
 
-export function loadDesktop( win ) {
+export const desktop = {
+  load: function ( win ) {
 
-  let selectPortCallback;
-
-  win.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
-    // Add listeners to handle ports being added or removed before the callback for `select-serial-port` is called.
-    win.webContents.session.on('serial-port-added', (event, port) => {
-      win.webContents.send(`${name}.added`, port);
+    let selectPortCallback;
+  
+    win.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
+      // Add listeners to handle ports being added or removed before the callback for `select-serial-port` is called.
+      win.webContents.session.on('serial-port-added', (event, port) => {
+        win.webContents.send(`${name}.added`, port);
+      })
+  
+      win.webContents.session.on('serial-port-removed', (event, port) => {
+        win.webContents.send(`${name}.removed`, port);
+      })
+  
+      win.webContents.send(`${name}.request`, portList);
+  
+      event.preventDefault()
+      selectPortCallback = callback
+  
+      // NOTE: Ensure this is only called once
+      this.on(`${name}.select`, (
+        _evt, //: IpcMainEvent, 
+        port //: string
+      ) => {
+        if (typeof selectPortCallback === 'function') selectPortCallback(port)
+        selectPortCallback = null
+      });
+  
     })
-
-    win.webContents.session.on('serial-port-removed', (event, port) => {
-      win.webContents.send(`${name}.removed`, port);
-    })
-
-    win.webContents.send(`${name}.request`, portList);
-
-    event.preventDefault()
-    selectPortCallback = callback
-
-    // NOTE: Ensure this is only called once
-    this.on(`${name}.select`, (
-      _evt, //: IpcMainEvent, 
-      port //: string
-    ) => {
-      if (typeof selectPortCallback === 'function') selectPortCallback(port)
-      selectPortCallback = null
-    });
-
-  })
-
-  win.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
-  win.webContents.session.setDevicePermissionHandler((details) => true)
+  
+    win.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
+    win.webContents.session.setDevicePermissionHandler((details) => true)
+  }
 }
 
 export function load() {

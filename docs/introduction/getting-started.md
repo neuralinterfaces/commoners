@@ -86,7 +86,8 @@ The following service structure would be used to handle this case:
 Plugins are collections of JavaScript functions that run at different points during app initialization. These points include:
 
 1. `load` - After the DOM is loaded 
-2. `loadDesktop` - Immediately on Electron main process instantiation (`--desktop` builds only)
+2. `desktop.preload` - Immediately on Electron main process instantiation (`--desktop` builds only)
+2. `desktop.load` - When Electron app is ready (`--desktop` builds only)
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
 
@@ -101,8 +102,11 @@ export default {
                     load: false
                 }
             },
-            loadDesktop: () => console.log('desktop build (load)'),
-            load: () => console.log(commoners.target + ' build (load)')
+            load: () => console.log(commoners.target + ' build (load)'),
+            desktop: {
+                load: () => console.log('desktop build (load)'),
+                preload: () => console.log('desktop build (load)')
+            }
         }
     ]
 }
@@ -118,4 +122,4 @@ To use a plugin, you should check for the existence of the plugin, which *may* h
     }
 ```
 
-Global variables will be loaded from your `.env` file (if present). which you can use in `loadDesktop` functions.
+Global variables will be loaded from your `.env` file (if present). which you can use in `desktop` load functions.

@@ -45,9 +45,17 @@ export default ({
             const { plugins } = COMMONERS_CONFIG
 
             // Set global variable
-            const { services, ipcRenderer } = globalThis.__commoners ?? {} // Grab temporary variables
+            const { 
+                services, 
+                ipcRenderer,
+                quit,
+                electron
+            } = globalThis.__commoners ?? {} // Grab temporary variables
 
             globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
+
+            if (quit) globalThis.commoners.quit = quit
+            if (electron) globalThis.commoners.electron = electron
 
             if (plugins) globalThis.commoners.__plugins = plugins
             if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available

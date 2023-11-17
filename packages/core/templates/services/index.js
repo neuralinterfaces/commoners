@@ -140,9 +140,13 @@ export async function start (config, id, opts = {}) {
     let error;
 
     try {
-      if (ext === '.js') childProcess = node(config)
-      else if (ext === '.py') childProcess = python(config)
-      else if (!ext || ext === '.exe') childProcess = spawn(abspath, [], { env: { ...process.env, PORT: config.port, HOST: config.host } })
+      const env = { ...process.env, PORT: config.port, HOST: config.host }
+      if (ext === '.js') childProcess = node(config, env)
+      else if (ext === '.py') childProcess = python(config, env)
+      else if (!ext || ext === '.exe') {
+        console.log('Spawning!', abspath, env.PORT, env.HOST)
+        childProcess = spawn(abspath, [], { env })
+      }
     } catch (e) {
       error = e
     }

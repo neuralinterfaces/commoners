@@ -27,38 +27,40 @@ export const isSupported = {
   }
 }
 
-export function loadDesktop ( win ) {
+export const desktop = {
+  load: function ( win ) {
 
-    // Enable Web Bluetooth
-    let selectBluetoothCallback;
+      // Enable Web Bluetooth
+      let selectBluetoothCallback;
 
-    this.on(`${name}.select`, (
-      _evt, //: IpcMainEvent, 
-      value //: string
-    ) => {
-        if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value)
-        selectBluetoothCallback = null
-    });
+      this.on(`${name}.select`, (
+        _evt, //: IpcMainEvent, 
+        value //: string
+      ) => {
+          if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value)
+          selectBluetoothCallback = null
+      });
 
-    // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
-    win.webContents.session.setBluetoothPairingHandler((details, callback) => {
-      if (details.pairingKind === 'confirm') callback({ confirmed: true })
-      else console.error(`Commoners Bluetooth Extension does not support devices that need ${details.pairingKind} permissions.`)
-    })
+      // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
+      win.webContents.session.setBluetoothPairingHandler((details, callback) => {
+        if (details.pairingKind === 'confirm') callback({ confirmed: true })
+        else console.error(`Commoners Bluetooth Extension does not support devices that need ${details.pairingKind} permissions.`)
+      })
 
-    win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
+      win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
 
 
-      event.preventDefault()
-      
-      if (!selectBluetoothCallback) win.webContents.send(`${name}.open`, devices); // Initial request always starts at zero
+        event.preventDefault()
+        
+        if (!selectBluetoothCallback) win.webContents.send(`${name}.open`, devices); // Initial request always starts at zero
 
-      win.webContents.send(`${name}.update`, devices);
+        win.webContents.send(`${name}.update`, devices);
 
-      selectBluetoothCallback = callback
+        selectBluetoothCallback = callback
 
-    })
+      })
 
+  }
 }
 
 export function load() {

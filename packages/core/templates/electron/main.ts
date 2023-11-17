@@ -2,7 +2,7 @@
 // For a more basic Electron example, see: https://github.com/electron/electron-quick-start/blob/main/main.js
 // --------------------------------------------------------------------------------------------------------------
 
-import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import electron, { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
@@ -28,16 +28,15 @@ let readyQueue: ReadyFunction[] = []
 const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
 
 const globals: {
-  firstOpen: boolean,
+  isFirstOpen: boolean,
+  firstInitialized: boolean,
   mainInitialized: boolean,
-  mainWindow?: BrowserWindow
   splash?: BrowserWindow,
-  userRestarted: boolean,
   send: Function
 } = {
-  firstOpen: true,
+  firstInitialized: false,
+  isFirstOpen: true,
   mainInitialized: false,
-  userRestarted: false,
   send: (channel, ...args) => onWindowReady((win) => send.call(win, channel, ...args))
 }
 
@@ -79,10 +78,8 @@ if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .
 // Get the Commoners configuration file
 const configPath = join(__dirname, 'commoners.config.cjs') // Load the .cjs config version
 
-
 // --------------- App Window Management ---------------
 function restoreWindow() {
-  console.log('RESTORE!')
   if (mainWindow) mainWindow.isMinimized() ? mainWindow.restore() : mainWindow.focus();
   return mainWindow
 }
@@ -95,8 +92,37 @@ function makeSingleInstance() {
 
 makeSingleInstance();
 
+const config = require(configPath).default // (await import (configPath)).default // // Requires putting the dist at the Resource Path:
 
-function createAppWindows(config, opts = config.electron ?? {}) {
+const plugins = config.plugins ?? []
+
+const baseLoadCtx = {
+
+  electron,
+  
+  // Create / restore the main window if the app is ready
+  open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow(config))),
+
+  // Safe send to the main window if it exists  
+  send: (channel, ...args) => onWindowReady(win => send.call(win, channel, ...args)) 
+}
+
+const runPlugins = (win: BrowserWindow | null = null, type = 'load') => {
+
+  let loadCtx: any = baseLoadCtx
+  if (type === 'load') loadCtx = {
+    ...baseLoadCtx,
+    on: (channel, callback) => ipcMain.on(channel, callback),
+  }
+
+  return Promise.all(plugins.map(plugin => plugin.desktop?.[type] && plugin.desktop[type].call(loadCtx, win, globals)))
+}
+
+
+
+function createMainWindow(config, opts = config.electron ?? {}) {
+
+  if (BrowserWindow.getAllWindows().length !== 0) return // Force only one main window
 
   // Replace with getIcon (?)
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
@@ -123,20 +149,9 @@ function createAppWindows(config, opts = config.electron ?? {}) {
   }
 
   // ------------------- Avoid window creation if the user has specified not to -------------------
-  const plugins = config.plugins ?? []
   const windowOpts = opts.window
   const noWindowCreation = windowOpts === false || windowOpts === null
-
-  const instantiatePlugins = (win: BrowserWindow | null = null) => plugins.forEach(plugin => plugin.loadDesktop && plugin.loadDesktop.call({
-    on: (channel, callback) => ipcMain.on(channel, callback),
-    send: (channel, ...args) => win ? send.call(win, channel, ...args) : '', // Safe send to the main window if it exists
-    open: () => restoreWindow() || createAppWindows(config),
-  }, win, globals))
-
-  if (noWindowCreation) {
-    instantiatePlugins()
-    return
-  }
+  if (noWindowCreation) return runPlugins()
 
   // ------------------- Create the main window -------------------  
   const preload = join(__dirname, 'preload.js')
@@ -167,13 +182,17 @@ function createAppWindows(config, opts = config.electron ?? {}) {
   }
 
   // Activate specified plugins from the configuration file
-  instantiatePlugins(win)
+  runPlugins(win)
 
+  // Is ready to receive IPC messages
   ipcMain.on('commoners:ready', () => {
     mainWindow = win
+    globals.firstInitialized = true
     readyQueue.forEach(f => f(win))
     readyQueue = []
-  }) // Is ready to receive IPC messages
+  })
+
+  ipcMain.on('commoners:quit', () => app.quit())
 
 
   win.on('ready-to-show', () => {
@@ -185,14 +204,17 @@ function createAppWindows(config, opts = config.electron ?? {}) {
           delete globals.splash
         }
         win.show();
-        globals.firstOpen = false
-      }, globals.firstOpen ? 1000 : 200);
+        globals.isFirstOpen = false
+      }, globals.isFirstOpen ? 1000 : 200);
     }
 
     else win.show()
   })
 
-  win.once('close', () => mainWindow = undefined) // De-register the main window
+  // De-register the main window
+  win.once('close', () => {
+    mainWindow = undefined
+  })
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -214,72 +236,81 @@ protocol.registerSchemesAsPrivileged([{
   privileges: { supportFetchAPI: true }
 }])
 
+runPlugins(null, 'preload')
+
 // This method will be called when Electron has initialized
-app.whenReady().then(async () => {
+runPlugins(null, 'preload').then(() => {
 
-  const config = require(configPath).default // (await import (configPath)).default // // Requires putting the dist at the Resource Path: https://github.com/electron/electron/issues/38957
+  app.whenReady().then(async () => {
 
-  // Set app user model id for windows
-  electronApp.setAppUserModelId(`com.${customProtocolScheme}`)
+    // Set app user model id for windows
+    electronApp.setAppUserModelId(`com.${customProtocolScheme}`)
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
-
-  // Create all services as configured by the user / main build
-  // NOTE: Services cannot be filtered in desktop mode
-  const resolved = await services.createAll(config.services, {
-    mode: isProduction ? 'local' : undefined,
-    base: __dirname,
-    onClose: (id, code) => onWindowReady((win) => {
-      send.call(win, `service:${id}:closed`, code)
-    }),
-    onLog: (id, msg) => onWindowReady((win) => {
-      send.call(win, `service:${id}:log`, msg.toString())
-    }),
-  })
-
-  if (resolved) {
-
-    for (let id in resolved) {
-      const service = resolved[id]
-      ipcMain.on(`service:${id}:status`, (event) => event.returnValue = service.status)
-    }
-
-    process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
-  }
-
-  // Proxy the services through the custom protocol
-  protocol.handle(customProtocolScheme, (req) => {
-
-    const pathname = req.url.slice(`${customProtocolScheme}://`.length)
-
-    for (let service in config.services) {
-      if (pathname.slice(0, service.length) === service) {
-        const newPathname = pathname.slice(service.length)
-        const o = config.services[service]
-        return net.fetch((new URL(newPathname, o.url)).href)
-      }
-    }
-
-    return new Response(`${pathname} is not a valid request`, {
-      status: 404
+    // Default open or close DevTools by F12 in development
+    // and ignore CommandOrControl + R in production.
+    // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
+    app.on('browser-window-created', (_, window) => {
+      optimizer.watchWindowShortcuts(window)
     })
+
+    // Create all services as configured by the user / main build
+    // NOTE: Services cannot be filtered in desktop mode
+    const resolved = await services.createAll(config.services, {
+      mode: isProduction ? 'local' : undefined,
+      base: __dirname,
+      onClose: (id, code) => onWindowReady((win) => {
+        send.call(win, `service:${id}:closed`, code)
+      }),
+      onLog: (id, msg) => onWindowReady((win) => {
+        send.call(win, `service:${id}:log`, msg.toString())
+      }),
+    })
+
+    if (resolved) {
+
+      for (let id in resolved) {
+        const service = resolved[id]
+        ipcMain.on(`service:${id}:status`, (event) => event.returnValue = service.status)
+      }
+
+      process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
+    }
+
+    // Proxy the services through the custom protocol
+    protocol.handle(customProtocolScheme, (req) => {
+
+      const pathname = req.url.slice(`${customProtocolScheme}://`.length)
+
+      if (resolved) {
+        for (let service in resolved) {
+          if (pathname.slice(0, service.length) === service) {
+            const newPathname = pathname.slice(service.length)
+            return net.fetch((new URL(newPathname, resolved[service].url)).href)
+          }
+        }
+      }
+
+      return new Response(`${pathname} is not a valid request`, {
+        status: 404
+      })
+    })
+
+    // Start the application from scratch
+    await createMainWindow(config)
+    app.on('activate', () => createMainWindow(config)) // Handle dock interactions
   })
 
-  await createAppWindows(config) // Start the application from scratch
-
-  app.on('activate', async function () {
-    if (BrowserWindow.getAllWindows().length === 0) await createAppWindows(config)
-  })
 })
+
 
 // Quit when all windows are closed, except on macOS.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit())
 
-app.on('before-quit', () => services.stop());
+app.on('before-quit', async (ev) => {
+  ev.preventDefault()
+
+  const result = await runPlugins(null, 'unload')
+  if (result.includes(false)) return
+
+  try { services.stop() } catch (err) { console.error(err); } finally { app.exit() }
+});

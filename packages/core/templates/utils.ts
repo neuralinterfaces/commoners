@@ -11,9 +11,9 @@ const removablePluginProperties = [ 'load' ]
 export const sanitizePluginProperties = (plugin, target) => {
     const copy = {...plugin}
 
-    const assumeRemoval = 'loadDesktop' in copy && target !== 'desktop' // Always clear main when not an electron build
-
-    if (assumeRemoval) delete copy.loadDesktop 
+    // Remove electron plugins if not the correct target
+    const assumeRemoval = 'desktop' in copy && target !== 'desktop'
+    if (assumeRemoval) delete copy.desktop 
 
     // Assume true if no main; assume false if main
     const willRemove = (v) => assumeRemoval ? !v : v === false

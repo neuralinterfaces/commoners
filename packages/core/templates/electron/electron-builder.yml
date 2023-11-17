@@ -15,12 +15,10 @@ nsis:
 
 mac:
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED
-  gatekeeperAssess: false # Ensures invalid code signing does not block builds
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+
+  # Ensures code signing does not block builds
+  gatekeeperAssess: false
+
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:

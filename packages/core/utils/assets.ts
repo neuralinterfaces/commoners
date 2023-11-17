@@ -46,7 +46,7 @@ async function buildService({ build, outPath }, name, force = false){
         const hasBeenBuilt = existsSync(outPath)
         if (hasBeenBuilt && !force) return
 
-        console.log(`\n✊ Building the ${chalk.bold(name)} service\n`)
+        console.log(`\n👊 Building the ${chalk.bold(name)} service\n`)
 
         // Default Configuration
         if (typeof build === 'object') {

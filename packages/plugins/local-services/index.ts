@@ -108,7 +108,9 @@ export default ( isValid?: (ip: string, env: any) => boolean, port?: number ) =>
     return {
         name,
         isSupported,
-        loadDesktop: function (...args) { loadDesktop.call(this, ...args, { port, isValid }) },
+        desktop: {
+            load: function (...args) { loadDesktop.call(this, ...args, { port, isValid }) },
+        },
         load
     }
 }

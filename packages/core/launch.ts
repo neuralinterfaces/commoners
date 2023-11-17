@@ -37,8 +37,7 @@ export default async function (options: LaunchOptions) {
 
         let exePath = ''
         if (PLATFORM === 'mac') {
-            const cpuModel = cpus()[0].model
-            let isMx = /Apple\sM\d+/.test(cpuModel)
+            const isMx = /Apple\sM\d+/.test(cpus()[0].model)
             exePath = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`, `${NAME}.app`)
         } else if (PLATFORM === 'windows') exePath = join(outDir, 'win-unpacked', `${NAME}.exe`)
         else throw new Error(`Cannot launch the application for ${PLATFORM}`)

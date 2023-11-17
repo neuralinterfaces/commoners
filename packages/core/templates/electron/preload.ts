@@ -1,4 +1,7 @@
 import { ipcRenderer } from 'electron'
+
+import electron from '@electron/remote' // Provide Electron API
+
 import { contextBridge } from 'electron'
 
 const globalVariableName = '__commoners'
@@ -7,6 +10,8 @@ const services = process.env.COMMONERS_SERVICES
 const on = (channel, listener) => ipcRenderer.on(channel, listener)
 
 const TEMP_COMMONERS = { 
+    electron,
+    quit: () => ipcRenderer.send('commoners:quit'),
     services: services ? JSON.parse(services) : null, // Ensure correct ports
     ipcRenderer: {
         on,

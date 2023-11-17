@@ -35,7 +35,7 @@ export default async function ( configPath: string, options: StartOptions ) {
         const { services: resolvedServices } = resolvedConfig
         
         const createAllServices = () => {
-            console.log(`\n✊ Creating ${chalk.bold('Services')}\n`)
+            console.log(`\n👊 Creating ${chalk.bold('Services')}\n`)
             createServices(resolvedServices) // Run services in parallel
         }
 

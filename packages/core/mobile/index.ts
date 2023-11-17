@@ -102,7 +102,7 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     }, async () => {
         if (!existsSync(target)) {
             
-            console.log(`\n✊ ${chalk.bold('capacitor')} - Initialize\n`)
+            console.log(`\n👊 Initializing with ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)
             await runCommand(`npx cap add ${target} && npx cap copy`)
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
@@ -133,7 +133,7 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
     await checkDepsInstalled(target, config)
 
-    console.log(`\n✊ ${chalk.bold('capacitor')} - Open\n`)
+    console.log(`\n👊 Opening with ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)
 
     await openConfig({
         plugins: config.plugins,

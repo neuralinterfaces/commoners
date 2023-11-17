@@ -21,6 +21,7 @@ dotenv.config()
 export const globalWorkspacePath = '.commoners'
 
 export const userPkg = getJSON('package.json')
+
 // Pre-loaded configuration objects
 export const RAW_NAME = userPkg.name
 export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
@@ -28,10 +29,6 @@ export const VERSION = userPkg.version
 export const APPID = `com.${RAW_NAME}.app`
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')
-if (existsSync(globalTempDir)) {
-    console.error(`\n✊ Only one development build for ${chalk.redBright(NAME)} can be run at a time\n`)
-    process.exit()
-}
 
 const callbacks = []
 export const onExit = (callback) => callbacks.push(callback)
@@ -43,19 +40,26 @@ const runBeforeExitCallbacks = () => {
     })
 }
 
-process.on('beforeExit', runBeforeExitCallbacks);
+export const initialize = () => {
+    if (existsSync(globalTempDir)) {
+        console.error(`\n👎 Only one development instance of ${chalk.redBright(NAME)} can be run at a time\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
+        process.exit()
+    }
+    process.on('beforeExit', runBeforeExitCallbacks);
 
-process.on('exit', runBeforeExitCallbacks);
+    process.on('exit', runBeforeExitCallbacks);
 
-process.on('SIGINT', ()=>{
-    runBeforeExitCallbacks()
-    process.exit(0)
-})
+    process.on('SIGINT', ()=>{
+        runBeforeExitCallbacks()
+        process.exit(0)
+    })
 
-// Always clear the temp directory on exit
-onExit(() => {
-    rmSync(globalTempDir, { recursive: true, force: true })
-})
+    // Always clear the temp directory on exit
+    onExit(() => {
+        rmSync(globalTempDir, { recursive: true, force: true })
+    })
+    
+}
 
 
 export const getDefaultMainLocation = (outDir) =>  {

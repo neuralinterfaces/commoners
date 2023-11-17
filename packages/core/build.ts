@@ -93,7 +93,7 @@ export default async function build (
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
 
-        console.log(`\n✊ ${chalk.bold('electron-builder')}\n`)
+        console.log(`\n👊 Packaging with ${chalk.bold(chalk.cyanBright('electron-builder'))}\n`)
 
         await configureForDesktop(outDir) // Temporarily configure for temp directory
 
@@ -144,6 +144,7 @@ export default async function build (
         const opts: CliOptions = { config: buildConfig as any }
 
         if (publish) opts.publish = typeof publish === 'string' ? publish : 'always'
+        else delete buildConfig.publish
 
         await ElectronBuilder(opts)
 
