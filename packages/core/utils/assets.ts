@@ -50,17 +50,17 @@ async function buildService({ build, outPath }, name, force = false){
 
         // Default Configuration
         if (typeof build === 'object') {
-            const { src, rollupOut, pkgOut } = build
+            const { src, buildOut, pkgOut } = build
 
             await ViteBuild({
                 logLevel: 'silent',
                 build: {
-                    outDir: dirname(rollupOut),
+                    outDir: dirname(buildOut),
                     lib: {
                         entry: src,
                         name,
                         formats: ['cjs'],
-                        fileName: () => basename(rollupOut)
+                        fileName: () => basename(buildOut)
                     },
                     rollupOptions: { 
                         external: [
@@ -71,9 +71,9 @@ async function buildService({ build, outPath }, name, force = false){
             })
 
  
-            await pkg.exec([rollupOut, '--target', 'node16', '--out-path', pkgOut]);
+            await pkg.exec([buildOut, '--target', 'node16', '--out-path', pkgOut]);
 
-            rmSync(rollupOut, { force: true })
+            rmSync(buildOut, { force: true })
 
             return pkgOut
         }

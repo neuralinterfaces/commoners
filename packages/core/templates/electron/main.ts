@@ -8,8 +8,6 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
 
-import main from '@electron/remote/main';
-
 import dotenv from 'dotenv'
 
 process.env.COMMONERS_ELECTRON = true
@@ -30,13 +28,11 @@ const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQu
 const globals: {
   isFirstOpen: boolean,
   firstInitialized: boolean,
-  mainInitialized: boolean,
   splash?: BrowserWindow,
   send: Function
 } = {
   firstInitialized: false,
   isFirstOpen: true,
-  mainInitialized: false,
   send: (channel, ...args) => onWindowReady((win) => send.call(win, channel, ...args))
 }
 
@@ -122,8 +118,15 @@ const runPlugins = (win: BrowserWindow | null = null, type = 'load') => {
 
 function createMainWindow(config, opts = config.electron ?? {}) {
 
-  if (BrowserWindow.getAllWindows().length !== 0) return // Force only one main window
+  // ------------------- Force only one main window -------------------
+  if (BrowserWindow.getAllWindows().length !== 0) return
 
+  // ------------------- Avoid window creation if the user has specified not to -------------------
+  const windowOpts = opts.window
+  const noWindowCreation = windowOpts === false || windowOpts === null
+  if (noWindowCreation) return runPlugins()
+
+  // ------------------- Main Window Creation -------------------
   // Replace with getIcon (?)
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
   const linuxIcon = config.icon?.linux || defaultIcon
@@ -148,11 +151,6 @@ function createMainWindow(config, opts = config.electron ?? {}) {
     globals.splash = splash // Replace splash entry with the active window
   }
 
-  // ------------------- Avoid window creation if the user has specified not to -------------------
-  const windowOpts = opts.window
-  const noWindowCreation = windowOpts === false || windowOpts === null
-  if (noWindowCreation) return runPlugins()
-
   // ------------------- Create the main window -------------------  
   const preload = join(__dirname, 'preload.js')
 
@@ -171,15 +169,11 @@ function createMainWindow(config, opts = config.electron ?? {}) {
   // Ensure preload is added
   if (!('preload' in windowConfig.webPreferences)) windowConfig.webPreferences.preload = preload
 
+  // Always enable the web preferences
+  windowConfig.webPreferences.enableRemoteModule = true
+
   // Create the browser window.
   const win = new BrowserWindow(windowConfig)
-  if (windowConfig.webPreferences.enableRemoteModule) {
-    if (!globals.mainInitialized) {
-      main.initialize()
-      globals.mainInitialized = true
-    }
-    main.enable(win.webContents);
-  }
 
   // Activate specified plugins from the configuration file
   runPlugins(win)
@@ -236,8 +230,6 @@ protocol.registerSchemesAsPrivileged([{
   privileges: { supportFetchAPI: true }
 }])
 
-runPlugins(null, 'preload')
-
 // This method will be called when Electron has initialized
 runPlugins(null, 'preload').then(() => {
 
@@ -255,6 +247,7 @@ runPlugins(null, 'preload').then(() => {
 
     // Create all services as configured by the user / main build
     // NOTE: Services cannot be filtered in desktop mode
+    
     const resolved = await services.createAll(config.services, {
       mode: isProduction ? 'local' : undefined,
       base: __dirname,

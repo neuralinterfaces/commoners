@@ -15,7 +15,6 @@ import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
 
 import merge from './utils/merge.js'
-import { lstatSync } from "node:fs"
 
 const tempElectronDir = join(globalTempDir, 'electron')
 const tempMobileDir = join(globalTempDir, 'mobile')

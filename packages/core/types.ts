@@ -216,7 +216,6 @@ export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
     target: 'desktop',
     services: ExposedDesktopServices,
     quit: () => void,
-    electron: any // TODO: Replace with real Electron type
 })
 
 declare global {

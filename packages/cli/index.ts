@@ -14,17 +14,80 @@ import { resolveFile } from "./utils.js";
 
 import cac from 'cac'
 
+const configPath = resolveFile('commoners.config', ['.ts', '.js'])
+
+const desktopTargets = ['desktop','electron', 'tauri']
+const mobileTargets = ['mobile', 'android', 'ios']
+const webTargets = ['web', 'pwa']
+const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
+
+function preprocessTarget(target) {
+    if (typeof target === 'string') {
+        if (!allTargets.includes(target)) {
+            console.error(`'${target}' is not a valid target. Allowed targets: ${allTargets.join(', ')}`)
+            process.exit(1)
+        }
+    }
+}
+
 const cli = cac()
 
-cli.option('--outDir <path>', 'Choose an output directory') // Will be directed to the private directory
+// Launch the specified build
+cli.command('launch', 'Launch your build application')
+.option('--target <target>', 'Choose a target build to launch', { default: 'web' })
+.action((options) => {
+    preprocessTarget(options.target)
+    launch(options)
+})
 
-cli.option('--target <target>', 'Choose a build target', { default: 'web' })
+// Share services 
+cli.command('share', 'Share the application')
+.option('--service <name>', 'Share specific service(s)')
+.option('--port <number>', 'Choose a port to share your services at')
+.action((options) => {
+    share(configPath, options.port, {
+        services: options.service,
+        port: options.port || process.env.PORT 
+    })
+})
 
-cli.option('--port <number>', 'Choose a target port')
+// Build the application using the specified settings
+cli.command('build', 'Build the application', { ignoreOptionDefaultValue: true })
+.option('--target <target>', 'Choose a build target', { default: 'web' })
+.option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
+.option('--services', 'Build all services')
+.option('--service <name>', 'Build specific service(s)')
+.option('--publish', 'Publish the application')
+.action((options) => {
 
-cli.option('--service <name>', 'Select specific services')
+    preprocessTarget(options.target)
 
-cli.option('--services', 'Run all services')
+    build(configPath, {
+        target: options.target, 
+        services: options.service || options.services,
+        publish: options.publish,
+        outDir: options.outDir
+    })
+})
+
+// Start the application in development mode
+cli.command('', 'Start the application', { ignoreOptionDefaultValue: true })
+.alias('start')
+.alias('dev')
+.alias('run')
+.option('--target <target>', 'Choose a build target to simulate', { default: 'web' })
+.option('--services', 'Run all services')
+.option('--service <name>', 'Run specific service(s)')
+.option('--port <number>', 'Choose a target port (single service only)')
+.action((options) => {
+    console.log(options)
+    preprocessTarget(options.target)
+    start(configPath, {
+        target: options.target, 
+        services: options.service || options.services,
+        port: options.port || process.env.PORT 
+    })
+})
 
 cli.help()
 cli.version('0.0.0')
@@ -33,58 +96,4 @@ const parsed = cli.parse()
 if (parsed.options.version) process.exit()
 if (parsed.options.help) process.exit()
 
-console.log(JSON.stringify(parsed, null, 2))
-
 initialize()
-
-const outDir = parsed.options.outDir
-const COMMAND = parsed.args[0] as string
-const TARGET = parsed.options.target
-
-// Confirm correct target
-const desktopTargets = ['desktop','electron', 'tauri']
-const mobileTargets = ['mobile', 'android', 'ios']
-const webTargets = ['web', 'pwa']
-const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
-if (typeof parsed.options.target === 'string') {
-    if (!allTargets.includes(TARGET)) {
-        console.error(`'${TARGET}' is not a valid target. Allowed targets: ${allTargets.join(', ')}`)
-        process.exit(1)
-    }
-}
-
-const configPath = resolveFile('commoners.config', ['.ts', '.js'])
-
-const port = parsed.options.port
-const customGlobalPort = port || process.env.PORT // Railway and simple sharing support
-
-const buildOptions = {
-    target: TARGET, 
-    services: parsed.options.service || parsed.options.services,
-    publish: parsed.options.publish,
-    outDir
-}
-
-// Launch the specified build
-if (COMMAND === 'launch') launch({ 
-    target: TARGET, 
-    outDir, 
-    port 
-})
-
-// Share services 
-else if (COMMAND === 'share') share(configPath, customGlobalPort, {
-    services: buildOptions.services,
-    port: customGlobalPort
-})
-
-// Build the application using the specified settings
-else if (COMMAND === 'build') build(configPath, buildOptions)
-
-// Start the application in development mode
-else if (!COMMAND) start(configPath, {
-    ...buildOptions,
-    port: customGlobalPort
-})
-
-else throw new Error(`'${COMMAND}' is an invalid command.`)

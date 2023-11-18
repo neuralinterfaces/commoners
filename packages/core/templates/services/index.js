@@ -77,10 +77,9 @@ export async function resolveService (
       if (autobuildExtensions.node.includes(extname(__src))) {
         const outDir = globalServiceWorkspacePath // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
         const pkgOut = `./${join(outDir, name)}`
-        const rollupOut = `./${join(outDir, name, `${name}.js`)}`
         resolvedConfig.build =  {
           src: __src,
-          rollupOut,
+          buildOut: `./${join(outDir, name, `${name}.js`)}`,
           pkgOut
         }
         if (isLocal(publishConfig)) resolvedConfig.src = `./${join(pkgOut, name)}`   
