@@ -10,19 +10,36 @@ Web builds are the default build target. These builds are intended to be deploye
 #### PWA
 Progressive Web Apps (PWAs) are web applications that can be installed on a device and accessed from the home screen. PWAs are supported on most modern browsers, and can be installed on both desktop and mobile devices—though they will have limited access to native features.
 
-`commoners` relies on [vite-plugin-pwa]() to generate the necessary files for a PWA. To enable this feature, simply add the `--web pwa` flag to your build command.
+`commoners` relies on [vite-plugin-pwa]() to generate the necessary files for a PWA. To enable this feature, simply add the `--target pwa` flag to your build command.
 
 ### Desktop
 Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
 
-`commoners` relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--desktop` flag to your build command.
-```
+`commoners` relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--target desktop` flag to your build command.
 
+#### Mac
+While code-signing, you may recieve a `CSSMER_TP_CERT_REVOKED` error, which will cause a `The application "X" can't be opened` error to appear when attempting to open the app.
+
+To circumvent this, provide appropriate credentials and certificates on your machine—or update the `electron-builder` options in your configuration file to ignore code-signing:
+
+```js
+export default {
+    // ...
+    electron: {
+        build: {
+            mac: {
+                identity: null
+            }
+        }
+    }
+    // ...
+}
+```
 
 ### Mobile
 Mobile builds are intended to be installed on a user's mobile device. These builds are accessible from the home screen, and have access to native features.
 
-`commoners` relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--mobile` flag to your build command.
+`commoners` relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--target mobile` flag to your build command.
 
 #### iOS
 If you are building for iOS, you will need to install the following dependencies on your Mac:

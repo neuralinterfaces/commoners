@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "Commoners"
-  text: "Building Solidarity across Platforms"
-  tagline: Write your application for web, desktop, and mobile—without the fuss.
+  text: "Build Solidarity ✊"
+  tagline: "Pure JavaScript apps, deployed everwhere."
   image:
     src: /logo.png
     alt: Commoners
