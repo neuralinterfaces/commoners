@@ -19,6 +19,7 @@ const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 const desktopTargets = ['desktop','electron', 'tauri']
 const mobileTargets = ['mobile', 'android', 'ios']
 const webTargets = ['web', 'pwa']
+const serviceTargets = ['services']
 const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
 
 function preprocessTarget(target) {
@@ -55,16 +56,16 @@ cli.command('share', 'Share the application')
 cli.command('build', 'Build the application', { ignoreOptionDefaultValue: true })
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
-.option('--services', 'Build all services')
+.option('--no-services', 'Skip building the services')
 .option('--service <name>', 'Build specific service(s)')
 .option('--publish', 'Publish the application')
 .action((options) => {
 
-    preprocessTarget(options.target)
+    if (options.target !== 'services') preprocessTarget(options.target)
 
     build(configPath, {
         target: options.target, 
-        services: options.service || options.services,
+        services: options.services === false ? false : options.service,
         publish: options.publish,
         outDir: options.outDir
     })
@@ -76,15 +77,11 @@ cli.command('', 'Start the application', { ignoreOptionDefaultValue: true })
 .alias('dev')
 .alias('run')
 .option('--target <target>', 'Choose a build target to simulate', { default: 'web' })
-.option('--services', 'Run all services')
-.option('--service <name>', 'Run specific service(s)')
 .option('--port <number>', 'Choose a target port (single service only)')
 .action((options) => {
-    console.log(options)
     preprocessTarget(options.target)
     start(configPath, {
         target: options.target, 
-        services: options.service || options.services,
         port: options.port || process.env.PORT 
     })
 })

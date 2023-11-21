@@ -11,9 +11,7 @@ import { existsSync } from "node:fs";
 
 export default async function ( configPath: string, options: StartOptions ) {
 
-        const { services, port } = options
-
-        const onlyRunServices = !options.target && services
+        const { port } = options
 
         const target = ensureTargetConsistent(options.target)
 
@@ -21,10 +19,7 @@ export default async function ( configPath: string, options: StartOptions ) {
 
         const config = await loadConfigFromFile(configPath) // Load configuration file only once
 
-        const resolvedConfig = await resolveConfig(config, {
-            services,
-            customPort: port
-        });
+        const resolvedConfig = await resolveConfig(config, { customPort: port });
 
 
         const isMobileTarget = isMobile(target)
@@ -39,43 +34,35 @@ export default async function ( configPath: string, options: StartOptions ) {
             createServices(resolvedServices) // Run services in parallel
         }
 
-        // Only run services
-        if (onlyRunServices) await createAllServices()
+        const isDesktopTarget = isDesktop(target)
 
-        // Run services alongside the frontend
+        // Build for mobile before moving forward
+        if (isMobileTarget) await build(configPath, options, resolvedServices)
+
+        // Manually clear and build the output assets
         else {
 
-            const isDesktopTarget = isDesktop(target)
+            await buildAssets({
+                config: configPath, // NOTE: Configuration path is required for proper plugin transfer...
+                outDir: globalTempDir,
+                services: false
+            })
 
-            // Build for mobile before moving forward
-            if (isMobileTarget) await build(configPath, options, resolvedServices)
+        }
 
-            // Manually clear and build the output assets
-            else {
+        // Configure the desktop instance
+        if (isDesktopTarget) await configureForDesktop(globalTempDir) // Configure the desktop instance
 
-                await buildAssets({
-                    config: configPath, // NOTE: Configuration path is required for proper plugin transfer...
-                    outDir: globalTempDir,
-                    services: false
-                })
+        // Create all services
+        else await createAllServices()
 
-            }
-
-            // Configure the desktop instance
-            if (isDesktopTarget) await configureForDesktop(globalTempDir) // Configure the desktop instance
-
-            // Create all services
-            else await createAllServices()
-
-            // Serve the frontend (if not mobile)
-            if (!isMobileTarget) {
-                
-                await createServer(resolvedConfig, { 
-                    printUrls: !isDesktopTarget, 
-                    outDir: globalTempDir,
-                    target
-                })
-            }
-
+        // Serve the frontend (if not mobile)
+        if (!isMobileTarget) {
+            
+            await createServer(resolvedConfig, { 
+                printUrls: !isDesktopTarget, 
+                outDir: globalTempDir,
+                target
+            })
         }
 }

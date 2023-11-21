@@ -2,20 +2,24 @@
 
 ## Main Commands
 ### commoners
-Start your project in development mode 
+Run your project in development mode. 
 
 ### commoners build
-Build the project assets
+Build the project assets.
 - `--outDir [path]` - The output directory for the build (`string`)
 - `--publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish)) (`--desktop` only)
     - **Note:** While [other providers](https://www.electron.build/configuration/publish.html#publishers) are possible to use, they have not been tested with this command.
 
+#### Service Selection
+- `--target services` - Build only the services
+- `--no-services` - Skip building services
+
 ### commoners launch
-Launch your built application
+Launch your built application.
 - `--outDir [path]` - The output directory of the build to launch (`string`)
 
 ### commoners share
-Share the application's services
+Share the application's services—or simply run them on their own.
 - `--port` - The port to use for the service gateway (`number`)
 - `--service [name]` - For specific service(s) (`string`)
 
@@ -35,6 +39,5 @@ Specify the target platform for the command.
         - `android` - For Android
     
 
-### Service Selection (`commoners` / `build`)
-- `--services` - Apply action to **all services** defined in the configuration file (`boolean`)
+### Service Selection (`commoners` / `build` / `share`)
 - `--service [name]` - Apply action to **specific service(s)** (`string`). Can be used multiple times.

@@ -23,6 +23,7 @@ export type StartOptions = UniversalBuildOptions  & { port: PortType }
 export type ServiceOptions = boolean | string | string[]
 
 export type BuildOptions = UniversalBuildOptions & {
+    target: TargetType | 'services'
     publish?: boolean | PublishOptions['publish'],
 }
 

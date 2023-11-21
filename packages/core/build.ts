@@ -26,16 +26,17 @@ export default async function build (
     localServices?: ResolvedConfig['services']
 ) {
 
-    const target = ensureTargetConsistent(options.target)
+    // `services` is a valid target in the build step
+    const target = options.target === 'services' ? options.target : ensureTargetConsistent(options.target)
 
     const defaultOutDir = join(globalWorkspacePath, target)
 
     const { 
-        services: rebuildServices,
-        publish,
+        services: rebuildServices = true,
+        publish
     } = options
 
-    const onlyBuildServices = !options.target && rebuildServices
+    const onlyBuildServices = options.target === 'services'
 
     console.log(`\n✊ Building ${chalk.greenBright(NAME)} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
 
