@@ -20,7 +20,7 @@ Launch your built application.
 
 ### commoners share
 Share the application's services—or simply run them on their own.
-- `--port` - The port to use for the service gateway (`number`)
+- `--port` - The port to use for the service gateway (`number`). Can also use the `COMMONERS_SHARE_PORT` environment variable.
 - `--service [name]` - For specific service(s) (`string`)
 
 ## Shared Options

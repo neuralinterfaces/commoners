@@ -7,7 +7,7 @@ Connect to shared services (exposed via `commoners share`) available on your loc
     - `env` - The service's environment variables
 
 - `port` - The port to use for the service gateway (`number`)
-    - Optional if you have a `PORT` environment variable
+    - Optional if you have a `COMMONERS_SHARE_PORT` environment variable
 
 
 ## Example
