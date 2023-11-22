@@ -4,8 +4,7 @@ import {
     share, 
     build, 
     launch, 
-    start, 
-    initialize
+    start
 } 
 from "@commoners/solidarity";
 
@@ -20,7 +19,7 @@ const desktopTargets = ['desktop','electron', 'tauri']
 const mobileTargets = ['mobile', 'android', 'ios']
 const webTargets = ['web', 'pwa']
 const serviceTargets = ['services']
-const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
+const allTargets = [...serviceTargets, ...desktopTargets, ...mobileTargets, ...webTargets]
 
 function preprocessTarget(target) {
     if (typeof target === 'string') {
@@ -46,9 +45,13 @@ cli.command('share', 'Share the application')
 .option('--service <name>', 'Share specific service(s)')
 .option('--port <number>', 'Choose a port to share your services at')
 .action((options) => {
-    share(configPath, options.port, {
+    
+    const sharePort = options.port || process.env.COMMONERS_SHARE_PORT
+    const customPort = process.env.PORT ? parseInt(process.env.PORT) : undefined
+
+    share(configPath, sharePort, {
         services: options.service,
-        port: options.port || process.env.PORT 
+        port: customPort
     })
 })
 
@@ -92,5 +95,3 @@ cli.version('0.0.0')
 const parsed = cli.parse()
 if (parsed.options.version) process.exit()
 if (parsed.options.help) process.exit()
-
-initialize()

@@ -43,6 +43,7 @@ async function buildService({ build, outPath }, name, force = false){
 
         if (!build) return
 
+        // Intelligently build service only if it hasn't been built yet (unless forced)
         const hasBeenBuilt = existsSync(outPath)
         if (hasBeenBuilt && !force) return
 
@@ -52,22 +53,14 @@ async function buildService({ build, outPath }, name, force = false){
         if (typeof build === 'object') {
             const { src, buildOut, pkgOut } = build
 
-            await ViteBuild({
+            await esbuild.build({ 
+                entryPoints: [ src ],
+                bundle: true,
                 logLevel: 'silent',
-                build: {
-                    outDir: dirname(buildOut),
-                    lib: {
-                        entry: src,
-                        name,
-                        formats: ['cjs'],
-                        fileName: () => basename(buildOut)
-                    },
-                    rollupOptions: { 
-                        external: [
-                            ...nodeBuiltIns
-                        ]
-                    }
-                },
+                outfile: buildOut,
+                format: 'cjs', 
+                platform: 'node', 
+                external: [ "*.node" ]
             })
 
  
@@ -243,7 +236,6 @@ export const buildAssets = async ({
 
                 // Force a build format if the proper extension is specified
                 const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
-
 
                 const buildForNode = () => buildForBrowser({ platform: 'node', external: [ "*.node" ] })
                 

@@ -94,7 +94,7 @@ type PublishedServiceMetadata = {
 }
 
 type GeneratedServiceMetadata = {
-    abspath: string,
+    filepath: string,
     url: string
     host: string
 }
@@ -182,15 +182,17 @@ export type ResolvedConfig = BaseConfig & {
 
 // ------------------- Global Object Declaration -------------------
 
+type ExposedService = {
+    url: string,
+    filepath: string
+}
+
 type ExposedServices = {
-    [x:string]: {
-        url: string
-    }
+    [x:string]: ExposedService
 }
 
 type ExposedDesktopServices = {
-    [x:string]: {
-        url: string,
+    [x:string]: ExposedService & {
         onActivityDetected: () => void,
         onClosed: () => void,
         status: null | boolean

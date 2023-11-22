@@ -1,5 +1,5 @@
 import path, { join } from "node:path"
-import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath } from "./globals.js"
+import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -25,6 +25,9 @@ export default async function build (
     options: BuildOptions,
     localServices?: ResolvedConfig['services']
 ) {
+
+
+    initialize()
 
     // `services` is a valid target in the build step
     const target = options.target === 'services' ? options.target : ensureTargetConsistent(options.target)

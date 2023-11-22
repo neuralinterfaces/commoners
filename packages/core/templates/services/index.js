@@ -105,8 +105,8 @@ export async function resolveService (
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
 
-  if (base) resolvedConfig.abspath = join(base, src) // Expose the absolute path of the file in development mode
-  else resolvedConfig.abspath = src // Just use the raw sourcde
+  if (base) resolvedConfig.filepath = join(base, src) // Expose the absolute path of the file in development mode
+  else resolvedConfig.filepath = src // Just use the raw sourcde
 
     // Always create a URL for local services
   if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
@@ -128,7 +128,7 @@ export async function start (config, id, opts = {}) {
 
   config = await resolveService(config, id, opts)
 
-  const { src, abspath } = config
+  const { src, filepath } = config
 
   if (isValidURL(src)) return
 
@@ -142,10 +142,7 @@ export async function start (config, id, opts = {}) {
       const env = { ...process.env, PORT: config.port, HOST: config.host }
       if (ext === '.js') childProcess = node(config, env)
       else if (ext === '.py') childProcess = python(config, env)
-      else if (!ext || ext === '.exe') {
-        console.log('Spawning!', abspath, env.PORT, env.HOST)
-        childProcess = spawn(abspath, [], { env })
-      }
+      else if (!ext || ext === '.exe') childProcess = spawn(filepath, [], { env })
     } catch (e) {
       error = e
     }
@@ -208,7 +205,7 @@ function isValidService(info) {
 }
 
 export function sanitize(services) {
-  const propsToInclude = [ 'url' ]
+  const propsToInclude = [ 'url', 'filepath' ]
   const info = {} 
   Object.entries(services).forEach(([id, sInfo]) => {
     if (!isValidService(sInfo)) return

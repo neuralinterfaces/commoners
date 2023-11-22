@@ -36,7 +36,7 @@ function loadDesktop(
 
 ) {
 
-    if (!port && process.env.PORT) port = parseInt(process.env.PORT) // Fallback to the port provided by the environment
+    if (!port && process.env.COMMONERS_SHARE_PORT) port = parseInt(process.env.COMMONERS_SHARE_PORT) // Fallback to the port provided by the environment
     if (!port) return console.error(`[commoners:local-services] No port provided`)
 
     console.log(`[${pkg.name}]: Searching for local services on port ${port}\n`)
@@ -45,10 +45,10 @@ function loadDesktop(
 
     const localIP = getLocalIP(require('node:os').networkInterfaces)
 
-    const active: { [x: string]: string[] } = {}
+    const active: { [x: string]: string[] | null } = {}
 
     this.on(`${name}.get`, () => {
-        Object.entries(active).map(([ip, ports]) => ports.map(port => getURL(ip, port))).flat().forEach(service => send(`${name}.found`, service))
+        Object.entries(active).filter(arr => !!arr[1]).map(([ip, ports]) => ports.map(port => getURL(ip, port))).flat().forEach(service => send(`${name}.found`, service))
     })
 
     // Check for available services every 2 seconds
@@ -58,31 +58,39 @@ function loadDesktop(
             const ip = [...localIP.split('.').slice(0, 3), i].join('.')
 
             checkPort(port, ip, (_, status) => {
+
                 if (status == "open") {
 
-                    http.get(getURL(ip, port), res => {
+                    const url = getURL(ip, port)
+
+                    http.get(url, res => {
 
                         if (res.statusCode === 200) {
 
-                            if (active[ip]) return
+                            if (ip in active) return
 
                             const data: string[] = [];
 
                             res.on('data', chunk => data.push(chunk));
 
                             res.on('end', () => {
-                                const { commoners, services = [] } = JSON.parse(Buffer.concat(data).toString());
-                                if (commoners) {
-                                    if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
-                                    active[ip] = services
-                                    services.forEach(port => send(`${name}.found`, getURL(ip, port)))
+                                try {
+                                    const { commoners, services = [] } = JSON.parse(Buffer.concat(data).toString());
+                                    if (commoners) {
+                                        if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
+                                        active[ip] = services
+                                        services.forEach(port => send(`${name}.found`, getURL(ip, port)))
+                                    }
+                                } catch {
+                                    active[ip] = null
                                 }
                             });
 
                         } else res.destroy()
                     })
-                } else if (active[ip]) {
-                    active[ip].forEach(port => send(`${name}.closed`, getURL(ip, port)));
+                } else if (ip in active) {
+                    const info = active[ip]
+                    if (info) info.forEach(port => send(`${name}.closed`, getURL(ip, port)));
                     delete active[ip]
                 }
             });

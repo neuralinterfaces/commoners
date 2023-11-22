@@ -41,10 +41,12 @@ const runBeforeExitCallbacks = () => {
 }
 
 export const initialize = () => {
+
     if (existsSync(globalTempDir)) {
         console.error(`\n👎 Only one development instance of ${chalk.redBright(NAME)} can be run at a time\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
         process.exit()
     }
+    
     process.on('beforeExit', runBeforeExitCallbacks);
 
     process.on('exit', runBeforeExitCallbacks);
