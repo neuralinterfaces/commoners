@@ -1,6 +1,6 @@
 import path, { join } from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
-import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
+import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
@@ -26,7 +26,6 @@ export default async function build (
     localServices?: ResolvedConfig['services']
 ) {
 
-
     initialize()
 
     // `services` is a valid target in the build step
@@ -35,7 +34,7 @@ export default async function build (
     const defaultOutDir = join(globalWorkspacePath, target)
 
     const { 
-        services: rebuildServices = true,
+        services: rebuildServices = validDesktopTargets.includes(target),
         publish
     } = options
 
