@@ -38,7 +38,7 @@ export default async function build (
         publish
     } = options
 
-    const onlyBuildServices = options.target === 'services'
+    const onlyBuildServices = options.target === 'services' || (!options.target && rebuildServices)
 
     console.log(`\n✊ Building ${chalk.greenBright(NAME)} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
 

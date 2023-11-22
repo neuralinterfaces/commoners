@@ -12,6 +12,9 @@ from "@commoners/solidarity";
 import { resolveFile } from "./utils.js";
 
 import cac from 'cac'
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from "node:path";
 
 const configPath = resolveFile('commoners.config', ['.ts', '.js'])
 
@@ -90,7 +93,12 @@ cli.command('', 'Start the application', { ignoreOptionDefaultValue: true })
 })
 
 cli.help()
-cli.version('0.0.0')
+
+// Get package.json version
+const pkgFileName = 'package.json'
+const __dirname = dirname(fileURLToPath(import.meta.url)) //process.cwd() //fileURLToPath(new URL('.', import.meta.url));
+const version = JSON.parse(readFileSync(join(__dirname, `${existsSync(join(__dirname, pkgFileName)) ? '' : '../'}${pkgFileName}`)).toString()).version
+cli.version(version)
 
 const parsed = cli.parse()
 if (parsed.options.version) process.exit()
