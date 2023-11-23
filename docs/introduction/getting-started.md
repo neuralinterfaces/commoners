@@ -108,7 +108,7 @@ Plugins are collections of JavaScript functions that run at different points dur
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
 
-To declare a plugin, you simply add the relevant configuration object in the `plugins` array of the `commoners.config.js` file:
+To declare a plugin, you simply add the relevant configuration object in the `plugins` array of your [Configuration File](./config.md) file:
 ```js
 export default {
     plugins: [

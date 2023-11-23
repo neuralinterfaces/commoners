@@ -11,19 +11,16 @@ import { getLocalIP } from './utils/ip/cross-platform.js'
 import { networkInterfaces } from 'node:os';
 
 
-export default async function (
-    config: UserConfig | ResolvedConfig | string,
-    sharePort: PortType, 
-    {
-        services,
-        port,
-    }: ShareOptions = {}
-) {
+
+export default async function (opts: ShareOptions) {
+
+    const services = opts.share?.services
+    const sharePort = opts.share?.port
+    const port = opts.port
 
     console.log(`\n✊ Sharing ${chalk.greenBright(NAME)} services ${services ? `(${services})` : ''}\n`)
 
-    if (typeof config === 'string') config = await loadConfigFromFile(config)
-    const resolvedConfig = await resolveConfig(config, { services, customPort: sharePort === port ? undefined : port })
+    const resolvedConfig = await resolveConfig(opts, { services, customPort: sharePort === port ? undefined : port })
 
     const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 
@@ -50,5 +47,7 @@ export default async function (
         '0.0.0.0', // All IPs
         () => console.log(`Services shared at ${chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
     );
+
+    return server
 
 }

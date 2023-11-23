@@ -3,10 +3,11 @@ import { unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit } from './globals.js'
+import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit, NAME } from './globals.js'
 import { ModeType, ResolvedConfig, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
+import { resolveFile } from './utils/files.js'
 
 // Exports
 export * from './globals.js'
@@ -17,8 +18,9 @@ export { default as start } from './start.js'
 
 export const defineConfig = (o: UserConfig): UserConfig => o
 
-// NOTE: Simplified from https://github.com/vitejs/vite/blob/c7969597caba80cf5d3348cba9f18ad9d14e9295/packages/vite/src/node/config.ts
-export async function loadConfigFromFile(filepath: string) {
+export const resolveConfigPath = () => resolveFile('commoners.config', ['.ts', '.js'])
+
+export async function loadConfigFromFile(filepath: string = resolveConfigPath()) {
 
     if (!filepath) return {} as UserConfig
 
@@ -63,7 +65,7 @@ type ResolveOptions = {
 export async function resolveConfig(
     o: UserConfig = {}, 
     { 
-        services, 
+        services = true, 
         customPort,
         mode
     } : ResolveOptions = {}
@@ -71,12 +73,14 @@ export async function resolveConfig(
 
     const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
 
+    if (!copy.name) copy.name = NAME
+
     if (!copy.electron) copy.electron = {}
 
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
 
     const isServiceOptionBoolean = typeof services === 'boolean'
-    if (isServiceOptionBoolean && !services) copy.services = undefined // Unset services (if set to false)
+    if (isServiceOptionBoolean && services === false) copy.services = undefined // Unset services (if set to false)
 
     copy.services = await resolveAll(copy.services, { mode }) // Always resolve all backend services before going forward
 

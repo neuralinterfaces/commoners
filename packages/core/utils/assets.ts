@@ -8,11 +8,9 @@ import { copyAsset } from './copy.js'
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { ResolvedConfig, UserConfig } from "../types.js"
-import { loadConfigFromFile, resolveConfig } from "../index.js"
+import { loadConfigFromFile, resolveConfig, resolveConfigPath } from "../index.js"
 
 import pkg from 'pkg'
-import { build as ViteBuild } from 'vite'
-import { nodeBuiltIns } from "./config.js";
 
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
@@ -84,19 +82,10 @@ async function buildService({ build, outPath }, name, force = false){
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 
-export const getAssets = async (config: AssetConfig, services?: AssetServiceOption ) => {
+export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) => {
     
-    let configPath, resolvedConfig
-
-    if (typeof config === 'string') {
-        configPath = config
-        resolvedConfig = await resolveConfig(await loadConfigFromFile(config))
-    }  else if (config && typeof config === 'object' && 'path' in config) {
-        configPath = config.path
-        resolvedConfig = config.resolved
-    } 
-    
-    else resolvedConfig = await resolveConfig(config as UserConfig)
+    const configPath = resolveConfigPath()
+    const resolvedConfig = await resolveConfig(config)
 
     const configExtensionTargets: ['cjs', 'mjs'] = ['cjs', 'mjs']
 
@@ -119,7 +108,7 @@ export const getAssets = async (config: AssetConfig, services?: AssetServiceOpti
     if (existsSync('.env')) assets.copy.push('.env') // Copy .env file if it exists
     
     // Handle Provided Services (copy / build)
-    if (services !== false) {
+    if (mode !== false) {
 
         const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
        
@@ -134,10 +123,10 @@ export const getAssets = async (config: AssetConfig, services?: AssetServiceOpti
 
             const hasBuild = resolvedService.build
 
-            const isElectron = services === 'electron' || services === 'electron-rebuild' 
+            const isElectron = mode === 'electron' || mode === 'electron-rebuild' 
             if (hasBuild && isURL && isElectron) continue // Do not copy if file is a url (Electron-only)
 
-            const forceRebuild = services === 'electron-rebuild' || services === true
+            const forceRebuild = mode === 'electron-rebuild' || mode === true
             
             if (!isURL) addServiceAssets.call(assets, resolved)
 
@@ -164,18 +153,9 @@ export const clear = (outDir: string) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
+export const buildAssets = async (config: UserConfig, services?: AssetServiceOption) => {
 
-type AssetConfig = { path: string, resolved: ResolvedConfig } | ResolvedConfig | string
-
-export const buildAssets = async ({
-    config, 
-    outDir,
-    services,
-}: {
-    config: AssetConfig,
-    outDir: string,
-    services?: AssetServiceOption
-}) => {
+    const { outDir } = config
 
     mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
 

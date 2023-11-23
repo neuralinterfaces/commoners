@@ -4,25 +4,24 @@ import {
     share, 
     build, 
     launch, 
-    start
+    start,
+    loadConfigFromFile
 } 
 from "@commoners/solidarity";
 
 // Utilities
-import { resolveFile } from "./utils.js";
-
 import cac from 'cac'
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from "node:path";
-
-const configPath = resolveFile('commoners.config', ['.ts', '.js'])
+import { dirname, join, resolve } from "node:path";
 
 const desktopTargets = ['desktop','electron', 'tauri']
 const mobileTargets = ['mobile', 'android', 'ios']
 const webTargets = ['web', 'pwa']
 const serviceTargets = ['services']
 const allTargets = [...serviceTargets, ...desktopTargets, ...mobileTargets, ...webTargets]
+
+const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) => Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
 function preprocessTarget(target) {
     if (typeof target === 'string') {
@@ -47,14 +46,16 @@ cli.command('launch', 'Launch your build application')
 cli.command('share', 'Share the application')
 .option('--service <name>', 'Share specific service(s)')
 .option('--port <number>', 'Choose a port to share your services at')
-.action((options) => {
+.action(async (options) => {
     
     const sharePort = options.port || process.env.COMMONERS_SHARE_PORT
     const customPort = process.env.PORT ? parseInt(process.env.PORT) : undefined
 
-    share(configPath, sharePort, {
-        services: options.service,
-        port: customPort
+    const config = await loadConfigFromFile()
+
+    share({
+        ...config,
+        share: reconcile(config.share, options, { port: sharePort || customPort })
     })
 })
 
@@ -65,15 +66,15 @@ cli.command('build', 'Build the application', { ignoreOptionDefaultValue: true }
 .option('--no-services', 'Skip building the services')
 .option('--service <name>', 'Build specific service(s)')
 .option('--publish', 'Publish the application')
-.action((options) => {
+.action(async (options) => {
 
     if (options.target !== 'services') preprocessTarget(options.target)
 
-    build(configPath, {
-        target: options.target, 
-        services: options.services === false ? false : options.service,
-        publish: options.publish,
-        outDir: options.outDir
+    const config = await loadConfigFromFile()
+
+    build({
+        ...config,
+        build: reconcile(config.build, options)
     })
 })
 
@@ -84,12 +85,10 @@ cli.command('', 'Start the application', { ignoreOptionDefaultValue: true })
 .alias('run')
 .option('--target <target>', 'Choose a build target to simulate', { default: 'web' })
 .option('--port <number>', 'Choose a target port (single service only)')
-.action((options) => {
+.action(async (options) => {
     preprocessTarget(options.target)
-    start(configPath, {
-        target: options.target, 
-        port: options.port || process.env.PORT 
-    })
+    const startOpts = reconcile(await loadConfigFromFile(), options, { port: process.env.PORT ? parseInt(process.env.PORT) : undefined })
+    start(startOpts)
 })
 
 cli.help()

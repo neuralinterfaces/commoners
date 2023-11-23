@@ -1,6 +1,6 @@
 import path, { join } from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
-import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
+import { BuildOptions, ResolvedConfig, UserConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
@@ -21,76 +21,62 @@ const tempMobileDir = join(globalTempDir, 'mobile')
 
 // Types
 export default async function build (
-    configPath: string, // Require configuration path
-    options: BuildOptions,
-    localServices?: ResolvedConfig['services']
+    opts: BuildOptions,
+    devServices?: ResolvedConfig['services'],
 ) {
+
+    const buildTarget = opts.build?.target ?? opts.target
 
     initialize()
 
     // `services` is a valid target in the build step
-    const target = options.target === 'services' ? options.target : ensureTargetConsistent(options.target)
+    const target = buildTarget === 'services' ? buildTarget : ensureTargetConsistent(buildTarget)
 
     const defaultOutDir = join(globalWorkspacePath, target)
 
     const { 
         services: rebuildServices = validDesktopTargets.includes(target),
         publish
-    } = options
+    } = opts.build ?? {}
 
-    const onlyBuildServices = options.target === 'services' || (!options.target && rebuildServices)
-
-    console.log(`\n✊ Building ${chalk.greenBright(NAME)} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
-
+    const onlyBuildServices = target === 'services' || (!buildTarget && rebuildServices)
 
     // Setup cleanup commands for after desktop build
     const isElectronBuild = target === 'electron'
     const isDesktopBuild = isDesktop(target)
     const isMobileBuild = isMobile(target)
 
-    let outDir = options.outDir ?? defaultOutDir
+    let outDir = opts.outDir ?? defaultOutDir
     if (isElectronBuild) outDir = tempElectronDir
     else if (isMobileBuild) outDir = tempMobileDir
     
-    const resolvedConfig = await resolveConfig(await loadConfigFromFile(configPath), { 
-        services: rebuildServices,
-
-        // If no local services, this is a production build of some sort
-        mode: localServices ? undefined : (isDesktopBuild || onlyBuildServices ? 'local' : 'remote')
+    const resolvedConfig = await resolveConfig(opts, { 
+        services: isDesktopBuild ? undefined : rebuildServices, // Always maintain services for desktop builds
+        mode: devServices ? undefined : (isDesktopBuild || onlyBuildServices ? 'local' : 'remote') // If no local services, this is a production build of some sort
     })
-    
-    // Ensure local services are resolved with the same information
-    if (localServices) resolvedConfig.services = localServices
+
+    const name = resolvedConfig.name
+
+    console.log(`\n✊ Building ${chalk.greenBright(name)} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
+
+    if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
     const toRebuild = {
         assets: !onlyBuildServices, // Rebuild frontend unless services are explicitly requested
         services: !!rebuildServices // Must explicitly decide to build services (if not desktop build)
     }
 
-    // Clear only if both are going to be rebuilt    
-    if (rebuildServices === true)  await clear(join(globalWorkspacePath, 'services')) // Clear all services and force rebuild
+    if (toRebuild.services)  await clear(join(globalWorkspacePath, 'services'))
     if (toRebuild.assets) await clear(outDir)
 
     // Build assets
     if (toRebuild.assets) {
         if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await ViteBuild(resolveViteConfig(resolvedConfig, { 
-            target,
-            outDir
-        }))  // Build the standard output files using Vite. Force recognition as build
+        await ViteBuild(resolveViteConfig(resolvedConfig, { target, outDir }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // Create the standard output files
-
-    const toUnpack = await buildAssets({
-        config: {
-            path: configPath,
-            resolved: resolvedConfig
-        },
-        outDir,
-
-        services: isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false
-    })
+    const toUnpack = await buildAssets({ ...resolvedConfig, outDir }, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
     
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
@@ -101,9 +87,9 @@ export default async function build (
 
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
-        buildConfig.productName = NAME
+        buildConfig.productName = name
 
-        buildConfig.directories.output = options.outDir ?? defaultOutDir
+        buildConfig.directories.output = opts.outDir ?? defaultOutDir
 
         buildConfig.files = [ 
             `${outDir}/**`, 
@@ -143,12 +129,12 @@ export default async function build (
         buildConfig.win.icon = winIcon ? path.join(outDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 
-        const opts: CliOptions = { config: buildConfig as any }
+        const buildOpts: CliOptions = { config: buildConfig as any }
 
-        if (publish) opts.publish = typeof publish === 'string' ? publish : 'always'
+        if (publish) buildOpts.publish = typeof publish === 'string' ? publish : 'always'
         else delete buildConfig.publish
 
-        await ElectronBuilder(opts)
+        await ElectronBuilder(buildOpts)
 
     }
 

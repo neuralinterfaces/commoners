@@ -24,7 +24,7 @@ export const userPkg = getJSON('package.json')
 
 // Pre-loaded configuration objects
 export const RAW_NAME = userPkg.name
-export const NAME = userPkg.productName ?? RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
+export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
 export const VERSION = userPkg.version
 export const APPID = `com.${RAW_NAME}.app`
 
@@ -43,7 +43,7 @@ const runBeforeExitCallbacks = () => {
 export const initialize = () => {
 
     if (existsSync(globalTempDir)) {
-        console.error(`\n👎 Only one development instance of ${chalk.redBright(NAME)} can be run at a time\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
+        console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
         process.exit()
     }
     

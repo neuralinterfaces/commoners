@@ -12,31 +12,7 @@ type OutDirType = string
 
 export type PortType = number
 
-type UniversalBuildOptions = {
-    target: TargetType,
-    services?: ServiceOptions,
-    outDir?: string
-}
-
-export type StartOptions = UniversalBuildOptions  & { port: PortType }
-
 export type ServiceOptions = boolean | string | string[]
-
-export type BuildOptions = UniversalBuildOptions & {
-    target: TargetType | 'services'
-    publish?: boolean | PublishOptions['publish'],
-}
-
-export type ShareOptions = {
-    port?: PortType,
-    services?: ServiceOptions
-}
-
-export type LaunchOptions = {
-    target: TargetType,
-    outDir?: OutDirType
-    port?: PortType
-}
 
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
 
@@ -164,19 +140,50 @@ type ElectronOptions = {
 
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
-    icon: IconType
+    name: string,
+    target: TargetType,
+    outDir: OutDirType,
+
+    port?: PortType, // Default Port (single service)
+
+    icon: IconType,
     plugins: PluginType[],
     electron: ElectronOptions
     pwa: PWAOptions
+    launch: {
+        port: PortType,
+        services?: ServiceOptions
+    }
+    services?: { [x: string]: UserService } | false,
 }
 
-export type UserConfig = Partial<BaseConfig> & {
-    services?: { [x: string]: UserService },
+export type UserConfig = Partial<BaseConfig>
+
+export type ShareOptions = BaseConfig & {
+    share?: {
+        port: PortType,
+        services?: ServiceOptions
+    }
+}
+
+// NOTE: No need for configuration-related options
+export type LaunchOptions = {
+    target: TargetType,
+    port?: PortType,
+    outDir?: OutDirType
+}
+
+export type BuildOptions = BaseConfig & {
+    build?: {
+        target?: TargetType,
+        publish?: boolean | PublishOptions['publish'],
+        services?: ServiceOptions
+    }
 }
 
 export type ResolvedConfig = BaseConfig & {
     services: {
-        [x: string]: ResolvedService // FIX
+        [x: string]: ResolvedService
     }
 }
 

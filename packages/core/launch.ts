@@ -1,6 +1,6 @@
 
 import { existsSync} from 'node:fs';
-import { NAME, getBuildConfig, PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath } from './globals.js';
+import { NAME, PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath } from './globals.js';
 import { join } from 'node:path';
 import chalk from 'chalk';
 
@@ -20,7 +20,6 @@ export default async function (options: LaunchOptions) {
     const target = ensureTargetConsistent(options.target)
 
     console.log(`\n✊ Launching ${chalk.greenBright(NAME)} for ${target}\n`)
-
     
     const { 
         outDir = join(globalWorkspacePath, target),
