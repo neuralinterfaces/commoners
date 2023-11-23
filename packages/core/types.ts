@@ -122,7 +122,7 @@ type ValidNestedIconKey = typeof valid.icon[number] // | ValidNestedProperty // 
 // Complete Recursive Configurations
 type IconConfiguration = {[x in ValidNestedIconKey]?: BaseIconType }
 
-type IconType = BaseIconType | IconConfiguration
+export type IconType = BaseIconType | IconConfiguration
 
 // ------------------- PWA -------------------
 
@@ -140,6 +140,7 @@ type ElectronOptions = {
 
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
+
     name: string,
     target: TargetType,
     outDir: OutDirType,
@@ -150,14 +151,15 @@ type BaseConfig = {
     plugins: PluginType[],
     electron: ElectronOptions
     pwa: PWAOptions
-    launch: {
-        port: PortType,
-        services?: ServiceOptions
-    }
+
     services?: { [x: string]: UserService } | false,
 }
 
-export type UserConfig = Partial<BaseConfig>
+export type UserConfig = Partial<BaseConfig> & {
+    launch?: LaunchOptions,
+    share?: ShareOptions['share'],
+    build?: BuildOptions['build']
+}
 
 export type ShareOptions = BaseConfig & {
     share?: {

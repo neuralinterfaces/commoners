@@ -8,7 +8,7 @@ import { extname, join, resolve, sep } from 'node:path'
 import { rootDir, userPkg, NAME, APPID, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
-import { ResolvedConfig, ServerOptions, UserConfig, ViteOptions } from '../types.js'
+import { ResolvedConfig, ServerOptions, IconType, ViteOptions } from '../types.js'
 import chalk from 'chalk';
 
 const defaultOutDir = join(rootDir, 'dist')
@@ -32,7 +32,7 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
 
 
 type PWAOptions = {
-    icon: UserConfig['icon'],
+    icon: IconType,
     outDir: string
 }
 

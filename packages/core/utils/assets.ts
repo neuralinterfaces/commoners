@@ -8,7 +8,7 @@ import { copyAsset } from './copy.js'
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { ResolvedConfig, UserConfig } from "../types.js"
-import { loadConfigFromFile, resolveConfig, resolveConfigPath } from "../index.js"
+import { resolveConfig, resolveConfigPath } from "../index.js"
 
 import pkg from 'pkg'
 

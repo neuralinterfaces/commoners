@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { createServer } from './utils/server.js'
 import { NAME, createServices, loadConfigFromFile, resolveConfig } from './index.js';
 
-import { ResolvedConfig, UserConfig, ShareOptions, PortType } from './types.js';
+import { ShareOptions } from './types.js';
 
 import { updateServicesWithLocalIP } from './utils/ip/index.js'
 import { getLocalIP } from './utils/ip/cross-platform.js'
