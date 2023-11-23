@@ -20,7 +20,7 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@commoners/solidarity": "0.0.31",
+    "@commoners/solidarity": "0.0.33",
     "cac": "^6.7.14",
     "chalk": "^5.2.0"
   },
