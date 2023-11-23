@@ -6,7 +6,7 @@ import { getIcon } from "./utils/index.js"
 import * as mobile from './mobile/index.js'
 import { CliOptions, build as ElectronBuilder } from 'electron-builder'
 
-import { configureForDesktop, loadConfigFromFile, resolveConfig } from "./index.js"
+import { configureForDesktop, resolveConfig } from "./index.js"
 import { clear, buildAssets } from "./utils/assets.js"
 
 import { resolveViteConfig } from './vite/index.js'
