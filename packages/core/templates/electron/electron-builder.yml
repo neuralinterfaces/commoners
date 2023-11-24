@@ -1,29 +1,25 @@
 asar: false # Ensures service binaries can be executed
+
 directories:
   buildResources: build # AUGMENTED
   output: build
+
 afterSign: build/notarize.cjs # AUGMENTED
+
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
   createDesktopShortcut: always
-  
+
 mac:
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED
+  gatekeeperAssess: false  # Ensures code signing does not block builds
 
-  # Ensures code signing does not block builds
-  gatekeeperAssess: false
-
-dmg:
-  artifactName: ${name}-${version}.${ext}
 linux:
   target:
     - AppImage
     - snap
     - deb
-appImage:
-  artifactName: ${name}-${version}.${ext}
+
 npmRebuild: true
+
 publish:
   provider: github # Default to GitHub
