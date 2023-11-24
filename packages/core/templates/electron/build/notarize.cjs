@@ -8,16 +8,16 @@ module.exports = async (context) => {
     return
   }
 
-  const { appOutDir, appInfo } = context
+  const { appOutDir, packager } = context
+  
+  const { appInfo } = packager
 
-  const appId = `com.${appInfo.productName.toLowerCase().replaceAll(/\s+/g, '')}.app` // Ensure appId matches what is expected 
-
-  const appName = context.packager.appInfo.productFilename
+  const { productFilename, productName } = appInfo
 
   try {
     await notarize({
-      appBundleId: appId,
-      appPath: `${appOutDir}/${appName}.app`,
+      appBundleId: `com.${productName.toLowerCase().replaceAll(/\s+/g, '')}.app`, // Ensure appId matches from build.ts
+      appPath: `${appOutDir}/${productFilename}.app`,
       appleId: process.env.APPLE_ID,
       appleIdPassword: process.env.APPLE_ID_PASSWORD
     })
