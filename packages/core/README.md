@@ -4,8 +4,3 @@
 
 ## Documentation
 See https://commoners.dev
-
-
-js-yaml
-esbuild
-dotenv
