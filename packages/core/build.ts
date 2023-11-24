@@ -104,9 +104,9 @@ export default async function build (
         //     else return p
         // })
 
-        // NOTE: These variables don't get replaced on Windows
-        buildConfig.appId = buildConfig.appId.replace('${name}', RAW_NAME)
-        buildConfig.win.executableName = buildConfig.win.executableName.replace('${name}', RAW_NAME)
+        const nameToUse = buildConfig.productName.toLowerCase().replaceAll(/\s+/g, '')
+        buildConfig.appId = `com.${nameToUse}.app` // NOTE: Same as notarize.cjs
+        buildConfig.win.executableName = nameToUse
 
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {

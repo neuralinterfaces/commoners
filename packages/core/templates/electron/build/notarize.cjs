@@ -10,7 +10,7 @@ module.exports = async (context) => {
 
   const { appOutDir, appInfo } = context
 
-  const appId = `com.${appInfo.productName}.app` // Ensure appId matches what is expected 
+  const appId = `com.${appInfo.productName.toLowerCase().replaceAll(/\s+/g, '')}.app` // Ensure appId matches what is expected 
 
   const appName = context.packager.appInfo.productFilename
 
