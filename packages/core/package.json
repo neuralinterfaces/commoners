@@ -1,7 +1,7 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "0.0.36",
+  "version": "0.0.37",
   "type": "module",
   "license": "MIT",
   "types": "./dist/types/index.d.ts",
@@ -21,7 +21,7 @@
   "dependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron-toolkit/utils": "^1.0.2",
-    "@electron/notarize": "^1.2.3",
+    "@electron/notarize": "^2.2.0",
     "chalk": "^5.2.0",
     "dotenv": "^16.3.1",
     "electron": "^26.2.1",
