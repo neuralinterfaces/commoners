@@ -161,7 +161,7 @@ export type UserConfig = Partial<BaseConfig> & {
     build?: BuildOptions['build']
 }
 
-export type ShareOptions = BaseConfig & {
+export type ShareOptions = Partial<BaseConfig> & {
     share?: {
         port: PortType,
         services?: ServiceOptions
@@ -175,11 +175,12 @@ export type LaunchOptions = {
     outDir?: OutDirType
 }
 
-export type BuildOptions = BaseConfig & {
+export type BuildOptions = Partial<BaseConfig> & {
     build?: {
         target?: TargetType,
         publish?: boolean | PublishOptions['publish'],
         services?: ServiceOptions
+        sign?: boolean
     }
 }
 

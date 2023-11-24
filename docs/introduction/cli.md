@@ -7,12 +7,17 @@ Run your project in development mode.
 ### commoners build
 Build the project assets.
 - `--outDir [path]` - The output directory for the build (`string`)
-- `--publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish)) (`--target desktop` only)
+
+#### Desktop Builds
+- `--publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish))
     - **Note:** While [other providers](https://www.electron.build/configuration/publish.html#publishers) are possible to use, they have not been tested with this command.
+
+##### Mac
+- `--no-sign` - Skip code signing (`--target desktop` on Mac only)
+- `--no-services` - Skip building services
 
 #### Service Selection
 - `--target services` - Build only the services
-- `--target desktop --no-services` - Skip building services (desktop build)
 
 ### commoners launch
 Launch your built application.

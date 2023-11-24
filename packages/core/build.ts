@@ -36,7 +36,8 @@ export default async function build (
 
     const { 
         services: userRebuildServices = validDesktopTargets.includes(target),
-        publish
+        publish,
+        sign = true
     } = opts.build ?? {}
 
     const onlyBuildServices = target === 'services' || (!buildTarget && userRebuildServices)
@@ -97,6 +98,10 @@ export default async function build (
             `${outDir}/**`, 
         ]
 
+        // Ensure platform-specific configs exist
+        if (!buildConfig.mac) buildConfig.mac = {}
+        if (!buildConfig.win) buildConfig.win = {}
+
         // // Dynamic asar unpacking (which doesn't work for services)
         // buildConfig.asar = true
         // buildConfig.asarUnpack = toUnpack.map(p => {
@@ -129,6 +134,9 @@ export default async function build (
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
         buildConfig.mac.icon = macIcon ? path.join(outDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
         buildConfig.win.icon = winIcon ? path.join(outDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
+
+        if (sign === false) buildConfig.mac.identity = null // Disable code signing
+
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 
         const buildOpts: CliOptions = { config: buildConfig as any }

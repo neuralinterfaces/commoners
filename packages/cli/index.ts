@@ -64,6 +64,7 @@ cli.command('build', 'Build the application', { ignoreOptionDefaultValue: true }
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
 .option('--no-services', 'Skip building the services')
+.option('--no-sign', 'Skip code signing (desktop target on Mac only)')
 .option('--service <name>', 'Build specific service(s)')
 .option('--publish', 'Publish the application')
 .action(async (options) => {
