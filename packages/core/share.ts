@@ -24,7 +24,7 @@ export default async function (opts: ShareOptions) {
 
     const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 
-    const activeServices = await createServices(resolvedServices)
+    const serviceManager = await createServices(resolvedServices)
 
     if (!sharePort) throw new Error(`No port specified.`)
 
@@ -37,7 +37,7 @@ export default async function (opts: ShareOptions) {
             res.setHeader('Content-type', 'text/json');
             res.end(JSON.stringify({
                 commoners: process.env,
-                services: Array.from(new Set(Object.values(activeServices).filter(o => 'src' in o).map(o => o.port)))
+                services: Array.from(new Set(Object.values(serviceManager.active).filter(o => 'src' in o).map(o => o.port)))
             }))
         }
     })

@@ -1,4 +1,4 @@
-import path, { join } from "node:path"
+import path, { dirname, join } from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
@@ -16,28 +16,21 @@ import chalk from "chalk"
 
 import merge from './utils/merge.js'
 
-const tempElectronDir = join(globalTempDir, 'electron')
-const tempMobileDir = join(globalTempDir, 'mobile')
-
 // Types
 export default async function build (
-    opts: BuildOptions,
+    opts: BuildOptions = {},
     devServices?: ResolvedConfig['services'],
 ) {
 
     const buildTarget = opts.build?.target ?? opts.target
 
-    initialize()
-
     // `services` is a valid target in the build step
     const target = buildTarget === 'services' ? buildTarget : ensureTargetConsistent(buildTarget)
-
-    const defaultOutDir = join(globalWorkspacePath, target)
 
     const { 
         services: userRebuildServices = validDesktopTargets.includes(target),
         publish,
-        sign = true
+        sign = true,
     } = opts.build ?? {}
 
     const onlyBuildServices = target === 'services' || (!buildTarget && userRebuildServices)
@@ -47,16 +40,21 @@ export default async function build (
     const isDesktopBuild = isDesktop(target)
     const isMobileBuild = isMobile(target)
 
-    let outDir = opts.outDir ?? defaultOutDir
-    if (isElectronBuild) outDir = tempElectronDir
-    else if (isMobileBuild) outDir = tempMobileDir
-
     const rebuildServices = userRebuildServices || onlyBuildServices
     
     const resolvedConfig = await resolveConfig(opts, { 
         services: isDesktopBuild ? undefined : rebuildServices, // Always maintain services for desktop builds
         mode: devServices ? undefined : (isDesktopBuild || onlyBuildServices ? 'local' : 'remote') // If no local services, this is a production build of some sort
     })
+
+    let outDir;
+
+    const selectedOutDir = outDir = join(resolvedConfig.root, opts?.build?.outDir ?? join(globalWorkspacePath, target))
+
+    if (isElectronBuild || isMobileBuild) {
+        outDir = join(resolvedConfig.root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
+        initialize(dirname(outDir)) // Clear temporary directories
+    }
 
     const name = resolvedConfig.name
 
@@ -79,7 +77,10 @@ export default async function build (
     }
 
     // Create the standard output files
-    const toUnpack = await buildAssets({ ...resolvedConfig, outDir }, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
+    const configCopy = { ...resolvedConfig }
+    configCopy.build = { ...opts.build, outDir }  
+    
+    const toUnpack = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
     
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
@@ -92,7 +93,7 @@ export default async function build (
 
         buildConfig.productName = name
 
-        buildConfig.directories.output = opts.outDir ?? defaultOutDir
+        buildConfig.directories.output = selectedOutDir
 
         buildConfig.files = [ 
             `${outDir}/**`, 

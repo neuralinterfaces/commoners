@@ -1,0 +1,9 @@
+{
+  "appId": "com.commonersapp.app",
+  "appName": "Commoners App",
+  "webDir": ".commoners/.temp/mobile",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {}
+}

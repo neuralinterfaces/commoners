@@ -20,12 +20,12 @@ dotenv.config()
 
 export const globalWorkspacePath = '.commoners'
 
-export const userPkg = getJSON('package.json')
+export const userPkg = getJSON('package.json') ?? {}
 
 // Pre-loaded configuration objects
-export const RAW_NAME = userPkg.name
+export const RAW_NAME = userPkg.name ?? 'commoners-app' // Specify the raw product name
 export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
-export const VERSION = userPkg.version
+export const VERSION = userPkg.version ?? '0.0.0'
 export const APPID = `com.${RAW_NAME}.app`
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')
@@ -40,27 +40,31 @@ const runBeforeExitCallbacks = () => {
     })
 }
 
-export const initialize = () => {
+export const initialize = (tempDir = globalTempDir) => {
 
-    if (existsSync(globalTempDir)) {
+    if (existsSync(tempDir)) {
+        rmSync(tempDir, { recursive: true, force: true })
         console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
         process.exit()
     }
     
+
     process.on('beforeExit', runBeforeExitCallbacks);
 
     process.on('exit', runBeforeExitCallbacks);
 
-    process.on('SIGINT', ()=>{
+    process.on('SIGINT', () => {
         runBeforeExitCallbacks()
         process.exit(0)
     })
 
     // Always clear the temp directory on exit
-    onExit(() => {
-        rmSync(globalTempDir, { recursive: true, force: true })
-    })
+    onExit(() => cleanup(tempDir))
     
+}
+
+export function cleanup (tempDir = globalTempDir) {
+    rmSync(tempDir, { recursive: true, force: true })
 }
 
 

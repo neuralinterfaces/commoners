@@ -1,15 +1,15 @@
 import { UserConfig } from "./types.js";
 
-import { build, configureForDesktop, createServices, loadConfigFromFile, resolveConfig, resolveConfigPath } from './index.js'
+import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAssets } from "./utils/assets.js";
 import { createServer } from "./vite/index.js";
-import { NAME, ensureTargetConsistent, globalTempDir, initialize, isDesktop, isMobile } from "./globals.js";
+import { cleanup, ensureTargetConsistent, globalTempDir, initialize, isDesktop, isMobile } from "./globals.js";
 import chalk from "chalk";
 
-export default async function ( opts: UserConfig ) {
+import { join } from "node:path";
 
-        initialize()
+export default async function ( opts: UserConfig = {} ) {
 
         const { port } = opts
 
@@ -30,30 +30,56 @@ export default async function ( opts: UserConfig ) {
         
         const createAllServices = () => {
             console.log(`\n👊 Creating ${chalk.bold('Services')}\n`)
-            createServices(resolvedServices) // Run services in parallel
+            return createServices(resolvedServices) // Run services in parallel
         }
 
         const isDesktopTarget = isDesktop(target)
+
+        const outDir = join(resolvedConfig.root, globalTempDir)
+
+        initialize(outDir)
+
 
         // Build for mobile before moving forward
         if (isMobileTarget) await build(resolvedConfig, resolvedServices)
 
         // Manually clear and build the output assets
-        else await buildAssets({...resolvedConfig, outDir: globalTempDir}, false)
+        else {
+            const copy = { ...resolvedConfig }
+            copy.build = { ...copy.build, outDir }
+            await buildAssets(copy, false)
+        }
+
+
+        const activeInstances: {
+            frontend?: Awaited<ReturnType<typeof createServer>>,
+            services?: Awaited<ReturnType<typeof createAllServices>>
+        } = {}
+
+        const manager = {
+            close: (o) => {
+                cleanup(outDir) // Ensure the temporary directory is cleared
+                if (o.frontend) activeInstances.frontend?.close()
+                if (o.services) activeInstances.services?.close()
+            }
+        }
 
         // Configure the desktop instance
-        if (isDesktopTarget) await configureForDesktop(globalTempDir) // Configure the desktop instance
+        if (isDesktopTarget) await configureForDesktop(outDir) // Configure the desktop instance
 
         // Create all services
-        else await createAllServices()
+        else activeInstances.services = await createAllServices()
 
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) {
             
-            await createServer(resolvedConfig, { 
+            activeInstances.frontend = await createServer(resolvedConfig, { 
                 printUrls: !isDesktopTarget, 
-                outDir: globalTempDir,
+                outDir,
                 target
             })
+
         }
+
+        return manager
 }

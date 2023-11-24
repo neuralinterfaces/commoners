@@ -5,7 +5,7 @@ let children = {}
 
 const kill = (code) => {
     for (const child in children) children[child].kill()
-    process.exit();
+    // process.exit();
 }
 
 // Ensure all processes are killed

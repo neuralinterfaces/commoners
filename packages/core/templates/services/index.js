@@ -180,7 +180,7 @@ export async function start (config, id, opts = {}) {
 
 const killProcess = (p) => p.kill()
 
-export function stop (id) {
+export function close (id) {
 
     // Kill Specific Process
     if (id) {
@@ -228,9 +228,12 @@ export async function resolveAll (services = {}, opts) {
 
 
 export async function createAll(services = {}, opts){
-  services = await resolveAll(services, opts)
+  const instances = await resolveAll(services, opts)
 
-  await Promise.all(Object.entries(services).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file
+  await Promise.all(Object.entries(instances).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file
 
-  return services
+  return {
+    active: instances,
+    close
+  }
 }

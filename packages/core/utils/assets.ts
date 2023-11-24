@@ -153,9 +153,9 @@ export const clear = (outDir: string) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
-export const buildAssets = async (config: UserConfig, mode?: AssetServiceOption) => {
+export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOption) => {
 
-    const { outDir } = config
+    const { outDir } = config.build
 
     mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
 

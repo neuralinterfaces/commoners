@@ -26,7 +26,6 @@ export default async function (options: LaunchOptions) {
         port 
     } = options
 
-
     if (isMobile(target)) {
         await mobile.launch(target)
         console.log(chalk.gray(`Opened native build tool for ${target}`))
@@ -46,7 +45,12 @@ export default async function (options: LaunchOptions) {
         const debugPort = 8315;
         await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${exePath}'`, '--args', `--remote-debugging-port=${debugPort}`]);
 
-        console.log(chalk.gray(`Debug ${NAME} at http://localhost:${debugPort}`))
+        const debugUrl = `http://localhost:${debugPort}`
+        console.log(chalk.gray(`Debug ${NAME} at ${debugUrl}`))
+
+        return {
+            url: debugUrl
+        }
     } 
 
     else {
@@ -57,15 +61,20 @@ export default async function (options: LaunchOptions) {
 
         const resolvedPort = port || (await getFreePorts(1))[0]
 
+        const url = `http://${host}:${resolvedPort}`
         server.listen(parseInt(resolvedPort), host, () => {
-            const url = `http://${host}:${resolvedPort}`
             console.log(chalk.gray(`Server is running on ${chalk.cyan(url)}`))
-            open(url)
+            if (!process.env.VITEST) open(url)
         });
 
-
+        return {
+            url, 
+            server
+        }
         
     }
+
+    return {}
 
         
 }

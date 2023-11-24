@@ -149,12 +149,13 @@ export const resolveViteConfig = (
     // Define a default set of plugins and configuration options
     return vite.defineConfig({
         base: './',
+        root: commonersConfig.root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
             outDir
         },
         plugins,
-        server: { open: !isDesktopTarget },
+        server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
         clearScreen: false,
     })
 }

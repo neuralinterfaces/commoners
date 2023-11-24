@@ -1,4 +1,4 @@
-import path from 'node:path';
+import path, { join } from 'node:path';
 import fs from 'node:fs'
 import chalk from 'chalk';
 

@@ -1,15 +1,16 @@
-import { join, normalize } from 'node:path'
-import { unlink, writeFileSync } from 'node:fs'
+import { dirname, join, normalize } from 'node:path'
+import { lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
 import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit, NAME } from './globals.js'
-import { ModeType, ResolvedConfig, UserConfig } from './types.js'
+import { ModeType, ResolvedConfig, ResolvedService, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile } from './utils/files.js'
 
 // Exports
+export * from './types.js'
 export * from './globals.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
@@ -18,16 +19,19 @@ export { default as start } from './start.js'
 
 export const defineConfig = (o: UserConfig): UserConfig => o
 
-export const resolveConfigPath = () => resolveFile('commoners.config', ['.ts', '.js'])
+export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
 
-export async function loadConfigFromFile(filepath: string = resolveConfigPath()) {
+export async function loadConfigFromFile(filesystemPath: string = resolveConfigPath()) {
 
-    if (!filepath) return {} as UserConfig
+    console.log(filesystemPath)
+    if (lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
+
+    if (!filesystemPath) return {} as UserConfig
 
     // Bundle config file
     const result = await build({
         absWorkingDir: process.cwd(),
-        entryPoints: [ filepath ],
+        entryPoints: [ filesystemPath ],
         outfile: 'out.js',
         write: false,
         target: ['node16'],
@@ -40,7 +44,7 @@ export async function loadConfigFromFile(filepath: string = resolveConfigPath())
     const { text } = result.outputFiles[0]
 
     // Load config from timestamped file
-    const fileBase = `${filepath}.timestamp-${Date.now()}-${Math.random()
+    const fileBase = `${filesystemPath}.timestamp-${Date.now()}-${Math.random()
         .toString(16)
         .slice(2)}`
         
@@ -50,7 +54,9 @@ export async function loadConfigFromFile(filepath: string = resolveConfigPath())
     await writeFileSync(fileNameTmp, text)
 
     try {
-        return (await import(fileUrl)).default as UserConfig
+        const result = (await import(fileUrl)).default as UserConfig
+        result.root = dirname(filesystemPath)
+        return result
     } finally {
         unlink(fileNameTmp, () => { }) // Ignore errors
     }
@@ -78,6 +84,11 @@ export async function resolveConfig(
     if (!copy.electron) copy.electron = {}
 
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
+
+    if (!copy.root) copy.root = ''
+
+    // Always have a build options object
+    if (!copy.build) copy.build = {}
 
     const isServiceOptionBoolean = typeof services === 'boolean'
     if (isServiceOptionBoolean && services === false) copy.services = undefined // Unset services (if set to false)
@@ -113,6 +124,9 @@ export const configureForDesktop = async (outDir) => {
 
 }
 
-export const createServices = async (services: ResolvedConfig['services'], port?: number) => {
-    return await createAll(services, port) as ResolvedConfig['services']
+export const createServices = async (services: ResolvedConfig['services'], port?: number) => await createAll(services, port) as {
+    active: {
+        [name:string]: ResolvedService
+    }
+    close: (id?:string) => void
 }

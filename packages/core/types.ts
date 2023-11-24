@@ -143,7 +143,8 @@ type BaseConfig = {
 
     name: string,
     target: TargetType,
-    outDir: OutDirType,
+
+    root: string
 
     port?: PortType, // Default Port (single service)
 
@@ -181,10 +182,14 @@ export type BuildOptions = Partial<BaseConfig> & {
         publish?: boolean | PublishOptions['publish'],
         services?: ServiceOptions
         sign?: boolean
+        outDir?: OutDirType
     }
 }
 
 export type ResolvedConfig = BaseConfig & {
+    build: BuildOptions['build'],
+    launch?: LaunchOptions,
+    share?: ShareOptions['share'],
     services: {
         [x: string]: ResolvedService
     }

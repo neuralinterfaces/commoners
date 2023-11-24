@@ -248,7 +248,7 @@ runPlugins(null, 'preload').then(() => {
     // Create all services as configured by the user / main build
     // NOTE: Services cannot be filtered in desktop mode
     
-    const resolved = await services.createAll(config.services, {
+    const { active } = await services.createAll(config.services, {
       mode: isProduction ? 'local' : undefined,
       base: __dirname,
       onClose: (id, code) => onWindowReady((win) => {
@@ -259,14 +259,14 @@ runPlugins(null, 'preload').then(() => {
       }),
     })
 
-    if (resolved) {
+    if (active) {
 
-      for (let id in resolved) {
-        const service = resolved[id]
+      for (let id in active) {
+        const service = active[id]
         ipcMain.on(`service:${id}:status`, (event) => event.returnValue = service.status)
       }
 
-      process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
+      process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
     }
 
     // Proxy the services through the custom protocol
@@ -274,11 +274,11 @@ runPlugins(null, 'preload').then(() => {
 
       const pathname = req.url.slice(`${customProtocolScheme}://`.length)
 
-      if (resolved) {
-        for (let service in resolved) {
+      if (active) {
+        for (let service in active) {
           if (pathname.slice(0, service.length) === service) {
             const newPathname = pathname.slice(service.length)
-            return net.fetch((new URL(newPathname, resolved[service].url)).href)
+            return net.fetch((new URL(newPathname, active[service].url)).href)
           }
         }
       }
@@ -305,5 +305,5 @@ app.on('before-quit', async (ev) => {
   const result = await runPlugins(null, 'unload')
   if (result.includes(false)) return
 
-  try { services.stop() } catch (err) { console.error(err); } finally { app.exit() }
+  try { services.close() } catch (err) { console.error(err); } finally { app.exit() }
 });

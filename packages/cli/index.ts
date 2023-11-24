@@ -5,7 +5,8 @@ import {
     build, 
     launch, 
     start,
-    loadConfigFromFile
+    loadConfigFromFile,
+    ShareOptions
 } 
 from "@commoners/solidarity";
 
@@ -13,7 +14,7 @@ from "@commoners/solidarity";
 import cac from 'cac'
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 
 const desktopTargets = ['desktop','electron', 'tauri']
 const mobileTargets = ['mobile', 'android', 'ios']
@@ -37,6 +38,7 @@ const cli = cac()
 // Launch the specified build
 cli.command('launch', 'Launch your build application')
 .option('--target <target>', 'Choose a target build to launch', { default: 'web' })
+.option('--outDir <path>', 'Choose the output directory of your build files')
 .action((options) => {
     preprocessTarget(options.target)
     launch(options)
@@ -55,7 +57,7 @@ cli.command('share', 'Share the application')
 
     share({
         ...config,
-        share: reconcile(config.share, options, { port: sharePort || customPort })
+        share: reconcile(config.share, options, { port: sharePort || customPort }) as ShareOptions['share']
     })
 })
 
@@ -67,11 +69,12 @@ cli.command('build', 'Build the application', { ignoreOptionDefaultValue: true }
 .option('--no-sign', 'Skip code signing (desktop target on Mac only)')
 .option('--service <name>', 'Build specific service(s)')
 .option('--publish', 'Publish the application')
+.option('--root <path>', 'Specify the root directory of the project')
 .action(async (options) => {
 
     if (options.target !== 'services') preprocessTarget(options.target)
 
-    const config = await loadConfigFromFile()
+    const config = await loadConfigFromFile(options.root)
 
     build({
         ...config,
@@ -86,9 +89,10 @@ cli.command('', 'Start the application', { ignoreOptionDefaultValue: true })
 .alias('run')
 .option('--target <target>', 'Choose a build target to simulate', { default: 'web' })
 .option('--port <number>', 'Choose a target port (single service only)')
+.option('--root <path>', 'Specify the root directory of the project')
 .action(async (options) => {
     preprocessTarget(options.target)
-    const startOpts = reconcile(await loadConfigFromFile(), options, { port: process.env.PORT ? parseInt(process.env.PORT) : undefined })
+    const startOpts = reconcile(await loadConfigFromFile(options.root), options, { port: process.env.PORT ? parseInt(process.env.PORT) : undefined })
     start(startOpts)
 })
 

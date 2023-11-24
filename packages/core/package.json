@@ -15,8 +15,8 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "test": "vitest",
-    "coverage": "vitest run --coverage"
+    "test": "cd tests && vitest",
+    "coverage": "cd tests && vitest run --coverage"
   },
   "dependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
