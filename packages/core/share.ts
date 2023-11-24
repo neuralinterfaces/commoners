@@ -18,9 +18,9 @@ export default async function (opts: ShareOptions) {
     const sharePort = opts.share?.port
     const port = opts.port
 
-    console.log(`\n✊ Sharing ${chalk.greenBright(NAME)} services ${services ? `(${services})` : ''}\n`)
-
     const resolvedConfig = await resolveConfig(opts, { services, customPort: sharePort === port ? undefined : port })
+
+    console.log(`\n✊ Sharing ${chalk.bold(chalk.greenBright(resolvedConfig.name))} services ${services ? `(${services})` : ''}\n`)
 
     const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 

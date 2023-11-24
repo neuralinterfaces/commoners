@@ -19,7 +19,7 @@ export default async function (options: LaunchOptions) {
 
     const target = ensureTargetConsistent(options.target)
 
-    console.log(`\n✊ Launching ${chalk.greenBright(NAME)} for ${target}\n`)
+    console.log(`\n✊ Launching ${chalk.bold(chalk.greenBright(NAME))} for ${target}\n`)
     
     const { 
         outDir = join(globalWorkspacePath, target),

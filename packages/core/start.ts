@@ -18,7 +18,7 @@ export default async function ( opts: UserConfig ) {
         const resolvedConfig = await resolveConfig(opts, { customPort: port });
 
         const { name } = resolvedConfig
-        console.log(`\n✊ Starting ${chalk.greenBright(name)} for ${target}\n`)
+        console.log(`\n✊ Starting ${chalk.bold(chalk.greenBright(name))} for ${target}\n`)
 
 
         const isMobileTarget = isMobile(target)

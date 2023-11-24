@@ -35,11 +35,11 @@ export default async function build (
     const defaultOutDir = join(globalWorkspacePath, target)
 
     const { 
-        services: rebuildServices = validDesktopTargets.includes(target),
+        services: userRebuildServices = validDesktopTargets.includes(target),
         publish
     } = opts.build ?? {}
 
-    const onlyBuildServices = target === 'services' || (!buildTarget && rebuildServices)
+    const onlyBuildServices = target === 'services' || (!buildTarget && userRebuildServices)
 
     // Setup cleanup commands for after desktop build
     const isElectronBuild = target === 'electron'
@@ -49,6 +49,8 @@ export default async function build (
     let outDir = opts.outDir ?? defaultOutDir
     if (isElectronBuild) outDir = tempElectronDir
     else if (isMobileBuild) outDir = tempMobileDir
+
+    const rebuildServices = userRebuildServices || onlyBuildServices
     
     const resolvedConfig = await resolveConfig(opts, { 
         services: isDesktopBuild ? undefined : rebuildServices, // Always maintain services for desktop builds
@@ -57,7 +59,7 @@ export default async function build (
 
     const name = resolvedConfig.name
 
-    console.log(`\n✊ Building ${chalk.greenBright(name)} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
+    console.log(`\n✊ Building ${chalk.bold(chalk.greenBright(name))} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
 
     if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 

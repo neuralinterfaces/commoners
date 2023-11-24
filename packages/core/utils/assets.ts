@@ -45,7 +45,7 @@ async function buildService({ build, outPath }, name, force = false){
         const hasBeenBuilt = existsSync(outPath)
         if (hasBeenBuilt && !force) return
 
-        console.log(`\n👊 Building the ${chalk.bold(name)} service\n`)
+        console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
 
         // Default Configuration
         if (typeof build === 'object') {
@@ -153,7 +153,7 @@ export const clear = (outDir: string) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
-export const buildAssets = async (config: UserConfig, services?: AssetServiceOption) => {
+export const buildAssets = async (config: UserConfig, mode?: AssetServiceOption) => {
 
     const { outDir } = config
 
@@ -161,7 +161,7 @@ export const buildAssets = async (config: UserConfig, services?: AssetServiceOpt
 
     writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-${RAW_NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
-    const assets = await getAssets(config, services)
+    const assets = await getAssets(config, mode)
 
     const outputs = []
 
