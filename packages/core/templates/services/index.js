@@ -47,14 +47,15 @@ export function isLocal(publishConfig) {
 export async function resolveService (
   config = {}, 
   name,
-  { 
-    base, 
-    mode
-  } = {}
+  opts = {}
 ) {
 
-  if (config.__resolved) return config // Return the configuration unchanged if no file or url
+  const { 
+    root, 
+    mode
+  } = opts
 
+  if (config.__resolved) return config // Return the configuration unchanged if no file or url
 
   const resolvedConfig = resolveConfig(config)
 
@@ -105,8 +106,8 @@ export async function resolveService (
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
 
-  if (base) resolvedConfig.filepath = join(base, src) // Expose the absolute path of the file in development mode
-  else resolvedConfig.filepath = src // Just use the raw sourcde
+  if (root) resolvedConfig.filepath = join(root, src) // Expose the absolute path of the file in development mode
+  else resolvedConfig.filepath = src // Just use the raw source
 
     // Always create a URL for local services
   if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
@@ -140,8 +141,8 @@ export async function start (config, id, opts = {}) {
 
     try {
       const env = { ...process.env, PORT: config.port, HOST: config.host }
-      if (ext === '.js') childProcess = node(config, env)
-      else if (ext === '.py') childProcess = python(config, env)
+      if (ext === '.js') childProcess = node(filepath, env)
+      else if (ext === '.py') childProcess = python(filepath, env)
       else if (!ext || ext === '.exe') childProcess = spawn(filepath, [], { env })
     } catch (e) {
       error = e
@@ -158,7 +159,7 @@ export async function start (config, id, opts = {}) {
       childProcess.on('close', (code) => {
         if (code !== null) {
           config.status = false
-          if (opts.onClose) opts.onClose(id, code)
+          if (opts.onClosed) opts.onClosed(id, code)
           delete processes[id]
           console.error(`[${label}]: exited with code ${code}`)
         }
@@ -228,6 +229,7 @@ export async function resolveAll (services = {}, opts) {
 
 
 export async function createAll(services = {}, opts){
+
   const instances = await resolveAll(services, opts)
 
   await Promise.all(Object.entries(instances).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file

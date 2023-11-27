@@ -1,5 +1,3 @@
-/// <reference types="vitest" />
-
 import { defineConfig } from "vite";
 
 import url from "node:url";
@@ -22,9 +20,6 @@ const external = new Set([
 ])
 
 export default defineConfig({
-  test: {
-
-  },
   plugins: [
     {
       name: 'add-bin-shebang',

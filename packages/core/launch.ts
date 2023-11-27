@@ -1,7 +1,7 @@
 
 import { existsSync} from 'node:fs';
 import { NAME, PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath } from './globals.js';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import chalk from 'chalk';
 
 import { spawnProcess } from './utils/processes.js'
@@ -18,15 +18,17 @@ import { cpus } from 'node:os';
 export default async function (options: LaunchOptions) {
 
     const target = ensureTargetConsistent(options.target)
-
-    console.log(`\n✊ Launching ${chalk.bold(chalk.greenBright(NAME))} for ${target}\n`)
     
     const { 
         outDir = join(globalWorkspacePath, target),
         port 
     } = options
 
+    console.log(`\n✊ Launching ${chalk.bold(chalk.greenBright(`${target}`))} build${outDir ? ` (${outDir})` : ''}\n`)
+
+
     if (isMobile(target)) {
+        if (outDir) process.chdir(outDir)
         await mobile.launch(target)
         console.log(chalk.gray(`Opened native build tool for ${target}`))
     }
@@ -58,6 +60,7 @@ export default async function (options: LaunchOptions) {
         const host = 'localhost'
 
         const server = createServer({  root: outDir })
+
 
         const resolvedPort = port || (await getFreePorts(1))[0]
 

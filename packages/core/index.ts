@@ -4,7 +4,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
 import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit, NAME } from './globals.js'
-import { ModeType, ResolvedConfig, ResolvedService, UserConfig } from './types.js'
+import { ModeType, ResolvedConfig, ResolvedService, ServiceCreationOptions, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile } from './utils/files.js'
@@ -13,7 +13,6 @@ import { resolveFile } from './utils/files.js'
 // Exports
 export * from './types.js'
 export * from './globals.js'
-export * as testing from './tests/utils/index.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'
@@ -94,7 +93,7 @@ export async function resolveConfig(
     const isServiceOptionBoolean = typeof services === 'boolean'
     if (isServiceOptionBoolean && services === false) copy.services = undefined // Unset services (if set to false)
 
-    copy.services = await resolveAll(copy.services, { mode }) // Always resolve all backend services before going forward
+    copy.services = await resolveAll(copy.services, { mode, root: copy.root }) // Always resolve all backend services before going forward
 
     // Remove unspecified services
     if (services && !isServiceOptionBoolean) {
@@ -125,7 +124,7 @@ export const configureForDesktop = async (outDir) => {
 
 }
 
-export const createServices = async (services: ResolvedConfig['services'], port?: number) => await createAll(services, port) as {
+export const createServices = async (services: ResolvedConfig['services'], opts: ServiceCreationOptions = {}) => await createAll(services, opts) as {
     active: {
         [name:string]: ResolvedService
     }

@@ -26,11 +26,11 @@ export default async function ( opts: UserConfig = {} ) {
         // Create URLs that will be shared with the frontend
         if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
 
-        const { services: resolvedServices } = resolvedConfig
+        const { services: resolvedServices, root } = resolvedConfig
         
         const createAllServices = () => {
             console.log(`\n👊 Creating ${chalk.bold('Services')}\n`)
-            return createServices(resolvedServices) // Run services in parallel
+            return createServices(resolvedServices, { root }) // Run services in parallel
         }
 
         const isDesktopTarget = isDesktop(target)

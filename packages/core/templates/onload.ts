@@ -30,13 +30,13 @@ if ( __plugins ) {
 
         try {
             if (load) {
-                loaded[id] = load.call({
+                loaded[id] = commoners.target === 'desktop' ? load.call({
                     quit: TEMP_COMMONERS.quit,
                     send: (channel, ...args) => TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
                     sendSync: (channel, ...args) => TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),
                     on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
                     removeAllListeners: (channel) => TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`),
-                })
+                }) : load({})
             }
         } catch (e) {
             pluginErrorMessage(id, "load", e)

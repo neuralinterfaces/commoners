@@ -6,13 +6,19 @@ export function tuple<T extends string[]>(...o: T) {
     return o;
 }
 
-type AnyObj = { [x:string]: any }
 
 type OutDirType = string
 
 export type PortType = number
 
 export type ServiceOptions = boolean | string | string[]
+
+export type ServiceCreationOptions = {
+    root?: string, 
+    mode?: ModeType
+    onLog?: Function
+    onClosed?: Function
+}
 
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
 
@@ -55,7 +61,7 @@ export type ModeType = typeof valid.mode[number]
 
 
 // ------------------- Services -------------------
-type BaseServiceMetadata = ({ src: string, base: string } | { url: string })
+type BaseServiceMetadata = ({ src: string, base?: string } | { url: string })
 type ExtraServiceMetadata = {
     // Common
     port?: number,
@@ -80,7 +86,7 @@ export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata &
 export type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedServiceMetadata
 
 // ------------------- Plugins -------------------
-type LoadedPlugin = { [x:string]: any }
+type LoadedPlugin = { [x:string]: any } | Function | any
 
 type ResolvedSupportType = boolean | any // Evaluated as boolean
 type UserSupportType = ResolvedSupportType | (() => ResolvedSupportType)
@@ -144,10 +150,9 @@ type RawPlugins = {[id: string]: Plugin}
 type BaseConfig = {
 
     name: string,
-    target: TargetType,
-
     root: string
 
+    target?: TargetType, // Default target
     port?: PortType, // Default Port (single service)
 
     icon: IconType,

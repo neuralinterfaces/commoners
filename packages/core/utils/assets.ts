@@ -31,11 +31,6 @@ type AssetServiceOption = boolean | 'electron' | 'electron-rebuild'
 
 const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
-function addServiceAssets(this: AssetsCollection, src?: string) {
-    if (jsExtensions.includes(extname(src))) this.bundle.push(src) // Bundle JavaScript files
-    else this.copy.push(src) // Copy directories
-}
-
 
 async function buildService({ build, outPath }, name, force = false){
 
@@ -84,18 +79,21 @@ async function buildService({ build, outPath }, name, force = false){
 
 export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) => {
     
-    const configPath = resolveConfigPath()
     const resolvedConfig = await resolveConfig(config)
+
+    const { root } = resolvedConfig
+    const configPath = resolveConfigPath(root)
 
     const configExtensionTargets: ['cjs', 'mjs'] = ['cjs', 'mjs']
 
+    const isElectron = mode === 'electron' || mode === 'electron-rebuild' 
+
     // Transfer configuration file and related services
-    
     const assets: AssetsCollection = {
         copy: [],
         bundle: configExtensionTargets.map(ext => { return configPath ? {
-            input: configPath.split(sep).slice(-1)[0],
-            output: { extension: ext }
+            input: configPath,
+            output: `commoners.config.${ext}`
         } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } })
     }
 
@@ -105,7 +103,15 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
         output: 'onload.mjs'
     })
 
-    if (existsSync('.env')) assets.copy.push('.env') // Copy .env file if it exists
+    if (isElectron) {
+
+        // Copy .env file if it exists
+        if (existsSync('.env')) assets.copy.push('.env')
+
+        // Bundle Splash Page
+        if (resolvedConfig.electron.splash) assets.bundle.push(resolvedConfig.electron.splash)
+    }
+
     
     // Handle Provided Services (copy / build)
     if (mode !== false) {
@@ -115,7 +121,7 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
         for (const [name, resolvedService] of Object.entries(resolvedServices)) {
 
             // @ts-ignore
-            const resolved = resolvedService.base ?? resolvedService.src 
+            const resolved = join(root, resolvedService.base ?? resolvedService.src)
 
             if (!resolved) continue // Do not copy if file doesn't exist
 
@@ -123,13 +129,15 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
 
             const hasBuild = resolvedService.build
 
-            const isElectron = mode === 'electron' || mode === 'electron-rebuild' 
             if (hasBuild && isURL && isElectron) continue // Do not copy if file is a url (Electron-only)
 
             const forceRebuild = mode === 'electron-rebuild' || mode === true
             
-            if (!isURL) addServiceAssets.call(assets, resolved)
-
+            if (!isURL) {
+                if (jsExtensions.includes(extname(resolved))) assets.bundle.push(resolved) // Bundle JavaScript files
+                else assets.copy.push(resolved) // Copy directories
+            }
+            
             await buildService({ build: resolvedService.build, outPath: resolved }, name, forceRebuild)
         }
     }
@@ -141,9 +149,6 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
 
         assets.copy.push(...icons as string[])
     }
-
-    // Bundle Splash Page
-    if (resolvedConfig.electron.splash) assets.bundle.push(resolvedConfig.electron.splash)
 
     return assets
 }

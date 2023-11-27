@@ -37,7 +37,10 @@ export default async function (opts: ShareOptions) {
             res.setHeader('Content-type', 'text/json');
             res.end(JSON.stringify({
                 commoners: process.env,
-                services: Array.from(new Set(Object.values(serviceManager.active).filter(o => 'src' in o).map(o => o.port)))
+                services: Object.entries(serviceManager.active).filter(([_, o]) => 'src' in o).reduce((acc, [id, o]) =>{
+                    acc[id] = o.port
+                    return acc
+                }, {})
             }))
         }
     })
@@ -48,6 +51,12 @@ export default async function (opts: ShareOptions) {
         () => console.log(`Services shared at ${chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
     );
 
-    return server
+    return {
+        port: sharePort,
+        close: () => {
+            server.close()
+            serviceManager.close()
+        }
+    }
 
 }

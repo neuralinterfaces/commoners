@@ -57,6 +57,7 @@ export default ({
             if (quit) globalThis.commoners.quit = quit
             if (electron) globalThis.commoners.electron = electron
 
+            console.log('GO', plugins, COMMONERS_CONFIG)
             if (plugins) globalThis.commoners.__plugins = plugins
             if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
 

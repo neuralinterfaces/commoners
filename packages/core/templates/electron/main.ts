@@ -248,8 +248,8 @@ runPlugins(null, 'preload').then(() => {
     
     const { active } = await services.createAll(config.services, {
       mode: isProduction ? 'local' : undefined,
-      base: __dirname,
-      onClose: (id, code) => serviceSend(id, 'closed', code),
+      root: __dirname,
+      onClosed: (id, code) => serviceSend(id, 'closed', code),
       onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
     })
 

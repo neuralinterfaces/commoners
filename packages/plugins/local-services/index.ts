@@ -70,11 +70,11 @@ function loadDesktop(
 
                             res.on('end', () => {
                                 try {
-                                    const { commoners, services = [] } = JSON.parse(Buffer.concat(data).toString());
+                                    const { commoners, services = {} } = JSON.parse(Buffer.concat(data).toString());
                                     if (commoners) {
                                         if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
                                         active[ip] = services
-                                        services.forEach(port => this.send(`found`, getURL(ip, port)))
+                                        Object.values(services).forEach(port => this.send(`found`, getURL(ip, port)))
                                     }
                                 } catch {
                                     active[ip] = null

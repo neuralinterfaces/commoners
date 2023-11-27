@@ -1,4 +1,4 @@
 import { fork } from "node:child_process"
 
 
-export default ({ src },  env = {}) => fork(src, [ ], { silent: true, env })
+export default (filepath,  env = {}) => fork(filepath, [ ], { silent: true, env })

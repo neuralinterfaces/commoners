@@ -1,0 +1,6 @@
+{
+    "name": "@commoners/test-app",
+    "workspaces": [
+        "services/**"
+    ]
+}
