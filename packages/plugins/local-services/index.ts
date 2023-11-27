@@ -25,12 +25,10 @@ const isSupported = {
 }
 
 function loadDesktop(
-    _, 
     {
         isValid: isValidService,
         port
     }: LocalServicesPluginOptions
-
 ) {
 
     if (!port && process.env.COMMONERS_SHARE_PORT) port = parseInt(process.env.COMMONERS_SHARE_PORT) // Fallback to the port provided by the environment
@@ -76,7 +74,7 @@ function loadDesktop(
                                     if (commoners) {
                                         if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
                                         active[ip] = services
-                                        services.forEach(port => send(`found`, getURL(ip, port)))
+                                        services.forEach(port => this.send(`found`, getURL(ip, port)))
                                     }
                                 } catch {
                                     active[ip] = null
@@ -87,7 +85,7 @@ function loadDesktop(
                     })
                 } else if (ip in active) {
                     const info = active[ip]
-                    if (info) info.forEach(port => send(`closed`, getURL(ip, port)));
+                    if (info) info.forEach(port => this.send(`closed`, getURL(ip, port)));
                     delete active[ip]
                 }
             });
@@ -113,7 +111,7 @@ export default ( isValid?: (ip: string, env: any) => boolean, port?: number ) =>
     return {
         isSupported,
         desktop: {
-            load: function (win) { loadDesktop.call(this, win, { port, isValid }) },
+            load: function (win) { loadDesktop.call(this, { port, isValid }) },
         },
         load
     } as Plugin

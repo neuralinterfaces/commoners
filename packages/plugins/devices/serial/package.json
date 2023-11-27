@@ -1,6 +1,6 @@
 {
     "name": "@commoners/serial",
-    "version": "0.0.31",
+    "version": "0.0.38",
     "license": "MIT",
     "type": "module",
     "main": "./dist/serial.es.js",

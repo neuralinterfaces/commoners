@@ -11,10 +11,7 @@ const TEMP_COMMONERS = {
 
     // Will be scoped by plugin in onload.ts
     on: (channel, listener) => ipcRenderer.on(channel, listener),
-    send: (channel, ...args) => {
-      console.log(channel, ...args)
-      ipcRenderer.send(channel, ...args)
-    },
+    send: (channel, ...args) => ipcRenderer.send(channel, ...args),
     sendSync: (channel, ...args) => ipcRenderer.sendSync(channel, ...args),
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 }
