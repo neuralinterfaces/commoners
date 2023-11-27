@@ -1,7 +1,5 @@
 import createModal from '../modal.js';
 
-export const name = 'serial'
-
 export const isSupported = {
   desktop: true,
   mobile: () => {
@@ -21,20 +19,20 @@ export const desktop = {
     win.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
       // Add listeners to handle ports being added or removed before the callback for `select-serial-port` is called.
       win.webContents.session.on('serial-port-added', (event, port) => {
-        win.webContents.send(`${name}.added`, port);
+        this.send(`added`, port);
       })
   
       win.webContents.session.on('serial-port-removed', (event, port) => {
-        win.webContents.send(`${name}.removed`, port);
+        this.send(`removed`, port);
       })
   
-      win.webContents.send(`${name}.request`, portList);
+      this.send(`request`, portList);
   
       event.preventDefault()
       selectPortCallback = callback
   
       // NOTE: Ensure this is only called once
-      this.on(`${name}.select`, (
+      this.on(`select`, (
         _evt, //: IpcMainEvent, 
         port //: string
       ) => {
@@ -50,11 +48,10 @@ export const desktop = {
 }
 
 export function load() {
-
-  const added = (callback) => this.on(`${name}.added`, (_, port) => callback(port))
-  const removed = (callback) => this.on(`${name}.removed`, (_, port) => callback(port))
-  const select = (port) => this.send(`${name}.select`, port)
-  const onRequest =(callback) => this.on(`${name}.request`, (_, value) => callback(value))
+  const added = (callback) => this.on(`added`, (_, port) => callback(port))
+  const removed = (callback) => this.on(`removed`, (_, port) => callback(port))
+  const select = (port) => this.send(`select`, port)
+  const onRequest =(callback) => this.on(`request`, (_, value) => callback(value))
 
 
   const modal = createModal({

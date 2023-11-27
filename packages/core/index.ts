@@ -23,7 +23,6 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 export async function loadConfigFromFile(filesystemPath: string = resolveConfigPath()) {
 
-    console.log(filesystemPath)
     if (lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
 
     if (!filesystemPath) return {} as UserConfig

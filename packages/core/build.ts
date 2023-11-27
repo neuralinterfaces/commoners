@@ -30,7 +30,7 @@ export default async function build (
     const { 
         services: userRebuildServices = validDesktopTargets.includes(target),
         publish,
-        sign = true,
+        sign,
     } = opts.build ?? {}
 
     const onlyBuildServices = target === 'services' || (!buildTarget && userRebuildServices)
@@ -79,7 +79,7 @@ export default async function build (
     // Create the standard output files
     const configCopy = { ...resolvedConfig }
     configCopy.build = { ...opts.build, outDir }  
-    
+
     const toUnpack = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
     
     // ------------------------- Target-Specific Build Steps -------------------------
@@ -136,7 +136,8 @@ export default async function build (
         buildConfig.mac.icon = macIcon ? path.join(outDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
         buildConfig.win.icon = winIcon ? path.join(outDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
 
-        if (sign === false) buildConfig.mac.identity = null // Disable code signing
+        // Disable code signing if publishing or explicitly requested
+        if (!publish && !sign) buildConfig.mac.identity = null
 
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 

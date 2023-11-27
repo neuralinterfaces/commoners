@@ -25,15 +25,21 @@ let readyQueue: ReadyFunction[] = []
 
 const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
 
+const scopedOn = (type, id, channel, callback) => ipcMain.on(`${type}:${id}:${channel}`, callback)
+const scopedSend = (type, id, channel, ...args) => onWindowReady((win) => send.call(win, `${type}:${id}:${channel}`, ...args))
+const serviceSend = (id, channel, ...args) => scopedSend('services', id, channel, ...args)
+const serviceOn = (id, channel, callback) => scopedOn('services', id, channel, callback)
+
+const pluginSend = (pluginName, channel, ...args) => scopedSend('plugins', pluginName, channel, ...args)
+const pluginOn = (pluginName, channel, callback) => scopedOn('plugins', pluginName, channel, callback)
+
 const globals: {
   isFirstOpen: boolean,
   firstInitialized: boolean,
-  splash?: BrowserWindow,
-  send: Function
+  splash?: BrowserWindow
 } = {
   firstInitialized: false,
-  isFirstOpen: true,
-  send: (channel, ...args) => onWindowReady((win) => send.call(win, channel, ...args))
+  isFirstOpen: true
 }
 
 
@@ -90,29 +96,21 @@ makeSingleInstance();
 
 const config = require(configPath).default // (await import (configPath)).default // // Requires putting the dist at the Resource Path:
 
-const plugins = config.plugins ?? []
+const plugins = config.plugins ?? {}
 
-const baseLoadCtx = {
-
-  electron,
-  
-  // Create / restore the main window if the app is ready
-  open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow(config))),
-
-  // Safe send to the main window if it exists  
-  send: (channel, ...args) => onWindowReady(win => send.call(win, channel, ...args)) 
-}
-
-const runPlugins = (win: BrowserWindow | null = null, type = 'load') => {
-
-  let loadCtx: any = baseLoadCtx
-  if (type === 'load') loadCtx = {
-    ...baseLoadCtx,
-    on: (channel, callback) => ipcMain.on(channel, callback),
+// Precreate contexts to track custom properties 
+const contexts = Object.keys(plugins).reduce((acc, id) => {
+  acc[id] = { 
+    id,
+    electron,
+    open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow(config))),
+    send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
+    on: function (channel, callback) { return pluginOn(this.id, channel, callback) },
   }
+  return acc
+}, {})
 
-  return Promise.all(plugins.map(plugin => plugin.desktop?.[type] && plugin.desktop[type].call(loadCtx, win, globals)))
-}
+const runPlugins = (win: BrowserWindow | null = null, type = 'load') => Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => plugin.desktop?.[type] && plugin.desktop[type].call(contexts[id], win)))
 
 
 
@@ -251,20 +249,13 @@ runPlugins(null, 'preload').then(() => {
     const { active } = await services.createAll(config.services, {
       mode: isProduction ? 'local' : undefined,
       base: __dirname,
-      onClose: (id, code) => onWindowReady((win) => {
-        send.call(win, `service:${id}:closed`, code)
-      }),
-      onLog: (id, msg) => onWindowReady((win) => {
-        send.call(win, `service:${id}:log`, msg.toString())
-      }),
+      onClose: (id, code) => serviceSend(id, 'closed', code),
+      onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
     })
 
     if (active) {
 
-      for (let id in active) {
-        const service = active[id]
-        ipcMain.on(`service:${id}:status`, (event) => event.returnValue = service.status)
-      }
+      for (let id in active) serviceOn(id, 'status', (event) => event.returnValue = active[id].status)
 
       process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
     }

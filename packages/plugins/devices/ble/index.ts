@@ -1,7 +1,5 @@
 import createModal from '../modal.js'
 
-export const name = 'bluetooth'
-
 // @capacitor-community/bluetooth-le must be installed by the user
 
 export const isSupported = {
@@ -33,7 +31,7 @@ export const desktop = {
       // Enable Web Bluetooth
       let selectBluetoothCallback;
 
-      this.on(`${name}.select`, (
+      this.on(`select`, (
         _evt, //: IpcMainEvent, 
         value //: string
       ) => {
@@ -49,12 +47,11 @@ export const desktop = {
 
       win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
 
-
         event.preventDefault()
         
-        if (!selectBluetoothCallback) win.webContents.send(`${name}.open`, devices); // Initial request always starts at zero
+        if (!selectBluetoothCallback) this.send(`open`, devices); // Initial request always starts at zero
 
-        win.webContents.send(`${name}.update`, devices);
+        this.send(`update`, devices);
 
         selectBluetoothCallback = callback
 
@@ -65,11 +62,11 @@ export const desktop = {
 
 export function load() {
 
-  const onOpen = (callback) => this.on(`${name}.open`, () => callback())
+  const onOpen = (callback) => this.on(`open`, () => callback())
 
-  const onUpdate = (callback) => this.on(`${name}.update`, (_, devices) => callback(devices))
+  const onUpdate = (callback) => this.on(`update`, (_, devices) => callback(devices))
 
-  const select = (deviceID) => this.send(`${name}.select`, deviceID)
+  const select = (deviceID) => this.send(`select`, deviceID)
 
   const modal = createModal({
     headerText: 'Available BLE Devices',

@@ -129,12 +129,11 @@ export default {
 }
 ```
 
-To use a plugin, you should check for the existence of the plugin, which *may* have a return value separately stored in the `plugins.loaded` and `plugins.rendered` propreties:
+To use a plugin, you should check for the existence of the plugin, which *may* have a return value stored in the `plugins` property:
 
 ```js
-    if ('test' in COMMMONERS.plugins.loaded) {
-        const loadedPlugin = COMMMONERS.plugins.loaded.test
-        const renderedPlugin = COMMMONERS.plugins.loaded.rendered
+    if ('test' in COMMMONERS.plugins) {
+        const loaded = COMMMONERS.plugins.test
         // ....
     }
 ```

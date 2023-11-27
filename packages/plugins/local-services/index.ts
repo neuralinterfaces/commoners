@@ -1,3 +1,4 @@
+import { Plugin } from "@commoners/solidarity";
 import { getLocalIP } from "../../core/utils/ip/cross-platform";
 
 import pkg from './package.json'
@@ -18,9 +19,6 @@ function getURL(host, port) {
     return `http://${host}:${port}`
 }
 
-const name = 'local-services'
-
-
 const isSupported = {
     mobile: false,
     web: false
@@ -28,7 +26,6 @@ const isSupported = {
 
 function loadDesktop(
     _, 
-    { send },
     {
         isValid: isValidService,
         port
@@ -47,8 +44,8 @@ function loadDesktop(
 
     const active: { [x: string]: string[] | null } = {}
 
-    this.on(`${name}.get`, () => {
-        Object.entries(active).filter(arr => !!arr[1]).map(([ip, ports]) => ports.map(port => getURL(ip, port))).flat().forEach(service => send(`${name}.found`, service))
+    this.on(`get`, () => {
+        Object.entries(active).filter(arr => !!arr[1]).map(([ip, ports]) => ports.map(port => getURL(ip, port))).flat().forEach(service => this.send(`found`, service))
     })
 
     // Check for available services every 2 seconds
@@ -79,7 +76,7 @@ function loadDesktop(
                                     if (commoners) {
                                         if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
                                         active[ip] = services
-                                        services.forEach(port => send(`${name}.found`, getURL(ip, port)))
+                                        services.forEach(port => send(`found`, getURL(ip, port)))
                                     }
                                 } catch {
                                     active[ip] = null
@@ -90,7 +87,7 @@ function loadDesktop(
                     })
                 } else if (ip in active) {
                     const info = active[ip]
-                    if (info) info.forEach(port => send(`${name}.closed`, getURL(ip, port)));
+                    if (info) info.forEach(port => send(`closed`, getURL(ip, port)));
                     delete active[ip]
                 }
             });
@@ -100,9 +97,9 @@ function loadDesktop(
 
 export function load() {
     return {
-        get: () => this.send(`${name}.get`),
-        onFound: (callback) => this.on(`${name}.found`, (_, url) => callback(url)),
-        onClosed: (callback) => this.on(`${name}.closed`, (_, url) => callback(url)),
+        get: () => this.send(`get`),
+        onFound: (callback) => this.on(`found`, (_, url) => callback(url)),
+        onClosed: (callback) => this.on(`closed`, (_, url) => callback(url)),
     }
 }
 
@@ -114,11 +111,10 @@ type LocalServicesPluginOptions = {
 
 export default ( isValid?: (ip: string, env: any) => boolean, port?: number ) => {
     return {
-        name,
         isSupported,
         desktop: {
-            load: function (...args) { loadDesktop.call(this, ...args, { port, isValid }) },
+            load: function (win) { loadDesktop.call(this, win, { port, isValid }) },
         },
         load
-    }
+    } as Plugin
 }

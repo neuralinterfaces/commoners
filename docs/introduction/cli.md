@@ -13,10 +13,10 @@ Build the project assets.
     - **Note:** While [other providers](https://www.electron.build/configuration/publish.html#publishers) are possible to use, they have not been tested with this command.
 
 ##### Mac
-- `--no-sign` - Skip code signing (`--target desktop` on Mac only)
-- `--no-services` - Skip building services
+- `--sign` - Enable code signing (`--target desktop` on Mac only). Will be automatically enabled with `--publish`
 
 #### Service Selection
+- `--no-services` - Skip building services
 - `--target services` - Build only the services
 
 ### commoners launch

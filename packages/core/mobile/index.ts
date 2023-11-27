@@ -34,7 +34,7 @@ const getCapacitorConfig = (o) => (o.isSupported && typeof o.isSupported === 'ob
 
 const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => {
     
-    return plugins.filter(o => isCapacitorConfig(getCapacitorConfig(o))).map(o => {
+    return Object.values(plugins).filter(o => isCapacitorConfig(getCapacitorConfig(o))).map(o => {
         const config = getCapacitorConfig(o)
         return [config, (v) => {
             const supportObj = o.isSupported as SupportConfigurationObject

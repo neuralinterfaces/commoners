@@ -47,7 +47,7 @@ export default ({
             // Set global variable
             const { 
                 services, 
-                ipcRenderer,
+                send,
                 quit,
                 electron
             } = globalThis.__commoners ?? {} // Grab temporary variables
@@ -65,7 +65,7 @@ export default ({
                 res = (...args) => {
                     ogRes(...args)
                     delete commoners.__ready
-                    if (ipcRenderer) ipcRenderer.send('commoners:ready')
+                    if (send) send('commoners:ready')
                 }
                 
                 commoners.__ready = res

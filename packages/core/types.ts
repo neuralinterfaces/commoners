@@ -93,8 +93,8 @@ export type SupportConfigurationObject = {
     }
 }
 
-export type PluginType = {
-    name: string,
+export type Plugin = {
+
     isSupported?: ResolvedSupportType | SupportConfigurationObject
     
     desktop?: {
@@ -138,6 +138,8 @@ type ElectronOptions = {
     build?: ElectronBuilderConfiguration
 }
 
+type RawPlugins = {[id: string]: Plugin}
+
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
 
@@ -149,7 +151,7 @@ type BaseConfig = {
     port?: PortType, // Default Port (single service)
 
     icon: IconType,
-    plugins: PluginType[],
+    plugins: RawPlugins,
     electron: ElectronOptions
     pwa: PWAOptions
 
@@ -224,7 +226,7 @@ type BaseCommonersGlobalObject = {
     plugins: ExposedPlugins,
     ready: Promise<ExposedPlugins>,
     __ready: Function, // Resolve Function
-    __plugins: AnyObj // Raw Plugins
+    __plugins?: RawPlugins // Raw Plugins
 }
 
 export type CommonersGlobalObject = (BaseCommonersGlobalObject & {

@@ -9,8 +9,8 @@
             // Set global variable
             const { 
                 services, 
-                ipcRenderer,
                 quit,
+                send,
                 electron
             } = globalThis.__commoners ?? {} // Grab temporary variables
 
@@ -27,7 +27,7 @@
                 res = (...args) => {
                     ogRes(...args)
                     delete commoners.__ready
-                    if (ipcRenderer) ipcRenderer.send('commoners:ready')
+                    if (send) send('commoners:ready')
                 }
                 
                 commoners.__ready = res

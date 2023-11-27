@@ -5,22 +5,24 @@ import { contextBridge } from 'electron'
 const globalVariableName = '__commoners'
 const services = process.env.COMMONERS_SERVICES
 
-const on = (channel, listener) => ipcRenderer.on(channel, listener)
-
 const TEMP_COMMONERS = { 
     quit: () => ipcRenderer.send('commoners:quit'),
     services: services ? JSON.parse(services) : null, // Ensure correct ports
-    ipcRenderer: {
-        on,
-        send: (channel, ...args) => ipcRenderer.send(channel, ...args),
-        sendSync: (channel, ...args) => ipcRenderer.sendSync(channel, ...args)
-    }
+
+    // Will be scoped by plugin in onload.ts
+    on: (channel, listener) => ipcRenderer.on(channel, listener),
+    send: (channel, ...args) => {
+      console.log(channel, ...args)
+      ipcRenderer.send(channel, ...args)
+    },
+    sendSync: (channel, ...args) => ipcRenderer.sendSync(channel, ...args),
+    removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 }
 
-for (let name in TEMP_COMMONERS.services) {
-    const service = TEMP_COMMONERS.services[name]
+for (let id in TEMP_COMMONERS.services) {
+    const service = TEMP_COMMONERS.services[id]
 
-    service.status = ipcRenderer.sendSync(`service:${name}:status`)
+    service.status = ipcRenderer.sendSync(`services:${id}:status`)
 
     const listeners = {
         active: [],
@@ -29,14 +31,14 @@ for (let name in TEMP_COMMONERS.services) {
       [key: string]: Function[]
     }
 
-    on(`service:${name}:log`, (_) => {
+    ipcRenderer.on(`services:${id}:log`, (_) => {
       if (service.status) return
       service.status = true
       listeners.active.forEach(f => f())
       listeners.active = []
     })
 
-    on(`service:${name}:closed`, (_, code) => {
+    ipcRenderer.on(`services:${id}:closed`, (_, code) => {
       if (service.status === false) return
       service.status = false
       listeners.closed.forEach(f => f(code))

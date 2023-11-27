@@ -10,6 +10,9 @@ import {
 } 
 from "@commoners/solidarity";
 
+import pkg from './package.json'
+
+
 // Utilities
 import cac from 'cac'
 import { existsSync, readFileSync } from "node:fs";
@@ -66,9 +69,9 @@ cli.command('build', 'Build the application', { ignoreOptionDefaultValue: true }
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
 .option('--no-services', 'Skip building the services')
-.option('--no-sign', 'Skip code signing (desktop target on Mac only)')
 .option('--service <name>', 'Build specific service(s)')
 .option('--publish', 'Publish the application')
+.option('--sign', 'Enable code signing (desktop target on Mac only)')
 .option('--root <path>', 'Specify the root directory of the project')
 .action(async (options) => {
 
@@ -97,12 +100,7 @@ cli.command('', 'Start the application', { ignoreOptionDefaultValue: true })
 })
 
 cli.help()
-
-// Get package.json version
-const pkgFileName = 'package.json'
-const __dirname = dirname(fileURLToPath(import.meta.url)) //process.cwd() //fileURLToPath(new URL('.', import.meta.url));
-const version = JSON.parse(readFileSync(join(__dirname, `${existsSync(join(__dirname, pkgFileName)) ? '' : '../'}${pkgFileName}`)).toString()).version
-cli.version(version)
+cli.version(pkg.version)
 
 const parsed = cli.parse()
 if (parsed.options.version) process.exit()
