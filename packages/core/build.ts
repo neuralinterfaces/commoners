@@ -1,4 +1,4 @@
-import path, { dirname, join } from "node:path"
+import path, { dirname, join, relative } from "node:path"
 import { NAME, RAW_NAME, dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
@@ -87,7 +87,10 @@ export default async function build (
 
         console.log(`\n👊 Packaging with ${chalk.bold(chalk.cyanBright('electron-builder'))}\n`)
 
-        await configureForDesktop(outDir) // Temporarily configure for temp directory
+        const relativeOutDir = relative(process.cwd(), outDir)
+
+
+        await configureForDesktop(relativeOutDir) // Temporarily configure for temp directory
 
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
@@ -96,7 +99,7 @@ export default async function build (
         buildConfig.directories.output = selectedOutDir
 
         buildConfig.files = [ 
-            `${outDir}/**`, 
+            `${relativeOutDir}/**`, 
         ]
 
         // Ensure platform-specific configs exist
@@ -133,11 +136,12 @@ export default async function build (
         buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
         buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
-        buildConfig.mac.icon = macIcon ? path.join(outDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
-        buildConfig.win.icon = winIcon ? path.join(outDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
+        buildConfig.mac.icon = macIcon ? path.join(relativeOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
+        buildConfig.win.icon = winIcon ? path.join(relativeOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
 
         // Disable code signing if publishing or explicitly requested
-        if (!publish && !sign) buildConfig.mac.identity = null
+        const toSign = publish || sign
+        if (!toSign) buildConfig.mac.identity = null
 
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 

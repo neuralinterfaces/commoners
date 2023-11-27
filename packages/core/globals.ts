@@ -43,7 +43,7 @@ const runBeforeExitCallbacks = () => {
 export const initialize = (tempDir = globalTempDir) => {
 
     if (existsSync(tempDir)) {
-        rmSync(tempDir, { recursive: true, force: true })
+        // rmSync(tempDir, { recursive: true, force: true })
         console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
         process.exit()
     }
