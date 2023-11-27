@@ -2,18 +2,18 @@
 import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import {
-  build,
     globalTempDir,
     launch,
     loadConfigFromFile,
     resolveConfigPath,
-    start,
     templateDir,
 } from '../index'
 
 import { name } from './app/commoners.config'
 import { join, resolve } from 'path'
-import { existsSync, rmSync } from 'fs'
+import { existsSync } from 'fs'
+
+import { build, start } from './utils'
 
 const projectBase = 'app'
 
@@ -34,22 +34,6 @@ describe('Custom project base is loaded', () => {
   })
 })
 
-const cleanupProject = (manager) => {
-
-  manager.close({
-    services: true,
-    frontend: true
-  })
-}
-
-const startProject = async (customProperties = {}) => {
-  const config = await loadConfigFromFile(projectBase)
-  return await start({
-    ...config,
-    ...customProperties
-  })
-}
-
 const checkBaseAssets = (baseDir = tempOutDir) => {
   
   expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
@@ -63,15 +47,7 @@ describe('Start Application', () => {
 
   describe('Web', () => {
 
-
-    let manager;
-    beforeAll(async () => {
-      manager = await startProject()
-    })
-
-    afterAll(() => {
-      cleanupProject(manager)
-    })
+    start(projectBase)
       
     test('All assets are generated', () => {
         checkBaseAssets()
@@ -82,14 +58,8 @@ describe('Start Application', () => {
   // NOTE: Skipped because I can't close the Electron instance programmatically
   describe.skip('Desktop', async () => {
 
-    let manager;
-    beforeAll(async () => {
-      manager = await startProject({ target: 'desktop' })
-    })
+    start(projectBase, { target: 'desktop' })
 
-    afterAll(async () => {
-      cleanupProject(manager)
-    })
 
     test('All assets are generated', () => {
         checkBaseAssets()
@@ -102,14 +72,7 @@ describe('Start Application', () => {
   // NOTE: Skipped because Ruby Gems needs to be updated
   describe.skip('Mobile', () => {
 
-    let manager;
-    beforeAll(async () => {
-      manager = await startProject({ target: 'mobile' })
-    })
-
-    afterAll(() => {
-      cleanupProject(manager)
-    })
+    start(projectBase, { target: 'mobile' })
 
     test('All assets are generated', () => {
         checkBaseAssets()
@@ -130,20 +93,7 @@ describe('Build Application', () => {
   describe('Web', () => {
     const target = 'web'
 
-    beforeAll(async () => {
-      const config = await loadConfigFromFile(projectBase)
-      await build({
-        ...config,
-        target,
-        build: {
-          outDir: join('..', outDir) // Escape from the project base
-        }
-      })
-    })
-
-    afterAll(async () => {
-      rmSync(outDir, { recursive: true })
-    })
+    build(projectBase, { target, outDir })
 
     test('All assets are found', async () => {
       checkBaseAssets(outDir)
@@ -163,6 +113,9 @@ describe('Build Application', () => {
   describe.skip('Desktop', () => {
     const target = 'desktop'
 
+    build(projectBase, { target, outDir })
+
+
     test('Can be launched', () => {
       launch({ target, outDir })
     })
@@ -172,6 +125,8 @@ describe('Build Application', () => {
   // NOTE: Incomplete
   describe.skip('Mobile', () => {
     const target = 'mobile'
+
+    build(projectBase, { target, outDir })
 
     test('Can be launched', () => {
       launch({ target, outDir })

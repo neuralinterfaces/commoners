@@ -7,9 +7,8 @@ export default defineConfig({
     name,
 
     // Test ability to add plugins
-    plugins: [
-        {
-            name: 'test-plugin',
+    plugins: {
+        test: {
             load: function () {
                 return {
                     echo: (message) => this.sendSync('echo', message)
@@ -25,5 +24,5 @@ export default defineConfig({
             }
 
         }
-    ]
+    }
 })

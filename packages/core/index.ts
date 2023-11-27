@@ -9,9 +9,11 @@ import { ModeType, ResolvedConfig, ResolvedService, UserConfig } from './types.j
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile } from './utils/files.js'
 
+
 // Exports
 export * from './types.js'
 export * from './globals.js'
+export * as testing from './tests/utils/index.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'

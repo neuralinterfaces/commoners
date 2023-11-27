@@ -1,9 +1,0 @@
-{
-  "main": ".commoners/.temp/main.js",
-  "devDependencies": {
-    "@capacitor/assets": "^3.0.1",
-    "@capacitor/cli": "^5.5.1",
-    "@capacitor/core": "^5.5.1",
-    "@capacitor/ios": "^5.5.1"
-  }
-}
