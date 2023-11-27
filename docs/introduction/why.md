@@ -2,6 +2,8 @@
 
 `commoners` allows anyone to build hybrid applications—distributed on web, desktop, and mobile—without the hassle of additional languages and libraries.
 
+The `commoners` CLI was originally developed to support the deployment of the same Bluetooth-enabled application across web, desktop, and mobile—an impossible feat using existing JavaScript tooling.
+
 ## Competitors
 - [React Native](https://reactnative.dev) - While React Native is a popular cross-platform solution, it assumes a React-based frontend—limiting its flexibility.
 - [Flutter](https://flutter.dev) - While Flutter is an elegant cross-platform solution, it uses Dart as its primary language—substantially increasing the barrier to entry.
