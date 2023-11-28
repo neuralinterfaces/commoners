@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 
 import { createServer } from './utils/server.js'
-import { NAME, createServices, loadConfigFromFile, resolveConfig } from './index.js';
+import { createServices, resolveConfig } from './index.js';
 
 import { ShareOptions } from './types.js';
 

@@ -3,7 +3,7 @@ import * as vite from 'vite'
 import ElectronVitePlugin from 'vite-plugin-electron'
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
-import { extname, join, resolve, sep } from 'node:path'
+import { extname, join, relative, resolve, sep } from 'node:path'
 
 import { rootDir, userPkg, NAME, APPID, isDesktop } from "../globals.js";
 
@@ -40,12 +40,11 @@ const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
 
     const pwaOpts = { ...opts } as Partial<VitePWAOptions>
 
+
     if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
     else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [ pwaOpts.includeAssets ]
 
-    const fromHTMLPath = join(...outDir.split(sep).slice(1))
-
-    const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)).map(str => join(fromHTMLPath, str)) : [] // Provide full path of the icon
+    const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)) : []
 
     pwaOpts.includeAssets.push(...icons) // Include specified assets
 

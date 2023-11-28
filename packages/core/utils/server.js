@@ -16,7 +16,7 @@ export const createServer = ({ root = process.cwd(), handler }) => {
         
         // extract URL path
         let pathname = path.join(root, parsedUrl.pathname);
-
+        
         // based on the URL path, extract the file extension. e.g. .js, .doc, ...
         const ext = path.parse(pathname).ext || '.html';
 
@@ -37,7 +37,7 @@ export const createServer = ({ root = process.cwd(), handler }) => {
         '.doc': 'application/msword'
         };
     
-        if (statSync(pathname).isDirectory()) pathname += '/index' + ext;
+        if (statSync(pathname).isDirectory()) pathname = path.join(pathname, 'index' + ext);
     
         res.setHeader('Content-type', map[ext] || 'text/plain' );
         res.end(readFileSync(pathname));

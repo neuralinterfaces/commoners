@@ -1,7 +1,7 @@
 
-import { normalize, extname } from 'node:path'
+import { normalize, extname, relative } from 'node:path'
 import { getIcon } from '../../utils/index.js'
-import { isDesktop, isMobile, NAME, VERSION } from '../../globals.js'
+import { normalizeTarget } from '../../globals.js'
 
 const assetPath = (path, outDir, isBuild) => `./${normalize(`${isBuild ? '' : `${outDir}/`}/${path}`)}`
 
@@ -14,6 +14,9 @@ export default ({
 
     const icon = getIcon(config.icon)
 
+    outDir = (config.root ? relative(config.root, outDir) : outDir) // outDir should be relative to the root
+
+
     const propsToInclude = [ 'url' ]
     const services = {} 
     Object.entries(config.services).forEach(([id, sInfo]) => {
@@ -21,18 +24,15 @@ export default ({
       propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
     })
 
-    const isDesktopTarget = isDesktop(target)
-    const isMobileTarget = isMobile(target)
-
     const globalObject = {
-        name: NAME,
-        version: VERSION,
+        name: config.name,
+        version: config.version,
         services,
-        target: isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
+        target: normalizeTarget(target)
     }
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
-
+    
     return {
         name: 'commoners',
         transformIndexHtml(html) {
@@ -57,7 +57,6 @@ export default ({
             if (quit) globalThis.commoners.quit = quit
             if (electron) globalThis.commoners.electron = electron
 
-            console.log('GO', plugins, COMMONERS_CONFIG)
             if (plugins) globalThis.commoners.__plugins = plugins
             if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
 

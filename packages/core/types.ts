@@ -150,6 +150,7 @@ type RawPlugins = {[id: string]: Plugin}
 type BaseConfig = {
 
     name: string,
+    version: string,
     root: string
 
     target?: TargetType, // Default target

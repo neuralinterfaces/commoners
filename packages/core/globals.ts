@@ -22,10 +22,11 @@ export const globalWorkspacePath = '.commoners'
 
 export const userPkg = getJSON('package.json') ?? {}
 
+export const electronDebugPort = 8315
+
 // Pre-loaded configuration objects
 export const RAW_NAME = userPkg.name ?? 'commoners-app' // Specify the raw product name
 export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
-export const VERSION = userPkg.version ?? '0.0.0'
 export const APPID = `com.${RAW_NAME}.app`
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')
@@ -78,6 +79,12 @@ export const PLATFORM = getOS()  // Declared Mobile OR Implicit Desktop Patform
 
 export const isDesktop = (target: TargetType) => validDesktopTargets.includes(target)
 export const isMobile = (target: TargetType) => validMobileTargets.includes(target)
+
+export const normalizeTarget = (target: TargetType) => {
+    const isDesktopTarget = isDesktop(target)
+    const isMobileTarget = isMobile(target)
+    return isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
+}
 
 export const ensureTargetConsistent = (target: TargetType) => {
 

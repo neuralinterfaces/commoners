@@ -32,10 +32,10 @@ describe('Start', () => {
   registerStartTest('Web')
 
   // NOTE: Skipped because I can't close the Electron instance programmatically
-  registerStartTest('Desktop', { target: 'electron', skip: true })
+  registerStartTest('Desktop', { target: 'electron'}, false)
 
   // NOTE: Skipped because Ruby Gems needs to be updated
-  registerStartTest('Mobile', { target: 'mobile', skip: true })
+  registerStartTest('Mobile', { target: 'mobile' }, false)
 
 })
 
@@ -64,8 +64,8 @@ describe('Share', () => {
 describe('Build and Launch', () => {
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
-  registerBuildTest('Desktop', { target: 'electron', skip: true })
-  registerBuildTest('Mobile', { target: 'mobile', skip: true })
+  registerBuildTest('Desktop', { target: 'electron' }, false)
+  registerBuildTest('Mobile', { target: 'mobile' }, false)
 })
 
 

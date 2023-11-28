@@ -70,6 +70,11 @@ const ogConsoleMethods: any = {};
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
+// Enable remote debugging port for Vitest
+if (process.env.VITEST) {
+   app.commandLine.appendSwitch('remote-debugging-port', `${8315}`) // Mirrors the global electronDebugPort variable
+}
+
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 

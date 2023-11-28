@@ -56,12 +56,17 @@ export default async function ( opts: UserConfig = {} ) {
             services?: Awaited<ReturnType<typeof createAllServices>>
         } = {}
 
-        const manager = {
-            close: (o) => {
-                cleanup(outDir) // Ensure the temporary directory is cleared
-                if (o.frontend) activeInstances.frontend?.close()
-                if (o.services) activeInstances.services?.close()
-            }
+        const closeFunction = (o) => {
+            cleanup(outDir) // Ensure the temporary directory is cleared
+            if (o.frontend) activeInstances.frontend?.close()
+            if (o.services) activeInstances.services?.close()
+        }
+
+        const manager: {
+            url?: string,
+            close: typeof closeFunction
+        } = {
+            close: closeFunction
         }
 
         // Configure the desktop instance
@@ -73,12 +78,14 @@ export default async function ( opts: UserConfig = {} ) {
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) {
             
-            activeInstances.frontend = await createServer(resolvedConfig, { 
+            const frontend = activeInstances.frontend = await createServer(resolvedConfig, { 
                 printUrls: !isDesktopTarget, 
                 outDir,
                 target
             })
 
+            manager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
+        
         }
 
         return manager

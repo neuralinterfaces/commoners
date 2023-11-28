@@ -1,7 +1,7 @@
 
 import { existsSync} from 'node:fs';
-import { NAME, PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath } from './globals.js';
-import { join, relative } from 'node:path';
+import { NAME, PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort } from './globals.js';
+import { join } from 'node:path';
 import chalk from 'chalk';
 
 import { spawnProcess } from './utils/processes.js'
@@ -44,10 +44,9 @@ export default async function (options: LaunchOptions) {
 
         if (!existsSync(exePath)) throw new Error(`${NAME} has not been built for ${PLATFORM} yet.`)
 
-        const debugPort = 8315;
-        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${exePath}'`, '--args', `--remote-debugging-port=${debugPort}`]);
+        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${exePath}'`, '--args', `--remote-debugging-port=${electronDebugPort}`]);
 
-        const debugUrl = `http://localhost:${debugPort}`
+        const debugUrl = `http://localhost:${electronDebugPort}`
         console.log(chalk.gray(`Debug ${NAME} at ${debugUrl}`))
 
         return {

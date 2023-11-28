@@ -3,11 +3,11 @@ import { lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit, NAME } from './globals.js'
+import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit } from './globals.js'
 import { ModeType, ResolvedConfig, ResolvedService, ServiceCreationOptions, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
-import { resolveFile } from './utils/files.js'
+import { resolveFile, getJSON } from './utils/files.js'
 
 
 // Exports
@@ -79,13 +79,18 @@ export async function resolveConfig(
 
     const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
 
-    if (!copy.name) copy.name = NAME
-
     if (!copy.electron) copy.electron = {}
 
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
 
     if (!copy.root) copy.root = ''
+
+    const userPkg = getJSON(join(copy.root, 'package.json'))
+    
+    if (!copy.name) copy.name = userPkg.name
+    if (!copy.version) copy.version = userPkg.version ?? '0.0.0'
+
+
 
     // Always have a build options object
     if (!copy.build) copy.build = {}

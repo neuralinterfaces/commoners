@@ -1,11 +1,12 @@
 // sum.test.js
-import { expect, test, describe } from 'vitest'
+import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
-import { launch } from '../index'
+import { launch, normalizeTarget } from '../index'
 
-import { build, start, checkAssets, sharePort } from '../../testing'
+import { build, checkAssets, sharePort, startBrowserTest } from '../../testing'
 
 import config from './demo/commoners.config'
+import userPkg from './demo/package.json' assert { type: 'json'}
 import { join } from 'node:path'
 
 const randomNumber =  Math.random().toString(36).substring(7)
@@ -16,24 +17,56 @@ export const projectBase = join(__dirname, 'demo')
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-export const registerStartTest = (name, { target = 'web', skip = false } = {}) => {
+const e2eTests = {
+    basic: (registrationOutput, { target }) => {
+
+        const normalizedTarget = normalizeTarget(target)
+
+        describe('Basic E2E Test', () => {
+    
+            test("Global variable is valid", async () => {
+
+                const { page } = registrationOutput
+                const { name, target, version, plugins, services, ready } = await page.evaluate(() => commoners.ready.then(() => commoners));
+                expect(name).toBe(config.name);
+                expect(version).toBe(userPkg.version);
+                expect(target).toBe(normalizedTarget);
+                expect('echo' in plugins).toBe(true);
+                expect(services).instanceOf(Object)
+                expect(ready).instanceOf(Object) // Really is promise. Is passed as an object
+
+                // Services cleared on mobile and web (not remote...)
+                if (normalizedTarget === 'desktop') {
+                  expect('http' in services).toBe(true);
+                  expect(typeof services.url).toBe('string'); // NOTE: Actually specify the URL later
+                }
+
+            });
+          })
+    }
+}
+
+export const registerStartTest = (name, { target = 'web' } = {}, enabled = true) => {
   
-  const describeCommand = skip ? describe.skip : describe
+  const describeCommand = enabled ? describe : describe.skip
   describeCommand(name, () => {
 
-    start(projectBase)
-      
+    // start(projectBase, { target })
+    const output = startBrowserTest({ target }, projectBase)
+
     test('All assets are generated', async () => {
       checkAssets(projectBase, undefined, { target })
     })
 
     runAllServiceTests()
 
+    e2eTests.basic(output, { target })
+
   })
 }
 
-export const registerBuildTest = (name, { target = 'web', skip = false } = {}) => {
-  const describeCommand = skip ? describe.skip : describe
+export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) => {
+  const describeCommand = enabled ? describe : describe.skip
   describeCommand(name, () => {
 
     const opts = { target, outDir: scopedBuildOutDir }
@@ -44,22 +77,12 @@ export const registerBuildTest = (name, { target = 'web', skip = false } = {}) =
       checkAssets(projectBase, opts.outDir, { build: true, target })
     })
 
-    launchTests.basic(opts)
+    describe('Launched application tests', async () => {
+      const output = startBrowserTest({  launch: opts })
+      e2eTests.basic(output, { target })
+    })
 
   })
-}
-
-export const launchTests = {
-  basic: ({ target, outDir }) => {
-    test('Can be launched (basic)', async () => {
-      const result = await launch({ target, outDir })
-      const res = await fetch(result.url as string)
-      const text = await res.text()
-      text.includes('Hello World')
-      expect(text.includes('Hello World!')).toBe(true)
-      expect(res.status).toBe(200)
-    })
-  }
 }
 
 const runAllServiceTests = () => {

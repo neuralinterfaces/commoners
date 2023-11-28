@@ -1,37 +1,59 @@
 
-import { afterAll, beforeAll, expect } from 'vitest'
+import { afterAll, beforeAll, expect, test } from 'vitest'
 import {
     build,
     loadConfigFromFile,
     start,
     share,
     templateDir,
-    globalTempDir
+    globalTempDir,
+    electronDebugPort,
+    launch,
+    UserConfig,
+    LaunchOptions
   } from '../core/index'
 
 import { join, sep, relative } from 'node:path'
 import { rmSync, existsSync } from 'node:fs'
   
+import * as puppeteer from 'puppeteer'
+import { sleep } from '../core/tests/utils'
 
 export const sharePort = 1234
 
+type Output = {
+  manager?: {
+    close: Function
+  }
+}
+
+const beforeStart = async (projectBase, customProps) => {
+  const config = await loadConfigFromFile(projectBase)
+  return await start({
+  ...config,
+  ...customProps
+  })
+}
+
+const afterStart = (manager: Output['manager']) => {
+  if (manager) manager.close({
+    services: true,
+    frontend: true
+  })
+}
+
 const startProject = (projectBase, customProps = {}) => {
 
-    let manager;
+    const output: Output = {};
     beforeAll(async () => {
-        const config = await loadConfigFromFile(projectBase)
-        manager = await start({
-        ...config,
-        ...customProps
-        })
+      output.manager = await beforeStart(projectBase, customProps)
     })
 
     afterAll(() => {
-        if (manager) manager.close({
-            services: true,
-            frontend: true
-        })
+      afterStart(output.manager)
     })
+
+    return output
 
   }
 
@@ -39,6 +61,8 @@ const startProject = (projectBase, customProps = {}) => {
   const buildProject = async (projectBase, { target, outDir }) => {
 
     beforeAll(async () => {
+
+        // NOTE: Should the root be automatically updating the build.outDir property?
         const config = await loadConfigFromFile(projectBase)
         await build({
           ...config,
@@ -47,6 +71,7 @@ const startProject = (projectBase, customProps = {}) => {
             outDir: join(...relative(process.cwd(), projectBase).split(sep).map(() => '..'), outDir) // Escape to the project base
           }
         })
+
       })
   
       afterAll(async () => {
@@ -54,18 +79,80 @@ const startProject = (projectBase, customProps = {}) => {
       })
 }  
 
+
+type BrowserTestOutput = {
+  info?: any
+  page?: puppeteer.Page,
+  browser?: puppeteer.Browser
+}
+
+export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectBase?: string) => {
+
+
+  let resolveOutput;
+  const output: BrowserTestOutput = {}
+
+  const toLaunch = 'launch' in customProps
+
+  const target = toLaunch ? customProps?.launch?.target : customProps.target
+
+  beforeAll(async () => {
+
+    const result = output.info = await (toLaunch ? launch(customProps.launch as LaunchOptions) : beforeStart(projectBase, customProps))
+
+    // if (toLaunch) await sleep(500) // Ensure server finishes opening
+
+    const url = result.url
+
+      // Launched Electron Instance
+      if (target === 'electron') {
+
+        // mainWindow.webContents.on("did-finish-load", () => { 
+        const response = await fetch(`http://localhost:${electronDebugPort}/json/versions/list?t=${Math.random()}`)
+        const debugEndpoints = await response.json()
+
+        let webSocketDebuggerUrl = debugEndpoints['webSocketDebuggerUrl ']
+
+        const browser = output.browser = await puppeteer.connect({ browserWSEndpoint: webSocketDebuggerUrl })
+
+        const [ page ] = await browser.pages();
+        output.page = page
+      } 
+      
+      // Non-Electron Instance
+      else {
+          const browser = output.browser = await puppeteer.launch({ headless: 'new' })
+          const page = output.page = await browser.newPage();
+          await page.goto(url);
+          output.page = page
+      }
+  })
+
+  afterAll(async () => {
+    if (output.browser) await output.browser.close()
+    if (output.info.server) output.info.server.close()
+    // if (output.page) await output.page.close()
+    if (!toLaunch) afterStart(output.info)
+  });
+
+  return output
+
+}
+
 const shareProject = (projectBase, additionalProps = {}) => {
 
-  let manager;
+  const output: Output = {};
   beforeAll(async () => {
       const config = await loadConfigFromFile(projectBase)
       config.share = { port: sharePort, ...additionalProps } // Specify share port
-      manager = await share(config)
+      output.manager = await share(config)
   })
 
   afterAll(() => {
-      if (manager) manager.close()
+      if (output.manager) output.manager.close()
   })
+
+  return output
 
 }
 
@@ -103,9 +190,5 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
   expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
   expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
-
-  if (isPWA) {
-    // Find workbox-9314ba86.js dynamically
-  }
 
 }
