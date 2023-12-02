@@ -3,12 +3,12 @@ import * as vite from 'vite'
 import ElectronVitePlugin from 'vite-plugin-electron'
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
-import { extname, join, relative, resolve, sep } from 'node:path'
+import { extname, join, resolve } from 'node:path'
 
-import { rootDir, userPkg, NAME, APPID, isDesktop } from "../globals.js";
+import { rootDir, userPkg, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
-import { ResolvedConfig, ServerOptions, IconType, ViteOptions } from '../types.js'
+import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import chalk from 'chalk';
 
 const defaultOutDir = join(rootDir, 'dist')
@@ -32,11 +32,12 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
 
 
 type PWAOptions = {
-    icon: IconType,
-    outDir: string
+    icon: ResolvedConfig['icon'],
+    name: ResolvedConfig['name'],
+    appId: ResolvedConfig['appId']
 }
 
-const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
+const resolvePWAOptions = (opts = {}, { name, appId, icon }: PWAOptions) => {
 
     const pwaOpts = { ...opts } as Partial<VitePWAOptions>
 
@@ -49,7 +50,7 @@ const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
     pwaOpts.includeAssets.push(...icons) // Include specified assets
 
     const baseManifest = {
-        id: `?${APPID}=1`,
+        id: `?${appId}=1`,
 
         start_url: '.',
 
@@ -58,9 +59,7 @@ const resolvePWAOptions = (opts = {}, { icon, outDir }: PWAOptions) => {
         display: 'standalone',
 
         // Dynamic
-        name: NAME,
-
-        // short_name: NAME,
+        name,
         description: userPkg.description,
 
         // Generated
@@ -135,8 +134,9 @@ export const resolveViteConfig = (
     else if (target === 'pwa') {
         
         const opts = resolvePWAOptions(commonersConfig.pwa, {
-            icon: commonersConfig.icon,
-            outDir: outDir
+            name: commonersConfig.name,
+            appId: commonersConfig.appId,
+            icon: commonersConfig.icon
         })
 
         // @ts-ignore

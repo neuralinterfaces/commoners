@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { RAW_NAME, rootDir, userPkg } from "../globals.js"
-import { basename, dirname, extname, join, parse, relative, sep } from "node:path"
+import { rootDir, userPkg } from "../globals.js"
+import { dirname, extname, join, parse, relative, sep } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
@@ -164,7 +164,8 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
 
     mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
 
-    writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-${RAW_NAME}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+    const randomId = Math.random().toString(36).substring(7)
+    writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-build-${randomId}`, version: userPkg.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
 
     const assets = await getAssets(config, mode)
 

@@ -89,6 +89,7 @@ export async function resolveConfig(
     
     if (!copy.name) copy.name = userPkg.name
     if (!copy.version) copy.version = userPkg.version ?? '0.0.0'
+    if (!copy.appId) copy.appId = `com.${copy.name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}.app`
 
 
 

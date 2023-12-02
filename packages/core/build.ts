@@ -113,9 +113,7 @@ export default async function build (
         //     else return p
         // })
 
-        const nameToUse = buildConfig.productName.toLowerCase().replaceAll(/\s+/g, '')
-        buildConfig.appId = `com.${nameToUse}.app` // NOTE: Same as notarize.cjs
-        buildConfig.win.executableName = nameToUse
+        buildConfig.appId = `com.${resolvedConfig.appId}.app` // NOTE: Same as notarize.cjs
 
         // Derive Electron version
         if (!('electronVersion' in buildConfig)) {

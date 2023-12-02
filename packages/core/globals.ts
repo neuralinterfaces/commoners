@@ -24,11 +24,6 @@ export const userPkg = getJSON('package.json') ?? {}
 
 export const electronDebugPort = 8315
 
-// Pre-loaded configuration objects
-export const RAW_NAME = userPkg.name ?? 'commoners-app' // Specify the raw product name
-export const NAME = RAW_NAME.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') // Specify the product name
-export const APPID = `com.${RAW_NAME}.app`
-
 export const globalTempDir = join(globalWorkspacePath, '.temp')
 
 const callbacks = []

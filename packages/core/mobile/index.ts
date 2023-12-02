@@ -1,13 +1,13 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { NAME, APPID, userPkg, onExit } from "../globals.js"
+import { userPkg, onExit } from "../globals.js"
 import * as assets from './assets.js'
 
 import chalk from 'chalk'
 
 import { resolve } from "node:path"
 import plist from 'plist'
-import { ResolvedConfig, SupportConfigurationObject, validMobileTargets } from "../types.js"
+import { ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
 const configName = 'capacitor.config.json'
 
@@ -18,11 +18,13 @@ const possibleConfigNames = [
 ]
 
 const getBaseConfig = ({
+    name,
+    appId,
     outDir
 }) => {
     return {
-        appId: APPID.replaceAll('-', ''),
-        appName: NAME,
+        appId,
+        appName: name,
         webDir: outDir,
         server: { androidScheme: 'https' },
         plugins: {}
@@ -58,18 +60,20 @@ type MobileOptions = {
 
 
 type ConfigOptions = {
+    name: ResolvedConfig['name'],
+    appId: ResolvedConfig['appId'],
     plugins: ResolvedConfig['plugins'],
     outDir: string
 }
 
 // Create a temporary Capacitor configuration file if the user has not defined one
-export const openConfig = async ({ plugins, outDir }: ConfigOptions, callback) => {
+export const openConfig = async ({ name, appId, plugins, outDir }: ConfigOptions, callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a: number, b: boolean) => a + (b ? 1 : 0), 0) > 0
 
     if (!isUserDefined) {
 
-        const config = getBaseConfig({ outDir })
+        const config = getBaseConfig({ name, appId, outDir })
         
         getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
             if (isInstalled(ref.plugin)) {
@@ -97,6 +101,8 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     await checkDepsInstalled(target, config)
     
     await openConfig({
+        name: config.name,
+        appId: config.appId,
         plugins: config.plugins,
         outDir
     }, async () => {
@@ -136,6 +142,8 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     console.log(`\n👊 Opening with ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)
 
     await openConfig({
+        name: config.name,
+        appId: config.appId,
         plugins: config.plugins,
         outDir
     }, () => runCommand("npx cap sync"))

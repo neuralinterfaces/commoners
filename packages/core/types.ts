@@ -151,6 +151,7 @@ type BaseConfig = {
 
     name: string,
     version: string,
+    appId: string,
     root: string
 
     target?: TargetType, // Default target
