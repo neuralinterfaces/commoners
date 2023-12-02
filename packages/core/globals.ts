@@ -20,8 +20,6 @@ dotenv.config()
 
 export const globalWorkspacePath = '.commoners'
 
-export const userPkg = getJSON('package.json') ?? {}
-
 export const electronDebugPort = 8315
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')

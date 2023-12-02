@@ -1,4 +1,3 @@
-// sum.test.js
 import { expect, test, describe } from 'vitest'
 
 import {

@@ -5,7 +5,7 @@ import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve } from 'node:path'
 
-import { rootDir, userPkg, isDesktop } from "../globals.js";
+import { rootDir, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
@@ -34,10 +34,11 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
 type PWAOptions = {
     icon: ResolvedConfig['icon'],
     name: ResolvedConfig['name'],
-    appId: ResolvedConfig['appId']
+    appId: ResolvedConfig['appId'],
+    description: ResolvedConfig['description']
 }
 
-const resolvePWAOptions = (opts = {}, { name, appId, icon }: PWAOptions) => {
+const resolvePWAOptions = (opts = {}, { name, description, appId, icon }: PWAOptions) => {
 
     const pwaOpts = { ...opts } as Partial<VitePWAOptions>
 
@@ -60,7 +61,7 @@ const resolvePWAOptions = (opts = {}, { name, appId, icon }: PWAOptions) => {
 
         // Dynamic
         name,
-        description: userPkg.description,
+        description,
 
         // Generated
         icons: icons.map(src => {
@@ -95,6 +96,8 @@ export const resolveViteConfig = (
         target
     })]
 
+    const { name, appId, root, icon, description, dependencies = {} } = commonersConfig
+
     // Desktop Build
     if (isDesktopTarget) {
 
@@ -107,7 +110,7 @@ export const resolveViteConfig = (
                 minify: build,
                 outDir,
                 rollupOptions: {
-                    external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
+                    external: Object.keys(dependencies),
                 }
             }
         }
@@ -134,9 +137,10 @@ export const resolveViteConfig = (
     else if (target === 'pwa') {
         
         const opts = resolvePWAOptions(commonersConfig.pwa, {
-            name: commonersConfig.name,
-            appId: commonersConfig.appId,
-            icon: commonersConfig.icon
+            name,
+            appId,
+            icon,
+            description
         })
 
         // @ts-ignore
@@ -148,7 +152,7 @@ export const resolveViteConfig = (
     // Define a default set of plugins and configuration options
     return vite.defineConfig({
         base: './',
-        root: commonersConfig.root, // Resolve index.html from the root directory
+        root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
             outDir

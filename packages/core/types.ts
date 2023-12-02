@@ -148,21 +148,35 @@ type RawPlugins = {[id: string]: Plugin}
 
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
+    
+    root: string
+    target?: TargetType,
 
+    // Common Options
+    appId: string,
+    icon: IconType,
+
+    // Package Properties
     name: string,
     version: string,
-    appId: string,
-    root: string
+    description?: string,
+    dependencies?: {[x:string]: string}
+    devDependencies?: {[x:string]: string}
 
-    target?: TargetType, // Default target
-    port?: PortType, // Default Port (single service)
 
-    icon: IconType,
+    // Plugin Options
     plugins: RawPlugins,
+
+    // Electron Options
     electron: ElectronOptions
+
+    // PWA Options
     pwa: PWAOptions
 
+    // Service Options
     services?: { [x: string]: UserService } | false,
+    port?: PortType, // Default Port (single service)
+
 }
 
 export type UserConfig = Partial<BaseConfig> & {

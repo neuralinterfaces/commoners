@@ -3,11 +3,12 @@ import { lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, userPkg, templateDir, onExit } from './globals.js'
+import { dependencies, getDefaultMainLocation, templateDir, onExit } from './globals.js'
 import { ModeType, ResolvedConfig, ResolvedService, ServiceCreationOptions, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
+import merge from './utils/merge.js'
 
 
 // Exports
@@ -77,22 +78,23 @@ export async function resolveConfig(
     } : ResolveOptions = {}
 ) {
 
-    const copy = { ...o } as Partial<ResolvedConfig> // NOTE: Will mutate the original object
+    const root = o.root ?? ''
+
+    const temp = { ...o }
+    const plugins = temp.plugins;
+    delete temp.plugins
+    const userPkg = getJSON(join(root, 'package.json'))
+    const copy = merge(structuredClone(temp) , userPkg) as Partial<ResolvedConfig>
+    copy.plugins = plugins // Transfer the original plugins
 
     if (!copy.electron) copy.electron = {}
 
+    // Set default values for certain properties shared across config and package.json
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
-
     if (!copy.root) copy.root = ''
-
-    const userPkg = getJSON(join(copy.root, 'package.json'))
-    
-    if (!copy.name) copy.name = userPkg.name
-    if (!copy.version) copy.version = userPkg.version ?? '0.0.0'
+    if (!copy.version) copy.version = '0.0.0'
     if (!copy.appId) copy.appId = `com.${copy.name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}.app`
-
-
-
+    
     // Always have a build options object
     if (!copy.build) copy.build = {}
 
@@ -122,10 +124,11 @@ const writePackageJSON = (o) => {
 
 // Ensure project can handle --desktop command
 export const configureForDesktop = async (outDir) => {
+    const pkg = getJSON('package.json')
     const defaultMainLocation = getDefaultMainLocation(outDir)
-    if (!userPkg.main || normalize(userPkg.main) !== normalize(defaultMainLocation)) {
-        onExit(() =>  writePackageJSON(userPkg)) // Write back the original package.json on exit
-        writePackageJSON({...userPkg, main: defaultMainLocation})
+    if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
+        onExit(() =>  writePackageJSON(pkg)) // Write back the original package.json on exit
+        writePackageJSON({...pkg, main: defaultMainLocation})
     }
 
 }
