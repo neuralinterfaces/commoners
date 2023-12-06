@@ -10,7 +10,8 @@ import {
     electronDebugPort,
     launch,
     UserConfig,
-    LaunchOptions
+    LaunchOptions,
+    CommonersGlobalObject
   } from '../core/index'
 
 import { join, sep, relative } from 'node:path'
@@ -58,7 +59,7 @@ const startProject = (projectBase, customProps = {}) => {
   }
 
 
-  const buildProject = async (projectBase, { target, outDir }) => {
+  const buildProject = async (projectBase, { target, outDir }, hooks = {}) => {
 
     beforeAll(async () => {
 
@@ -70,12 +71,12 @@ const startProject = (projectBase, customProps = {}) => {
           build: {
             outDir: join(...relative(process.cwd(), projectBase).split(sep).map(() => '..'), outDir) // Escape to the project base
           }
-        })
+        }, hooks)
 
       })
   
       afterAll(async () => {
-        rmSync(outDir, { recursive: true })
+        if (existsSync(outDir)) rmSync(outDir, { recursive: true })
       })
 }  
 
@@ -83,13 +84,13 @@ const startProject = (projectBase, customProps = {}) => {
 type BrowserTestOutput = {
   info?: any
   page?: puppeteer.Page,
-  browser?: puppeteer.Browser
+  browser?: puppeteer.Browser,
+  commoners?: CommonersGlobalObject
 }
 
 export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectBase?: string) => {
 
 
-  let resolveOutput;
   const output: BrowserTestOutput = {}
 
   const toLaunch = 'launch' in customProps
@@ -98,11 +99,11 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
 
   beforeAll(async () => {
 
-    const result = output.info = await (toLaunch ? launch(customProps.launch as LaunchOptions) : beforeStart(projectBase, customProps))
+      const result = output.info = await (toLaunch ? launch(customProps.launch as LaunchOptions) : beforeStart(projectBase, customProps))
 
-    // if (toLaunch) await sleep(500) // Ensure server finishes opening
+      // if (toLaunch) await sleep(500) // Ensure server finishes opening
 
-    const url = result.url
+      const url = result.url
 
       // Launched Electron Instance
       if (target === 'electron') {
@@ -126,6 +127,8 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
           await page.goto(url);
           output.page = page
       }
+
+      output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners));
   })
 
   afterAll(async () => {

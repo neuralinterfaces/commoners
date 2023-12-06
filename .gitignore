@@ -2,6 +2,7 @@
 node_modules
 
 .commoners
+.site
 
 # Builds
 dist

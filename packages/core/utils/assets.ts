@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { rootDir } from "../globals.js"
+import { globalWorkspacePath, rootDir } from "../globals.js"
 import { dirname, extname, join, parse, relative } from "node:path"
 
 import { isValidURL } from './url.js'
@@ -35,16 +35,21 @@ const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 async function buildService({ build, outPath }, name, force = false){
 
         if (!build) return
-
+        
         // Intelligently build service only if it hasn't been built yet (unless forced)
-        const hasBeenBuilt = existsSync(outPath)
-        if (hasBeenBuilt && !force) return
+        const mustBuild = (outPath) => {
+            const hasBeenBuilt = existsSync(outPath)
+            if (hasBeenBuilt && !force) return false
+            console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
+            return true
+        }
 
-        console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
-
-        // Default Configuration
+        // Check Auto Builds
         if (typeof build === 'object') {
             const { src, buildOut, pkgOut } = build
+
+            const shouldBuild = mustBuild(pkgOut)
+            if (!shouldBuild) return pkgOut
 
             await esbuild.build({ 
                 entryPoints: [ src ],
@@ -55,13 +60,18 @@ async function buildService({ build, outPath }, name, force = false){
                 platform: 'node', 
                 external: [ "*.node" ]
             })
-
  
             await pkg.exec([buildOut, '--target', 'node16', '--out-path', pkgOut]);
 
             rmSync(buildOut, { force: true })
 
             return pkgOut
+        } 
+        
+        // Check Custom Builds
+        else {
+            const shouldBuild = mustBuild(outPath)
+            if (!shouldBuild) return outPath
         }
 
         // Dynamic Configuration
@@ -109,7 +119,13 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
         if (existsSync('.env')) assets.copy.push('.env')
 
         // Bundle Splash Page
-        if (resolvedConfig.electron.splash) assets.bundle.push(resolvedConfig.electron.splash)
+        const splashPath = resolvedConfig.electron.splash
+        if (splashPath) {
+            assets.bundle.push({
+                input: join(root, splashPath),
+                output: splashPath
+            })
+        }
     }
 
     
@@ -121,11 +137,12 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
         for (const [name, resolvedService] of Object.entries(resolvedServices)) {
 
             // @ts-ignore
-            const resolved = join(root, resolvedService.base ?? resolvedService.src)
+            const { src, base } = resolvedService
 
-            if (!resolved) continue // Do not copy if file doesn't exist
+            const toCopy = base ?? src
+            if (!toCopy) continue // Cannot copy if no source has been specified
 
-            const isURL = isValidURL(resolved)
+            const isURL = isValidURL(src)
 
             const hasBuild = resolvedService.build
 
@@ -134,11 +151,15 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
             const forceRebuild = mode === 'electron-rebuild' || mode === true
             
             if (!isURL) {
-                if (jsExtensions.includes(extname(resolved))) assets.bundle.push(resolved) // Bundle JavaScript files
-                else assets.copy.push(resolved) // Copy directories
+
+                const output = await buildService({ build: resolvedService.build, outPath: join(root, toCopy) }, name, forceRebuild)
+                        
+                if (existsSync(output)){
+                    const relPath = relative(root, output)
+                    if (jsExtensions.includes(extname(output))) assets.bundle.push(relPath) // Bundle JavaScript files
+                    else assets.copy.push(relPath) // Copy directories
+                } else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
             }
-            
-            await buildService({ build: resolvedService.build, outPath: resolved }, name, forceRebuild)
         }
     }
 
@@ -187,10 +208,13 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
         const hasExplicitInput = typeof input === 'string'
 
         if (hasExplicitInput) {
+
             const ext = extname(input)
+
             const outPath = typeof output === 'string' ? join(outDir, output) : join(outDir, input)
 
-            const root = dirname(input)
+            const root =  dirname(input)
+            
 
             // Bundle HTML Files using Vite
             if (ext === '.html') {
@@ -201,7 +225,7 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                     build: {
                         emptyOutDir: false, // Ensure assets already built are maintained
                         outDir: relative(root, dirname(outPath)),
-                        rollupOptions: { input: input }
+                        rollupOptions: { input }
                     },
                 })
 
@@ -210,11 +234,11 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
             // Build JavaScript Files using ESBuild
             else {
                 
-                const resolvedExtension = typeof output === 'string' ? extname(output).slice(1) : output.extension
+                const resolvedExtension = typeof output === 'string' ? extname(output).slice(1) : (output?.extension ?? ext.slice(1))
                 const outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
 
                 const baseConfig: esbuild.BuildOptions = {
-                    entryPoints: [input],
+                    entryPoints: [ input ],
                     bundle: true,
                     logLevel: 'silent',
                     outfile,

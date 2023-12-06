@@ -84,7 +84,13 @@ export async function resolveConfig(
     const plugins = temp.plugins;
     delete temp.plugins
     const userPkg = getJSON(join(root, 'package.json'))
-    const copy = merge(structuredClone(temp) , userPkg) as Partial<ResolvedConfig>
+
+    // Merge Config and package.json (transformed name)
+    const copy = merge(structuredClone(temp) , {
+        ...userPkg,
+        name: userPkg.name.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ')
+    }) as Partial<ResolvedConfig>
+    
     copy.plugins = plugins // Transfer the original plugins
 
     if (!copy.electron) copy.electron = {}

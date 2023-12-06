@@ -16,8 +16,11 @@ const config = {
     plugins: { echo },
 
     services: {
-        http: { src: './services/http/index.js' }
-        // ws: { src: './services/ws/index.js' }
+        http: { 
+            src: './services/http/index.js', 
+            port: basePort // Hardcoded port
+        },
+        express: { src: './services/express/index.js' }
         // python: {
         //     description: 'A simple Python server',
         //     src: './src/services/python/main.py',
@@ -31,7 +34,5 @@ const config = {
         // },
     }
 }
-
-Object.values(config.services).forEach((o, i) => o.port = basePort + i)
 
 export default config

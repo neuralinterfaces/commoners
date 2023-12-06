@@ -44,6 +44,9 @@ export function isLocal(publishConfig) {
   return !!(publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote))
 }
 
+
+const isPublished = !process.env.VITE_DEV_SERVER_URL
+
 export async function resolveService (
   config = {}, 
   name,
@@ -72,18 +75,23 @@ export async function resolveService (
 
     // Define default build command
     if (
+      // !isPublished &&
       !resolvedConfig.build 
       && __src 
     ) {
       if (autobuildExtensions.node.includes(extname(__src))) {
-        const outDir = globalServiceWorkspacePath // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
+        const outDir = globalServiceWorkspacePath // join(root, globalServiceWorkspacePath) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
         const pkgOut = `./${join(outDir, name)}`
         resolvedConfig.build =  {
-          src: __src,
+          src: __src, //join(root, __src),
           buildOut: `./${join(outDir, name, `${name}.js`)}`,
           pkgOut
         }
-        if (isLocal(publishConfig)) resolvedConfig.src = `./${join(pkgOut, name)}`   
+
+        if (isLocal(publishConfig)) {
+          const src =  join(pkgOut, name)
+          resolvedConfig.src = src //isPublished ? src : `./${relative(root, src)}`
+        }
       }
     }
 

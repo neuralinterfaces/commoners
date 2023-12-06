@@ -14,6 +14,8 @@ const scopedBuildOutDir = '.site'
 
 export const projectBase = join(__dirname, 'demo')
 
+const getServices = (registrationOutput) => ((registrationOutput.commoners ?? registrationOutput.manager) ?? {}).services
+
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -26,8 +28,8 @@ const e2eTests = {
     
             test("Global variable is valid", async () => {
 
-                const { page } = registrationOutput
-                const { name, target, version, plugins, services, ready } = await page.evaluate(() => commoners.ready.then(() => commoners));
+                const { commoners } = registrationOutput
+                const { name, target, version, plugins, services, ready } = commoners
                 expect(name).toBe(config.name);
                 expect(version).toBe(userPkg.version);
                 expect(target).toBe(normalizedTarget);
@@ -58,7 +60,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
       checkAssets(projectBase, undefined, { target })
     })
 
-    runAllServiceTests()
+    runAllServiceTests(output)
 
     e2eTests.basic(output, { target })
 
@@ -71,10 +73,21 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 
     const opts = { target, outDir: scopedBuildOutDir }
 
-    build(projectBase, opts)
+    let triggerAssetsBuilt
+    let assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
 
-    test('All assets are found', () => {
-      checkAssets(projectBase, opts.outDir, { build: true, target })
+    build(projectBase, opts, {
+      onBuildAssets: () => {
+        triggerAssetsBuilt()
+      }
+    })
+
+    // NOTE: Non-web builds will put assets in a temporary directory
+    const outDir = (target === 'web' || target === 'pwa') ? scopedBuildOutDir : join('.commoners', target)
+
+    test('All assets are found', async () => {
+      await assetsBuilt
+      checkAssets(projectBase, outDir, { build: true, target })
     })
 
     describe('Launched application tests', async () => {
@@ -85,8 +98,10 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
   })
 }
 
-const runAllServiceTests = () => {
-  serviceTests.basic('http')
+const runAllServiceTests = (registrationOutput) => {
+  serviceTests.echo('http', registrationOutput)
+  serviceTests.echo('express', registrationOutput)
+  // serviceTests.echo('python')
   // serviceTests.complex()
   // serviceTests.basic('python')
 }
@@ -95,14 +110,18 @@ export const serviceTests = {
 
   // Ensure shared server allows you to locate your services correctly
   share: {
-    basic: () => {
+    basic: (registrationOutput) => {
       test(`Shared Server Test`, async () => {
-    
+        
+        const liveServices = getServices(registrationOutput)
+
         const { commoners, services = {} } = await fetch(`http://0.0.0.0:${sharePort}`).then(res => res.json());
+
         if (commoners) {
             const ids = [ 'http' ]
             ids.forEach(id => {
-              expect(config.services[id].port).toBe(services['http'])
+              const url = new URL(liveServices[id].url)
+              expect(parseInt(url.port)).toBe(services['http'])
             })
         }
       })
@@ -110,12 +129,16 @@ export const serviceTests = {
   },
 
   // Ensure a basic echo test passes on the chosen service
-  basic: (id) => {
-      test(`Basic Service Test (${id})`, async () => {
+  echo: (id, registrationOutput) => {
+      test(`Service Echo Test (${id})`, async () => {
 
-        await sleep(100)
+        await sleep(500)
         
-        const res = await fetch(`http://localhost:${config.services[id].port}`, {
+        // Grab live services
+        const services = getServices(registrationOutput)
+        
+        // Request an echo response
+        const res = await fetch(new URL('echo', services[id].url), {
             method: "POST",
             body: JSON.stringify({ randomNumber })
         }).then(res => res.json())
@@ -123,26 +146,6 @@ export const serviceTests = {
         expect(res.randomNumber).toBe(randomNumber)
       })
     },
-
-    // // Ensure a complicated WebSocket server with node_module dependencies will pass a basic echo test
-    // complex: () => {
-      // test('Complex Node Service Test', async () => {
-        //   if (ws) {
-        //       const wsService = new URL(ws.url)
-    
-        //       const socket = new WebSocket(`ws://localhost:${config.services.ws.port}`)
-    
-        //       socket.onmessage = (o) => {
-        //           console.log('WS Echo Confirmed', JSON.parse(o.data).payload.number === test)
-        //       }
-    
-        //       let send = (o: any) => socket.send(JSON.stringify(o))
-    
-        //       socket.onopen = () => send({ number: test })
-        //   }
-        // })
-    // }
-
 
   // }
 }

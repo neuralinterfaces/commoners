@@ -1,7 +1,7 @@
 
 import { existsSync, readdirSync} from 'node:fs';
 import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort } from './globals.js';
-import { join } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import chalk from 'chalk';
 
 import { spawnProcess } from './utils/processes.js'
@@ -15,14 +15,52 @@ import { getFreePorts } from './templates/services/utils/network.js'
 import open from 'open'
 import { cpus } from 'node:os';
 
+const isDesktopFolder = (outDir) => {
+    let baseDir = ''
+    let filename = null
+    let ext;
+    if (PLATFORM === 'mac') {
+        const isMx = /Apple\sM\d+/.test(cpus()[0].model)
+        baseDir = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`)
+        ext = '.app'
+    } else if (PLATFORM === 'windows') {
+        baseDir = join(outDir, `win-unpacked`)
+        ext = '.exe'
+    }
+
+    if (existsSync(baseDir)) filename = readdirSync(baseDir).find(file => file.endsWith(ext))
+
+    const filepath = filename ? join(baseDir, filename) : null
+    const name = filename ? basename(filename, extname(filename)) : null
+
+    return {
+        name,
+        filepath
+    }
+}
+
 export default async function (options: LaunchOptions) {
 
-    const target = ensureTargetConsistent(options.target)
+    let target;
+
+    const desktopInfo = isDesktopFolder(options.outDir)
+
+    // Autodetect target build type
+    if (options.outDir){
+        if (desktopInfo.filepath) target = 'electron'
+    }
+
+    target = ensureTargetConsistent(target)
     
     const { 
         outDir = join(globalWorkspacePath, target),
         port 
     } = options
+
+
+    if (!existsSync(outDir)) {
+        return console.error(`${chalk.red(outDir)} directory does not exist.`)
+    }
 
     console.log(`\n✊ Launching ${chalk.bold(chalk.greenBright(`${target}`))} build${outDir ? ` (${outDir})` : ''}\n`)
 
@@ -34,28 +72,13 @@ export default async function (options: LaunchOptions) {
     }
 
     else if (isDesktop(target)) {
-
-        let baseDir = ''
-        let name = ''
-        if (PLATFORM === 'mac') {
-            const isMx = /Apple\sM\d+/.test(cpus()[0].model)
-            baseDir = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`)
-            name = readdirSync(baseDir).find(file => file.endsWith('.app'))
-        } else if (PLATFORM === 'windows') {
-            baseDir = join(outDir, `wib-unpacked`)
-            name = readdirSync(baseDir).find(file => file.endsWith('.exe'))
-        }
         
-        else throw new Error(`Cannot launch the application for ${PLATFORM}`)
+        if (!desktopInfo.filepath || !existsSync(desktopInfo.filepath)) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
 
-        const exePath = join(baseDir, name)
-
-        if (!existsSync(exePath)) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
-
-        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${exePath}'`, '--args', `--remote-debugging-port=${electronDebugPort}`]);
+        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${desktopInfo.filepath}'`, '--args', `--remote-debugging-port=${electronDebugPort}`]);
 
         const debugUrl = `http://localhost:${electronDebugPort}`
-        console.log(chalk.gray(`Debug ${name} at ${debugUrl}`))
+        console.log(chalk.gray(`Debug ${desktopInfo.name} at ${debugUrl}`))
 
         return {
             url: debugUrl
