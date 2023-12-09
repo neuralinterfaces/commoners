@@ -17,7 +17,6 @@ import chalk from "chalk"
 import merge from './utils/merge.js'
 
 type BuildHooks = {
-    package?: boolean,
     services?: ResolvedConfig['services']
     onBuildAssets?: Function
 }
@@ -28,7 +27,6 @@ export default async function build (
 
     // Hooks
     {
-        package: willPackage = true,
         services: devServices,
         onBuildAssets
     }: BuildHooks = {},
@@ -100,9 +98,10 @@ export default async function build (
     configCopy.build = { ...opts.build, outDir }  
 
     const toUnpack = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
-    if (onBuildAssets) onBuildAssets(outDir)
-
-    if (!willPackage) return // Skip packaging if requested
+    if (onBuildAssets) {
+        const result = onBuildAssets(outDir)
+        if (result === null) return // Skip packaging if requested
+    }
     
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {

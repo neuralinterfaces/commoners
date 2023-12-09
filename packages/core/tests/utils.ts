@@ -82,9 +82,9 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     const describeFn = skipPackageStep ? describe.skip : describe
 
     build(projectBase, opts, {
-      package: !skipPackageStep,
       onBuildAssets: (assetDir) => {
-        triggerAssetsBuilt(assetDir)
+        if (skipPackageStep) return null
+        else triggerAssetsBuilt(assetDir)
       }
     })
 

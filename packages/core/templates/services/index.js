@@ -69,19 +69,16 @@ export async function resolveService (
 
     const __src = resolvedConfig.src
 
-    const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
+    const autoBuild = !resolvedConfig.build && __src && autobuildExtensions.node.includes(extname(__src))
+    const baseConfig = autoBuild ? {} : { src: false }
+
+    const mergedConfig = Object.assign(Object.assign(baseConfig, publishConfig), internalConfig)
     
     // Cascade from more to less specific information
     Object.assign(resolvedConfig, mergedConfig)
 
     // Define default build command
-    if (
-      !isPublished &&
-      !resolvedConfig.build 
-      && __src 
-    ) {
-
-      if (autobuildExtensions.node.includes(extname(__src))) {
+    if ( autoBuild ) {
 
         const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath)) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
         const pkgOut = `./${join(outDir, name)}`
@@ -94,9 +91,9 @@ export async function resolveService (
 
         if (isLocal(publishConfig)) {
           const src =  join(pkgOut, name)
-          resolvedConfig.src = src //isPublished ? src : `./${relative(root, src)}`
+          resolvedConfig.src = isPublished ? relative(root, src) : src
         }
-      }
+
     }
 
     delete resolvedConfig.publish
@@ -114,7 +111,7 @@ export async function resolveService (
 
 
   if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
-  
+
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
 
@@ -151,6 +148,7 @@ export async function start (config, id, opts = {}) {
     const ext = extname(src)
 
     let error;
+    
 
     try {
       const env = { ...process.env, PORT: config.port, HOST: config.host }
