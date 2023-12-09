@@ -150,7 +150,7 @@ type RawPlugins = {[id: string]: Plugin}
 type BaseConfig = {
     
     root: string
-    target?: TargetType,
+    target: TargetType,
 
     // Common Options
     appId: string,

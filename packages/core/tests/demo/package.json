@@ -1,7 +1,10 @@
 {
-    "name": "@commoners/test-app",
-    "version": "0.0.40",
-    "workspaces": [
-        "services/**"
-    ]
+  "name": "@commoners/test-app",
+  "version": "0.0.40",
+  "description": "A test app for the commoners library",
+  "workspaces": [
+    "services/**"
+  ],
+  "author": "Garrett Flynn <garrettmflynn@gmail.com>",
+  "main": ".commoners/.temp/electron/main.js"
 }

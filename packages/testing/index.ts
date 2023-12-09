@@ -7,15 +7,16 @@ import {
     share,
     templateDir,
     globalTempDir,
+    globalWorkspacePath,
     electronDebugPort,
     launch,
     UserConfig,
     LaunchOptions,
-    CommonersGlobalObject
+    CommonersGlobalObject,
   } from '../core/index'
 
 import { join, sep, relative } from 'node:path'
-import { rmSync, existsSync } from 'node:fs'
+import { rmSync, existsSync, readdir } from 'node:fs'
   
 import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
@@ -61,6 +62,9 @@ const startProject = (projectBase, customProps = {}) => {
 
   const buildProject = async (projectBase, { target, outDir }, hooks = {}) => {
 
+    const tempDir = join(projectBase, globalTempDir)
+    const servicesDir = join(projectBase, globalWorkspacePath, 'services')
+
     beforeAll(async () => {
 
         // NOTE: Should the root be automatically updating the build.outDir property?
@@ -76,8 +80,12 @@ const startProject = (projectBase, customProps = {}) => {
       })
   
       afterAll(async () => {
+        if (existsSync(tempDir)) rmSync(tempDir, { recursive: true })
+        if (existsSync(servicesDir)) rmSync(servicesDir, { recursive: true })
         if (existsSync(outDir)) rmSync(outDir, { recursive: true })
-      })
+      }, 
+      1*60*1000 // 1 minute
+    )
 }  
 
 
@@ -166,6 +174,7 @@ export {
     buildProject as build,
     shareProject as share
 }
+
 
 export const checkAssets = (projectBase, baseDir = '', { build = false, target = 'web' } = {}) => {
 

@@ -1,9 +1,9 @@
-import { dirname, join, normalize } from 'node:path'
+import { dirname, join, relative, normalize } from 'node:path'
 import { lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, templateDir, onExit } from './globals.js'
+import { dependencies, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent } from './globals.js'
 import { ModeType, ResolvedConfig, ResolvedService, ServiceCreationOptions, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
@@ -56,7 +56,8 @@ export async function loadConfigFromFile(filesystemPath: string = resolveConfigP
 
     try {
         const result = (await import(fileUrl)).default as UserConfig
-        result.root = dirname(filesystemPath)
+        const root = dirname(filesystemPath)
+        if (root !== process.cwd()) result.root = root
         return result
     } finally {
         unlink(fileNameTmp, () => { }) // Ignore errors
@@ -78,7 +79,7 @@ export async function resolveConfig(
     } : ResolveOptions = {}
 ) {
 
-    const root = o.root ?? ''
+    const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
 
     const temp = { ...o }
     const plugins = temp.plugins;
@@ -93,13 +94,15 @@ export async function resolveConfig(
     
     copy.plugins = plugins // Transfer the original plugins
 
+    copy.target = ensureTargetConsistent(copy.target)
+    
     if (!copy.electron) copy.electron = {}
 
     // Set default values for certain properties shared across config and package.json
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
-    if (!copy.root) copy.root = ''
     if (!copy.version) copy.version = '0.0.0'
-    if (!copy.appId) copy.appId = `com.${copy.name.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}.app`
+
+    if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '-').toLowerCase()}.app`
     
     // Always have a build options object
     if (!copy.build) copy.build = {}
@@ -124,17 +127,17 @@ export async function resolveConfig(
     return copy as ResolvedConfig
 }
 
-const writePackageJSON = (o) => {
-    writeFileSync('package.json', JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
+const writePackageJSON = (o, root = '') => {
+    writeFileSync(join(root, 'package.json'), JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
 }
 
 // Ensure project can handle --desktop command
-export const configureForDesktop = async (outDir) => {
-    const pkg = getJSON('package.json')
-    const defaultMainLocation = getDefaultMainLocation(outDir)
+export const configureForDesktop = async (outDir, root = '') => {
+    const pkg = getJSON(join(root, 'package.json'))
+    const defaultMainLocation = getDefaultMainLocation(root ? relative(root, outDir) : outDir )
     if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
-        onExit(() =>  writePackageJSON(pkg)) // Write back the original package.json on exit
-        writePackageJSON({...pkg, main: defaultMainLocation})
+        onExit(() =>  writePackageJSON(pkg, root)) // Write back the original package.json on exit
+        writePackageJSON({...pkg, main: defaultMainLocation}, root)
     }
 
 }

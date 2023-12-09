@@ -150,7 +150,7 @@ export const resolveViteConfig = (
     console.log(`\n👊 Compiling frontend with ${chalk.bold(chalk.cyanBright('vite'))}\n`)
 
     // Define a default set of plugins and configuration options
-    return vite.defineConfig({
+    const viteConfig = vite.defineConfig({
         base: './',
         root, // Resolve index.html from the root directory
         build: {
@@ -161,4 +161,6 @@ export const resolveViteConfig = (
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
         clearScreen: false,
     })
+
+    return viteConfig
 }

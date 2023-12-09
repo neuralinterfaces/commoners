@@ -66,14 +66,12 @@ describe('Build and Launch', () => {
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
 
-  // Fix cleanup to include the .temp directory
   registerBuildTest(
     'Desktop', 
-    { target: 'electron' },
-    false
+    { target: 'electron' }
   )
-  
-  registerBuildTest('Mobile', { target: 'mobile' }, false)
+
+  registerBuildTest('Mobile', { target: 'mobile' })
 })
 
 

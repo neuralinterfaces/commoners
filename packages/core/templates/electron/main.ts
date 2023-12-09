@@ -149,7 +149,9 @@ function createMainWindow(config, opts = config.electron ?? {}) {
     });
 
     const completeSplashPath = join(__dirname, splashURL)
+
     splash.loadFile(completeSplashPath)
+
 
     globals.splash = splash // Replace splash entry with the active window
   }
@@ -249,10 +251,10 @@ runPlugins(null, 'preload').then(() => {
     })
 
     // Create all services as configured by the user / main build
-    // NOTE: Services cannot be filtered in desktop mode    
+    // NOTE: Services cannot be filtered in desktop mode   
     const { active } = await services.createAll(config.services, {
       mode: isProduction ? 'local' : undefined,
-      root: __dirname,
+      root: isProduction ? __dirname : undefined,
       onClosed: (id, code) => serviceSend(id, 'closed', code),
       onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
     })

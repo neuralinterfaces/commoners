@@ -1,7 +1,7 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join } from "node:path"
+import { extname, join, relative } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
@@ -62,9 +62,10 @@ export async function resolveService (
 
   const resolvedConfig = resolveConfig(config)
 
-  if (mode && resolvedConfig.publish) {
+  if (mode) {
+    
     const publishConfig = resolveConfig(resolvedConfig.publish) ?? {}
-    const internalConfig = resolveConfig(resolvedConfig.publish[mode]) ?? {} // Block service if mode is not available
+    const internalConfig = resolveConfig(resolvedConfig.publish?.[mode]) ?? {} // Block service if mode is not available
 
     const __src = resolvedConfig.src
 
@@ -75,15 +76,18 @@ export async function resolveService (
 
     // Define default build command
     if (
-      // !isPublished &&
+      !isPublished &&
       !resolvedConfig.build 
       && __src 
     ) {
+
       if (autobuildExtensions.node.includes(extname(__src))) {
-        const outDir = globalServiceWorkspacePath // join(root, globalServiceWorkspacePath) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
+
+        const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath)) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
         const pkgOut = `./${join(outDir, name)}`
+
         resolvedConfig.build =  {
-          src: __src, //join(root, __src),
+          src: join(root, __src),
           buildOut: `./${join(outDir, name, `${name}.js`)}`,
           pkgOut
         }
@@ -110,9 +114,10 @@ export async function resolveService (
 
 
   if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
-
+  
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
+
 
   if (root) resolvedConfig.filepath = join(root, src) // Expose the absolute path of the file in development mode
   else resolvedConfig.filepath = src // Just use the raw source

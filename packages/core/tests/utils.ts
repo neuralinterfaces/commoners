@@ -76,21 +76,24 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     let triggerAssetsBuilt
     let assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
 
+    const skipPackageStep = target === 'electron' || target === 'mobile'
+
+    // NOTE: Desktop and mobile builds are not fully built
+    const describeFn = skipPackageStep ? describe.skip : describe
+
     build(projectBase, opts, {
-      onBuildAssets: () => {
-        triggerAssetsBuilt()
+      package: !skipPackageStep,
+      onBuildAssets: (assetDir) => {
+        triggerAssetsBuilt(assetDir)
       }
     })
 
-    // NOTE: Non-web builds will put assets in a temporary directory
-    const outDir = (target === 'web' || target === 'pwa') ? scopedBuildOutDir : join('.commoners', target)
-
     test('All assets are found', async () => {
-      await assetsBuilt
-      checkAssets(projectBase, outDir, { build: true, target })
+      const baseDir = (await assetsBuilt) as string
+      checkAssets(projectBase, baseDir, { build: true, target })
     })
 
-    describe('Launched application tests', async () => {
+    describeFn('Launched application tests', async () => {
       const output = startBrowserTest({  launch: opts })
       e2eTests.basic(output, { target })
     })

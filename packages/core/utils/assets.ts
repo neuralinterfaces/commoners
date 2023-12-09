@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { globalWorkspacePath, rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative } from "node:path"
+import { rootDir } from "../globals.js"
+import { dirname, extname, join, parse, relative, isAbsolute } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
@@ -34,7 +34,7 @@ const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
 async function buildService({ build, outPath }, name, force = false){
 
-        if (!build) return
+        if (!build) return null
         
         // Intelligently build service only if it hasn't been built yet (unless forced)
         const mustBuild = (outPath) => {
@@ -91,12 +91,13 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
     
     const resolvedConfig = await resolveConfig(config)
 
-    const { root } = resolvedConfig
+    const { root, target } = resolvedConfig
+
     const configPath = resolveConfigPath(root)
 
     const configExtensionTargets: ['cjs', 'mjs'] = ['cjs', 'mjs']
 
-    const isElectron = mode === 'electron' || mode === 'electron-rebuild' 
+    const isElectronTarget = target === 'electron'
 
     // Transfer configuration file and related services
     const assets: AssetsCollection = {
@@ -113,10 +114,11 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
         output: 'onload.mjs'
     })
 
-    if (isElectron) {
+    if (isElectronTarget) {
 
         // Copy .env file if it exists
-        if (existsSync('.env')) assets.copy.push('.env')
+        const envPath = join(root, '.env')
+        if (existsSync(envPath)) assets.copy.push(envPath)
 
         // Bundle Splash Page
         const splashPath = resolvedConfig.electron.splash
@@ -146,7 +148,7 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
 
             const hasBuild = resolvedService.build
 
-            if (hasBuild && isURL && isElectron) continue // Do not copy if file is a url (Electron-only)
+            if (hasBuild && isURL && isElectronTarget) continue // Do not copy if file is a url (Electron-only)
 
             const forceRebuild = mode === 'electron-rebuild' || mode === true
             
@@ -155,9 +157,8 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
                 const output = await buildService({ build: resolvedService.build, outPath: join(root, toCopy) }, name, forceRebuild)
                         
                 if (existsSync(output)){
-                    const relPath = relative(root, output)
-                    if (jsExtensions.includes(extname(output))) assets.bundle.push(relPath) // Bundle JavaScript files
-                    else assets.copy.push(relPath) // Copy directories
+                    if (jsExtensions.includes(extname(output))) assets.bundle.push(output) // Bundle JavaScript files
+                    else assets.copy.push(output) // Copy directories
                 } else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
             }
         }
@@ -192,6 +193,8 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
 
     const outputs = []
 
+    const { root } = config
+
     // Create an assets folder with copied assets (ESM)
     await Promise.all(assets.bundle.map(async info => {
 
@@ -211,9 +214,13 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
 
             const ext = extname(input)
 
-            const outPath = typeof output === 'string' ? join(outDir, output) : join(outDir, input)
+            // NOTE: Output is always taken literally
+            const outPath = typeof output === 'string' ? join(outDir, output) : (() => {
+                const relPath = isAbsolute(input) ? relative(root, input) : input
+                return join(outDir, relPath)
+            })()
 
-            const root =  dirname(input)
+            const fileRoot =  dirname(input)
             
 
             // Bundle HTML Files using Vite
@@ -221,10 +228,10 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                 await vite.build({
                     logLevel: 'silent',
                     base: "./",
-                    root,
+                    root: fileRoot,
                     build: {
                         emptyOutDir: false, // Ensure assets already built are maintained
-                        outDir: relative(root, dirname(outPath)),
+                        outDir: relative(fileRoot, dirname(outPath)),
                         rollupOptions: { input }
                     },
                 })
@@ -260,7 +267,7 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
     }))
 
     // Copy static assets
-    assets.copy.map(info => outputs.push(copyAsset(info, { outDir })))
+    assets.copy.map(info => outputs.push(copyAsset(info, { outDir, root })))
 
     return outputs
 }

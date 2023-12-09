@@ -13,11 +13,9 @@ export default async function ( opts: UserConfig = {} ) {
 
         const { port } = opts
 
-        const target = ensureTargetConsistent(opts.target)
-
         const resolvedConfig = await resolveConfig(opts, { customPort: port });
-
-        const { name } = resolvedConfig
+        
+        const { target, name } = resolvedConfig
         console.log(`\n✊ Starting ${chalk.bold(chalk.greenBright(name))} for ${target}\n`)
 
 
@@ -35,7 +33,7 @@ export default async function ( opts: UserConfig = {} ) {
 
         const isDesktopTarget = isDesktop(target)
 
-        const outDir = join(resolvedConfig.root, globalTempDir)
+        const outDir = join(root, globalTempDir)
 
         initialize(outDir)
 
@@ -72,7 +70,7 @@ export default async function ( opts: UserConfig = {} ) {
         }
 
         // Configure the desktop instance
-        if (isDesktopTarget) await configureForDesktop(outDir) // Configure the desktop instance
+        if (isDesktopTarget) await configureForDesktop(outDir, root) // Configure the desktop instance
 
         // Create all services
         else activeInstances.services = await createAllServices()
