@@ -20,7 +20,7 @@ cache
 
 # Version Control
 *.lock
-*-lock.json
+*/**/*-lock.json
 
 # Logs
 logs
