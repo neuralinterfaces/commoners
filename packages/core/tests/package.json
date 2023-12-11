@@ -5,6 +5,5 @@
   "workspaces": [
     "demo/services/**"
   ],
-  "author": "Garrett Flynn <garrettmflynn@gmail.com>",
-  "main": ".commoners/.temp/main.js"
+  "author": "Garrett Flynn <garrettmflynn@gmail.com>"
 }
