@@ -39,7 +39,7 @@ jobs:
           node-version: 18
 
       - name: Install Commoners
-        run: npm ci
+        run: npm install && npm ci # Ensures workspace resolution 
 
       - name: Build Commoners
         run: npm run build
