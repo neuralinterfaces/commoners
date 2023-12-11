@@ -1,18 +1,17 @@
 // sum.test.js
 import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
-import { launch, normalizeTarget } from '../index'
+import { normalizeTarget } from '../index'
 
 import { build, checkAssets, sharePort, startBrowserTest } from '../../testing'
 
-import config from './demo/commoners.config'
-import userPkg from './demo/package.json' assert { type: 'json'}
-import { join } from 'node:path'
+import config from './commoners.config'
+import userPkg from './package.json' assert { type: 'json'}
 
 const randomNumber =  Math.random().toString(36).substring(7)
 const scopedBuildOutDir = '.site'
 
-export const projectBase = join(__dirname, 'demo')
+export const projectBase = __dirname
 
 const getServices = (registrationOutput) => ((registrationOutput.commoners ?? registrationOutput.manager) ?? {}).services
 
@@ -69,6 +68,10 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
 export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) => {
   const describeCommand = enabled ? describe : describe.skip
+
+  const isElectron = target === 'electron'
+  const isMobile = target === 'mobile'
+
   describeCommand(name, () => {
 
     const opts = { target, outDir: scopedBuildOutDir }
@@ -76,15 +79,15 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     let triggerAssetsBuilt
     let assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
 
-    const skipPackageStep = target === 'electron' || target === 'mobile'
+    const skipPackageStep = isElectron  || isMobile
 
     // NOTE: Desktop and mobile builds are not fully built
     const describeFn = skipPackageStep ? describe.skip : describe
 
     build(projectBase, opts, {
       onBuildAssets: (assetDir) => {
+        triggerAssetsBuilt(assetDir)
         if (skipPackageStep) return null
-        else triggerAssetsBuilt(assetDir)
       }
     })
 

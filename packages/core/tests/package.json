@@ -3,8 +3,8 @@
   "version": "0.0.40",
   "description": "A test app for the commoners library",
   "workspaces": [
-    "services/**"
+    "demo/services/**"
   ],
   "author": "Garrett Flynn <garrettmflynn@gmail.com>",
-  "main": ".commoners/.temp/electron/main.js"
+  "main": ".commoners/.temp/main.js"
 }

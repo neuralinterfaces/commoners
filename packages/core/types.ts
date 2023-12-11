@@ -62,10 +62,26 @@ export type ModeType = typeof valid.mode[number]
 
 // ------------------- Services -------------------
 type BaseServiceMetadata = ({ src: string, base?: string } | { url: string })
+
+
+type UserBuildCommand = string | ((info: { 
+    name: string, 
+    force: boolean,
+    src: string,
+    outPath: string
+} ) => string) // e.g. could respond to platform or manually build the executable
+
 type ExtraServiceMetadata = {
-    // Common
     port?: number,
-    build?: string | (() => string), // e.g. could respond to platform
+    build?: UserBuildCommand
+}
+
+type ExtraResolvedServiceMetadata = ExtraServiceMetadata & {
+    build: ExtraServiceMetadata['build'] | {
+        src: string,
+        outPath: string,
+    },
+    __src?: string
 }
 
 type PublishedServiceMetadata = { 
@@ -83,7 +99,7 @@ type GeneratedServiceMetadata = {
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
 
-export type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedServiceMetadata
+export type ResolvedService = BaseServiceMetadata & ExtraResolvedServiceMetadata & GeneratedServiceMetadata
 
 // ------------------- Plugins -------------------
 type LoadedPlugin = { [x:string]: any } | Function | any

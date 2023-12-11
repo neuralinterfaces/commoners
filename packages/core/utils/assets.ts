@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute } from "node:path"
+import { dirname, extname, join, parse, relative, isAbsolute, resolve } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
-import { ResolvedConfig, UserConfig } from "../types.js"
+import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
 import { resolveConfig, resolveConfigPath } from "../index.js"
 
 import pkg from 'pkg'
@@ -31,55 +31,118 @@ type AssetServiceOption = boolean | 'electron' | 'electron-rebuild'
 
 const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
+// Intelligently build service only if it hasn't been built yet (unless forced)
+const mustBuild = ({ name, outPath, force }, log = false) => {
+    const hasBeenBuilt = existsSync(outPath)
+    if (hasBeenBuilt && !force) return false
+    if (log) console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
+    return true
+}
 
-async function buildService({ build, outPath }, name, force = false){
+
+type PackageInfo = {
+    name: string,
+    force?: boolean,
+    src: string,
+    outPath: string
+}
+
+export const packageFile = async (info: PackageInfo, log = false) => {
+
+    const { 
+        name, 
+        src, 
+        outPath, 
+        force 
+    } = info
+
+    const tempOut = join(outPath, `${name}.js`)
+
+    const shouldBuild = mustBuild({
+        outPath,
+        force,
+        name
+    }, log)
+
+    if (!shouldBuild) return outPath
+
+    await esbuild.build({ 
+        entryPoints: [ src ],
+        bundle: true,
+        logLevel: 'silent',
+        outfile: tempOut,
+        format: 'cjs', 
+        platform: 'node', 
+        external: [ "*.node" ]
+    })
+
+    await pkg.exec([tempOut, '--target', 'node16', '--out-path', outPath]);
+
+    rmSync(tempOut, { force: true })
+
+    return outPath
+}
+
+
+async function buildService(
+    { 
+        build,
+        outPath,
+        __src,
+    }: { 
+        __src: string,
+        outPath: string,
+        build: ResolvedService['build'] 
+    }, 
+    name, 
+    force = false
+){
 
         if (!build) return null
         
-        // Intelligently build service only if it hasn't been built yet (unless forced)
-        const mustBuild = (outPath) => {
-            const hasBeenBuilt = existsSync(outPath)
-            if (hasBeenBuilt && !force) return false
-            console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
-            return true
-        }
-
         // Check Auto Builds
-        if (typeof build === 'object') {
-            const { src, buildOut, pkgOut } = build
-
-            const shouldBuild = mustBuild(pkgOut)
-            if (!shouldBuild) return pkgOut
-
-            await esbuild.build({ 
-                entryPoints: [ src ],
-                bundle: true,
-                logLevel: 'silent',
-                outfile: buildOut,
-                format: 'cjs', 
-                platform: 'node', 
-                external: [ "*.node" ]
-            })
- 
-            await pkg.exec([buildOut, '--target', 'node16', '--out-path', pkgOut]);
-
-            rmSync(buildOut, { force: true })
-
-            return pkgOut
-        } 
+        if (build && typeof build === 'object') {
+            return packageFile({
+                name,
+                force,
+                ...(build as any)
+            }, true)
+        }
         
         // Check Custom Builds
         else {
-            const shouldBuild = mustBuild(outPath)
+
+            const shouldBuild = mustBuild({
+                name,
+                outPath,
+                force
+            })
+
             if (!shouldBuild) return outPath
         }
 
         // Dynamic Configuration
-        if (typeof build === 'function') build = build()
+        if (typeof build === 'function') {
+            const ctx = {
+                package: packageFile
+            }
 
-        if (build) {
-            await spawnProcess(build)
-            return outPath
+            build = await build.call(ctx, {
+                name,
+                src: __src,
+                outPath,
+                force
+            })
+        }
+
+        if (typeof build === 'string') {
+            try {
+                resolve(build)
+                return outPath
+            } catch {
+                await spawnProcess(build)
+                return outPath
+            }
         }
 }
 
@@ -154,7 +217,9 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
             
             if (!isURL) {
 
-                const output = await buildService({ build: resolvedService.build, outPath: join(root, toCopy) }, name, forceRebuild)
+                const { __src, build } = resolvedService as any
+
+                const output = await buildService({ __src, build, outPath: join(root, toCopy) }, name, forceRebuild)
                         
                 if (existsSync(output)){
                     if (jsExtensions.includes(extname(output))) assets.bundle.push(output) // Bundle JavaScript files
@@ -248,7 +313,7 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                     entryPoints: [ input ],
                     bundle: true,
                     logLevel: 'silent',
-                    outfile,
+                    outfile
                 }
 
                 // Force a build format if the proper extension is specified

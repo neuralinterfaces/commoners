@@ -69,10 +69,10 @@ export async function resolveService (
 
     const __src = resolvedConfig.src
 
-    const autoBuild = !resolvedConfig.build && __src && autobuildExtensions.node.includes(extname(__src))
-    const baseConfig = autoBuild ? {} : { src: false }
+    const mergedConfig = Object.assign(Object.assign({ src: false}, publishConfig), internalConfig)
 
-    const mergedConfig = Object.assign(Object.assign(baseConfig, publishConfig), internalConfig)
+    const autoBuild = !mergedConfig.build && __src && autobuildExtensions.node.includes(extname(__src))
+    if (autoBuild && mergedConfig.src === false) delete mergedConfig.src
     
     // Cascade from more to less specific information
     Object.assign(resolvedConfig, mergedConfig)
@@ -81,20 +81,23 @@ export async function resolveService (
     if ( autoBuild ) {
 
         const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath)) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
-        const pkgOut = `./${join(outDir, name)}`
+        const outPath = join(outDir, name)
 
         resolvedConfig.build =  {
           src: join(root, __src),
-          buildOut: `./${join(outDir, name, `${name}.js`)}`,
-          pkgOut
+          outPath
         }
 
         if (isLocal(publishConfig)) {
-          const src =  join(pkgOut, name)
+          const src =  join(outPath, name)
           resolvedConfig.src = isPublished ? relative(root, src) : src
         }
 
     }
+
+    Object.assign(resolvedConfig, {
+      __src: join(root, __src)
+    })
 
     delete resolvedConfig.publish
     delete resolvedConfig.remote

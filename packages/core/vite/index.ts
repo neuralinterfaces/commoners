@@ -98,6 +98,7 @@ export const resolveViteConfig = (
 
     const { name, appId, root, icon, description, dependencies = {} } = commonersConfig
 
+
     // Desktop Build
     if (isDesktopTarget) {
 
@@ -114,7 +115,7 @@ export const resolveViteConfig = (
                 }
             }
         }
-
+        
         // @ts-ignore
         const electronPluginConfig = ElectronVitePlugin([
             {

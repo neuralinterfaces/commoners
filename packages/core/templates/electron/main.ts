@@ -72,7 +72,7 @@ const isProduction = !devServerURL
 
 // Enable remote debugging port for Vitest
 if (process.env.VITEST) {
-   app.commandLine.appendSwitch('remote-debugging-port', `${8315}`) // Mirrors the global electronDebugPort variable
+  app.commandLine.appendSwitch('remote-debugging-port', `${8315}`) // Mirrors the global electronDebugPort variable
 }
 
 // Populate platform variable if it doesn't exist

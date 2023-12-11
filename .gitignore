@@ -5,6 +5,7 @@ node_modules
 .site
 
 # Builds
+build
 dist
 
 # Capacitor

@@ -9,7 +9,7 @@ import { share } from '../../testing'
 
 import { resolve } from 'node:path'
 
-import { name } from './demo/commoners.config'
+import { name } from './commoners.config'
 import { projectBase, registerBuildTest, registerStartTest, serviceTests } from './utils'
 
 

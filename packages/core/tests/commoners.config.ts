@@ -1,26 +1,38 @@
 
-import * as echo from './plugins/echo'
+import * as echo from './demo/plugins/echo'
 
 export const name = 'Test App'
 
 const basePort = 5555
+
+const expressSource = './demo/services/express/index.js'
 
 const config = {
 
     name,
 
     electron: {
-        splash: './splash.html'
+        splash: './demo/splash.html'
     },
 
     plugins: { echo },
 
     services: {
         http: { 
-            src: './services/http/index.js', 
+            src: './demo/services/http/index.js', 
             port: basePort // Hardcoded port
         },
-        express: { src: './services/express/index.js' }
+        express: { src: expressSource },
+        manual: {
+            src: expressSource,
+            publish: {
+                build: async function (info) {  return this.package(info) },
+                local: {
+                    src: 'manual',
+                    base: './build/manual'
+                }
+            }
+        }
         // python: {
         //     description: 'A simple Python server',
         //     src: './src/services/python/main.py',

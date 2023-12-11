@@ -5,7 +5,7 @@ const config = {
     name,
 
     electron: {
-        splash: './splash.html'
+        splash: './demo/splash.html'
     },
 }
 

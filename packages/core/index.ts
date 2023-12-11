@@ -10,7 +10,6 @@ import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 
-
 // Exports
 export * from './types.js'
 export * from './globals.js'
@@ -18,6 +17,7 @@ export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'
 export { default as start } from './start.js'
+
 
 export const defineConfig = (o: UserConfig): UserConfig => o
 
@@ -82,8 +82,12 @@ export async function resolveConfig(
     const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
 
     const temp = { ...o }
-    const plugins = temp.plugins;
+    const { services: ogServices, plugins } = temp
     delete temp.plugins
+    delete temp.services
+
+
+
     const userPkg = getJSON(join(root, 'package.json'))
 
     // Merge Config and package.json (transformed name)
@@ -93,8 +97,9 @@ export async function resolveConfig(
     }) as Partial<ResolvedConfig>
     
     copy.plugins = plugins // Transfer the original plugins
+    copy.services = ogServices as any // Transfer original functions on publish
 
-    copy.target = ensureTargetConsistent(copy.target)
+    copy.target = ensureTargetConsistent(copy.target, ['services'])
     
     if (!copy.electron) copy.electron = {}
 
