@@ -41,5 +41,8 @@ jobs:
       - name: Install Commoners
         run: npm ci
 
+      - name: Build Commoners
+        run: npm run build
+
       - name: Run tests
         run: npm run coverage
