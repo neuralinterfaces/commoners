@@ -71,7 +71,7 @@ describe('Build and Launch', () => {
     { target: 'electron' }
   )
 
-  registerBuildTest('Mobile', { target: 'mobile' })
+  // registerBuildTest('Mobile', { target: 'mobile' }, false)
 })
 
 

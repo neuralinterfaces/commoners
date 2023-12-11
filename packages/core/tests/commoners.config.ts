@@ -26,7 +26,18 @@ const config = {
         manual: {
             src: expressSource,
             publish: {
-                build: async function (info) {  return this.package(info) },
+                build: async function (info) { 
+
+                    const fs = await import('node:fs')
+                    const path = await import('node:path')
+
+                    const filename = await this.package(info) 
+
+                    // Write a file to the build directory
+                    fs.appendFileSync(path.join(info.out, 'test.txt'), 'Hello world!')
+
+                    return filename
+                },
                 local: {
                     src: 'manual',
                     base: './build/manual'

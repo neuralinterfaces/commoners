@@ -81,15 +81,15 @@ export async function resolveService (
     if ( autoBuild ) {
 
         const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath)) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
-        const outPath = join(outDir, name)
+        const out = join(outDir, name)
 
         resolvedConfig.build =  {
           src: join(root, __src),
-          outPath
+          out
         }
 
         if (isLocal(publishConfig)) {
-          const src =  join(outPath, name)
+          const src =  join(out, name)
           resolvedConfig.src = isPublished ? relative(root, src) : src
         }
 

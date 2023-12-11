@@ -32,8 +32,8 @@ type AssetServiceOption = boolean | 'electron' | 'electron-rebuild'
 const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
 
 // Intelligently build service only if it hasn't been built yet (unless forced)
-const mustBuild = ({ name, outPath, force }, log = false) => {
-    const hasBeenBuilt = existsSync(outPath)
+const mustBuild = ({ name, out, force }, log = false) => {
+    const hasBeenBuilt = existsSync(out)
     if (hasBeenBuilt && !force) return false
     if (log) console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
     return true
@@ -44,7 +44,7 @@ type PackageInfo = {
     name: string,
     force?: boolean,
     src: string,
-    outPath: string
+    out: string
 }
 
 export const packageFile = async (info: PackageInfo, log = false) => {
@@ -52,19 +52,19 @@ export const packageFile = async (info: PackageInfo, log = false) => {
     const { 
         name, 
         src, 
-        outPath, 
+        out, 
         force 
     } = info
 
-    const tempOut = join(outPath, `${name}.js`)
+    const tempOut = join(out, `${name}.js`)
 
     const shouldBuild = mustBuild({
-        outPath,
+        out,
         force,
         name
     }, log)
 
-    if (!shouldBuild) return outPath
+    if (!shouldBuild) return out
 
     await esbuild.build({ 
         entryPoints: [ src ],
@@ -76,22 +76,22 @@ export const packageFile = async (info: PackageInfo, log = false) => {
         external: [ "*.node" ]
     })
 
-    await pkg.exec([tempOut, '--target', 'node16', '--out-path', outPath]);
+    await pkg.exec([tempOut, '--target', 'node16', '--out-path', out]);
 
     rmSync(tempOut, { force: true })
 
-    return outPath
+    return out
 }
 
 
 async function buildService(
     { 
         build,
-        outPath,
+        out,
         __src,
     }: { 
         __src: string,
-        outPath: string,
+        out: string,
         build: ResolvedService['build'] 
     }, 
     name, 
@@ -114,11 +114,11 @@ async function buildService(
 
             const shouldBuild = mustBuild({
                 name,
-                outPath,
+                out,
                 force
             })
 
-            if (!shouldBuild) return outPath
+            if (!shouldBuild) return out
         }
 
         // Dynamic Configuration
@@ -130,7 +130,7 @@ async function buildService(
             build = await build.call(ctx, {
                 name,
                 src: __src,
-                outPath,
+                out,
                 force
             })
         }
@@ -138,10 +138,10 @@ async function buildService(
         if (typeof build === 'string') {
             try {
                 resolve(build)
-                return outPath
+                return out
             } catch {
                 await spawnProcess(build)
-                return outPath
+                return out
             }
         }
 }
@@ -205,11 +205,13 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
             const { src, base } = resolvedService
 
             const toCopy = base ?? src
+
             if (!toCopy) continue // Cannot copy if no source has been specified
 
             const isURL = isValidURL(src)
 
             const hasBuild = resolvedService.build
+
 
             if (hasBuild && isURL && isElectronTarget) continue // Do not copy if file is a url (Electron-only)
 
@@ -219,7 +221,7 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
 
                 const { __src, build } = resolvedService as any
 
-                const output = await buildService({ __src, build, outPath: join(root, toCopy) }, name, forceRebuild)
+                const output = await buildService({ __src, build, out: join(root, toCopy) }, name, forceRebuild)
                         
                 if (existsSync(output)){
                     if (jsExtensions.includes(extname(output))) assets.bundle.push(output) // Bundle JavaScript files

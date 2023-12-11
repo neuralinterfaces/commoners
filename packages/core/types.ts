@@ -68,7 +68,7 @@ type UserBuildCommand = string | ((info: {
     name: string, 
     force: boolean,
     src: string,
-    outPath: string
+    out: string
 } ) => string) // e.g. could respond to platform or manually build the executable
 
 type ExtraServiceMetadata = {
@@ -79,7 +79,7 @@ type ExtraServiceMetadata = {
 type ExtraResolvedServiceMetadata = ExtraServiceMetadata & {
     build: ExtraServiceMetadata['build'] | {
         src: string,
-        outPath: string,
+        out: string,
     },
     __src?: string
 }

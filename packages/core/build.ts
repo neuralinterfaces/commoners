@@ -98,6 +98,7 @@ export default async function build (
     configCopy.build = { ...opts.build, outDir }  
 
     const toUnpack = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
+
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)
         if (result === null) return // Skip packaging if requested

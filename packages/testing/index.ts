@@ -1,5 +1,5 @@
 
-import { afterAll, beforeAll, expect } from 'vitest'
+import { afterAll, beforeAll, expect, describe, test } from 'vitest'
 import {
     build,
     loadConfigFromFile,
@@ -16,7 +16,7 @@ import {
   } from '../core/index'
 
 import { join, sep, relative } from 'node:path'
-import { rmSync, existsSync } from 'node:fs'
+import { rmSync, existsSync, readFileSync } from 'node:fs'
   
 import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
@@ -64,13 +64,19 @@ const startProject = (projectBase, customProps = {}) => {
 
     const tempDir = join(projectBase, globalTempDir)
     const servicesDir = join(projectBase, globalWorkspacePath, 'services')
+    const customBuildDir = join(projectBase, 'build')
+
+    const toClear = [
+      outDir,
+      tempDir,
+      servicesDir,
+      customBuildDir
+    ]
 
     const isElectron = target === 'electron'
     const isMobile = target === 'mobile'
 
   const waitTime = (isElectron || isMobile) ? 1 * 60 * 1000 : undefined // Wait a minute for Electron services to build
-
-  console.log('waitTime', waitTime)
 
     beforeAll(async () => {
 
@@ -87,9 +93,9 @@ const startProject = (projectBase, customProps = {}) => {
       }, waitTime)
   
       afterAll(async () => {
-        if (existsSync(tempDir)) rmSync(tempDir, { recursive: true })
-        if (existsSync(servicesDir)) rmSync(servicesDir, { recursive: true })
-        if (existsSync(outDir)) rmSync(outDir, { recursive: true })
+        toClear.forEach(path => {
+          if (existsSync(path)) rmSync(path, { recursive: true })
+        })
       })
 }  
 
@@ -197,33 +203,56 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   if (!baseDir) baseDir = join(projectBase, globalTempDir)
 
   //---------------------- Vite ----------------------
-  expect(existsSync(join(baseDir, 'assets'))).toBe(build)
+  describe('Vite assets', () => {
+    
+    expect(existsSync(join(baseDir, 'assets'))).toBe(build)
+
+  })
 
   // ---------------------- Common ----------------------
-  expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
-  expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
+  describe('Common assets', () => {
+
+    expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
+    expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
+    expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
+    expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
+    expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
+
+  })
 
   // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'
-  expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, demoDir, 'splash.html'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
+  describe('Electron assets', () => {
+    expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, demoDir, 'splash.html'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
+  })
 
 
-  // Services
-  expect(existsSync(join(baseDir, '..', '..', 'services', 'http', 'http'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '..', '..', 'services', 'express', 'express'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', 'manual'))).toBe(isElectron)
+  // Service
+  describe('Service assets', () => {
+
+    expect(existsSync(join(baseDir, '..', '..', 'services', 'http', 'http'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, '..', '..', 'services', 'express', 'express'))).toBe(isElectron)
+
+    // Custom with extra assets
+    expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', 'manual'))).toBe(isElectron)
+    
+    const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
+    expect(existsSync(txtFile)).toBe(isElectron)
+    // expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+
+  })
 
   
   // ---------------------- PWA ----------------------
-  const isPWA = target === 'pwa'
-  expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
-  expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
-  expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
+  describe('PWA assets', () => {
+
+    const isPWA = target === 'pwa'
+    expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
+    expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
+    expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
+  })
 
 }
