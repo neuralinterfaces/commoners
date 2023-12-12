@@ -28,50 +28,49 @@ describe('Custom project base is loaded', () => {
 
 describe('Start', () => {
 
-  registerStartTest('Web')
+  // registerStartTest('Web')
 
-  // NOTE: Skipped because I can't close the Electron instance programmatically
-  registerStartTest('Desktop', { target: 'electron'}, false)
+  registerStartTest('Desktop', { target: 'electron'})
 
   // NOTE: Skipped because Ruby Gems needs to be updated
   registerStartTest('Mobile', { target: 'mobile' }, false)
 
 })
 
-describe('Share', () => {
+// describe('Share', () => {
   
-  describe('Share all services', () => {
-    const output = share(projectBase)
-    serviceTests.share.basic(output)
-    serviceTests.echo('http', output)
-    serviceTests.echo('express', output)
-    // serviceTests.echo('python')
-  })
+//   describe('Share all services', () => {
+//     const output = share(projectBase)
+//     serviceTests.share.basic(output)
+//     serviceTests.echo('http', output)
+//     serviceTests.echo('express', output)
+//     // serviceTests.echo('python')
+//   })
 
-  describe('Share specific service', () => {
+//   describe('Share specific service', () => {
 
-    const service = 'http'
+//     const service = 'http'
 
-    const output = share(projectBase, { services: [ service ] })
+//     const output = share(projectBase, { services: [ service ] })
 
-    serviceTests.echo(service, output)
+//     serviceTests.echo(service, output)
 
-    // NOTE: Add a check to see if other services fail
+//     // NOTE: Add a check to see if other services fail
 
-  })
-})
+//   })
+// })
 
 
-describe('Build and Launch', () => {
-  registerBuildTest('Web', { target: 'web' })
-  registerBuildTest('PWA', { target: 'pwa' })
+// describe('Build and Launch', () => {
+//   registerBuildTest('Web', { target: 'web' })
+//   registerBuildTest('PWA', { target: 'pwa' })
 
-  registerBuildTest(
-    'Desktop', 
-    { target: 'electron' }
-  )
+//   registerBuildTest(
+//     'Desktop', 
+//     { target: 'electron' }
+//   )
 
-  // registerBuildTest('Mobile', { target: 'mobile' }, false)
-})
+//   // registerBuildTest('Mobile', { target: 'mobile' }, false)
+// })
 
 

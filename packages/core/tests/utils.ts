@@ -1,5 +1,5 @@
 // sum.test.js
-import { expect, test, describe, beforeAll, afterAll } from 'vitest'
+import { expect, test, describe } from 'vitest'
 
 import { normalizeTarget } from '../index'
 
@@ -22,12 +22,12 @@ const e2eTests = {
     basic: (registrationOutput, { target }) => {
 
         const normalizedTarget = normalizeTarget(target)
-
+        
         describe('Basic E2E Test', () => {
     
             test("Global variable is valid", async () => {
 
-                const { commoners } = registrationOutput
+                const { commoners = {} } = registrationOutput
                 const { name, target, version, plugins, services, ready } = commoners
                 expect(name).toBe(config.name);
                 expect(version).toBe(userPkg.version);
@@ -38,8 +38,11 @@ const e2eTests = {
 
                 // Services cleared on mobile and web (not remote...)
                 if (normalizedTarget === 'desktop') {
-                  expect('http' in services).toBe(true);
-                  expect(typeof services.url).toBe('string'); // NOTE: Actually specify the URL later
+                  Object.entries(config.services).forEach(([name, service]) => {
+                    expect(name in services).toBe(true);
+                    expect(typeof services[name].url).toBe('string');
+                    if ('port' in service) expect(parseInt(new URL(services[name].url).port)).toBe(service.port)
+                  })
                 }
 
             });
@@ -107,9 +110,7 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 const runAllServiceTests = (registrationOutput) => {
   serviceTests.echo('http', registrationOutput)
   serviceTests.echo('express', registrationOutput)
-  // serviceTests.echo('python')
-  // serviceTests.complex()
-  // serviceTests.basic('python')
+  serviceTests.echo('manual', registrationOutput)
 }
 
 export const serviceTests = {
@@ -144,10 +145,30 @@ export const serviceTests = {
         const services = getServices(registrationOutput)
         
         // Request an echo response
-        const res = await fetch(new URL('echo', services[id].url), {
-            method: "POST",
-            body: JSON.stringify({ randomNumber })
-        }).then(res => res.json())
+        const serviceUrl = services[id].url.replace('localhost', '127.0.0.1')
+        const url = new URL('echo', serviceUrl)
+        console.log(id, url.href)
+        // const res = await fetch(url, {
+        //     method: "POST",
+        //     body: JSON.stringify({ randomNumber })
+        // }).then(res => res.json())
+        // .catch(e => {
+        //   console.log(e)
+        //   return {}
+        // })
+
+        const res = await registrationOutput.page.evaluate(({ id, randomNumber }) => fetch(new URL('echo', commoners.services[id].url), {
+          method: "POST",
+          body: JSON.stringify({ randomNumber })
+        }).then(res => res.json()), {
+          id,
+          randomNumber
+        }).catch(e => {
+          console.log(e)
+          return {}
+        })
+
+        console.log('Result', id, res)
 
         expect(res.randomNumber).toBe(randomNumber)
       })

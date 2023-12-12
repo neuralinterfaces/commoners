@@ -129,23 +129,26 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
       // Launched Electron Instance
       if (isElectron) {
 
-        await sleep(6000) // Wait for three seconds for Electron to open
+        await sleep(5 * 1000) // Wait for five seconds for Electron to open
 
-        // mainWindow.webContents.on("did-finish-load", () => { 
+        const browserURL = `http://localhost:${electronDebugPort}`
+        const browser = output.browser = await puppeteer.launch({ headless: 'new' })
+        const page = output.page = await browser.newPage();
+        await page.goto(browserURL);
+        const endpoint = await page.evaluate(() => fetch(`json/version`).then(res => res.json()).then(res => res.webSocketDebuggerUrl))
+        await browser.close()
+        delete output.browser
+        delete output.page
 
-        const response = await fetch(`http://localhost:${electronDebugPort}/json/versions/list?t=${Math.random()}`)
+        const browserWSEndpoint = endpoint.replace('localhost', '0.0.0.0')
 
-        const debugEndpoints = await response.json()
+        // Connect to WS
+        output.browser = await puppeteer.connect({ browserWSEndpoint })
+        const pages = await output.browser.pages()
+        output.page = pages[0]
 
-        const browserWSEndpoint = debugEndpoints['webSocketDebuggerUrl ']
-
-        console.log('Debug URL', browserWSEndpoint)
-
-        const browser = output.browser = await puppeteer.connect({ browserWSEndpoint })
-
-        const [ page ] = await browser.pages();
-        output.page = page
-
+        output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))
+        console.log(output.commoners)
       } 
       
       // Non-Electron Instance
@@ -154,16 +157,19 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
           const page = output.page = await browser.newPage();
           await page.goto(url);
           output.page = page
+          output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))
+
+
       }
 
-      output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners));
   })
 
   afterAll(async () => {
-    if (!toLaunch && isElectron && output.page) await output.page.evaluate(() => commoners.quit());
+    if (!toLaunch && isElectron && output.page) await output.page.evaluate(() => commoners.quit()).catch(e => {
+      console.log(e)
+    })
     if (output.browser) await output.browser.close()
     if (output.info.server) output.info.server.close()
-    // if (output.page) await output.page.close()
     if (!toLaunch) afterStart(output.info)
   });
 
