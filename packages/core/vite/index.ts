@@ -10,6 +10,7 @@ import { rootDir, isDesktop } from "../globals.js";
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import chalk from 'chalk';
+import { safePath } from '../utils/index.js';
 
 const defaultOutDir = join(rootDir, 'dist')
 
@@ -48,7 +49,7 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon }: PWAOpt
 
     const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)) : []
 
-    pwaOpts.includeAssets.push(...icons) // Include specified assets
+    pwaOpts.includeAssets.push(...icons.map(safePath)) // Include specified assets
 
     const baseManifest = {
         id: `?${appId}=1`,
@@ -66,7 +67,7 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon }: PWAOpt
         // Generated
         icons: icons.map(src => {
             return {
-                src,
+                src: safePath(src),
                 type: `image/${extname(src).slice(1)}`,
                 sizes: 'any'
             }

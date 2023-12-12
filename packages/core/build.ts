@@ -117,6 +117,7 @@ export default async function build (
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
         buildConfig.productName = name
+        buildConfig.appId = resolvedConfig.appId // NOTE: Same as notarize.cjs
 
         buildConfig.directories.output = selectedOutDir
 
@@ -135,9 +136,8 @@ export default async function build (
         //     else return p
         // })
 
-        buildConfig.appId = resolvedConfig.appId // NOTE: Same as notarize.cjs
-
         const defaultIcon = getIcon(resolvedConfig.icon)
+        
 
         // TODO: Get platform-specific icon
         const macIcon = defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
@@ -149,8 +149,8 @@ export default async function build (
         buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
         buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
-        buildConfig.mac.icon = macIcon ? path.join(relativeOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
-        buildConfig.win.icon = winIcon ? path.join(relativeOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
+        buildConfig.mac.icon = path.join(relativeOutDir, macIcon)
+        buildConfig.win.icon = path.join(relativeOutDir, winIcon)
 
         // Disable code signing if publishing or explicitly requested
         const toSign = publish || sign

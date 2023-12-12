@@ -11,12 +11,16 @@ Read the [documentation](https://commoners.dev) to learn more.
 ## Local Development
 Use `npm i` to install all dependencies into the monorepo's workspaces.
 
+### Core
+#### Testing
+Before testing, you'll have to run `npm run build` in the root directory.
+
 ### CLI
-To get started with the CLI, you'll need to use `npm link` to connect it with the `@commoners/solidarity` package in `/packages/core`:
+To get started with the CLI, you'll need to use `npm link` to connect it with the `@commoners/solidarity` package in `packages/core`:
 ```
 cd packages/core
 npm link
-cd ../packages/cli
+cd ../cli
 npm link @commoners/solidarity
 ```
 

@@ -35,28 +35,34 @@ const isDesktopFolder = (outDir) => {
 
     return {
         name,
+        filename,
+        base: baseDir,
         filepath
     }
 }
 
 export default async function (options: LaunchOptions) {
 
-    let target;
+    let target = options.target;
 
-    const desktopInfo = isDesktopFolder(options.outDir)
+    const root = options.outDir && existsSync(join(options.outDir, '.commoners')) ? options.outDir : ''
+    if (root) delete options.outDir
 
-    // Autodetect target build type
-    if (options.outDir){
-        if (desktopInfo.filepath) target = 'electron'
+    if (options.outDir) {
+        const desktopInfo = isDesktopFolder(options.outDir)
+
+        // Autodetect target build type
+        if (options.outDir){
+            if (desktopInfo.filepath) target = 'electron'
+        }
     }
 
     target = ensureTargetConsistent(target)
     
     const { 
-        outDir = join(globalWorkspacePath, target),
+        outDir = join(root, globalWorkspacePath, target),
         port 
     } = options
-
 
     if (!existsSync(outDir)) {
         return console.error(`${chalk.red(outDir)} directory does not exist.`)
@@ -73,9 +79,11 @@ export default async function (options: LaunchOptions) {
 
     else if (isDesktop(target)) {
         
+        const desktopInfo = isDesktopFolder(outDir)
+
         if (!desktopInfo.filepath || !existsSync(desktopInfo.filepath)) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
 
-        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`'${desktopInfo.filepath}'`, '--args', `--remote-debugging-port=${electronDebugPort}`]);
+        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`${join(desktopInfo.base, `"${desktopInfo.filename}"`)}`, '--args', `--remote-debugging-port=${electronDebugPort}`]);
 
         const debugUrl = `http://localhost:${electronDebugPort}`
         console.log(chalk.gray(`Debug ${desktopInfo.name} at ${debugUrl}`))
