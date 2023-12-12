@@ -5,11 +5,12 @@ import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve } from 'node:path'
 
-import { rootDir, userPkg, isDesktop } from "../globals.js";
+import { rootDir, isDesktop } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import chalk from 'chalk';
+import { safePath } from '../utils/index.js';
 
 const defaultOutDir = join(rootDir, 'dist')
 
@@ -34,10 +35,11 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
 type PWAOptions = {
     icon: ResolvedConfig['icon'],
     name: ResolvedConfig['name'],
-    appId: ResolvedConfig['appId']
+    appId: ResolvedConfig['appId'],
+    description: ResolvedConfig['description']
 }
 
-const resolvePWAOptions = (opts = {}, { name, appId, icon }: PWAOptions) => {
+const resolvePWAOptions = (opts = {}, { name, description, appId, icon }: PWAOptions) => {
 
     const pwaOpts = { ...opts } as Partial<VitePWAOptions>
 
@@ -47,7 +49,7 @@ const resolvePWAOptions = (opts = {}, { name, appId, icon }: PWAOptions) => {
 
     const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)) : []
 
-    pwaOpts.includeAssets.push(...icons) // Include specified assets
+    pwaOpts.includeAssets.push(...icons.map(safePath)) // Include specified assets
 
     const baseManifest = {
         id: `?${appId}=1`,
@@ -60,12 +62,12 @@ const resolvePWAOptions = (opts = {}, { name, appId, icon }: PWAOptions) => {
 
         // Dynamic
         name,
-        description: userPkg.description,
+        description,
 
         // Generated
         icons: icons.map(src => {
             return {
-                src,
+                src: safePath(src),
                 type: `image/${extname(src).slice(1)}`,
                 sizes: 'any'
             }
@@ -95,6 +97,9 @@ export const resolveViteConfig = (
         target
     })]
 
+    const { name, appId, root, icon, description, dependencies = {} } = commonersConfig
+
+
     // Desktop Build
     if (isDesktopTarget) {
 
@@ -107,11 +112,11 @@ export const resolveViteConfig = (
                 minify: build,
                 outDir,
                 rollupOptions: {
-                    external: Object.keys('dependencies' in userPkg ? userPkg.dependencies : {}),
+                    external: Object.keys(dependencies),
                 }
             }
         }
-
+        
         // @ts-ignore
         const electronPluginConfig = ElectronVitePlugin([
             {
@@ -134,9 +139,10 @@ export const resolveViteConfig = (
     else if (target === 'pwa') {
         
         const opts = resolvePWAOptions(commonersConfig.pwa, {
-            name: commonersConfig.name,
-            appId: commonersConfig.appId,
-            icon: commonersConfig.icon
+            name,
+            appId,
+            icon,
+            description
         })
 
         // @ts-ignore
@@ -146,9 +152,9 @@ export const resolveViteConfig = (
     console.log(`\n👊 Compiling frontend with ${chalk.bold(chalk.cyanBright('vite'))}\n`)
 
     // Define a default set of plugins and configuration options
-    return vite.defineConfig({
+    const viteConfig = vite.defineConfig({
         base: './',
-        root: commonersConfig.root, // Resolve index.html from the root directory
+        root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
             outDir
@@ -157,4 +163,6 @@ export const resolveViteConfig = (
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
         clearScreen: false,
     })
+
+    return viteConfig
 }

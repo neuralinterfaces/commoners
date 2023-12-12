@@ -1,5 +1,5 @@
 
-import { afterAll, beforeAll, expect, test } from 'vitest'
+import { afterAll, beforeAll, expect, describe, test } from 'vitest'
 import {
     build,
     loadConfigFromFile,
@@ -7,14 +7,16 @@ import {
     share,
     templateDir,
     globalTempDir,
+    globalWorkspacePath,
     electronDebugPort,
     launch,
     UserConfig,
-    LaunchOptions
+    LaunchOptions,
+    CommonersGlobalObject,
   } from '../core/index'
 
 import { join, sep, relative } from 'node:path'
-import { rmSync, existsSync } from 'node:fs'
+import { rmSync, existsSync, readFileSync } from 'node:fs'
   
 import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
@@ -58,7 +60,23 @@ const startProject = (projectBase, customProps = {}) => {
   }
 
 
-  const buildProject = async (projectBase, { target, outDir }) => {
+  const buildProject = async (projectBase, { target, outDir }, hooks = {}) => {
+
+    const tempDir = join(projectBase, globalTempDir)
+    const servicesDir = join(projectBase, globalWorkspacePath, 'services')
+    const customBuildDir = join(projectBase, 'build')
+
+    const toClear = [
+      outDir,
+      tempDir,
+      servicesDir,
+      customBuildDir
+    ]
+
+    const isElectron = target === 'electron'
+    const isMobile = target === 'mobile'
+
+  const waitTime = (isElectron || isMobile) ? 1 * 60 * 1000 : undefined // Wait a minute for Electron services to build
 
     beforeAll(async () => {
 
@@ -70,12 +88,14 @@ const startProject = (projectBase, customProps = {}) => {
           build: {
             outDir: join(...relative(process.cwd(), projectBase).split(sep).map(() => '..'), outDir) // Escape to the project base
           }
-        })
+        }, hooks)
 
-      })
+      }, waitTime)
   
       afterAll(async () => {
-        rmSync(outDir, { recursive: true })
+        toClear.forEach(path => {
+          if (existsSync(path)) rmSync(path, { recursive: true })
+        })
       })
 }  
 
@@ -83,40 +103,49 @@ const startProject = (projectBase, customProps = {}) => {
 type BrowserTestOutput = {
   info?: any
   page?: puppeteer.Page,
-  browser?: puppeteer.Browser
+  browser?: puppeteer.Browser,
+  commoners?: CommonersGlobalObject
 }
 
 export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectBase?: string) => {
 
 
-  let resolveOutput;
   const output: BrowserTestOutput = {}
 
   const toLaunch = 'launch' in customProps
 
   const target = toLaunch ? customProps?.launch?.target : customProps.target
 
+  const isElectron = target === 'electron'
+
   beforeAll(async () => {
 
-    const result = output.info = await (toLaunch ? launch(customProps.launch as LaunchOptions) : beforeStart(projectBase, customProps))
+      const result = output.info = await (toLaunch ? launch(customProps.launch as LaunchOptions) : beforeStart(projectBase, customProps))
 
-    // if (toLaunch) await sleep(500) // Ensure server finishes opening
+      // if (toLaunch) await sleep(500) // Ensure server finishes opening
 
-    const url = result.url
+      const url = result.url
 
       // Launched Electron Instance
-      if (target === 'electron') {
+      if (isElectron) {
+
+        await sleep(6000) // Wait for three seconds for Electron to open
 
         // mainWindow.webContents.on("did-finish-load", () => { 
+
         const response = await fetch(`http://localhost:${electronDebugPort}/json/versions/list?t=${Math.random()}`)
+
         const debugEndpoints = await response.json()
 
-        let webSocketDebuggerUrl = debugEndpoints['webSocketDebuggerUrl ']
+        const browserWSEndpoint = debugEndpoints['webSocketDebuggerUrl ']
 
-        const browser = output.browser = await puppeteer.connect({ browserWSEndpoint: webSocketDebuggerUrl })
+        console.log('Debug URL', browserWSEndpoint)
+
+        const browser = output.browser = await puppeteer.connect({ browserWSEndpoint })
 
         const [ page ] = await browser.pages();
         output.page = page
+
       } 
       
       // Non-Electron Instance
@@ -126,9 +155,12 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
           await page.goto(url);
           output.page = page
       }
+
+      output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners));
   })
 
   afterAll(async () => {
+    if (!toLaunch && isElectron && output.page) await output.page.evaluate(() => commoners.quit());
     if (output.browser) await output.browser.close()
     if (output.info.server) output.info.server.close()
     // if (output.page) await output.page.close()
@@ -164,31 +196,63 @@ export {
     shareProject as share
 }
 
+const demoDir = 'demo'
+
 export const checkAssets = (projectBase, baseDir = '', { build = false, target = 'web' } = {}) => {
 
   if (!baseDir) baseDir = join(projectBase, globalTempDir)
 
-  // Vite Assets Directory (NOT THERE?)
-  expect(existsSync(join(baseDir, 'assets'))).toBe(build)
+  //---------------------- Vite ----------------------
+  describe('Vite assets', () => {
+    
+    expect(existsSync(join(baseDir, 'assets'))).toBe(build)
 
-  // Common Commoners Assets
-  expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
-  expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
+  })
 
-  // Electron Assets
+  // ---------------------- Common ----------------------
+  describe('Common assets', () => {
+
+    expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
+    expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
+    expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
+    expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
+    expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
+
+  })
+
+  // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'
-  expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, 'splash.html'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
+  describe('Electron assets', () => {
+    expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, demoDir, 'splash.html'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
+  })
+
+
+  // Service
+  describe('Service assets', () => {
+
+    expect(existsSync(join(baseDir, '..', '..', 'services', 'http', 'http'))).toBe(isElectron)
+    expect(existsSync(join(baseDir, '..', '..', 'services', 'express', 'express'))).toBe(isElectron)
+
+    // Custom with extra assets
+    expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', 'manual'))).toBe(isElectron)
+    
+    const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
+    expect(existsSync(txtFile)).toBe(isElectron)
+    // expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+
+  })
+
   
-  // PWA Commoners Assets
-  const isPWA = target === 'pwa'
-  expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
-  expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
-  expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
+  // ---------------------- PWA ----------------------
+  describe('PWA assets', () => {
+
+    const isPWA = target === 'pwa'
+    expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
+    expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
+    expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
+  })
 
 }

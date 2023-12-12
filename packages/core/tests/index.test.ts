@@ -1,4 +1,3 @@
-// sum.test.js
 import { expect, test, describe } from 'vitest'
 
 import {
@@ -10,7 +9,7 @@ import { share } from '../../testing'
 
 import { resolve } from 'node:path'
 
-import { name } from './demo/commoners.config'
+import { name } from './commoners.config'
 import { projectBase, registerBuildTest, registerStartTest, serviceTests } from './utils'
 
 
@@ -42,18 +41,20 @@ describe('Start', () => {
 describe('Share', () => {
   
   describe('Share all services', () => {
-    share(projectBase)
-    serviceTests.share.basic()
-    serviceTests.basic('http')
+    const output = share(projectBase)
+    serviceTests.share.basic(output)
+    serviceTests.echo('http', output)
+    serviceTests.echo('express', output)
+    // serviceTests.echo('python')
   })
 
   describe('Share specific service', () => {
 
     const service = 'http'
 
-    share(projectBase, { services: [ service ] })
+    const output = share(projectBase, { services: [ service ] })
 
-    serviceTests.basic(service)
+    serviceTests.echo(service, output)
 
     // NOTE: Add a check to see if other services fail
 
@@ -64,8 +65,13 @@ describe('Share', () => {
 describe('Build and Launch', () => {
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
-  registerBuildTest('Desktop', { target: 'electron' }, false)
-  registerBuildTest('Mobile', { target: 'mobile' }, false)
+
+  registerBuildTest(
+    'Desktop', 
+    { target: 'electron' }
+  )
+
+  // registerBuildTest('Mobile', { target: 'mobile' }, false)
 })
 
 

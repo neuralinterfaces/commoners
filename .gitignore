@@ -2,8 +2,10 @@
 node_modules
 
 .commoners
+.site
 
 # Builds
+build
 dist
 
 # Capacitor
@@ -18,7 +20,7 @@ cache
 
 # Version Control
 *.lock
-*-lock.json
+*/**/*-lock.json
 
 # Logs
 logs

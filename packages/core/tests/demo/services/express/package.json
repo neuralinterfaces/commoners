@@ -1,14 +1,12 @@
 {
-    "name": "@commoners/ws-demo",
+    "name": "@commoners/express-demo",
     "version": "1.0.0",
     "type": "module",
     "scripts": {
         "start": "node index.js"
     },
     "dependencies": {
-        "ws": "^8.12.0"
-    },
-    "devDependencies": {
-        "@types/ws": "^8.5.4"
+        "cors": "^2.8.5",
+        "express": "4.18.2"
     }
 }

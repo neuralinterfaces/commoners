@@ -52,6 +52,7 @@ export default async function (opts: ShareOptions) {
     );
 
     return {
+        services: serviceManager.active,
         port: sharePort,
         close: () => {
             server.close()

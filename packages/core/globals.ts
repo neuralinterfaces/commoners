@@ -20,8 +20,6 @@ dotenv.config()
 
 export const globalWorkspacePath = '.commoners'
 
-export const userPkg = getJSON('package.json') ?? {}
-
 export const electronDebugPort = 8315
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')
@@ -81,8 +79,10 @@ export const normalizeTarget = (target: TargetType) => {
     return isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
 }
 
-export const ensureTargetConsistent = (target: TargetType) => {
+export const ensureTargetConsistent = (target: TargetType, allow = []) => {
 
+    if (allow.includes(target)) return target
+    
     if (!target) target = 'web' // Default to web target
 
     if (target === 'mobile') target = PLATFORM === 'mac' ? 'ios' : 'android'  // Auto-detect mobile platform

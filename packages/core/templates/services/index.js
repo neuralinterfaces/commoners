@@ -1,7 +1,7 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join } from "node:path"
+import { extname, join, relative } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
@@ -44,6 +44,9 @@ export function isLocal(publishConfig) {
   return !!(publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote))
 }
 
+
+const isPublished = !process.env.VITE_DEV_SERVER_URL
+
 export async function resolveService (
   config = {}, 
   name,
@@ -59,33 +62,42 @@ export async function resolveService (
 
   const resolvedConfig = resolveConfig(config)
 
-  if (mode && resolvedConfig.publish) {
+  if (mode) {
+    
     const publishConfig = resolveConfig(resolvedConfig.publish) ?? {}
-    const internalConfig = resolveConfig(resolvedConfig.publish[mode]) ?? {} // Block service if mode is not available
+    const internalConfig = resolveConfig(resolvedConfig.publish?.[mode]) ?? {} // Block service if mode is not available
 
     const __src = resolvedConfig.src
 
-    const mergedConfig = Object.assign(Object.assign({ src: false }, publishConfig), internalConfig)
+    const mergedConfig = Object.assign(Object.assign({ src: false}, publishConfig), internalConfig)
+
+    const autoBuild = !mergedConfig.build && __src && autobuildExtensions.node.includes(extname(__src))
+    if (autoBuild && mergedConfig.src === false) delete mergedConfig.src
     
     // Cascade from more to less specific information
     Object.assign(resolvedConfig, mergedConfig)
 
     // Define default build command
-    if (
-      !resolvedConfig.build 
-      && __src 
-    ) {
-      if (autobuildExtensions.node.includes(extname(__src))) {
-        const outDir = globalServiceWorkspacePath // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
-        const pkgOut = `./${join(outDir, name)}`
+    if ( autoBuild ) {
+
+        const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath)) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
+        const out = join(outDir, name)
+
         resolvedConfig.build =  {
-          src: __src,
-          buildOut: `./${join(outDir, name, `${name}.js`)}`,
-          pkgOut
+          src: join(root, __src),
+          out
         }
-        if (isLocal(publishConfig)) resolvedConfig.src = `./${join(pkgOut, name)}`   
-      }
+
+        if (isLocal(publishConfig)) {
+          const src =  join(out, name)
+          resolvedConfig.src = isPublished ? relative(root, src) : src
+        }
+
     }
+
+    Object.assign(resolvedConfig, {
+      __src: join(root, __src)
+    })
 
     delete resolvedConfig.publish
     delete resolvedConfig.remote
@@ -105,6 +117,7 @@ export async function resolveService (
 
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
+
 
   if (root) resolvedConfig.filepath = join(root, src) // Expose the absolute path of the file in development mode
   else resolvedConfig.filepath = src // Just use the raw source
@@ -138,6 +151,7 @@ export async function start (config, id, opts = {}) {
     const ext = extname(src)
 
     let error;
+    
 
     try {
       const env = { ...process.env, PORT: config.port, HOST: config.host }

@@ -1,9 +1,16 @@
 
-import { normalize, extname, relative } from 'node:path'
+import { normalize, posix, extname, relative, sep, join } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 import { normalizeTarget } from '../../globals.js'
 
-const assetPath = (path, outDir, isBuild) => `./${normalize(`${isBuild ? '' : `${outDir}/`}/${path}`)}`
+import { safeJoin } from '../../utils/index.js'
+
+const assetPath = (path, outDir, isBuild) => {
+    let outPath = normalize(safeJoin(isBuild ? '' : outDir, path))
+    if (!(outPath[0] === sep)) outPath = sep + outPath
+    if (!(outPath[0] === '.')) outPath = '.' + outPath
+    return outPath.replaceAll(sep, posix.sep)
+}
 
 export default ({ 
     config, 
@@ -33,6 +40,7 @@ export default ({
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
     
+
     return {
         name: 'commoners',
         transformIndexHtml(html) {

@@ -7,7 +7,7 @@ export function load () {
 
 export const desktop = {
     load: function () {
-        this.on('get', (ev, message) => ev.returnValue = message)
+        this.on('echo', (ev, message) => ev.returnValue = message)
     },
     preload: () => {} // NOTE: Add a preload test later
 }

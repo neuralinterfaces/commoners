@@ -1,0 +1,10 @@
+{
+  "name": "@commoners/test-app",
+  "version": "0.0.40",
+  "private": true,
+  "description": "A test app for the commoners library",
+  "author": "Garrett Flynn <garrettmflynn@gmail.com>",
+  "workspaces": [
+    "**/services/*"
+  ]
+}

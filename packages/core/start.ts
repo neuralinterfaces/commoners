@@ -4,7 +4,7 @@ import { build, configureForDesktop, createServices, resolveConfig } from './ind
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAssets } from "./utils/assets.js";
 import { createServer } from "./vite/index.js";
-import { cleanup, ensureTargetConsistent, globalTempDir, initialize, isDesktop, isMobile } from "./globals.js";
+import { cleanup, globalTempDir, initialize, isDesktop, isMobile } from "./globals.js";
 import chalk from "chalk";
 
 import { join } from "node:path";
@@ -13,35 +13,41 @@ export default async function ( opts: UserConfig = {} ) {
 
         const { port } = opts
 
-        const target = ensureTargetConsistent(opts.target)
-
         const resolvedConfig = await resolveConfig(opts, { customPort: port });
+        
+        const { target, name, root } = resolvedConfig
 
-        const { name } = resolvedConfig
+        const isDesktopTarget = isDesktop(target)
+        const isMobileTarget = isMobile(target)
+
+        if (target === 'electron' && root !== process.cwd()) {
+            console.log(`\n👎 Cannot start ${chalk.bold(name)} (electron) when targeting a different root.\n`)
+            process.exit(1)
+        }
+
         console.log(`\n✊ Starting ${chalk.bold(chalk.greenBright(name))} for ${target}\n`)
 
-
-        const isMobileTarget = isMobile(target)
 
         // Create URLs that will be shared with the frontend
         if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
 
-        const { services: resolvedServices, root } = resolvedConfig
+        const { services: resolvedServices } = resolvedConfig
         
         const createAllServices = () => {
             console.log(`\n👊 Creating ${chalk.bold('Services')}\n`)
             return createServices(resolvedServices, { root }) // Run services in parallel
         }
 
-        const isDesktopTarget = isDesktop(target)
 
-        const outDir = join(resolvedConfig.root, globalTempDir)
+        const outDir = join(root, globalTempDir)
 
         initialize(outDir)
 
 
         // Build for mobile before moving forward
-        if (isMobileTarget) await build(resolvedConfig, resolvedServices)
+        if (isMobileTarget) await build(resolvedConfig, {
+            services: resolvedServices
+        })
 
         // Manually clear and build the output assets
         else {
@@ -70,7 +76,7 @@ export default async function ( opts: UserConfig = {} ) {
         }
 
         // Configure the desktop instance
-        if (isDesktopTarget) await configureForDesktop(outDir) // Configure the desktop instance
+        if (isDesktopTarget) await configureForDesktop(outDir, root) // Configure the desktop instance
 
         // Create all services
         else activeInstances.services = await createAllServices()

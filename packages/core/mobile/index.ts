@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { userPkg, onExit } from "../globals.js"
+import { onExit } from "../globals.js"
 import * as assets from './assets.js'
 
 import chalk from 'chalk'
@@ -47,10 +47,17 @@ const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => {
 }
 
 
-export const prebuild = ({ plugins }) => {
+export const prebuild = ({ 
+    plugins,
+    dependencies,
+    devDependencies
+}: ResolvedConfig) => {
     // Map Capacitor plugin information to their availiabity
     const accessors = getCapacitorPluginAccessors(plugins)
-    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin)) ? setParent(false) : '')
+    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin, {
+        dependencies,
+        devDependencies
+    })) ? setParent(false) : '')
 }
 
 type MobileOptions = {
@@ -59,15 +66,27 @@ type MobileOptions = {
 }
 
 
+type DependencyInfo = {
+    dependencies: ResolvedConfig['dependencies'],
+    devDependencies: ResolvedConfig['devDependencies']
+}
+
 type ConfigOptions = {
     name: ResolvedConfig['name'],
     appId: ResolvedConfig['appId'],
     plugins: ResolvedConfig['plugins'],
     outDir: string
-}
+} & DependencyInfo
 
 // Create a temporary Capacitor configuration file if the user has not defined one
-export const openConfig = async ({ name, appId, plugins, outDir }: ConfigOptions, callback) => {
+export const openConfig = async ({ 
+    name, 
+    appId, 
+    plugins, 
+    outDir,
+    dependencies,
+    devDependencies 
+}: ConfigOptions, callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a: number, b: boolean) => a + (b ? 1 : 0), 0) > 0
 
@@ -76,7 +95,7 @@ export const openConfig = async ({ name, appId, plugins, outDir }: ConfigOptions
         const config = getBaseConfig({ name, appId, outDir })
         
         getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
-            if (isInstalled(ref.plugin)) {
+            if (isInstalled(ref.plugin, { dependencies, devDependencies })) {
                 config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
             }
         })
@@ -104,6 +123,8 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         name: config.name,
         appId: config.appId,
         plugins: config.plugins,
+        dependencies: config.dependencies,
+        devDependencies: config.devDependencies,
         outDir
     }, async () => {
         if (!existsSync(target)) {
@@ -122,16 +143,20 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     })
 }
 
-const isInstalled = (pkgName) => typeof pkgName === 'string' ? !!(userPkg.devDependencies?.[pkgName] || userPkg.dependencies?.[pkgName]) : false // Only accept strings
+const isInstalled = (pkgName, { dependencies, devDependencies }) => typeof pkgName === 'string' ? !!(devDependencies?.[pkgName] || dependencies?.[pkgName]) : false // Only accept strings
 
-export const checkDepinstalled = async (pkgName, version?: string) => isInstalled(pkgName) || await installForUser(pkgName, version)
+export const checkDepinstalled = async (pkgName, opts: { version?: string } & DependencyInfo) => isInstalled(pkgName, opts) || await installForUser(pkgName, opts.version)
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
-    await checkDepinstalled('@capacitor/cli')
-    await checkDepinstalled('@capacitor/core')
-    await checkDepinstalled(`@capacitor/${platform}`)
-    if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
+
+    const { dependencies, devDependencies } = config
+    const depOpts = { dependencies, devDependencies }
+
+    await checkDepinstalled('@capacitor/cli', depOpts)
+    await checkDepinstalled('@capacitor/core', depOpts)
+    await checkDepinstalled(`@capacitor/${platform}`, depOpts)
+    if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`, depOpts) // NOTE: Later make these conditional
 }
 
 
@@ -145,6 +170,8 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         name: config.name,
         appId: config.appId,
         plugins: config.plugins,
+        dependencies: config.dependencies,
+        devDependencies: config.devDependencies,
         outDir
     }, () => runCommand("npx cap sync"))
 

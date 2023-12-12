@@ -62,10 +62,26 @@ export type ModeType = typeof valid.mode[number]
 
 // ------------------- Services -------------------
 type BaseServiceMetadata = ({ src: string, base?: string } | { url: string })
+
+
+type UserBuildCommand = string | ((info: { 
+    name: string, 
+    force: boolean,
+    src: string,
+    out: string
+} ) => string) // e.g. could respond to platform or manually build the executable
+
 type ExtraServiceMetadata = {
-    // Common
     port?: number,
-    build?: string | (() => string), // e.g. could respond to platform
+    build?: UserBuildCommand
+}
+
+type ExtraResolvedServiceMetadata = ExtraServiceMetadata & {
+    build: ExtraServiceMetadata['build'] | {
+        src: string,
+        out: string,
+    },
+    __src?: string
 }
 
 type PublishedServiceMetadata = { 
@@ -83,7 +99,7 @@ type GeneratedServiceMetadata = {
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
 
-export type ResolvedService = BaseServiceMetadata & ExtraServiceMetadata & GeneratedServiceMetadata
+export type ResolvedService = BaseServiceMetadata & ExtraResolvedServiceMetadata & GeneratedServiceMetadata
 
 // ------------------- Plugins -------------------
 type LoadedPlugin = { [x:string]: any } | Function | any
@@ -148,21 +164,35 @@ type RawPlugins = {[id: string]: Plugin}
 
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
+    
+    root: string
+    target: TargetType,
 
+    // Common Options
+    appId: string,
+    icon: IconType,
+
+    // Package Properties
     name: string,
     version: string,
-    appId: string,
-    root: string
+    description?: string,
+    dependencies?: {[x:string]: string}
+    devDependencies?: {[x:string]: string}
 
-    target?: TargetType, // Default target
-    port?: PortType, // Default Port (single service)
 
-    icon: IconType,
+    // Plugin Options
     plugins: RawPlugins,
+
+    // Electron Options
     electron: ElectronOptions
+
+    // PWA Options
     pwa: PWAOptions
 
+    // Service Options
     services?: { [x: string]: UserService } | false,
+    port?: PortType, // Default Port (single service)
+
 }
 
 export type UserConfig = Partial<BaseConfig> & {

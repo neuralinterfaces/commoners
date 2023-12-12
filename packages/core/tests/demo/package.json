@@ -1,7 +1,0 @@
-{
-    "name": "@commoners/test-app",
-    "version": "0.0.40",
-    "workspaces": [
-        "services/**"
-    ]
-}

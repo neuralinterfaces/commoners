@@ -16,12 +16,24 @@ import chalk from "chalk"
 
 import merge from './utils/merge.js'
 
+type BuildHooks = {
+    services?: ResolvedConfig['services']
+    onBuildAssets?: Function
+}
+
 // Types
 export default async function build (
     opts: BuildOptions = {},
-    devServices?: ResolvedConfig['services'],
+
+    // Hooks
+    {
+        services: devServices,
+        onBuildAssets
+    }: BuildHooks = {},
 ) {
 
+
+    // ---------------- Custom Service Resolution ----------------
     const buildTarget = opts.build?.target ?? opts.target
 
     // `services` is a valid target in the build step
@@ -40,6 +52,7 @@ export default async function build (
     const isDesktopBuild = isDesktop(target)
     const isMobileBuild = isMobile(target)
 
+    // ---------------- Proper Configuration Resolution ----------------
     const rebuildServices = userRebuildServices || onlyBuildServices
     
     const resolvedConfig = await resolveConfig(opts, { 
@@ -49,10 +62,13 @@ export default async function build (
 
     let outDir;
 
-    const selectedOutDir = outDir = join(resolvedConfig.root, opts?.build?.outDir ?? join(globalWorkspacePath, target))
+    const { root } = resolvedConfig
+
+    // ---------------- Output Directory Resolution ----------------
+    const selectedOutDir = outDir = join(root, opts?.build?.outDir ?? join(globalWorkspacePath, target))
 
     if (isElectronBuild || isMobileBuild) {
-        outDir = join(resolvedConfig.root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
+        outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
         initialize(dirname(outDir)) // Clear temporary directories
     }
 
@@ -67,34 +83,41 @@ export default async function build (
         services: !!rebuildServices // Must explicitly decide to build services (if not desktop build)
     }
 
+    // ---------------- Clear Previous Builds ----------------
     if (toRebuild.services)  await clear(join(globalWorkspacePath, 'services'))
     if (toRebuild.assets) await clear(outDir)
 
-    // Build assets
+    // ---------------- Build Assets ----------------
     if (toRebuild.assets) {
         if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
         await ViteBuild(resolveViteConfig(resolvedConfig, { target, outDir }))  // Build the standard output files using Vite. Force recognition as build
     }
 
-    // Create the standard output files
-    const configCopy = { ...resolvedConfig }
+    // ---------------- Create Standard Output Files ----------------
+    const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
     configCopy.build = { ...opts.build, outDir }  
 
     const toUnpack = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
+
+    if (onBuildAssets) {
+        const result = onBuildAssets(outDir)
+        if (result === null) return // Skip packaging if requested
+    }
     
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
 
         console.log(`\n👊 Packaging with ${chalk.bold(chalk.cyanBright('electron-builder'))}\n`)
 
-        const relativeOutDir = relative(process.cwd(), outDir)
+        const cwdRelativeOutDir = relative(process.cwd(), outDir)
+        const relativeOutDir = relative(root, cwdRelativeOutDir)
 
-
-        await configureForDesktop(relativeOutDir) // Temporarily configure for temp directory
+        await configureForDesktop(cwdRelativeOutDir, root) // Temporarily configure for temp directory
 
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
         buildConfig.productName = name
+        buildConfig.appId = resolvedConfig.appId // NOTE: Same as notarize.cjs
 
         buildConfig.directories.output = selectedOutDir
 
@@ -113,16 +136,8 @@ export default async function build (
         //     else return p
         // })
 
-        buildConfig.appId = `com.${resolvedConfig.appId}.app` // NOTE: Same as notarize.cjs
-
-        // Derive Electron version
-        if (!('electronVersion' in buildConfig)) {
-            const electronVersion = dependencies.electron
-            if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
-            else buildConfig.electronVersion = electronVersion
-        }
-
         const defaultIcon = getIcon(resolvedConfig.icon)
+        
 
         // TODO: Get platform-specific icon
         const macIcon = defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
@@ -134,8 +149,8 @@ export default async function build (
         buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
         buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
-        buildConfig.mac.icon = macIcon ? path.join(relativeOutDir, macIcon) : path.join(templateDir, buildConfig.mac.icon)
-        buildConfig.win.icon = winIcon ? path.join(relativeOutDir, winIcon) : path.join(templateDir, buildConfig.win.icon)
+        buildConfig.mac.icon = path.join(relativeOutDir, macIcon)
+        buildConfig.win.icon = path.join(relativeOutDir, winIcon)
 
         // Disable code signing if publishing or explicitly requested
         const toSign = publish || sign
@@ -143,7 +158,18 @@ export default async function build (
 
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 
-        const buildOpts: CliOptions = { config: buildConfig as any }
+        // Correct for different project roots
+        if (!('electronVersion' in buildConfig)) {
+            const electronVersion = dependencies.electron
+            if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
+            else buildConfig.electronVersion = electronVersion
+        }
+
+        const buildOpts: CliOptions = { 
+            config: buildConfig as any 
+        }
+
+        if (root) buildOpts.projectDir = root
 
         if (publish) buildOpts.publish = typeof publish === 'string' ? publish : 'always'
         else delete buildConfig.publish

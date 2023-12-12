@@ -4,7 +4,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "**/demo/*"
+    "**/tests/**"
   ],
   "scripts": {
     "build": "npm run build:core && npm run build:cli",
@@ -13,13 +13,14 @@
     "watch": "cd packages/cli && npm run watch",
     "watch:core": "cd packages/core && npm run watch",
     "test": "vitest",
+    "test:electron": "cd packages/core/tests && vitest",
     "coverage": "vitest run --coverage",
     "docs": "vitepress dev docs",
     "docs:build": "vitepress build docs"
   },
   "devDependencies": {
+    "@capacitor/cli": "^5.5.1",
     "vitepress": "^1.0.0-rc.20",
     "vitest": "^0.34.5"
-  },
-  "main": "/Users/garrettflynn/Documents/GitHub/commoners/packages/core/tests/app/.commoners/.temp/main.js"
+  }
 }
