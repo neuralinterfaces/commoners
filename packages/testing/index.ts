@@ -20,6 +20,7 @@ import { rmSync, existsSync, readFileSync } from 'node:fs'
   
 import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
+import { safeJoin } from '../core/utils'
 
 export const sharePort = 1234
 
@@ -215,7 +216,7 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
   expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
   expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
-  expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
+  expect(existsSync(safeJoin(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
   
   // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'
