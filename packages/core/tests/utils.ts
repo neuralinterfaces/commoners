@@ -19,7 +19,7 @@ const getServices = (registrationOutput) => ((registrationOutput.commoners ?? re
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const e2eTests = {
-    basic: (registrationOutput, { target }) => {
+    basic: (registrationOutput, { target }, mode = 'dev') => {
 
         const normalizedTarget = normalizeTarget(target)
         
@@ -34,16 +34,31 @@ const e2eTests = {
                 expect(target).toBe(normalizedTarget);
                 expect('echo' in plugins).toBe(true);
                 expect(services).instanceOf(Object)
-                expect(ready).instanceOf(Object) // Really is promise. Is passed as an object
+                expect(ready).instanceOf(Object) // Resolved Promise
 
-                // Services cleared on mobile and web (not remote...)
                 if (normalizedTarget === 'desktop') {
-                  Object.entries(config.services).forEach(([name, service]) => {
-                    expect(name in services).toBe(true);
-                    expect(typeof services[name].url).toBe('string');
-                    if ('port' in service) expect(parseInt(new URL(services[name].url).port)).toBe(service.port)
-                  })
+                    expect(commoners.quit).instanceOf(Object)
                 }
+
+                const isDev = mode === 'dev'
+
+                  Object.entries(config.services).forEach(([name, service]) => {
+
+                    // Web / PWA / Mobile builds will have cleared services (that are not remote)
+                    expect(name in services).toBe(isDev);
+
+                    if (isDev) {
+                      expect(typeof services[name].url).toBe('string');
+                      if ('port' in service) expect(parseInt(new URL(services[name].url).port)).toBe(service.port)
+                    }
+
+                    if (normalizedTarget === 'desktop') {
+                      expect(typeof services[name].filepath).toBe('string');
+                      expect(services[name].status).toBe(true)
+                      expect(services[name].onActivityDetected).instanceOf(Object) // Function
+                      expect(services[name].onClosed).instanceOf(Object)  // Function
+                    }
+                  })
 
             });
           })
@@ -53,6 +68,7 @@ const e2eTests = {
 export const registerStartTest = (name, { target = 'web' } = {}, enabled = true) => {
   
   const describeCommand = enabled ? describe : describe.skip
+
   describeCommand(name, () => {
 
     // start(projectBase, { target })
@@ -101,7 +117,7 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 
     describeFn('Launched application tests', async () => {
       const output = startBrowserTest({  launch: opts })
-      e2eTests.basic(output, { target })
+      e2eTests.basic(output, { target }, 'local')
     })
 
   })
@@ -145,31 +161,7 @@ export const serviceTests = {
         const services = getServices(registrationOutput)
         
         // Request an echo response
-        const serviceUrl = services[id].url.replace('localhost', '127.0.0.1')
-        const url = new URL('echo', serviceUrl)
-        console.log(id, url.href)
-        // const res = await fetch(url, {
-        //     method: "POST",
-        //     body: JSON.stringify({ randomNumber })
-        // }).then(res => res.json())
-        // .catch(e => {
-        //   console.log(e)
-        //   return {}
-        // })
-
-        const res = await registrationOutput.page.evaluate(({ id, randomNumber }) => fetch(new URL('echo', commoners.services[id].url), {
-          method: "POST",
-          body: JSON.stringify({ randomNumber })
-        }).then(res => res.json()), {
-          id,
-          randomNumber
-        }).catch(e => {
-          console.log(e)
-          return {}
-        })
-
-        console.log('Result', id, res)
-
+        const res = await fetch(new URL('echo', services[id].url), { method: "POST", body: JSON.stringify({ randomNumber }) }).then(res => res.json())
         expect(res.randomNumber).toBe(randomNumber)
       })
     },

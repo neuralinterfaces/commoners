@@ -1,5 +1,5 @@
 
-import { afterAll, beforeAll, expect, describe, test } from 'vitest'
+import { afterAll, beforeAll, expect, describe, vi, test } from 'vitest'
 import {
     build,
     loadConfigFromFile,
@@ -129,6 +129,12 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
       // Launched Electron Instance
       if (isElectron) {
 
+        // Ensure Electron will exit gracefully
+        const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => {
+          mockExit.mockRestore()
+        });
+
+
         await sleep(5 * 1000) // Wait for five seconds for Electron to open
 
         const browserURL = `http://localhost:${electronDebugPort}`
@@ -140,15 +146,11 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
         delete output.browser
         delete output.page
 
+        // Connect to browser WS Endpoint
         const browserWSEndpoint = endpoint.replace('localhost', '0.0.0.0')
-
-        // Connect to WS
         output.browser = await puppeteer.connect({ browserWSEndpoint })
         const pages = await output.browser.pages()
         output.page = pages[0]
-
-        output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))
-        console.log(output.commoners)
       } 
       
       // Non-Electron Instance
@@ -157,20 +159,17 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
           const page = output.page = await browser.newPage();
           await page.goto(url);
           output.page = page
-          output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))
-
-
       }
+
+      output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))
 
   })
 
   afterAll(async () => {
-    if (!toLaunch && isElectron && output.page) await output.page.evaluate(() => commoners.quit()).catch(e => {
-      console.log(e)
-    })
-    if (output.browser) await output.browser.close()
+    if (output.browser) await output.browser.close() // Will also exit the Electron instance
     if (output.info.server) output.info.server.close()
     if (!toLaunch) afterStart(output.info)
+
   });
 
   return output
@@ -209,56 +208,40 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   if (!baseDir) baseDir = join(projectBase, globalTempDir)
 
   //---------------------- Vite ----------------------
-  describe('Vite assets', () => {
-    
-    expect(existsSync(join(baseDir, 'assets'))).toBe(build)
-
-  })
+  expect(existsSync(join(baseDir, 'assets'))).toBe(build)
 
   // ---------------------- Common ----------------------
-  describe('Common assets', () => {
-
-    expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
-    expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
-    expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
-    expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
-    expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
-
-  })
-
+  expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
+  expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
+  expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
+  expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
+  expect(existsSync(join(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
+  
   // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'
-  describe('Electron assets', () => {
-    expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
-    expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
-    expect(existsSync(join(baseDir, demoDir, 'splash.html'))).toBe(isElectron)
-    expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
-  })
+  expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, demoDir, 'splash.html'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
 
 
   // Service
-  describe('Service assets', () => {
+  expect(existsSync(join(baseDir, '..', '..', 'services', 'http', 'http'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, '..', '..', 'services', 'express', 'express'))).toBe(isElectron)
 
-    expect(existsSync(join(baseDir, '..', '..', 'services', 'http', 'http'))).toBe(isElectron)
-    expect(existsSync(join(baseDir, '..', '..', 'services', 'express', 'express'))).toBe(isElectron)
+  // Custom with extra assets
+  expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', 'manual'))).toBe(isElectron)
+  
+  const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
+  expect(existsSync(txtFile)).toBe(isElectron)
+  if (isElectron && build) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
 
-    // Custom with extra assets
-    expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', 'manual'))).toBe(isElectron)
-    
-    const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
-    expect(existsSync(txtFile)).toBe(isElectron)
-    // expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
-
-  })
 
   
   // ---------------------- PWA ----------------------
-  describe('PWA assets', () => {
-
-    const isPWA = target === 'pwa'
-    expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
-    expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
-    expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
-  })
+  const isPWA = target === 'pwa'
+  expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
+  expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
+  expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
 
 }

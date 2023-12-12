@@ -259,12 +259,8 @@ runPlugins(null, 'preload').then(() => {
     })
 
     if (active) {
-
       for (let id in active) serviceOn(id, 'status', (event) => event.returnValue = active[id].status)
-
-      ipcMain.on('commoners:services', (event) => event.returnValue = services.sanitize(active))
-
-      process.env.COMMONERS_SERVICES = JSON.stringify(services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
+      ipcMain.on('commoners:services', (event) => event.returnValue = services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
     }
 
     // Proxy the services through the custom protocol
@@ -303,5 +299,5 @@ app.on('before-quit', async (ev) => {
   const result = await runPlugins(null, 'unload')
   if (result.includes(false)) return
 
-  try { services.close() } catch (err) { console.error(err); } finally { app.exit() }
+  try { services.close() } catch (err) { console.error(err); } finally { app.exit() } // Exit gracefully
 });

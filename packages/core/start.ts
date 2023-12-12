@@ -20,13 +20,7 @@ export default async function ( opts: UserConfig = {} ) {
         const isDesktopTarget = isDesktop(target)
         const isMobileTarget = isMobile(target)
 
-        // if (target === 'electron' && root !== process.cwd()) {
-        //     console.log(`\n👎 Cannot start ${chalk.bold(name)} (electron) when targeting a different root.\n`)
-        //     process.exit(1)
-        // }
-
         console.log(`\n✊ Starting ${chalk.bold(chalk.greenBright(name))} for ${target}\n`)
-
 
         // Create URLs that will be shared with the frontend
         if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
