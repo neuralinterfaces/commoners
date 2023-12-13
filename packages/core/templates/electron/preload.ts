@@ -3,11 +3,11 @@ import { ipcRenderer } from 'electron'
 import { contextBridge } from 'electron'
 
 const globalVariableName = '__commoners'
-const services = process.env.COMMONERS_SERVICES
+const services = ipcRenderer.sendSync('commoners:services')
 
 const TEMP_COMMONERS = { 
     quit: () => ipcRenderer.send('commoners:quit'),
-    services: services ? JSON.parse(services) : null, // Ensure correct ports
+    services, // Ensure correct ports
 
     // Will be scoped by plugin in onload.ts
     on: (channel, listener) => ipcRenderer.on(channel, listener),

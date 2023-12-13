@@ -20,13 +20,7 @@ export default async function ( opts: UserConfig = {} ) {
         const isDesktopTarget = isDesktop(target)
         const isMobileTarget = isMobile(target)
 
-        if (target === 'electron' && root !== process.cwd()) {
-            console.log(`\n👎 Cannot start ${chalk.bold(name)} (electron) when targeting a different root.\n`)
-            process.exit(1)
-        }
-
         console.log(`\n✊ Starting ${chalk.bold(chalk.greenBright(name))} for ${target}\n`)
-
 
         // Create URLs that will be shared with the frontend
         if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
@@ -34,7 +28,7 @@ export default async function ( opts: UserConfig = {} ) {
         const { services: resolvedServices } = resolvedConfig
         
         const createAllServices = () => {
-            console.log(`\n👊 Creating ${chalk.bold('Services')}\n`)
+            console.log(`\n👊 Starting ${chalk.bold('Services')}\n`)
             return createServices(resolvedServices, { root }) // Run services in parallel
         }
 
@@ -76,7 +70,7 @@ export default async function ( opts: UserConfig = {} ) {
         }
 
         // Configure the desktop instance
-        if (isDesktopTarget) await configureForDesktop(outDir, root) // Configure the desktop instance
+        if (isDesktopTarget) await configureForDesktop(outDir) // NOTE: Do not correct for root here
 
         // Create all services
         else activeInstances.services = await createAllServices()

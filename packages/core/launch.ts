@@ -83,7 +83,12 @@ export default async function (options: LaunchOptions) {
 
         if (!desktopInfo.filepath || !existsSync(desktopInfo.filepath)) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
 
-        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [`${join(desktopInfo.base, `"${desktopInfo.filename}"`)}`, '--args', `--remote-debugging-port=${electronDebugPort}`]);
+        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [
+            `${join(desktopInfo.base, `"${desktopInfo.filename}"`)}`, 
+            '--args', 
+            `--remote-debugging-port=${electronDebugPort}`, 
+            `--remote-allow-origins=*`
+        ]);
 
         const debugUrl = `http://localhost:${electronDebugPort}`
         console.log(chalk.gray(`Debug ${desktopInfo.name} at ${debugUrl}`))

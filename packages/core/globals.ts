@@ -27,9 +27,10 @@ export const globalTempDir = join(globalWorkspacePath, '.temp')
 const callbacks = []
 export const onExit = (callback) => callbacks.push(callback)
 
-const runBeforeExitCallbacks = () => {
+const runBeforeExitCallbacks = (code) => {
+    console.log('Running before exit callbacks', code)
     callbacks.forEach(cb => {
-        if (!cb.called) cb()
+        if (!cb.called) cb(code)
         cb.called = true
     })
 }
@@ -47,9 +48,9 @@ export const initialize = (tempDir = globalTempDir) => {
 
     process.on('exit', runBeforeExitCallbacks);
 
-    process.on('SIGINT', () => {
-        runBeforeExitCallbacks()
-        process.exit(0)
+    process.on('SIGINT', (code) => {
+        runBeforeExitCallbacks(code)
+        process.exit(code as any)
     })
 
     // Always clear the temp directory on exit

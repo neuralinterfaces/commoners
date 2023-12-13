@@ -1,6 +1,6 @@
 import * as vite from 'vite'
 
-import ElectronVitePlugin from 'vite-plugin-electron'
+import ElectronVitePlugin from 'vite-plugin-electron/simple'
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve } from 'node:path'
@@ -11,6 +11,8 @@ import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import chalk from 'chalk';
 import { safePath } from '../utils/index.js';
+
+import { nodeBuiltIns } from "../utils/config.js";
 
 const defaultOutDir = join(rootDir, 'dist')
 
@@ -118,18 +120,19 @@ export const resolveViteConfig = (
         }
         
         // @ts-ignore
-        const electronPluginConfig = ElectronVitePlugin([
-            {
-                entry: resolve(electronTemplateBase, 'main.ts'),
-                onstart: (options) => options.startup(),
-                vite: viteOpts
+        const electronPluginConfig = ElectronVitePlugin({
+            main: {
+              entry: resolve(electronTemplateBase, 'main.ts'),
+              onstart: (options) => options.startup(),              
+              vite: viteOpts
             },
-            {
-                entry: resolve(electronTemplateBase, 'preload.ts'),
-                onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
-                vite: viteOpts
-            }
-        ])
+            preload: {
+              input: resolve(electronTemplateBase, 'preload.ts'),
+              onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
+              vite: viteOpts
+            },
+        }
+    )
 
         plugins.push(electronPluginConfig)
 

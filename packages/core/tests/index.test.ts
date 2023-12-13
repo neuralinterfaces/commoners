@@ -12,7 +12,6 @@ import { resolve } from 'node:path'
 import { name } from './commoners.config'
 import { projectBase, registerBuildTest, registerStartTest, serviceTests } from './utils'
 
-
 describe('Custom project base is loaded', () => {
 
   test('Config is resolved', () => {
@@ -30,8 +29,11 @@ describe('Start', () => {
 
   registerStartTest('Web')
 
-  // NOTE: Skipped because I can't close the Electron instance programmatically
-  registerStartTest('Desktop', { target: 'electron'}, false)
+  registerStartTest(
+    'Desktop', 
+    { target: 'electron'},
+    false // NOTE: Valid test suite—but causes a SIGABRT that results in a crash
+  )
 
   // NOTE: Skipped because Ruby Gems needs to be updated
   registerStartTest('Mobile', { target: 'mobile' }, false)
@@ -45,7 +47,7 @@ describe('Share', () => {
     serviceTests.share.basic(output)
     serviceTests.echo('http', output)
     serviceTests.echo('express', output)
-    // serviceTests.echo('python')
+    serviceTests.echo('manual', output)
   })
 
   describe('Share specific service', () => {

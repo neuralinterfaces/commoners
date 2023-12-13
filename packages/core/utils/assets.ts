@@ -321,7 +321,10 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                 // Force a build format if the proper extension is specified
                 const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
 
-                const buildForNode = () => buildForBrowser({ platform: 'node', external: [ "*.node" ] })
+                const buildForNode = () => buildForBrowser({ 
+                    platform: 'node', 
+                    external: [ "*.node" ] 
+                })
                 
                 const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
                 

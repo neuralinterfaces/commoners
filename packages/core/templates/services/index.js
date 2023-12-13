@@ -80,7 +80,7 @@ export async function resolveService (
     // Define default build command
     if ( autoBuild ) {
 
-        const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath)) // process.env.COMMONERS_ELECTRON ? join(globalWorkspacePath, '.temp', 'electron', globalServiceWorkspacePath) : globalServiceWorkspacePath
+        const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath))
         const out = join(outDir, name)
 
         resolvedConfig.build =  {

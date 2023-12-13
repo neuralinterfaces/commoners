@@ -25,9 +25,12 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 export async function loadConfigFromFile(filesystemPath: string = resolveConfigPath()) {
 
-    if (lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
+    if (filesystemPath && lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
 
-    if (!filesystemPath) return {} as UserConfig
+    if (!filesystemPath) {
+        console.log(`No config file found in ${process.cwd()}`)
+        return {} as UserConfig
+    }
 
     // Bundle config file
     const result = await build({
