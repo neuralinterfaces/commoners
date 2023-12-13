@@ -204,6 +204,9 @@ export {
 
 const demoDir = 'demo'
 
+
+const getPackagedServiceName = (name) => (process.platform === 'win32') ? `${name}.exe` : name
+
 export const checkAssets = (projectBase, baseDir = '', { build = false, target = 'web' } = {}) => {
 
   if (!baseDir) baseDir = join(projectBase, globalTempDir)
@@ -227,11 +230,11 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
 
 
   // Service
-  expect(existsSync(join(baseDir, '..', '..', 'services', 'http', 'http'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '..', '..', 'services', 'express', 'express'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, '..', '..', 'services', 'http', getPackagedServiceName('http')))).toBe(isElectron)
+  expect(existsSync(join(baseDir, '..', '..', 'services', 'express', getPackagedServiceName('express')))).toBe(isElectron)
 
   // Custom with extra assets
-  expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', 'manual'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', getPackagedServiceName('manual')))).toBe(isElectron)
   
   const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
   expect(existsSync(txtFile)).toBe(isElectron)
