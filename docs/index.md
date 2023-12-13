@@ -5,7 +5,7 @@ layout: home
 hero:
   name: "Commoners"
   text: "Build Solidarity ✊"
-  tagline: "Pure JavaScript apps, deployed everwhere."
+  tagline: "Deploy JavaScript apps anywhere."
   image:
     src: /logo.png
     alt: Commoners
@@ -18,13 +18,13 @@ hero:
       link: /introduction/why
 features:
   - icon: 🌐
-    title: Simple Cross-Platform Builds
+    title: Cross-Platform Builds
     details: Publish for web, mobile, and desktop from a single repository.
   - icon: 📜
     title: Web Native
-    details: Only native web technologies (i.e. HTML, CSS, and JavaScript) required.
+    details: Compatible with vanilla HTML, CSS, and JavaScript.
   - icon: ⚡️
-    title: Built on Vite
-    details: Lightning-fast development speeds based on reliable tooling.
+    title: Lighting Fast
+    details: Built on Vite for next generation development speeds.
 ---
 
