@@ -28,33 +28,25 @@ const callbacks = []
 export const onExit = (callback) => callbacks.push(callback)
 
 const runBeforeExitCallbacks = (code) => {
-    console.log('Running before exit callbacks', code)
     callbacks.forEach(cb => {
         if (!cb.called) cb(code)
         cb.called = true
     })
+    process.exit(code)
 }
+
+const exitEvents = ['beforeExit', 'exit', 'SIGINT']
 
 export const initialize = (tempDir = globalTempDir) => {
 
     if (existsSync(tempDir)) {
-        // rmSync(tempDir, { recursive: true, force: true })
         console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
-        process.exit()
+        process.exit(1)
     }
     
+    exitEvents.forEach(event => process.on(event, runBeforeExitCallbacks))
 
-    process.on('beforeExit', runBeforeExitCallbacks);
-
-    process.on('exit', runBeforeExitCallbacks);
-
-    process.on('SIGINT', (code) => {
-        runBeforeExitCallbacks(code)
-        process.exit(code as any)
-    })
-
-    // Always clear the temp directory on exit
-    onExit(() => cleanup(tempDir))
+    onExit(() => cleanup(tempDir)) // Always clear the temp directory on exit
     
 }
 

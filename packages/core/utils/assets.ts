@@ -136,13 +136,9 @@ async function buildService(
         }
 
         if (typeof build === 'string') {
-            try {
-                resolve(build)
-                return out
-            } catch {
-                await spawnProcess(build)
-                return out
-            }
+            if (existsSync(build)) return build
+            await spawnProcess(build)
+            return out
         }
 }
 
