@@ -15,15 +15,23 @@ import pkg from 'pkg'
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
 
-type AssetInfo = string | { text: string, output: string } | {
+type CoreAssetInfo = string | {
     input: string,
     output?: string | {
         extension: 'mjs' | 'cjs', // JavaScript
-    }
+    },
+    extraResource?: boolean
+}
+
+type AssetInfo = CoreAssetInfo | { text: string, output: string }
+
+type AssetOutput = {
+    file: string,
+    extraResource?: boolean
 }
 
 type AssetsCollection = {
-    copy: AssetInfo[],
+    copy: CoreAssetInfo[],
     bundle: AssetInfo[]
 }
 
@@ -47,7 +55,7 @@ type PackageInfo = {
     out: string
 }
 
-export const packageFile = async (info: PackageInfo, log = false) => {
+export const packageFile = async (info: PackageInfo, log = true) => {
 
     const { 
         name, 
@@ -220,8 +228,17 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
                 const output = await buildService({ __src, build, out: join(root, toCopy) }, name, forceRebuild)
                         
                 if (existsSync(output)){
-                    if (jsExtensions.includes(extname(output))) assets.bundle.push(output) // Bundle JavaScript files
-                    else assets.copy.push(output) // Copy directories
+
+                    if (jsExtensions.includes(extname(output))) assets.bundle.push({
+                        input: output,
+                        extraResource: true
+                    }) // Bundle JavaScript files
+
+                    else assets.copy.push({
+                        input: output,
+                        extraResource: true
+                    }) // Copy directories
+
                 } else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
             }
         }
@@ -254,7 +271,7 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
 
     const assets = await getAssets(config, mode)
 
-    const outputs = []
+    const outputs: AssetOutput[] = []
 
     const { root } = config
 
@@ -327,13 +344,26 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                 if (resolvedExtension === 'cjs') await buildForNode()
                 else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
 
-                outputs.push(outfile)
+                // Handle extra resources
+                const assetOutputInfo: AssetOutput = { file: outfile } 
+                if (typeof info === 'object' && 'extraResource' in info)  assetOutputInfo.extraResource = info.extraResource
+                outputs.push(assetOutputInfo)
             }
         } 
     }))
 
+
     // Copy static assets
-    assets.copy.map(info => outputs.push(copyAsset(info, { outDir, root })))
+    assets.copy.map(info => {
+        const isObject = typeof info === 'object'
+        const file = isObject ? info.input : info
+        const output: AssetOutput = { file: copyAsset(file, { outDir, root }) }
+
+        // Handle extra resources
+        if (isObject && 'extraResource' in info)  output.extraResource = info.extraResource
+        
+        outputs.push(output)
+    })
 
     return outputs
 }

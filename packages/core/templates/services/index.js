@@ -1,10 +1,11 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join, relative } from "node:path"
+import { extname, join, relative, resolve } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 const autobuildExtensions = {
     node: ['.js', '.cjs', '.mjs', '.ts']
@@ -119,8 +120,14 @@ export async function resolveService (
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
 
 
-  if (root) resolvedConfig.filepath = join(root, src) // Expose the absolute path of the file in development mode
-  else resolvedConfig.filepath = src // Just use the raw source
+  // Expose the absolute path of the file
+  if (root){
+    const extraResourcesPath = join(root.replace('app.asar/', ''), src)
+    resolvedConfig.filepath = existsSync(extraResourcesPath) ? resolve(extraResourcesPath) : join(root, src)
+  } 
+
+  // Or just use the raw source
+  else resolvedConfig.filepath = src
 
     // Always create a URL for local services
   if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'

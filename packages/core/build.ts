@@ -15,6 +15,7 @@ import { build as ViteBuild } from 'vite'
 import chalk from "chalk"
 
 import merge from './utils/merge.js'
+import { lstatSync } from "node:fs"
 
 type BuildHooks = {
     services?: ResolvedConfig['services']
@@ -97,7 +98,7 @@ export default async function build (
     const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
     configCopy.build = { ...opts.build, outDir }  
 
-    const toUnpack = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
+    const assets = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)
@@ -121,23 +122,26 @@ export default async function build (
 
         buildConfig.directories.output = selectedOutDir
 
-        buildConfig.files = [ 
+        const files = buildConfig.files = [ 
             `${relativeOutDir}/**`, 
         ]
 
-        // Ensure platform-specific configs exist
+        const extraResources = buildConfig.extraResources = []
+
+        assets.forEach(({ file, extraResource }) => {
+            if (extraResource) {
+                const relPath = relative(cwdRelativeOutDir, file)
+                const location = (lstatSync(file).isDirectory()) ? join(relativeOutDir, relPath, '**') : join(relativeOutDir, relPath)
+                extraResources.push(location)
+                files.push(`!${location}`)
+            }
+        })
+
+        // Ensure platform-specific configs exist;lvb
         if (!buildConfig.mac) buildConfig.mac = {}
         if (!buildConfig.win) buildConfig.win = {}
 
-        // // Dynamic asar unpacking (which doesn't work for services)
-        // buildConfig.asar = true
-        // buildConfig.asarUnpack = toUnpack.map(p => {
-        //     if (lstatSync(p).isDirectory()) return join(p, '**')
-        //     else return p
-        // })
-
         const defaultIcon = getIcon(resolvedConfig.icon)
-        
 
         // TODO: Get platform-specific icon
         const macIcon = defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon

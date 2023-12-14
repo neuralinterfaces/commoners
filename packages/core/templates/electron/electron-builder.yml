@@ -1,5 +1,3 @@
-asar: false # Ensures service binaries can be executed
-
 directories:
   buildResources: build # AUGMENTED
   output: build

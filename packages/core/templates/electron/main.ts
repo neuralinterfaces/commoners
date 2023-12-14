@@ -77,8 +77,6 @@ if (process.env.VITEST) {
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-// const __dirnameUnpacked = __dirname.replace('app.asar', 'app.asar.unpacked')
-
 if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .env file in production
 
 // Get the Commoners configuration file
