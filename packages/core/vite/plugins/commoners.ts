@@ -5,7 +5,7 @@ import { normalizeTarget } from '../../globals.js'
 
 import { safeJoin } from '../../utils/index.js'
 
-const headEndTag = '</head>'
+const headStartTag = '<head>'
 
 const assetPath = (path, outDir, isBuild) => {
     let outPath = normalize(safeJoin(isBuild ? '' : outDir, path))
@@ -46,7 +46,7 @@ export default ({
         name: 'commoners',
         transformIndexHtml(html) {
 
-            const splitByHead = html.split(headEndTag)
+            const splitByHead = html.split(headStartTag)
 
             const injection = `
                 ${faviconLink}
@@ -88,7 +88,7 @@ export default ({
             </script>\n
             `
 
-            return [splitByHead[0] + injection, splitByHead[1]].join(headEndTag)
+            return [splitByHead[0] + injection, splitByHead[1]].join(headStartTag)
         }
     }
 }
