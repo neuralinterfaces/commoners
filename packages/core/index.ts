@@ -110,7 +110,7 @@ export async function resolveConfig(
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
     if (!copy.version) copy.version = '0.0.0'
 
-    if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '-').toLowerCase()}.app`
+    if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '').toLowerCase()}.app`
     
     // Always have a build options object
     if (!copy.build) copy.build = {}
