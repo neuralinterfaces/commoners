@@ -5,6 +5,8 @@ import { normalizeTarget } from '../../globals.js'
 
 import { safeJoin } from '../../utils/index.js'
 
+const headEndTag = '</head>'
+
 const assetPath = (path, outDir, isBuild) => {
     let outPath = normalize(safeJoin(isBuild ? '' : outDir, path))
     if (!(outPath[0] === sep)) outPath = sep + outPath
@@ -40,49 +42,53 @@ export default ({
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
     
-
     return {
         name: 'commoners',
         transformIndexHtml(html) {
-            return `
-            ${faviconLink}
-            <script type="module">
 
-            // Directly import the plugins from the transpiled configuration object
-            import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs', outDir, build)}"
-            const { plugins } = COMMONERS_CONFIG
+            const splitByHead = html.split(headEndTag)
 
-            // Set global variable
-            const { 
-                services, 
-                send,
-                quit,
-                electron
-            } = globalThis.__commoners ?? {} // Grab temporary variables
+            const injection = `
+                ${faviconLink}
+                <script type="module">
 
-            globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
+                // Directly import the plugins from the transpiled configuration object
+                import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs', outDir, build)}"
+                const { plugins } = COMMONERS_CONFIG
 
-            if (quit) globalThis.commoners.quit = quit
-            if (electron) globalThis.commoners.electron = electron
+                // Set global variable
+                const { 
+                    services, 
+                    send,
+                    quit,
+                    electron
+                } = globalThis.__commoners ?? {} // Grab temporary variables
 
-            if (plugins) globalThis.commoners.__plugins = plugins
-            if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
+                globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
 
-            commoners.ready = new Promise(res => {
-                const ogRes = res
-                res = (...args) => {
-                    ogRes(...args)
-                    delete commoners.__ready
-                    if (send) send('commoners:ready')
-                }
-                
-                commoners.__ready = res
-            })    
+                if (quit) globalThis.commoners.quit = quit
+                if (electron) globalThis.commoners.electron = electron
 
-            import("${assetPath('onload.mjs', outDir, build)}")
+                if (plugins) globalThis.commoners.__plugins = plugins
+                if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
 
-            </script>
-            \n${html}`
+                commoners.ready = new Promise(res => {
+                    const ogRes = res
+                    res = (...args) => {
+                        ogRes(...args)
+                        delete commoners.__ready
+                        if (send) send('commoners:ready')
+                    }
+                    
+                    commoners.__ready = res
+                })    
+
+                import("${assetPath('onload.mjs', outDir, build)}")
+
+            </script>\n
+            `
+
+            return [splitByHead[0] + injection, splitByHead[1]].join(headEndTag)
         }
     }
 }

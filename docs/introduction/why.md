@@ -10,6 +10,7 @@ Unlike a custom application, `commoners` lets you:
 1. Separate platform code (e.g. Electron infrastructure) from your code, allowing you to focus on what matters.
 2. Prototype features on different platforms, allowing you to decide the ideal form factor for your application—web, desktop, mobile, or all at once.
 3. Quickly design different clients to take advantange of the affordances of each platform.
+    - Add a backend—and optionally bundle this locally in your `desktop` build—by providing the path to your source files. That's it!
 4. Leverage community plugins for advanced features (e.g. `bluetooth`, `serial`, `local-services`, etc.)
 
 ## Competitors
