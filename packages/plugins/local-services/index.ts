@@ -85,7 +85,7 @@ function loadDesktop(
                     })
                 } else if (ip in active) {
                     const info = active[ip]
-                    if (info) info.forEach(port => this.send(`closed`, getURL(ip, port)));
+                    if (info) Object.values(info).forEach(port => this.send(`closed`, getURL(ip, port)));
                     delete active[ip]
                 }
             });
