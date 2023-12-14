@@ -1,7 +1,7 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "0.0.42",
+  "version": "0.0.43",
   "type": "module",
   "license": "MIT",
   "types": "./dist/types/index.d.ts",
