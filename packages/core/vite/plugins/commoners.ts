@@ -25,7 +25,6 @@ export default ({
 
     outDir = (config.root ? relative(config.root, outDir) : outDir) // outDir should be relative to the root
 
-
     const propsToInclude = [ 'url' ]
     const services = {} 
     Object.entries(config.services).forEach(([id, sInfo]) => {
@@ -39,6 +38,8 @@ export default ({
         services,
         target: normalizeTarget(target)
     }
+
+    console.log('Creating', icon, outDir, build, config.root)
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
     

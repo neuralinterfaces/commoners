@@ -1,14 +1,18 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { extname, join, relative, resolve } from "node:path"
+import { basename, dirname, extname, join, parse, relative, resolve } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
+const autoBundleExtension = {
+  node: [ '.ts' ]
+}
+
 const autobuildExtensions = {
-    node: ['.js', '.cjs', '.mjs', '.ts']
+    node: ['.js', '.cjs', '.mjs', ...autoBundleExtension.node]
 }
 
 // ------------------------------------ COPIED ---------------------------------------
@@ -22,6 +26,9 @@ export const isValidURL = (s) => {
     return false;
   }
 };
+
+const getFilePath = (src, ext) => join(dirname(src), basename(src, extname(src)) + ext)
+
 
 // ------------------------------------------------------------------------------------
 let processes = {}
@@ -81,7 +88,8 @@ export async function resolveService (
     // Define default build command
     if ( autoBuild ) {
 
-        const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath))
+      const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath))
+
         const out = join(outDir, name)
 
         resolvedConfig.build =  {
@@ -96,9 +104,7 @@ export async function resolveService (
 
     }
 
-    Object.assign(resolvedConfig, {
-      __src: join(root, __src)
-    })
+    Object.assign(resolvedConfig, { __src: join(root, __src) })
 
     delete resolvedConfig.publish
     delete resolvedConfig.remote
@@ -113,23 +119,24 @@ export async function resolveService (
   
   if (!src) return resolvedConfig // Return the configuration unchanged if no file or url
 
-
-  if (src.endsWith('.ts')) resolvedConfig.src = src.slice(0, -2) + 'js' // Load transpiled file
-
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
 
+  // Correct for Electron build process
+  const extraResourcesPath = join(root.replace('app.asar/', ''), src)
+  const filepath = resolvedConfig.filepath = existsSync(extraResourcesPath) ? resolve(extraResourcesPath) : join(root, src)
 
-  // Expose the absolute path of the file
-  if (root){
-    const extraResourcesPath = join(root.replace('app.asar/', ''), src)
-    resolvedConfig.filepath = existsSync(extraResourcesPath) ? resolve(extraResourcesPath) : join(root, src)
-  } 
+  // Correct for future autobundling (assets.ts)
+  const bundleExt = autoBundleExtension.node.find(ext => existsSync(getFilePath(filepath, ext)))
 
-  // Or just use the raw source
-  else resolvedConfig.filepath = src
+  if (bundleExt) {
+    const relPath = relative(root, filepath)
+    const outDir = join(root, globalWorkspacePath, '.temp.services')
+    resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}.js`)
+    resolvedConfig.bundle = true
+  }
 
-    // Always create a URL for local services
+  // Always create a URL for local services
   if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
   if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
   if (!resolvedConfig.url) resolvedConfig.url = `http://localhost:${resolvedConfig.port}`
@@ -153,12 +160,11 @@ export async function start (config, id, opts = {}) {
 
   if (isValidURL(src)) return
 
-  if (src) {
+  if (filepath) {
     let childProcess;
-    const ext = extname(src)
+    const ext = extname(filepath)
 
     let error;
-    
 
     try {
       const env = { ...process.env, PORT: config.port, HOST: config.host }

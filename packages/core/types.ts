@@ -94,7 +94,8 @@ type PublishedServiceMetadata = {
 type GeneratedServiceMetadata = {
     filepath: string,
     url: string
-    host: string
+    host: string,
+    bundle?: true
 }
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type

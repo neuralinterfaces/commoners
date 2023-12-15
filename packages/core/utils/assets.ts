@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute, resolve } from "node:path"
+import { onExit, rootDir } from "../globals.js"
+import { dirname, extname, join, parse, relative, isAbsolute, basename } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
@@ -15,30 +15,31 @@ import pkg from 'pkg'
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
 
+type AssetMetadata = {
+    extraResource?: boolean,
+    sign?: boolean
+}
+
 type CoreAssetInfo = string | {
     input: string,
     output?: string | {
         extension: 'mjs' | 'cjs', // JavaScript
     },
-    extraResource?: boolean
-}
+    force?: boolean
+} & AssetMetadata
 
 type AssetInfo = CoreAssetInfo | { text: string, output: string }
 
-type AssetOutput = {
-    file: string,
-    extraResource?: boolean
-}
+type AssetOutput = { file: string } & AssetMetadata
 
 type AssetsCollection = {
     copy: CoreAssetInfo[],
     bundle: AssetInfo[]
 }
 
-type AssetServiceOption = boolean | 'electron' | 'electron-rebuild'
-
-const jsExtensions = ['.js', '.mjs', '.cjs', '.ts']
-
+const bundleExtensions = [ '.ts' ]
+const jsExtensions = ['.js', '.mjs', '.cjs', ...bundleExtensions]
+ 
 // Intelligently build service only if it hasn't been built yet (unless forced)
 const mustBuild = ({ name, out, force }, log = false) => {
     const hasBeenBuilt = existsSync(out)
@@ -96,9 +97,9 @@ async function buildService(
     { 
         build,
         out,
-        __src,
+        src,
     }: { 
-        __src: string,
+        src: string,
         out: string,
         build: ResolvedService['build'] 
     }, 
@@ -137,7 +138,7 @@ async function buildService(
 
             build = await build.call(ctx, {
                 name,
-                src: __src,
+                src,
                 out,
                 force
             })
@@ -154,7 +155,7 @@ async function buildService(
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 
-export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) => {
+export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {} ) => {
     
     const resolvedConfig = await resolveConfig(config)
 
@@ -169,17 +170,34 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
     // Transfer configuration file and related services
     const assets: AssetsCollection = {
         copy: [],
-        bundle: configExtensionTargets.map(ext => { return configPath ? {
-            input: configPath,
-            output: `commoners.config.${ext}`
-        } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } })
+        bundle: []
     }
 
-    // Bundle onload script for the browser
-    assets.bundle.push({
-        input: join(rootDir, 'templates', 'onload.ts'),
-        output: 'onload.mjs'
-    })
+    if (toBuild.frontend !== false) {
+
+        assets.bundle.push(...configExtensionTargets.map(ext => { return configPath ? {
+            input: configPath,
+            output: `commoners.config.${ext}`
+        } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } }))
+
+
+        // Bundle onload script for the browser
+        assets.bundle.push({
+            input: join(rootDir, 'templates', 'onload.ts'),
+            output: 'onload.mjs'
+        })
+
+
+        // Copy Icons
+        if (resolvedConfig.icon) {
+
+            const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
+
+            assets.copy.push(...icons as string[])
+        }
+
+
+    }
 
     if (isElectronTarget) {
 
@@ -195,18 +213,17 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
                 output: splashPath
             })
         }
+
     }
-
     
-    // Handle Provided Services (copy / build)
-    if (mode !== false) {
-
+    // Handle Provided Services
+    if (toBuild.services !== false) {
         const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
-       
+        
         for (const [name, resolvedService] of Object.entries(resolvedServices)) {
 
             // @ts-ignore
-            const { src, base } = resolvedService
+            const { src, base, build, filepath } = resolvedService
 
             const toCopy = base ?? src
 
@@ -214,42 +231,29 @@ export const getAssets = async (config: UserConfig, mode?: AssetServiceOption ) 
 
             const isURL = isValidURL(src)
 
-            const hasBuild = resolvedService.build
 
+            if (build && isURL && isElectronTarget) continue // Do not copy if file is a url (Electron-only)
 
-            if (hasBuild && isURL && isElectronTarget) continue // Do not copy if file is a url (Electron-only)
-
-            const forceRebuild = mode === 'electron-rebuild' || mode === true
             
             if (!isURL) {
 
-                const { __src, build } = resolvedService as any
+                const { __src, bundle } = resolvedService as any
 
-                const output = await buildService({ __src, build, out: join(root, toCopy) }, name, forceRebuild)
+                if (__src) {
+
+                        const jsSrc = jsExtensions.includes(extname(__src))
+
+                        const output = await buildService({ src: __src, build, out: join(root, toCopy) }, name, true) // Always rebuild services
+                                
+                        if (existsSync(output)) assets.copy.push({ input: output, extraResource: true, sign: jsSrc }) // Only auto-sign JavaScript files
                         
-                if (existsSync(output)){
-
-                    if (jsExtensions.includes(extname(output))) assets.bundle.push({
-                        input: output,
-                        extraResource: true
-                    }) // Bundle JavaScript files
-
-                    else assets.copy.push({
-                        input: output,
-                        extraResource: true
-                    }) // Copy directories
-
-                } else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
+                        else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
+                        
+                } 
+                
+                else if (bundle) assets.bundle.push({ input: join(root, src), output: filepath, force: true })
             }
         }
-    }
-
-    // Copy Icons
-    if (resolvedConfig.icon) {
-
-        const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
-
-        assets.copy.push(...icons as string[])
     }
 
     return assets
@@ -260,16 +264,26 @@ export const clear = (outDir: string) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
-export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOption) => {
+type AssetsToBuild = {
+    services?: boolean,
+    frontend?: boolean
+}
+
+export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}) => {
 
     const { outDir } = config.build
 
-    mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
+    if (toBuild.frontend !== false) {
 
-    const randomId = Math.random().toString(36).substring(7)
-    writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-build-${randomId}`, version: config.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+        mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
+ 
+        // Write a package.json file to ensure these files are treated properly
+        const randomId = Math.random().toString(36).substring(7)
+        writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-build-${randomId}`, version: config.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+    }
 
-    const assets = await getAssets(config, mode)
+    // Get other assets to be copied / bundled
+    const assets = await getAssets(config, toBuild)
 
     const outputs: AssetOutput[] = []
 
@@ -278,33 +292,35 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
     // Create an assets folder with copied assets (ESM)
     await Promise.all(assets.bundle.map(async info => {
 
-        const output = typeof info === 'string' ? null : info.output
+        const isString = typeof info === 'string'
+        const output = isString ? null : info.output
 
         // Just copy text to the output file
         if (typeof info !== 'string' && 'text' in info) {
             if (typeof output === 'string') return writeFileSync(join(outDir, output), info.text)
             else return // Nowhere to write the text
         }
-
+        
         // Transform an input file in some way
-        const input = typeof info === 'string' ? info : info.input
+        const input = isString ? info : info.input
         const hasExplicitInput = typeof input === 'string'
-
+        const force = isString ? false : info.force
+    
         if (hasExplicitInput) {
-
+    
             const ext = extname(input)
-
+    
             // NOTE: Output is always taken literally
-            const outPath = typeof output === 'string' ? join(outDir, output) : (() => {
+            const outPath = typeof output === 'string' ? (force ? output : join(outDir, output)) : (() => {
                 const relPath = isAbsolute(input) ? relative(root, input) : input
                 return join(outDir, relPath)
             })()
-
+    
             const fileRoot =  dirname(input)
-            
 
             // Bundle HTML Files using Vite
             if (ext === '.html') {
+
                 await vite.build({
                     logLevel: 'silent',
                     base: "./",
@@ -316,12 +332,10 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                     },
                 })
 
-            }
+            } else{
 
-            // Build JavaScript Files using ESBuild
-            else {
-                
-                const resolvedExtension = typeof output === 'string' ? extname(output).slice(1) : (output?.extension ?? ext.slice(1))
+                const extension = typeof output === 'string' ? extname(output).slice(1) : (output?.extension ?? ext.slice(1))
+                const resolvedExtension = bundleExtensions.includes(`.${extension}`) ? 'js' : extension
                 const outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
 
                 const baseConfig: esbuild.BuildOptions = {
@@ -341,15 +355,19 @@ export const buildAssets = async (config: ResolvedConfig, mode?: AssetServiceOpt
                 
                 const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
                 
-                if (resolvedExtension === 'cjs') await buildForNode()
+                if (ext === 'cjs') await buildForNode()
                 else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
 
                 // Handle extra resources
-                const assetOutputInfo: AssetOutput = { file: outfile } 
+                const assetOutputInfo: AssetOutput = { file: outfile }
                 if (typeof info === 'object' && 'extraResource' in info)  assetOutputInfo.extraResource = info.extraResource
                 outputs.push(assetOutputInfo)
             }
-        } 
+
+        }
+
+        else console.error(`Could not resolve ${chalk.red(input)} asset file`)
+
     }))
 
 

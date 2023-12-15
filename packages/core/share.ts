@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 
 import { createServer } from './utils/server.js'
-import { createServices, resolveConfig } from './index.js';
+import { createServices, globalTempDir, initialize, resolveConfig } from './index.js';
 
 import { ShareOptions } from './types.js';
 
@@ -9,6 +9,8 @@ import { updateServicesWithLocalIP } from './utils/ip/index.js'
 import { getLocalIP } from './utils/ip/cross-platform.js'
 
 import { networkInterfaces } from 'node:os';
+import { join } from 'node:path';
+import { buildAssets } from './utils/assets.js';
 
 
 
@@ -18,7 +20,14 @@ export default async function (opts: ShareOptions) {
     const sharePort = opts.share?.port
     const port = opts.port
 
+    const root = opts.root
+
     const resolvedConfig = await resolveConfig(opts, { services, customPort: sharePort === port ? undefined : port })
+
+    const outDir = join(root, globalTempDir)
+    initialize(outDir)
+
+    await buildAssets({ ...resolvedConfig, build: { outDir } }, { frontend: false })
 
     console.log(`\n✊ Sharing ${chalk.bold(chalk.greenBright(resolvedConfig.name))} services ${services ? `(${services})` : ''}\n`)
 

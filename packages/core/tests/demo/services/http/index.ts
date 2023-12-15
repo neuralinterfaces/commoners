@@ -14,7 +14,7 @@ const host = process.env.HOST || 'localhost'
 
 function getBody(request) {
   return new Promise((resolve) => {
-    const bodyParts = [];
+    const bodyParts: Buffer[] = [];
     let body;
     request.on('data', (chunk) => {
       bodyParts.push(chunk);
@@ -34,7 +34,7 @@ const server = cfg.ssl ? createHTTPSServer({
     res.setHeader('Access-Control-Max-Age', 2592000); // 30 days
     res.setHeader('Content-type', 'text/json');
     getBody(req).then(result => {
-      res.end(JSON.stringify(JSON.parse(result)))
+      res.end(JSON.stringify(JSON.parse(result as string)))
     })
 })
 

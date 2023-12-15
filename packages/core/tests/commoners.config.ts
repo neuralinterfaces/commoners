@@ -19,7 +19,7 @@ const config = {
 
     services: {
         http: { 
-            src: './demo/services/http/index.js', 
+            src: './demo/services/http/index.ts', 
             port: basePort // Hardcoded port
         },
         express: { src: expressSource },

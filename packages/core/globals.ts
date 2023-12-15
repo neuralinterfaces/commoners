@@ -37,17 +37,28 @@ const runBeforeExitCallbacks = (code) => {
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']
 
+
 export const initialize = (tempDir = globalTempDir) => {
 
+    // NOTE: Ensure that the single temporary directory is not overwritten for different targets
     if (existsSync(tempDir)) {
-        console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`) // NOTE: Ensure the single temporary directory is not overwritten for different targets
+        console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`)
         process.exit(1)
     }
     
     exitEvents.forEach(event => process.on(event, runBeforeExitCallbacks))
 
-    onExit(() => cleanup(tempDir)) // Always clear the temp directory on exit
-    
+    // Always clear the temp directories on exit
+    const onClose = () => {
+        cleanup(tempDir)
+        cleanup(`${tempDir}.services`)
+    }
+
+    onExit(onClose)
+
+    return {
+        close: onClose
+    }
 }
 
 export function cleanup (tempDir = globalTempDir) {

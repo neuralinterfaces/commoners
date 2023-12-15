@@ -47,7 +47,7 @@ export default async function ( opts: UserConfig = {} ) {
         else {
             const copy = { ...resolvedConfig }
             copy.build = { ...copy.build, outDir }
-            await buildAssets(copy, false)
+            await buildAssets(copy)
         }
 
 

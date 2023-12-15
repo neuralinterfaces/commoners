@@ -98,7 +98,7 @@ export default async function build (
     const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
     configCopy.build = { ...opts.build, outDir }  
 
-    const assets = await buildAssets(configCopy, isDesktopBuild ? (toRebuild.services ? 'electron-rebuild' : 'electron') : toRebuild.services ?? false)
+    const assets = await buildAssets(configCopy )
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)
@@ -126,20 +126,29 @@ export default async function build (
             `${relativeOutDir}/**`, 
         ]
 
-        const extraResources = buildConfig.extraResources = []
+        // Ensure platform-specific configs exist
+        if (!buildConfig.mac) buildConfig.mac = {}
+        if (!buildConfig.win) buildConfig.win = {}
 
-        assets.forEach(({ file, extraResource }) => {
+        // Handle extra resources and code signing
+        const extraResources = buildConfig.extraResources = []
+        const signIgnore = buildConfig.mac.signIgnore = []
+
+        assets.forEach(({ file, extraResource, sign }) => {
+
+            const relPath = relative(cwdRelativeOutDir, file)
+            const location = (lstatSync(file).isDirectory()) ? join(relativeOutDir, relPath, '**') : join(relativeOutDir, relPath)
+
             if (extraResource) {
-                const relPath = relative(cwdRelativeOutDir, file)
-                const location = (lstatSync(file).isDirectory()) ? join(relativeOutDir, relPath, '**') : join(relativeOutDir, relPath)
                 extraResources.push(location)
                 files.push(`!${location}`)
             }
+
+            if (sign === false) {
+                signIgnore.push(file)
+            }
         })
 
-        // Ensure platform-specific configs exist;lvb
-        if (!buildConfig.mac) buildConfig.mac = {}
-        if (!buildConfig.win) buildConfig.win = {}
 
         const defaultIcon = getIcon(resolvedConfig.icon)
 
