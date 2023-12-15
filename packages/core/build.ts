@@ -22,9 +22,9 @@ type BuildHooks = {
     onBuildAssets?: Function
 }
 
-// const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
+const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 
-// const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
+const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
 
 // Types
 export default async function build (
@@ -152,8 +152,8 @@ export default async function build (
                 files.push(`!${glob}`)
             }
 
-            // // Ignore Code Signing for Certain Files (results in "Failed to staple your application with code: 65" error)
-            // if (sign === false) signIgnore.push(convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`))
+            // Ignore Code Signing for Certain Files (NOTE: "Failed to staple your application with code: 65" error)
+            if (sign === false) signIgnore.push(convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`))
         })
 
         const defaultIcon = getIcon(resolvedConfig.icon)

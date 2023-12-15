@@ -240,11 +240,13 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
                 if (__src) {
 
-                        const jsSrc = jsExtensions.includes(extname(__src))
-
                         const output = await buildService({ src: __src, build, out: join(root, toCopy) }, name, toBuild.services ?? true) // Always rebuild services
                                 
-                        if (existsSync(output)) assets.copy.push({ input: output, extraResource: true, sign: jsSrc }) // Only auto-sign JavaScript files
+                        if (existsSync(output)) assets.copy.push({ 
+                            input: output, 
+                            extraResource: true, 
+                            sign: true // jsExtensions.includes(extname(__src)) 
+                        }) // Only auto-sign JavaScript files
                         
                         else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
                         
