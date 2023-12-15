@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "A cross-platform development kit for everyone",
-  "version": "0.0.43",
+  "version": "0.0.44",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -18,7 +18,7 @@
     "watch": "vite build --watch"
   },
   "dependencies": {
-    "@commoners/solidarity": "0.0.43",
+    "@commoners/solidarity": "0.0.44",
     "cac": "^6.7.14",
     "chalk": "^5.2.0"
   },
