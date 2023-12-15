@@ -217,7 +217,6 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     }
     
     // Handle Provided Services
-    if (toBuild.services !== false) {
         const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
         
         for (const [name, resolvedService] of Object.entries(resolvedServices)) {
@@ -243,7 +242,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
                         const jsSrc = jsExtensions.includes(extname(__src))
 
-                        const output = await buildService({ src: __src, build, out: join(root, toCopy) }, name, true) // Always rebuild services
+                        const output = await buildService({ src: __src, build, out: join(root, toCopy) }, name, toBuild.services ?? true) // Always rebuild services
                                 
                         if (existsSync(output)) assets.copy.push({ input: output, extraResource: true, sign: jsSrc }) // Only auto-sign JavaScript files
                         
@@ -254,7 +253,6 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                 else if (bundle) assets.bundle.push({ input: join(root, src), output: filepath, force: true })
             }
         }
-    }
 
     return assets
 }
@@ -360,7 +358,11 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 // Handle extra resources
                 const assetOutputInfo: AssetOutput = { file: outfile }
-                if (typeof info === 'object' && 'extraResource' in info)  assetOutputInfo.extraResource = info.extraResource
+                if (typeof info === 'object')  {
+                    assetOutputInfo.extraResource = info.extraResource
+                    assetOutputInfo.sign = info.sign
+                }
+
                 outputs.push(assetOutputInfo)
             }
 
@@ -378,7 +380,10 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         const output: AssetOutput = { file: copyAsset(file, { outDir, root }) }
 
         // Handle extra resources
-        if (isObject && 'extraResource' in info)  output.extraResource = info.extraResource
+        if (isObject) {
+            output.extraResource = info.extraResource
+            output.sign = info.sign
+        }
         
         outputs.push(output)
     })

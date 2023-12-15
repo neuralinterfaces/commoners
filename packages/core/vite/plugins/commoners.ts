@@ -39,8 +39,6 @@ export default ({
         target: normalizeTarget(target)
     }
 
-    console.log('Creating', icon, outDir, build, config.root)
-
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
     
     return {

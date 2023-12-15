@@ -22,6 +22,10 @@ type BuildHooks = {
     onBuildAssets?: Function
 }
 
+// const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
+
+// const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
+
 // Types
 export default async function build (
     opts: BuildOptions = {},
@@ -85,7 +89,10 @@ export default async function build (
     }
 
     // ---------------- Clear Previous Builds ----------------
-    if (toRebuild.services)  await clear(join(globalWorkspacePath, 'services'))
+    if (toRebuild.services) {
+        await clear(join(globalWorkspacePath, 'services')) // Clear default service directory (not custom locations...)
+    }
+
     if (toRebuild.assets) await clear(outDir)
 
     // ---------------- Build Assets ----------------
@@ -98,7 +105,7 @@ export default async function build (
     const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
     configCopy.build = { ...opts.build, outDir }  
 
-    const assets = await buildAssets(configCopy )
+    const assets = await buildAssets( configCopy, { services: toRebuild.services } )
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)
@@ -137,18 +144,17 @@ export default async function build (
         assets.forEach(({ file, extraResource, sign }) => {
 
             const relPath = relative(cwdRelativeOutDir, file)
-            const location = (lstatSync(file).isDirectory()) ? join(relativeOutDir, relPath, '**') : join(relativeOutDir, relPath)
+            const location = join(relativeOutDir, relPath)
+            const glob = (lstatSync(file).isDirectory()) ? join(location, '**') : location
 
             if (extraResource) {
-                extraResources.push(location)
-                files.push(`!${location}`)
+                extraResources.push(glob)
+                files.push(`!${glob}`)
             }
 
-            if (sign === false) {
-                signIgnore.push(file)
-            }
+            // // Ignore Code Signing for Certain Files (results in "Failed to staple your application with code: 65" error)
+            // if (sign === false) signIgnore.push(convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`))
         })
-
 
         const defaultIcon = getIcon(resolvedConfig.icon)
 
