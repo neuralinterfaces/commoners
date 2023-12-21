@@ -96,7 +96,7 @@ export async function resolveConfig(
     // Merge Config and package.json (transformed name)
     const copy = merge(structuredClone(temp) , {
         ...userPkg,
-        name: userPkg.name.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ')
+        name: userPkg.name ? userPkg.name.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') : 'Commoners App'
     }) as Partial<ResolvedConfig>
     
     copy.plugins = plugins // Transfer the original plugins
