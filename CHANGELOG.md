@@ -10,4 +10,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - This CHANGELOG file.
 
-[unreleased]: https://github.com/garrettmflynn/commoners/compare/v0.0.44...HEAD
+[unreleased]: https://github.com/garrettmflynn/commoners/compare/v0.0.44...v0.0.45
