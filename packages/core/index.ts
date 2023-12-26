@@ -27,10 +27,7 @@ export async function loadConfigFromFile(filesystemPath: string = resolveConfigP
 
     if (filesystemPath && lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
 
-    if (!filesystemPath) {
-        console.log(`No config file found in ${process.cwd()}`)
-        return {} as UserConfig
-    }
+    if (!filesystemPath) return {} as UserConfig // No user-defined configuration found
 
     // Bundle config file
     const result = await build({
