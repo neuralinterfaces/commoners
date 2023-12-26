@@ -10,7 +10,7 @@ Web builds are the default build target. These builds are intended to be deploye
 #### PWA
 Progressive Web Apps (PWAs) are web applications that can be installed on a device and accessed from the home screen. PWAs are supported on most modern browsers, and can be installed on both desktop and mobile devices—though they will have limited access to native features.
 
-`commoners` relies on [vite-plugin-pwa]() to generate the necessary files for a PWA. To enable this feature, simply add the `--target pwa` flag to your build command.
+`commoners` relies on [vite-plugin-pwa](https://github.com/vite-pwa/vite-plugin-pwa) to generate the necessary files for a PWA. To enable this feature, simply add the `--target pwa` flag to your build command.
 
 ### Desktop
 Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
