@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+
+## [0.0.45]
+
+### Added
 - This CHANGELOG file.
 
-[unreleased]: https://github.com/garrettmflynn/commoners/compare/v0.0.44...v0.0.45
+### Changed
+- Fixed the `--publish` CLI argument to work without any arguments after the flag.
+
+[unreleased]: https://github.com/garrettmflynn/commoners/compare/v0.0.45...HEAD
+[0.0.45]: https://github.com/garrettmflynn/commoners/compare/v0.0.44...v0.0.45
