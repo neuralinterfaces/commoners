@@ -2,6 +2,8 @@ import { App, BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRender
 import { Configuration as ElectronBuilderConfiguration, PublishOptions } from 'electron-builder'
 import { ManifestOptions } from 'vite-plugin-pwa'
 
+import { UserConfig as ViteUserConfig } from 'vite'
+
 export function tuple<T extends string[]>(...o: T) {
     return o;
 }
@@ -166,7 +168,7 @@ type RawPlugins = {[id: string]: Plugin}
 // ------------------- Configuration Object Declaration -------------------
 type BaseConfig = {
     
-    root: string
+    root: string // Root of the project (will resolve config file there)
     target: TargetType,
 
     // Common Options
@@ -186,6 +188,7 @@ type BaseConfig = {
 
     // Electron Options
     electron: ElectronOptions
+    vite?: ViteUserConfig | string
 
     // PWA Options
     pwa: PWAOptions

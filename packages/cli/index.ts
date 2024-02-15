@@ -79,11 +79,11 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
 .option('--no-services', 'Skip building the services')
 .option('--service <name>', 'Build specific service(s)')
-.option('--publish <type>', 'Publish the application', { default: 'always' })
+.option('--publish [type]', 'Publish the application', { default: 'always'})
 .option('--sign', 'Enable code signing (desktop target on Mac only)')
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
-
+    
     if (options.target !== 'services') preprocessTarget(options.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({

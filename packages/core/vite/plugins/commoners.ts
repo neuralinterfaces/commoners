@@ -10,7 +10,9 @@ const headStartTag = '<head>'
 const assetPath = (path, outDir, isBuild) => {
     let outPath = normalize(safeJoin(isBuild ? '' : outDir, path))
     if (!(outPath[0] === sep)) outPath = sep + outPath
+
     if (!(outPath[0] === '.')) outPath = '.' + outPath
+
     return outPath.replaceAll(sep, posix.sep)
 }
 
@@ -20,10 +22,16 @@ export default ({
     outDir,
     target
 }) => {
+    const orginalBase = normalize(config.vite?.base ?? '/').replaceAll(sep, posix.sep)
+
+    const base = orginalBase[0] === posix.sep ? orginalBase.slice(1) : orginalBase
+    const nToAdjust = base.split(posix.sep).length - 1
 
     const icon = getIcon(config.icon)
 
     outDir = (config.root ? relative(config.root, outDir) : outDir) // outDir should be relative to the root
+
+    if (nToAdjust) outDir = [...Array.from({length: nToAdjust}, () => '..'), ...outDir.split(posix.sep)].join(posix.sep)
 
     const propsToInclude = [ 'url' ]
     const services = {} 

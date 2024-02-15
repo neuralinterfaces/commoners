@@ -23,6 +23,8 @@ export const defineConfig = (o: UserConfig): UserConfig => o
 
 export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
 
+// const autoRootSymbol = Symbol('auto-root')
+
 export async function loadConfigFromFile(filesystemPath: string = resolveConfigPath()) {
 
     if (filesystemPath && lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
@@ -57,7 +59,10 @@ export async function loadConfigFromFile(filesystemPath: string = resolveConfigP
     try {
         const result = (await import(fileUrl)).default as UserConfig
         const root = dirname(filesystemPath)
-        if (root !== process.cwd()) result.root = root
+        if (root !== process.cwd()) {
+            result.root = root
+            // result[autoRootSymbol] = root
+        }
         return result
     } finally {
         unlink(fileNameTmp, () => { }) // Ignore errors

@@ -98,7 +98,7 @@ export default async function build (
     // ---------------- Build Assets ----------------
     if (toRebuild.assets) {
         if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await ViteBuild(resolveViteConfig(resolvedConfig, { target, outDir }))  // Build the standard output files using Vite. Force recognition as build
+        await ViteBuild(await resolveViteConfig(resolvedConfig, { target, outDir }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // ---------------- Create Standard Output Files ----------------

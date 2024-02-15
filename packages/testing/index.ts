@@ -127,6 +127,10 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
 
       const url = result.url
 
+      const browser = output.browser = await puppeteer.launch({ headless: 'new' })
+      const page = output.page = await browser.newPage();
+
+
       // Launched Electron Instance
       if (isElectron) {
 
@@ -139,27 +143,20 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
         await sleep(5 * 1000) // Wait for five seconds for Electron to open
 
         const browserURL = `http://localhost:${electronDebugPort}`
-        const browser = output.browser = await puppeteer.launch({ headless: 'new' })
-        const page = output.page = await browser.newPage();
         await page.goto(browserURL);
         const endpoint = await page.evaluate(() => fetch(`json/version`).then(res => res.json()).then(res => res.webSocketDebuggerUrl))
         await browser.close()
-        delete output.browser
-        delete output.page
 
         // Connect to browser WS Endpoint
         const browserWSEndpoint = endpoint.replace('localhost', '0.0.0.0')
-        output.browser = await puppeteer.connect({ browserWSEndpoint })
+        output.browser = await puppeteer.connect({ browserWSEndpoint, defaultViewport: null  })
         const pages = await output.browser.pages()
         output.page = pages[0]
       } 
       
       // Non-Electron Instance
       else {
-          const browser = output.browser = await puppeteer.launch({ headless: 'new' })
-          const page = output.page = await browser.newPage();
           await page.goto(url);
-          output.page = page
       }
 
       output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))

@@ -20,7 +20,7 @@ const defaultOutDir = join(rootDir, 'dist')
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
 
     // Create the frontend server
-    const server = await vite.createServer(resolveViteConfig(config, opts, false))
+    const server = await vite.createServer(await resolveViteConfig(config, opts, false))
     await server.listen()
 
     // Print out the URL if everything was initialized here (i.e. dev mode)
@@ -81,7 +81,7 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon }: PWAOpt
     return pwaOpts as ResolvedConfig['pwa']
 }
 
-export const resolveViteConfig = (
+export const resolveViteConfig = async (
     commonersConfig: ResolvedConfig, 
     { 
         target, 
@@ -91,16 +91,13 @@ export const resolveViteConfig = (
 ) => {
 
     const isDesktopTarget = isDesktop(target)
+
+    let { vite: viteUserConfig = {} } = commonersConfig
+    if (typeof viteUserConfig === 'string') viteUserConfig = (await vite.loadConfigFromFile({ command: build ? 'build' : 'serve', mode: build ? 'production' : 'development' }, viteUserConfig)).config
     
-    const plugins: vite.Plugin[] = [ commonersPlugin({ 
-        config: commonersConfig, 
-        build,
-        outDir,
-        target
-    })]
+    const plugins: vite.Plugin[] = [ ]
 
     const { name, appId, root, icon, description, dependencies = {} } = commonersConfig
-
 
     // Desktop Build
     if (isDesktopTarget) {
@@ -118,7 +115,7 @@ export const resolveViteConfig = (
                 }
             }
         }
-        
+
         // @ts-ignore
         const electronPluginConfig = ElectronVitePlugin({
             main: {
@@ -167,5 +164,23 @@ export const resolveViteConfig = (
         clearScreen: false,
     })
 
-    return viteConfig
+
+
+    const mergedConfig = vite.mergeConfig(viteConfig, viteUserConfig)
+
+
+    mergedConfig.plugins = [
+        ...mergedConfig.plugins,
+        commonersPlugin({ 
+            config: {
+                ...commonersConfig,
+                vite: mergedConfig
+            }, 
+            build,
+            outDir,
+            target
+        })
+    ]
+    
+    return mergedConfig
 }
