@@ -1,7 +1,7 @@
 import node from './node/index.js'
 import python from './python/index.js'
 
-import { basename, dirname, extname, join, parse, relative, resolve } from "node:path"
+import { basename, dirname, extname, join, parse, relative, resolve, sep } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn } from 'node:child_process';
@@ -45,7 +45,7 @@ function resolveConfig(config) {
 
 
 const globalWorkspacePath = '.commoners'
-const globalServiceWorkspacePath = `${globalWorkspacePath}/services`
+const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
 
 // Ensure source is detected as local for all conditions
 export function isLocal(publishConfig) {
@@ -122,8 +122,17 @@ export async function resolveService (
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
 
+
+  // Remove or add extensions based on platform
+  if (process.platform === 'win32') {
+    if (!extname(src)) src += '.exe' // Add .exe (Win)
+  }
+  else if (extname(src) === '.exe') src = src.slice(0, -4) // Remove .exe (Unix)
+
   // Correct for Electron build process
-  const extraResourcesPath = join(root.replace('app.asar/', ''), src)
+  const extraResourcesPath = join(root.replace(`app.asar${sep}`, ''), src)
+
+  // Choose the resolved filepath
   const filepath = resolvedConfig.filepath = existsSync(extraResourcesPath) ? resolve(extraResourcesPath) : join(root, src)
 
   // Correct for future autobundling (assets.ts)

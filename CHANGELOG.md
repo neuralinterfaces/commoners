@@ -7,8 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
+### Changed
+- Correct for platform-specific service file conventions (e.g. `.exe` on Windows vs. no extension on `Mac`) to properly check for existence
+- Fixed misuse of hardcoded Unix separators (e.g. when running on Windows) during the service start process
 
 ## [0.0.45]
 

@@ -26,5 +26,11 @@ npm link @commoners/solidarity
 
 You'll only have to do this once.
 
+After this, you can then install `commoners` globally from the `packages/cli` directory:
+
+```
+npm install -g .
+```
+
 ## Acknowledgments
 `commoners` is maintained by Garrett Flynn, who originally developed the tool to streamline development of the [NWB GUIDE](https://github.com/neurodatawithoutborders/nwb-guide) application and support future hybrid application development for [Catalyst Neuro](https://github.com/catalystneuro).
