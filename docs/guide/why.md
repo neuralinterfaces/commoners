@@ -1,12 +1,12 @@
 # Why Commoners?
 Web clients render everywhere already—browsers, Webviews, iOS applications, smartwatches, and more. So why is it so hard to publish the same application acorss all these platforms?
 
-`commoners` allows anyone to build hybrid applications—distributed on web, desktop, and mobile from the same codebase / configuration—without the hassle of additional languages and required JavaScript libraries.
+Commoners allows anyone to build hybrid applications—distributed on web, desktop, and mobile from the same codebase / configuration—without the hassle of additional languages and required JavaScript libraries.
 
 This tool was originally developed to support the deployment of the same Bluetooth-enabled application across web, desktop, and mobile—an impossible feat using existing JavaScript tooling.
 
 ### Why Shouldn't I Just Create a Custom Electron App?
-Unlike a custom application, `commoners` lets you:
+Unlike a custom application, Commoners lets you:
 1. Separate platform code (e.g. Electron infrastructure) from your code, allowing you to focus on what matters.
 2. Prototype features on different platforms, allowing you to decide the ideal form factor for your application—web, desktop, mobile, or all at once.
 3. Quickly design different clients to take advantange of the affordances of each platform.

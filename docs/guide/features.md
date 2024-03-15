@@ -1,8 +1,8 @@
-# Getting Started
-`commoners` allows anyone to build their application for web, desktop, and mobile.
+# Features
+Key features of Commoners.
 
 ## Build Targets
-`commoners` relies on [Vite](https://vitejs.dev) to generate the essential frontend files for each build target.
+Commoners relies on [Vite](https://vitejs.dev) to generate the essential frontend files for each build target.
 
 ### Web
 Web builds are the default build target. These builds are intended to be deployed to a web server, and are accessible from any device with a web browser.
@@ -10,12 +10,12 @@ Web builds are the default build target. These builds are intended to be deploye
 #### PWA
 Progressive Web Apps (PWAs) are web applications that can be installed on a device and accessed from the home screen. PWAs are supported on most modern browsers, and can be installed on both desktop and mobile devices—though they will have limited access to native features.
 
-`commoners` relies on [vite-plugin-pwa](https://github.com/vite-pwa/vite-plugin-pwa) to generate the necessary files for a PWA. To enable this feature, simply add the `--target pwa` flag to your build command.
+Commoners relies on [vite-plugin-pwa](https://github.com/vite-pwa/vite-plugin-pwa) to generate the necessary files for a PWA. To enable this feature, simply add the `--target pwa` flag to your build command.
 
 ### Desktop
 Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
 
-`commoners` relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--target desktop` flag to your build command.
+Commoners relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--target desktop` flag to your build command.
 
 #### Mac
 While code-signing, you may recieve a `CSSMER_TP_CERT_REVOKED` error, which will cause a `The application "X" can't be opened` error to appear when attempting to open the app.
@@ -39,7 +39,7 @@ export default {
 ### Mobile
 Mobile builds are intended to be installed on a user's mobile device. These builds are accessible from the home screen, and have access to native features.
 
-`commoners` relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--target mobile` flag to your build command.
+Commoners relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--target mobile` flag to your build command.
 
 #### iOS
 If you are building for iOS, you will need to install the following dependencies on your Mac:
@@ -55,7 +55,7 @@ If you are building for Android, you will need to install the following dependen
 ## Services
 Services are independent processes that the main application depends on. These may be `local` or `remote` based on the distributed application files.
 
-> **Note:** `commoners` currently supports `.js`, `.ts`, `.py`, `.exe`, and `.pkg` services.
+> **Note:** Commoners currently supports `.js`, `.ts`, `.py`, `.exe`, and `.pkg` services.
 
 To declare a service, you simply add the source file path to the `commoners.config.js` file:
 ```js

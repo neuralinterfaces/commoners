@@ -12,7 +12,10 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Getting Started', link: '/introduction/getting-started' }
+      { text: 'Guide', link: '/guide/getting-started' },
+      { text: 'Config', link: '/config/index' },
+      { text: 'Plugins', link: '/plugins/index' },
+      { text: 'Roadmap', link: '/roadmap/features' },
     ],
 
     footer: {
@@ -20,29 +23,19 @@ export default defineConfig({
       copyright: 'Copyright © 2023 Garrett Flynn & Commoners Contributors',
     },
 
-    sidebar: [
-      {
-        text: 'Introduction',
-        items: [
-          { text: 'Getting Started', link: '/introduction/getting-started' },
-          { text: 'Why Commoners', link: '/introduction/why' },
-          { text: 'CLI', link: '/introduction/cli' },
-        ]
-      },
-      {
-        text: 'Plugins',
-        items: [
-          { text: 'Official Plugins', link: '/plugins/official' }
-        ]
-      },
-      {
-        text: 'Roadmap',
-        items: [
-          { text: 'Features', link: '/roadmap/features' },
-          { text: 'Walkthroughs', link: '/roadmap/walkthroughs' },
-        ]
-      }
-    ],
+    sidebar: {
+      '/guide/': [
+        {
+          text: 'Guide',
+          items: [
+            { text: 'Why Commoners', link: '/guide/why' },
+            { text: 'Getting Started', link: '/guide/getting-started' },
+            { text: 'Features', link: '/guide/features' },
+            { text: 'CLI', link: '/guide/cli' },
+          ]
+        }
+      ]
+    },
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/garrettmflynn/commoners' }

@@ -12,10 +12,10 @@ hero:
   actions:
     - theme: brand
       text: Getting Started
-      link: /introduction/getting-started
+      link: /guide/getting-started
     - theme: alt
       text: Why Commoners?
-      link: /introduction/why
+      link: /guide/why
 features:
   - icon: 🌐
     title: Cross-Platform Development
