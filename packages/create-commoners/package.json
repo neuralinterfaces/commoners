@@ -1,0 +1,34 @@
+{
+    "name": "create-commoners",
+    "version": "0.0.0",
+    "type": "module",
+    "license": "MIT",
+    "author": "Garrett Flynn",
+    "bin": {
+      "create-commoners": "index.js",
+      "cca": "index.js"
+    },
+    "files": [
+      "index.js",
+      "template-*",
+      "dist"
+    ],
+    "scripts": {
+      "dev": "unbuild --stub",
+      "build": "unbuild"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/garrettmflynn/commoners.git",
+      "directory": "packages/create-commoners"
+    },
+    "bugs": {
+      "url": "https://github.com/garrettmflynn/commoners/issues"
+    },
+    "homepage": "https://github.com/garrettmflynn/commoners/tree/main/packages/create-commoners#readme",
+    "devDependencies": {
+      "create-vite": "5.2.2",
+      "kolorist": "^1.8.0",
+      "unbuild": "^2.0.0"
+    }
+  }
