@@ -80,14 +80,12 @@ const startProject = (projectBase, customProps = {}) => {
   const waitTime = (isElectron || isMobile) ? 1 * 60 * 1000 : undefined // Wait a minute for Electron services to build
 
     beforeAll(async () => {
-
-        // NOTE: Should the root be automatically updating the build.outDir property?
         const config = await loadConfigFromFile(projectBase)
         await build({
           ...config,
           target,
           build: {
-            outDir: join(...relative(process.cwd(), projectBase).split(sep).map(() => '..'), outDir) // Escape to the project base
+            outDir
           }
         }, hooks)
 

@@ -68,8 +68,9 @@ export default async function build (
     const { root } = resolvedConfig
 
     // ---------------- Output Directory Resolution ----------------
-    let outDir = join(root, opts?.build?.outDir ?? join(globalWorkspacePath, target)) // From project base
-    const selectedOutDir = opts?.build?.outDir ?? join(globalWorkspacePath, target) // From selected root
+    const customOutDir = opts?.build?.outDir
+    let outDir = customOutDir ?? join(root, globalWorkspacePath, target) // From project base
+    const selectedOutDir = customOutDir ?? join(globalWorkspacePath, target) // From selected root
 
     if (
         isElectronBuild || isMobileBuild
@@ -124,7 +125,11 @@ export default async function build (
         const cwdRelativeOutDir = relative(process.cwd(), outDir)
         const relativeOutDir = relative(root, cwdRelativeOutDir)
 
-        await configureForDesktop(cwdRelativeOutDir, root) // Temporarily configure for temp directory (no relative transformation)
+        // Configure package.json for proper Electron build
+        await configureForDesktop(cwdRelativeOutDir, root, {
+            name: name.toLowerCase().split(' ').join('-'), 
+            version: '0.0.0'
+        })
 
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
@@ -193,6 +198,7 @@ export default async function build (
         }
 
         if (root) buildOpts.projectDir = root
+        
 
         if (publish) buildOpts.publish = typeof publish === 'string' ? publish : 'always'
         else delete buildConfig.publish
