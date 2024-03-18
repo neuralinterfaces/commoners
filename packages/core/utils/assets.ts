@@ -175,10 +175,143 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
     if (toBuild.frontend !== false) {
 
-        assets.bundle.push(...configExtensionTargets.map(ext => { return configPath ? {
-            input: configPath,
-            output: `commoners.config.${ext}`
-        } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } }))
+
+        if (config.__root) {
+
+                const multiBuildConfig = {
+                    'ROOT': {
+                        file: 'commoners.root',
+                        input: config.__root
+                    },
+                    'EXTENSION': {
+                        file: 'commoners.extension',
+                        input: configPath
+                    }
+                }
+
+
+                const mergeCode = {
+
+                    // On the backend (e.g. Electron), the properties handled will be identical to the raw configuration files
+                    cjs:  {
+                        imports: `const { join, relative } = require('path')\nconst { existsSync } = require('fs')`,
+                        text: `
+                        const isObject = (o) => o && typeof o === "object" && !Array.isArray(o);
+    
+                        const transform = (path, value) => {
+                            
+                            if (path[0] === 'builds') return undefined
+    
+                            if (value && typeof value === 'string') {
+                                const CWD = "${process.cwd()}"
+                                if (existsSync(value))  {
+                                    const configPath = "${dirname(configPath)}"
+                                    const rel = relative(configPath, join(CWD, value))
+                                    return rel
+                                }
+                            }
+                            
+                            // Provide original value
+                            return value
+                        }
+    
+                        const merge = (toMerge = {}, target = {}, _path = []) => {
+    
+                            for (const [k, v] of Object.entries(toMerge)) {
+                                const targetV = target[k];
+                                const updatedPath = [..._path, k];
+                                const updatedV = transform(updatedPath, v);
+    
+                                if (Array.isArray(updatedV) && Array.isArray(targetV)) target[k] = [...targetV, ...updatedV];
+                                else if (isObject(updatedV) || isObject(targetV)) target[k] = merge(v, target[k], updatedPath);
+                                else target[k] = updatedV; // Replace primitive values
+                            }
+                        
+                            return target;
+                        }
+        
+                        const transposedConfig = merge(COMMONERS_ROOT, {})
+                        return merge(COMMONERS_EXTENSION, transposedConfig)
+                    `
+                    },
+
+                    // On the browser, the properties handled will be sanitized
+                    mjs: {
+                        imports: '',
+                        text: ` 
+                        const isObject = (o) => o && typeof o === "object" && !Array.isArray(o);
+    
+                        const merge = (toMerge = {}, target = {}) => {
+
+                            for (const [k, v] of Object.entries(toMerge)) {
+                                const targetV = target[k];    
+                                if (Array.isArray(v) && Array.isArray(targetV)) target[k] = [...targetV, ...v];
+                                else if (isObject(v) || isObject(targetV)) target[k] = merge(v, target[k]);
+                                else target[k] = v; // Replace primitive values
+                            }
+                        
+                            return target;
+                        }
+    
+    
+                        const transposedConfig = merge(COMMONERS_ROOT, {})
+                        return merge(COMMONERS_EXTENSION, transposedConfig)
+                        `
+                    }
+                }
+
+
+                // Ensure that the configuration file is built
+
+                const mutualImports = {
+                    mjs: Object.entries(multiBuildConfig).map(([id, { file }]) => `import COMMONERS_${id} from './${file}.mjs'`).join('\n'),
+                    cjs: Object.entries(multiBuildConfig).map(([id, { file }]) => `const COMMONERS_${id} = require('./${file}.cjs').default`).join('\n')
+                }
+
+
+                // Build both files
+                assets.bundle.push(...configExtensionTargets.map(ext => {
+                    return Object.values(multiBuildConfig).map(({ file, input }) => {
+                        return { input, output: `${file}.${ext}` }
+                    })
+                }).flat())
+
+
+                // Link all files together in a master file
+                assets.bundle.push(...configExtensionTargets.map(ext => { 
+                    if (ext === 'cjs') {
+                        return { 
+                            text: `
+                            ${mergeCode.cjs.imports}\n
+                            ${mutualImports.cjs}\n
+                            module.exports = {
+                                default: (() => { ${mergeCode.cjs.text} })()
+                            }
+                            `, 
+                            output: `commoners.config.${ext}` 
+                        }
+                    } else {
+                        return { 
+                            text: `
+                            ${mergeCode.mjs.imports}\n
+                            ${mutualImports.mjs}\n
+                            export default (() => { ${mergeCode.mjs.text} })()
+                            `, 
+                            output: `commoners.config.${ext}` 
+                        }
+                    }
+
+                }))
+
+        } else {
+
+            // Create Config
+            assets.bundle.push(...configExtensionTargets.map(ext => { return configPath ? {
+                input: configPath,
+                output: `commoners.config.${ext}`
+            } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } }))
+
+        }
 
 
         // Bundle onload script for the browser
@@ -336,7 +469,10 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 const extension = typeof output === 'string' ? extname(output).slice(1) : (output?.extension ?? ext.slice(1))
                 const resolvedExtension = bundleExtensions.includes(`.${extension}`) ? 'js' : extension
-                const outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
+
+                // Correct for invalid extensions
+                const _outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
+                const outfile = outPath.endsWith(resolvedExtension) ? outPath : _outfile
 
                 const baseConfig: esbuild.BuildOptions = {
                     entryPoints: [ input ],

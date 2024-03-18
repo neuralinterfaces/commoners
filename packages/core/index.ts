@@ -1,5 +1,5 @@
 import { dirname, join, relative, normalize } from 'node:path'
-import { lstatSync, unlink, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
@@ -25,48 +25,97 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 // const autoRootSymbol = Symbol('auto-root')
 
-export async function loadConfigFromFile(filesystemPath: string = resolveConfigPath()) {
 
-    if (filesystemPath && lstatSync(filesystemPath).isDirectory()) filesystemPath = resolveConfigPath(filesystemPath)
+const isDirectory = (root: string) => lstatSync(root).isDirectory()
 
-    if (!filesystemPath) return {} as UserConfig // No user-defined configuration found
+export async function loadConfigFromFile(root: string = resolveConfigPath()) {
 
-    // Bundle config file
-    const result = await build({
-        absWorkingDir: process.cwd(),
-        entryPoints: [ filesystemPath ],
-        outfile: 'out.js',
-        write: false,
-        target: ['node16'],
-        platform: 'node',
-        bundle: true,
-        format: 'esm',
-        external: [...Object.keys(dependencies)] // Ensure that Commoners dependencies are external
-    })
+    const rootExists = existsSync(root)
+    const mustResolveConfig = !rootExists || isDirectory(root)
+    const configPath = mustResolveConfig ? resolveConfigPath(
+        rootExists ? 
+            root : // New root config
+            '' // Base config
+        ) : root
 
-    const { text } = result.outputFiles[0]
+    let config = {} as UserConfig // No user-defined configuration found
 
-    // Load config from timestamped file
-    const fileBase = `${filesystemPath}.timestamp-${Date.now()}-${Math.random()
-        .toString(16)
-        .slice(2)}`
-        
-    const fileNameTmp = `${fileBase}.mjs`
-    const fileUrl = `${pathToFileURL(fileBase)}.mjs`
+    const CWD = process.cwd()
 
-    await writeFileSync(fileNameTmp, text)
+    if (configPath) {
 
-    try {
-        const result = (await import(fileUrl)).default as UserConfig
-        const root = dirname(filesystemPath)
-        if (root !== process.cwd()) {
-            result.root = root
-            // result[autoRootSymbol] = root
+        // Bundle config file
+        const result = await build({
+            absWorkingDir: CWD,
+            entryPoints: [ configPath ],
+            outfile: 'out.js',
+            write: false,
+            target: ['node16'],
+            platform: 'node',
+            bundle: true,
+            format: 'esm',
+            external: [...Object.keys(dependencies)] // Ensure that Commoners dependencies are external
+        })
+
+        const { text } = result.outputFiles[0]
+
+        // Load config from timestamped file
+        const fileBase = `${configPath}.timestamp-${Date.now()}-${Math.random()
+            .toString(16)
+            .slice(2)}`
+            
+        const fileNameTmp = `${fileBase}.mjs`
+        const fileUrl = `${pathToFileURL(fileBase)}.mjs`
+
+        await writeFileSync(fileNameTmp, text)
+
+        try {
+            config = (await import(fileUrl)).default as UserConfig
+
+            if (!rootExists) {
+
+                if (root in config.builds) {
+                    const subRootPath = config.builds[root]
+                    const subConfig = await loadConfigFromFile(subRootPath)
+                    root = subRootPath
+
+                    const transposedConfig = merge(config, {}, {
+                        transform: (path, value) => {
+                            if (path[0] === 'builds') return undefined
+                            
+                            if (value && typeof value === 'string') {
+
+                                // Relink resolved files from the base root to the sub-root
+                                if (existsSync(value))  return relative(join(CWD, root), join(CWD, value))
+                            }
+                            
+                            // Provide original value
+                            return value
+                        }
+                    })
+
+                    config = merge(subConfig, transposedConfig, { arrays: true }) as UserConfig // Merge sub-config with base config
+
+                    const rootConfigPath = resolveConfigPath(process.cwd())
+                    config.__root = rootConfigPath
+                }
+            }
+
+        } finally {
+            unlink(fileNameTmp, () => { }) // Ignore errors
         }
-        return result
-    } finally {
-        unlink(fileNameTmp, () => { }) // Ignore errors
+
     }
+
+
+    const rootDir = isDirectory(root) ? root : dirname(root)
+
+    if (rootDir !== CWD) {
+        config.root = rootDir
+        // result[autoRootSymbol] = root
+    }
+
+    return config
 }
 
 type ResolveOptions = {

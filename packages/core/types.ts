@@ -169,7 +169,13 @@ type RawPlugins = {[id: string]: Plugin}
 type BaseConfig = {
     
     root: string // Root of the project (will resolve config file there)
+    __root?: string // Root configuration file (dynamically set based on builds)
+
     target: TargetType,
+
+    builds?: {
+        [x: string]: string // Path to root
+    }
 
     // Common Options
     appId: string,

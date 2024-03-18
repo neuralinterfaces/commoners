@@ -168,7 +168,6 @@ export const resolveViteConfig = async (
 
     const mergedConfig = vite.mergeConfig(viteConfig, viteUserConfig)
 
-
     mergedConfig.plugins = [
         ...mergedConfig.plugins,
         commonersPlugin({ 

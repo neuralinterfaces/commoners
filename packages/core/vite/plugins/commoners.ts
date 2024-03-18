@@ -61,6 +61,7 @@ export default ({
 
                 // Directly import the plugins from the transpiled configuration object
                 import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs', outDir, build)}"
+
                 const { plugins } = COMMONERS_CONFIG
 
                 // Set global variable

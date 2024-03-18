@@ -16,17 +16,16 @@ module.exports = async (context) => {
 
   const { productFilename, productName } = appInfo
 
-
-  try {
-    await notarize({
-      teamId: process.env.APPLE_TEAM_ID,
-      appPath: `${appOutDir}/${productFilename}.app`,
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_ID_PASSWORD
-    })
-  } catch (error) {
-    console.error(error)
-  }
-
-  console.log(`Done notarizing ${productName}.`)
+  await notarize({
+    teamId: process.env.APPLE_TEAM_ID,
+    appPath: `${appOutDir}/${productFilename}.app`,
+    appleId: process.env.APPLE_ID,
+    appleIdPassword: process.env.APPLE_ID_PASSWORD
+  })
+  .then(() => {
+    console.log(`Done notarizing ${productName}.`)
+  })
+  .catch(e => {
+    console.log(`Failed to notarize ${productName}: ${e}`)
+  })
 }
