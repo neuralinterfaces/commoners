@@ -52,6 +52,40 @@ If you are building for iOS, you will need to install the following dependencies
 If you are building for Android, you will need to install the following dependencies:
 - [Android Studio](https://developer.android.com/studio)
 
+### Root Declaration
+If you'd like to run a Commoners project but aren't at the base, you can run the CLI with an input path. 
+
+```bash
+commoners /path/to/project
+```
+
+### Builds
+Pairing the concepts of a root declaration and a target build, you can specify multiple builds of a single project using the `builds` property in your [Configuration File](./config.md).
+
+```js
+export default {
+    builds: {
+        web: './builds/main',
+        desktop: './builds/desktop',
+        mobile: './builds/mobile'
+    }
+}
+```
+
+These can be triggered identically to the root declaration:
+
+```bash
+commoners desktop
+```
+
+If you're not inside the project root, you'll specify _both_ the root and the build target:
+
+```bash
+commoners /path/to/project desktop
+```
+
+Notably, this project structure allows you to declare a `commoners.config.js` file for each build target, which will inherit from the configuration file at the project root (if specified).
+
 ## Services
 Services are independent processes that the main application depends on. These may be `local` or `remote` based on the distributed application files.
 

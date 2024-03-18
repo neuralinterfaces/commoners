@@ -134,7 +134,7 @@ export default async function build (
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
         buildConfig.productName = name
-        buildConfig.appId = resolvedConfig.appId // NOTE: Same as notarize.cjs
+        buildConfig.appId = resolvedConfig.appId
 
         buildConfig.directories.output = selectedOutDir
 

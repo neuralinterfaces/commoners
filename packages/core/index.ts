@@ -1,4 +1,4 @@
-import { dirname, join, relative, normalize } from 'node:path'
+import { dirname, join, relative, normalize, resolve } from 'node:path'
 import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
@@ -9,6 +9,7 @@ import { ModeType, ResolvedConfig, ResolvedService, ServiceCreationOptions, User
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
+import chalk from 'chalk'
 
 // Exports
 export * from './types.js'
@@ -28,25 +29,37 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
 
-export async function loadConfigFromFile(root: string = resolveConfigPath()) {
+export async function loadConfigFromFile(root: string = resolveConfigPath(), selectedBuild?: string) {
 
     const rootExists = existsSync(root)
-    const mustResolveConfig = !rootExists || isDirectory(root)
-    const configPath = mustResolveConfig ? resolveConfigPath(
+
+    if (rootExists) {
+        root = resolve(root) // Resolve to absolute path
+        if (!isDirectory(root)) root = dirname(root) // Get the parent directory
+    }
+    else {
+        if (selectedBuild) {
+            console.error(`${chalk.red(root)} does not exist in the ${chalk.bold(process.cwd())} directory.`)
+            return
+        }
+        selectedBuild = root
+        root = process.cwd()
+    }
+    
+
+    const configPath = resolveConfigPath(
         rootExists ? 
             root : // New root config
             '' // Base config
-        ) : root
+        )
 
     let config = {} as UserConfig // No user-defined configuration found
-
-    const CWD = process.cwd()
 
     if (configPath) {
 
         // Bundle config file
         const result = await build({
-            absWorkingDir: CWD,
+            absWorkingDir: root,
             entryPoints: [ configPath ],
             outfile: 'out.js',
             write: false,
@@ -70,23 +83,32 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
         await writeFileSync(fileNameTmp, text)
 
         try {
+
             config = (await import(fileUrl)).default as UserConfig
 
-            if (!rootExists) {
+            if (selectedBuild) {
 
-                if (root in config.builds) {
-                    const subRootPath = config.builds[root]
+                if (selectedBuild in (config.builds ?? {})) {
+                    const originalRoot = root
+                    const subRootPath = config.builds[selectedBuild]
+                    const newRoot = join(originalRoot, subRootPath) // Resolved based on original root
+
+                    if (!existsSync(newRoot)){
+                        console.error(`The subroot ${chalk.red(subRootPath)} is does not exist for the ${chalk.bold(selectedBuild)} build.`)
+                        return
+                    }
+
                     const subConfig = await loadConfigFromFile(subRootPath)
-                    root = subRootPath
+                    root = newRoot
 
                     const transposedConfig = merge(config, {}, {
                         transform: (path, value) => {
                             if (path[0] === 'builds') return undefined
                             
                             if (value && typeof value === 'string') {
-
+                                const resolved = join(originalRoot, value)
                                 // Relink resolved files from the base root to the sub-root
-                                if (existsSync(value))  return relative(join(CWD, root), join(CWD, value))
+                                if (existsSync(resolved)) return relative(root, join(originalRoot, value))
                             }
                             
                             // Provide original value
@@ -98,6 +120,11 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
 
                     const rootConfigPath = resolveConfigPath(process.cwd())
                     config.__root = rootConfigPath
+                } 
+                
+                else {
+                    console.error(`The ${chalk.red(selectedBuild)} build does not exist in the current project`)
+                    return
                 }
             }
 
@@ -108,10 +135,9 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
     }
 
 
-    const rootDir = isDirectory(root) ? root : dirname(root)
-
-    if (rootDir !== CWD) {
-        config.root = rootDir
+    const relativeRoot = relative(process.cwd(), root)
+    if (relativeRoot) {
+        config.root = relativeRoot // Set the root of the project
         // result[autoRootSymbol] = root
     }
 
