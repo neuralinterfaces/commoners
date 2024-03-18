@@ -1,4 +1,4 @@
-import path, { dirname, join, relative } from "node:path"
+import path, { dirname, join, relative, resolve } from "node:path"
 import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
@@ -65,17 +65,20 @@ export default async function build (
         mode: devServices ? undefined : (isDesktopBuild || onlyBuildServices ? 'local' : 'remote') // If no local services, this is a production build of some sort
     })
 
-    let outDir;
-
     const { root } = resolvedConfig
 
     // ---------------- Output Directory Resolution ----------------
-    const selectedOutDir = outDir = join(root, opts?.build?.outDir ?? join(globalWorkspacePath, target))
+    let outDir = join(root, opts?.build?.outDir ?? join(globalWorkspacePath, target)) // From project base
+    const selectedOutDir = opts?.build?.outDir ?? join(globalWorkspacePath, target) // From selected root
 
-    if (isElectronBuild || isMobileBuild) {
+    if (
+        isElectronBuild || isMobileBuild
+    ) {
         outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
         initialize(dirname(outDir)) // Clear temporary directories
     }
+
+    outDir = resolve(outDir) // Ensure absolute path
 
     const name = resolvedConfig.name
 
@@ -111,6 +114,7 @@ export default async function build (
         const result = onBuildAssets(outDir)
         if (result === null) return // Skip packaging if requested
     }
+
     
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
@@ -120,7 +124,7 @@ export default async function build (
         const cwdRelativeOutDir = relative(process.cwd(), outDir)
         const relativeOutDir = relative(root, cwdRelativeOutDir)
 
-        await configureForDesktop(cwdRelativeOutDir, root) // Temporarily configure for temp directory
+        await configureForDesktop(cwdRelativeOutDir, root) // Temporarily configure for temp directory (no relative transformation)
 
         const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
