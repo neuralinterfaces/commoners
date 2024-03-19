@@ -20,7 +20,7 @@ Commoners relies on [Electron](https://www.electronjs.org) to generate the neces
 #### Mac
 While code-signing, you may recieve a `CSSMER_TP_CERT_REVOKED` error, which will cause a `The application "X" can't be opened` error to appear when attempting to open the app.
 
-To circumvent this, provide appropriate credentials and certificates on your machine—or update the `electron-builder` options in your configuration file to ignore code-signing:
+To circumvent this, [provide an appropriate certificate on your machine](https://developer.apple.com/help/account/create-certificates/create-developer-id-certificates/)—or update the `electron-builder` options in your configuration file to ignore code-signing:
 
 ```js
 export default {
@@ -36,6 +36,17 @@ export default {
 }
 ```
 
+##### Workflow Configuration
+To ensure that your Mac builds are code-signed, you'll need to create a Github Actions workflow to automate the build process. This will require you to define a set of secrets for `@electron/notarize`, namely `APPLE_ID`, `APPLE_ID_PASSWORD`, and `APPLE_TEAM_ID`.
+
+1. `APPLE_ID` - Your Apple ID email address
+2. `APPLE_ID_PASSWORD` - An app-specific password generated from your Apple ID account
+3. `APPLE_TEAM_ID` - Your Apple Developer Team ID (found in the Membership Details section of your [account](https://developer.apple.com/account))
+
+Additionally, you'll need to supply the `p12-file-base64` and `p12-password` values expected by the `apple-actions/import-codesign-certs@v2` action. These are the base64-encoded contents of your `.p12` file and the password used to encrypt it, respectively.
+
+> **Note:** To copy the contents of your `.p12` file, you can use the following command: `base64 /path/to/certificate.p12 | pbcopy`
+
 ### Mobile
 Mobile builds are intended to be installed on a user's mobile device. These builds are accessible from the home screen, and have access to native features.
 
@@ -47,6 +58,49 @@ If you are building for iOS, you will need to install the following dependencies
 - An [older version](https://stackoverflow.com/questions/68809929/unicode-normalization-not-appropriate-for-ascii-8bit) of [CocoaPods](https://cocoapods.org)
     - Run `sudo gem install cocoapods:1.10.2`, which may require you to install Ruby on top of the system version
     - If you're working on a Mac M1 / M2, this configuration may get [quite complicated](https://stackoverflow.com/questions/69012676/install-older-ruby-versions-on-a-m1-macbook)
+
+
+##### Workflow Configuration
+You'll likely want to create a Github Actions workflow to automate the build process. However, you'll need to follow a fairly arduous procedure to define the correct secrets.
+
+> **Note:** The following instructions were heavily inspired by this [Automatic Capacitor IOS build with GitHub actions](https://capgo.app/blog/automatic-capacitor-ios-build-github-action/) blog post.
+
+0. We recommend using the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) as a starting point for your project. This will include all the template files you need to get started.
+1. Join the [Apple Developer Program](https://developer.apple.com/programs/) 
+2. Create an App Store Connect API key
+    - Go to [App Store Connect](https://appstoreconnect.apple.com)
+    - Click on "Users and Access", "Integrations", then "App Store Connect API"
+    - Click on the "+" button to create a new API key
+    - Provide a name, then select "Developer" access.
+    - You'll then need the `Issuer ID` and `Key ID` from the key you just created
+    - Finally, download the API key and store it in a secure location
+3. Copy the `fastlane` folder from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/fastlane) into your project
+4. Install [fastlane](https://docs.fastlane.tools/getting-started/ios/setup/) (e.g `brew install fastlane`) and run [fastlane match init](https://docs.fastlane.tools/actions/match/) with Git Storage (Option #1).
+5. Setup all your GitHub Actions Secrets
+    - `APPLE_ID` - Your Apple ID email address
+    - `APPLE_TEAM_ID` - Your Apple Developer Team ID (found in the Membership Details section of your [account](https://developer.apple.com/account))
+    - `APP_STORE_CONNECT_API_KEY_ISSUER_ID` - The `Issuer ID` from the App Store Connect API key
+    - `APP_STORE_CONNECT_API_KEY_ID` - The `Key ID` from the App Store Connect API key
+    - `APP_STORE_CONNECT_API_KEY_KEY` - The contents of the App Store Connect API key
+        - **Note:** Can be copied using `openssl pkcs8 -nocrypt -in path/to/key.p8 | pbcopy`
+    - `APP_BUNDLE_IDENTIFIER` - The bundle identifier of your app (e.g. `com.example.app`)
+    - `APP_ID` - The App ID of your app
+    - `TEMP_KEYCHAIN_USER` - The username for the temporary keychain
+    - `TEMP_KEYCHAIN_PASSWORD` - The password for the temporary keychain
+    - `CERTIFICATE_STORE_REPO` - The repository containing your certificates (from Fastlane Match)
+    - `GIT_USERNAME` - Your GitHub username
+    - `GIT_TOKEN` - A GitHub token with access to the repository containing your certificates
+    - `APP_STORE_CONNECT_TEAM_ID` - Your [App Store Connect Team ID](https://sarunw.com/posts/fastlane-find-team-id/)
+    - `MATCH_PASSWORD` - The password for your Fastlane Match
+
+6. Copy the iOS build workflow from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/.github/workflows/ios.yml) into your project
+
+7. Manually trigger the workflow to ensure that everything is working as expected!
+
+
+    
+
+
 
 #### Android
 If you are building for Android, you will need to install the following dependencies:
