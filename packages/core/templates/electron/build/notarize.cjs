@@ -31,6 +31,5 @@ module.exports = async (context) => {
     appleId: process.env.APPLE_ID,
     appleIdPassword: process.env.APPLE_ID_PASSWORD
   })
-  .then(() => console.log(`\nDone notarizing.`))
-  .catch(e => console.log(`\nFailed to notarize: ${e}`))
+  .catch(e => console.error(`\nFailed to notarize: ${e}`))
 }
