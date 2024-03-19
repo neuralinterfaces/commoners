@@ -4,7 +4,7 @@ import { build, configureForDesktop, createServices, resolveConfig } from './ind
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAssets } from "./utils/assets.js";
 import { createServer } from "./vite/index.js";
-import { cleanup, globalTempDir, initialize, isDesktop, isMobile } from "./globals.js";
+import { cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit } from "./globals.js";
 import chalk from "chalk";
 
 import { join } from "node:path";
@@ -87,6 +87,9 @@ export default async function ( opts: UserConfig = {} ) {
             manager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
         
         }
+
+
+        onExit(() => manager.close({ services: true, frontend: true })) // Close all services and frontend on exit
 
         return manager
 }

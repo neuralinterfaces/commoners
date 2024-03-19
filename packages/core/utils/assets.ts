@@ -14,6 +14,7 @@ import pkg from 'pkg'
 
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
+import { exec, execSync } from "node:child_process"
 
 type AssetMetadata = {
     extraResource?: boolean,
@@ -25,7 +26,8 @@ type CoreAssetInfo = string | {
     output?: string | {
         extension: 'mjs' | 'cjs', // JavaScript
     },
-    force?: boolean
+    force?: boolean,
+    compile?: string | boolean // Terminal command to compile the file
 } & AssetMetadata
 
 type AssetInfo = CoreAssetInfo | { text: string, output: string }
@@ -369,7 +371,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
             
             if (!isURL) {
 
-                const { __src, bundle } = resolvedService as any
+                const { __src, compile } = resolvedService as any
 
                 if (__src) {
 
@@ -385,7 +387,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                         
                 } 
                 
-                else if (bundle) assets.bundle.push({ input: join(root, src), output: filepath, force: true })
+                else if (compile) assets.bundle.push({ input: join(root, src), output: filepath, force: true, compile })
             }
         }
 
@@ -438,7 +440,8 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         const input = isString ? info : info.input
         const hasExplicitInput = typeof input === 'string'
         const force = isString ? false : info.force
-    
+        const compile = isString ? null : info.compile
+
         if (hasExplicitInput) {
     
             const ext = extname(input)
@@ -451,8 +454,24 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     
             const fileRoot =  dirname(input)
 
+            // Handle custom compilation commands
+            if (typeof compile === 'string') {
+
+                const matchVars = {
+                    'src': input,
+                    'out': outPath
+                }
+                
+                mkdirSync(dirname(outPath), { recursive: true }) // Ensure base and asset output directory exists
+                
+                const command = Object.entries(matchVars).reduce((acc, [key, value]) => acc.replace(`{${key}}`, value), compile)
+                execSync(command, { stdio: 'inherit' })
+
+            }
+    
+
             // Bundle HTML Files using Vite
-            if (ext === '.html') {
+            else if (ext === '.html') {
 
                 await vite.build({
                     logLevel: 'silent',
@@ -472,6 +491,8 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 // Correct for invalid extensions
                 const _outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
+
+
                 const outfile = outPath.endsWith(resolvedExtension) ? outPath : _outfile
 
                 const baseConfig: esbuild.BuildOptions = {
@@ -485,6 +506,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                 const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
 
                 const buildForNode = () => buildForBrowser({ 
+                    outfile,
                     platform: 'node', 
                     external: [ "*.node" ] 
                 })

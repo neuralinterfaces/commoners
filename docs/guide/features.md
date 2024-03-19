@@ -53,30 +53,61 @@ Mobile builds are intended to be installed on a user's mobile device. These buil
 Commoners relies on [Capacitor](https://capacitorjs.com) to generate the necessary files for a mobile application. To enable this feature, simply add the `--target mobile` flag to your build command.
 
 #### iOS
-If you are building for iOS, you will need to install the following dependencies on your Mac:
-- [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12)
-- An [older version](https://stackoverflow.com/questions/68809929/unicode-normalization-not-appropriate-for-ascii-8bit) of [CocoaPods](https://cocoapods.org)
-    - Run `sudo gem install cocoapods:1.10.2`, which may require you to install Ruby on top of the system version
-    - If you're working on a Mac M1 / M2, this configuration may get [quite complicated](https://stackoverflow.com/questions/69012676/install-older-ruby-versions-on-a-m1-macbook)
+If you are building for iOS, you will need [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12) installed on your Mac. 
 
+##### Environment Configuration
+An older version of CocoaPods is required to build the project using Capacitor.
 
-##### Workflow Configuration
-You'll likely want to create a Github Actions workflow to automate the build process. However, you'll need to follow a fairly arduous procedure to define the correct secrets.
+Try running the following command to install CocoaPods:
+```bash
+sudo gem install cocoapods:1.10.2
+```
 
-> **Note:** The following instructions were heavily inspired by this [Automatic Capacitor IOS build with GitHub actions](https://capgo.app/blog/automatic-capacitor-ios-build-github-action/) blog post.
+If this fails, you may need to install an older version of Ruby:
+1. Install [Homebrew](https://brew.sh)
+2. Install `chruby` and `ruby-install` (`brew install chruby ruby-install`)
+3. Install and activate Ruby 2.6.3 (`ruby-install ruby 2.6.3` and `chruby 2.6.3`)
 
-0. We recommend using the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) as a starting point for your project. This will include all the template files you need to get started.
-1. Join the [Apple Developer Program](https://developer.apple.com/programs/) 
-2. Create an App Store Connect API key
-    - Go to [App Store Connect](https://appstoreconnect.apple.com)
-    - Click on "Users and Access", "Integrations", then "App Store Connect API"
-    - Click on the "+" button to create a new API key
-    - Provide a name, then select "Developer" access.
-    - You'll then need the `Issuer ID` and `Key ID` from the key you just created
-    - Finally, download the API key and store it in a secure location
-3. Copy the `fastlane` folder from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/fastlane) into your project
-4. Install [fastlane](https://docs.fastlane.tools/getting-started/ios/setup/) (e.g `brew install fastlane`) and run [fastlane match init](https://docs.fastlane.tools/actions/match/) with Git Storage (Option #1).
-5. Setup all your GitHub Actions Secrets
+Once Ruby 2.6.3 is installed, try installing CocoaPods again.
+
+##### Publishing to TestFlight
+Publishing your application requires [Apple Developer Program](https://developer.apple.com/programs/) membership.
+
+> ###### App Store Connect Integration
+> To interact with the App Store Connect API, you'll need to create an API key in the App Store Connect dashboard. This key will be used to authenticate with the API and upload your build.
+> - Go to [App Store Connect](https://appstoreconnect.apple.com)
+> - Click on "Users and Access", "Integrations", then "App Store Connect API"
+> - Click on the "+" button to create a new API key
+> - Provide a name, then select "Developer" access.
+> - You'll then need the `Issuer ID` and `Key ID` from the key you just created
+> - Finally, download the API key and store it in a secure location
+
+Before we begin, you'll need to collect a range of different environment variables. These include:
+1. `APPLE_ID` - Your Apple ID email address
+2. `APPLE_TEAM_ID` - Your Apple Developer Team ID (found in the Membership Details section of your [account](https://developer.apple.com/account))
+3. `APP_STORE_CONNECT_API_KEY_ISSUER_ID` - The `Issuer ID` from the App Store Connect API key
+4. `APP_STORE_CONNECT_API_KEY_ID` - The `Key ID` from the App Store Connect API key
+5. `APP_STORE_CONNECT_API_KEY_KEY` - The contents of the App Store Connect API key, copied using `openssl pkcs8 -nocrypt -in path/to/key.p8 | pbcopy`
+6. `APP_BUNDLE_IDENTIFIER` - The bundle identifier of your app (e.g. `com.example.app`)
+7. `APP_ID` - The App ID of your app
+8. `TEMP_KEYCHAIN_USER` - The username for the temporary keychain
+9. `TEMP_KEYCHAIN_PASSWORD` - The password for the temporary keychain
+10. `CERTIFICATE_STORE_REPO` - The repository containing your certificates (from Fastlane Match)
+11. `GIT_USERNAME` - Your GitHub username
+12. `GIT_TOKEN` - A GitHub token with access to the repository containing your certificates
+13. `APP_STORE_CONNECT_TEAM_ID` - Your [App Store Connect Team ID](https://sarunw.com/posts/fastlane-find-team-id/)
+14. `MATCH_PASSWORD` - The password for your Fastlane Match
+
+###### Workflow Configuration
+Configuring a Github Actions workflow will allow you to automate the build and upload process.
+
+1. Copy the `Gemfile` and `fastlane` folder from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/fastlane) repository into your project
+
+2. Install [fastlane](https://docs.fastlane.tools/getting-started/ios/setup/) (e.g `brew install fastlane`)
+    1. Run [fastlane match init](https://docs.fastlane.tools/actions/match/) with Git Storage (Option #1).
+    2. Run `fastlane match appstore` to create your certificates
+
+3. Set all environment variables declared above as GitHub Actions Secrets
     - `APPLE_ID` - Your Apple ID email address
     - `APPLE_TEAM_ID` - Your Apple Developer Team ID (found in the Membership Details section of your [account](https://developer.apple.com/account))
     - `APP_STORE_CONNECT_API_KEY_ISSUER_ID` - The `Issuer ID` from the App Store Connect API key
@@ -93,14 +124,22 @@ You'll likely want to create a Github Actions workflow to automate the build pro
     - `APP_STORE_CONNECT_TEAM_ID` - Your [App Store Connect Team ID](https://sarunw.com/posts/fastlane-find-team-id/)
     - `MATCH_PASSWORD` - The password for your Fastlane Match
 
-6. Copy the iOS build workflow from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/.github/workflows/ios.yml) into your project
+4. Copy the iOS build workflow from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/.github/workflows/ios.yml) into your project
 
-7. Manually trigger the workflow to ensure that everything is working as expected!
+5. Manually trigger the workflow to ensure that everything is working as expected!
 
+###### Local Publishing
+Place all the aforementioned environment variables in a `./fastlane/.env` file . 
 
-    
+Ensure that `xcodes` is installed:
+```bash
+brew install xcodesorg/made/xcodes
+```
 
-
+Then run the following command to publish your app:
+```bash
+bundle exec fastlane closed_beta
+```
 
 #### Android
 If you are building for Android, you will need to install the following dependencies:

@@ -1,18 +1,18 @@
-import node from './node/index.js'
-import python from './python/index.js'
-
 import { basename, dirname, extname, join, parse, relative, resolve, sep } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
-import { spawn } from 'node:child_process';
+import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
-const autoBundleExtension = {
-  node: [ '.ts' ]
+const jsExtensions = ['.js', '.cjs', '.mjs']
+
+const precompileExtensions = {
+  node: [ { from: '.ts', to: '.cjs' } ], // Ensure marked for Node.js usage
+  cpp: [ { from: '.cpp', to: '.exe' } ]
 }
 
 const autobuildExtensions = {
-    node: ['.js', '.cjs', '.mjs', ...autoBundleExtension.node]
+    node: [...jsExtensions, ...precompileExtensions.node.map(({ from }) => from)],
 }
 
 // ------------------------------------ COPIED ---------------------------------------
@@ -33,25 +33,15 @@ const getFilePath = (src, ext) => join(dirname(src), basename(src, extname(src))
 // ------------------------------------------------------------------------------------
 let processes = {}
 
-export const handlers = {
-    node,
-    python
-}
-
-
-function resolveConfig(config) {
-  return typeof config === 'string' ? { src: config } : config
-}
+const resolveConfig = (config) => typeof config === 'string' ? { src: config } : config
 
 
 const globalWorkspacePath = '.commoners'
 const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
+const globalTempServiceWorkspacePath = join(globalWorkspacePath, '.temp.services')
 
 // Ensure source is detected as local for all conditions
-export function isLocal(publishConfig) {
-  return !!(publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote))
-}
-
+export const isLocal = (publishConfig) => !!(publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote))
 
 const isPublished = !process.env.VITE_DEV_SERVER_URL
 
@@ -136,13 +126,13 @@ export async function resolveService (
   const filepath = resolvedConfig.filepath = existsSync(extraResourcesPath) ? resolve(extraResourcesPath) : join(root, src)
 
   // Correct for future autobundling (assets.ts)
-  const bundleExt = autoBundleExtension.node.find(ext => existsSync(getFilePath(filepath, ext)))
+  const precompilationInfo = Object.values(precompileExtensions).flat().find(({ from }) => existsSync(getFilePath(filepath, from)))
 
-  if (bundleExt) {
+  if (precompilationInfo) {
     const relPath = relative(root, filepath)
-    const outDir = join(root, globalWorkspacePath, '.temp.services')
-    resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}.js`)
-    resolvedConfig.bundle = true
+    const outDir = join(root, globalTempServiceWorkspacePath)
+    resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}${precompilationInfo.to}`)
+    resolvedConfig.compile = resolvedConfig.build ?? true // Pass the top-level build command (if it exists)
   }
 
   // Always create a URL for local services
@@ -165,7 +155,7 @@ export async function start (config, id, opts = {}) {
 
   config = await resolveService(config, id, opts)
 
-  const { src, filepath } = config
+  const { src, filepath, build } = config
 
   if (isValidURL(src)) return
 
@@ -177,8 +167,28 @@ export async function start (config, id, opts = {}) {
 
     try {
       const env = { ...process.env, PORT: config.port, HOST: config.host }
-      if (ext === '.js') childProcess = node(filepath, env)
-      else if (ext === '.py') childProcess = python(filepath, env)
+
+      // Node Support
+      if (jsExtensions.includes(ext)) childProcess = fork(filepath, [ ], { silent: true, env })
+
+      // Python Support
+      else if (ext === '.py') childProcess = spawn("python", [filepath], { env })
+
+      // C++ Support
+      else if (ext === '.cpp') {
+
+        // const root = opts.root ?? process.cwd()
+
+        // const relFilePath = relative(root, filepath)
+        // const outPath = join(root, globalTempServiceWorkspacePath, dirname(relFilePath), 'compiled.exe')
+        // const outDir = dirname(outPath)
+
+        // mkdirSync(outDir, { recursive: true })
+        // execSync(build.replace('{out}', outPath).replace('{src}', filepath)) // Compile C++ file. Will be deleted on exit
+
+        // Run compiled file
+        childProcess = spawn(filepath, [], { env })
+      }
       else if (!ext || ext === '.exe') childProcess = spawn(filepath, [], { env })
     } catch (e) {
       error = e
@@ -192,6 +202,7 @@ export async function start (config, id, opts = {}) {
         console.log(`[${label}]: ${data}`)
       });
       if (childProcess.stderr) childProcess.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
+      
       childProcess.on('close', (code) => {
         if (code !== null) {
           config.status = false
@@ -200,7 +211,9 @@ export async function start (config, id, opts = {}) {
           console.error(`[${label}]: exited with code ${code}`)
         }
       }); 
+
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
+      
       processes[id] = childProcess
 
       return {
@@ -215,7 +228,9 @@ export async function start (config, id, opts = {}) {
   }
 }
 
-const killProcess = (p) => p.kill()
+const killProcess = (p) => {
+  return p.kill()
+}
 
 export function close (id) {
 
