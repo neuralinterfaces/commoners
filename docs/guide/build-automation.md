@@ -2,16 +2,10 @@
 Using GitHub Actions, you can automatically build and publish your application to web, desktop, and mobile platforms.
 
 ## Desktop
-To configure `electron-builder` to publish to a private repository, add the following to your `commoners.config.js`:
+To allow `electron-builder` to publish to a private repository, add the following entry to the relevant `.github/workflows` files:
 
-```js
-export default {
-    electron: {
-        build: {
-            publish: {
-                provider: 'github',
-                private: true
-            }
-        }
-    }
-}
+```yaml
+permissions:
+  contents: write 
+  
+```
