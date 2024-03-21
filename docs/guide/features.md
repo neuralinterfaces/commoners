@@ -98,7 +98,11 @@ Before we begin, you'll need to collect a range of different environment variabl
 13. `APP_STORE_CONNECT_TEAM_ID` - Your [App Store Connect Team ID](https://sarunw.com/posts/fastlane-find-team-id/)
 14. `MATCH_PASSWORD` - The password for your Fastlane Match
 
-###### Workflow Configuration
+###### Manual Publishing
+Coming soon...
+
+<!-- NOTE: Removing documentation on Fastlane because of inability to solve https://github.com/fastlane/fastlane/issues/20670 -->
+<!-- ###### Workflow Configuration
 Configuring a Github Actions workflow will allow you to automate the build and upload process.
 
 1. Copy the `Gemfile` and `fastlane` folder from the [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit/tree/main/fastlane) repository into your project
@@ -131,15 +135,10 @@ Configuring a Github Actions workflow will allow you to automate the build and u
 ###### Local Publishing
 Place all the aforementioned environment variables in a `./fastlane/.env` file . 
 
-Ensure that `xcodes` is installed:
-```bash
-brew install xcodesorg/made/xcodes
-```
-
 Then run the following command to publish your app:
 ```bash
 bundle exec fastlane closed_beta
-```
+``` -->
 
 #### Android
 If you are building for Android, you will need to install the following dependencies:
