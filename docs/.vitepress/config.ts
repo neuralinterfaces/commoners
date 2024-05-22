@@ -38,7 +38,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/garrettmflynn/commoners' }
+      { icon: 'github', link: 'https://github.com/neuralinterfaces/commoners' }
     ]
   }
 })

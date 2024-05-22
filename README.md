@@ -4,7 +4,7 @@
 
  The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile** without the fuss of additional languages or libraries (e.g. Dart, React, etc.).
 
-A complete example of a Commoners application that connects to peripheral devices using Bluetooth and Serial across multiple platforms is available at our [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) repository.
+A complete example of a Commoners application that connects to peripheral devices using Bluetooth and Serial across multiple platforms is available at our [commoners-starter-kit](https://github.com/neuralinterfaces/commoners-starter-kit) repository.
 
 Read the [documentation](https://commoners.dev) to learn more.
 
