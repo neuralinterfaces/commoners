@@ -4,14 +4,12 @@
 
  The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile** without the fuss of additional languages or libraries (e.g. Dart, React, etc.).
 
-A complete example of a Commoners application that connects to peripheral devices using Bluetooth and Serial across multiple platforms is available at our [commoners-starter-kit](https://github.com/neuralinterfaces/commoners-starter-kit) repository.
-
 Read the [documentation](https://commoners.dev) to learn more.
 
 ## Key Projects
 - [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit): A complete example of a Commoners application, using all the features of the platform.
 - [tqdm.me](https://github.com/tqdme/tqdm.me): View your `tqdm` progress bars anywhere.
-- [Neural](https://github.com/neuralinterfaces/neural): https://github.com/neuralinterfaces/commoners-starter-kit
+- [Neural](https://github.com/neuralinterfaces/neural): A multi-platform application for accessing neural data.
 
 ## Local Development
 Use `npm i` to install all dependencies into the monorepo's workspaces.
