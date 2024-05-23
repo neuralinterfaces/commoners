@@ -8,6 +8,11 @@ A complete example of a Commoners application that connects to peripheral device
 
 Read the [documentation](https://commoners.dev) to learn more.
 
+## Key Projects
+- [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit): A complete example of a Commoners application, using all the features of the platform.
+- [tqdm.me](https://github.com/tqdme/tqdm.me): View your `tqdm` progress bars anywhere.
+- [Neural](https://github.com/neuralinterfaces/neural): https://github.com/neuralinterfaces/commoners-starter-kit
+
 ## Local Development
 Use `npm i` to install all dependencies into the monorepo's workspaces.
 
