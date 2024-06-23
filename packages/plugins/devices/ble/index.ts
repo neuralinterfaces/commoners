@@ -30,12 +30,14 @@ export const desktop = {
 
       // Enable Web Bluetooth
       let selectBluetoothCallback;
+      let toSelectNext;
 
       this.on(`select`, (
         _evt, //: IpcMainEvent, 
         value //: string
       ) => {
-          if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value)
+          if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value) // Select the device 
+          else toSelectNext = value // Save the device to select later
           selectBluetoothCallback = null
       });
 
@@ -48,11 +50,16 @@ export const desktop = {
       win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
 
         event.preventDefault()
+
+        // If a device was saved to select later, select it now
+        if (toSelectNext) {
+          callback(toSelectNext)
+          toSelectNext = null
+          return
+        }
         
         if (!selectBluetoothCallback) this.send(`open`, devices); // Initial request always starts at zero
-
         this.send(`update`, devices);
-
         selectBluetoothCallback = callback
 
       })
