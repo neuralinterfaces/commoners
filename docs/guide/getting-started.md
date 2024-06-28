@@ -1,9 +1,7 @@
 # Getting Started
-Welcome to Commoners! This guide will help you get started with building your first hybrid application.
+Welcome to Commoners! This guide will help you get started with building your first cross-platform application.
 
-Commoners is built on top of [Vite](https://vitejs.dev), which means that you can use any JavaScript framework to build your application.
-
-To get started, you can use the `create-vite` package to scaffold a new project. To do this, run the following command in your terminal:
+Since Commoners is built on top of [Vite](https://vitejs.dev), you can use the `create-vite` package to scaffold a new project. To do this, run the following command in your terminal:
 
 ```bash
 npm create vite@latest my-commoners-app

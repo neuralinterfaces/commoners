@@ -20,7 +20,7 @@ export default defineConfig({
 
     footer: {
       message: `Released under the MIT License.`,
-      copyright: 'Copyright © 2023 Garrett Flynn & Commoners Contributors',
+      copyright: 'Copyright © 2024 Garrett Flynn & Commoners Contributors',
     },
 
     sidebar: {

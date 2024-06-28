@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "Commoners"
-  text: "Build Solidarity ✊"
-  tagline: "Deploy JavaScript apps anywhere."
+  text: "Build Solidarity"
+  tagline: "A Cross-Platform Framework for the Web"
   image:
     src: /logo.png
     alt: Commoners
@@ -18,23 +18,23 @@ hero:
       link: /guide/why
 features:
   - icon: 🌐
-    title: Cross-Platform Development
-    details: Develop for all major platforms in a single repository.
-  - icon: ⏳
-    title: Predictable Behavior
-    details: Reliable infrastructure across all of your projects.
+    title: One Codebase. All Platforms.
+    details: Distribute your app on web, desktop, and mobile.
   - icon: 💻
     title: Web Native Architecture
-    details: Choose any JavaScript framework to work with—or none at all.
-  - icon: 🔩
-    title: Modular Design
-    details: Add platform-specific features using a simple plugin system.
-  - icon: 🧩
-    title: Extensible Applications
-    details: Experiment with different application services—even allow user to host their own locally!
+    details: Only HTML, CSS, and JavaScript required.
   - icon: ⚡️
-    title: Performant Builds
-    details: Using Vite for accelerated development speeds.
+    title: Blazing Fast
+    details: Built on Vite for the ideal developer experience.
+  - icon: ⏳
+    title: Streamlined Development Workflow
+    details: Build all your projects with the same tools.
+  - icon: 🔩
+    title: Modular
+    details: Separate platform-specific code from the core.
+  - icon: 🧩
+    title: Extensible
+    details: User-defined services are first-class citizens.
     
 ---
 

@@ -9,7 +9,7 @@ Read the [documentation](https://commoners.dev) to learn more.
 ## Key Projects
 - [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — A template Commoners app with all the bells and whistles.
 - [tqdm.me](https://github.com/neuralinterfaces/tqdm.me) —  View your `tqdm` progress bars anywhere.
-- [Neural](https://github.com/neuralinterfaces/neural) — A multi-platform application for accessing neural data.
+- [Brains@Play](https://github.com/neuralinterfaces/brainsatplay) — A multi-platform application for accessing neural data.
 
 ## Local Development
 Use `npm i` to install all dependencies into the monorepo's workspaces.
@@ -35,5 +35,5 @@ After this, you can then install `commoners` globally from the `packages/cli` di
 npm install -g .
 ```
 
-## Acknowledgments
-`commoners` is maintained by Garrett Flynn, who originally developed the tool to streamline development of the [NWB GUIDE](https://github.com/neurodatawithoutborders/nwb-guide) application and support future hybrid application development for [Catalyst Neuro](https://github.com/catalystneuro).
+## Acknowledgements
+This project is part of [Neural Interfaces](https://github.com/neuralinterfaces).
