@@ -6,17 +6,17 @@
 
 Read the [documentation](https://commoners.dev) to learn more.
 
+## Key Projects
+- [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — A template Commoners app with all the bells and whistles.
+- [tqdm.me](https://github.com/neuralinterfaces/tqdm.me) —  View your `tqdm` progress bars anywhere.
+- [Brains@Play](https://github.com/neuralinterfaces/brainsatplay) — A multi-platform application for accessing neural data.
+
 ## Build Solidarity
 At the heart of Commoners is our belief that everyone should be able to write an application using HTML, CSS, and JavaScript for distribution on all platforms.
 
 We use the term **build solidarity** to indicate the alignment of the world's web developers on a consistent architecture to achieve this goal.
 
 Let's build solidarity together!
-
-## Key Projects
-- [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — A template Commoners app with all the bells and whistles.
-- [tqdm.me](https://github.com/neuralinterfaces/tqdm.me) —  View your `tqdm` progress bars anywhere.
-- [Brains@Play](https://github.com/neuralinterfaces/brainsatplay) — A multi-platform application for accessing neural data.
 
 ## Local Development
 Use `npm i` to install all dependencies into the monorepo's workspaces.
