@@ -1,10 +1,17 @@
-# commoners
+# Commoners
 [![Npm package version](https://badgen.net/npm/v/commoners)](https://npmjs.com/package/commoners)
 [![Npm package monthly downloads](https://badgen.net/npm/dm/commoners)](https://npmjs.ccom/package/commoners)
 
- The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile** without the fuss of additional languages or libraries (e.g. Dart, React, etc.).
+ The `commoners` CLI allows anyone to build their application as a Progressive Web App (PWA); Mac, Windows, and Linux desktop application; and iOS and Android mobile application—all using only HTML, CSS, and JavaScript.
 
 Read the [documentation](https://commoners.dev) to learn more.
+
+## Build Solidarity
+At the heart of Commoners is our belief that everyone should be able to write an application using HTML, CSS, and JavaScript for distribution on all platforms.
+
+We use the term **build solidarity** to indicate the alignment of the world's web developers on a consistent architecture to achieve this goal.
+
+Let's build solidarity together!
 
 ## Key Projects
 - [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — A template Commoners app with all the bells and whistles.
