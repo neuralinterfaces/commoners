@@ -1,12 +1,22 @@
-# commoners
+# Commoners
 [![Npm package version](https://badgen.net/npm/v/commoners)](https://npmjs.com/package/commoners)
 [![Npm package monthly downloads](https://badgen.net/npm/dm/commoners)](https://npmjs.ccom/package/commoners)
 
- The `commoners` CLI **allows anyone to build their application for web, desktop, and mobile** without the fuss of additional languages or libraries (e.g. Dart, React, etc.).
-
-A complete example of a Commoners application that connects to peripheral devices using Bluetooth and Serial across multiple platforms is available at our [commoners-starter-kit](https://github.com/garrettmflynn/commoners-starter-kit) repository.
+ The `commoners` CLI allows anyone to build their application as a Progressive Web App (PWA); Mac, Windows, and Linux desktop application; and iOS and Android mobile application—all using only HTML, CSS, and JavaScript.
 
 Read the [documentation](https://commoners.dev) to learn more.
+
+## Key Projects
+- [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — A template Commoners app with all the bells and whistles.
+- [tqdm.me](https://github.com/neuralinterfaces/tqdm.me) —  View your `tqdm` progress bars anywhere.
+- [Brains@Play](https://github.com/neuralinterfaces/brainsatplay) — A multi-platform application for accessing neural data.
+
+## Build Solidarity
+At the heart of Commoners is our belief that everyone should be able to write an application using HTML, CSS, and JavaScript for distribution on all platforms.
+
+We use the term **build solidarity** to indicate the alignment of the world's web developers on a consistent architecture to achieve this goal.
+
+Let's build solidarity together!
 
 ## Local Development
 Use `npm i` to install all dependencies into the monorepo's workspaces.
@@ -32,5 +42,5 @@ After this, you can then install `commoners` globally from the `packages/cli` di
 npm install -g .
 ```
 
-## Acknowledgments
-`commoners` is maintained by Garrett Flynn, who originally developed the tool to streamline development of the [NWB GUIDE](https://github.com/neurodatawithoutborders/nwb-guide) application and support future hybrid application development for [Catalyst Neuro](https://github.com/catalystneuro).
+## Acknowledgements
+This project is part of [Neural Interfaces](https://github.com/neuralinterfaces).

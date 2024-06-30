@@ -22,6 +22,5 @@
     "@capacitor/cli": "^5.5.1",
     "vitepress": "^1.0.0-rc.20",
     "vitest": "^0.34.5"
-  },
-  "main": "/Users/garrettflynn/Documents/GitHub/commoners/packages/core/tests/.commoners/.temp/main.js"
+  }
 }

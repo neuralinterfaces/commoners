@@ -26,7 +26,7 @@ export const copyAsset = (input, { outDir, root }, maintainStructure = true) => 
     const out = dirname(output)
     
     mkdirSync(out, {recursive: true})
-    if (lstatSync(input).isDirectory()) cpSync(input, output, {recursive: true});
+    if (lstatSync(input).isDirectory()) cpSync(input, output, {recursive: true, dereference: true });
     else copyFileSync(input, output)
 
     return output
