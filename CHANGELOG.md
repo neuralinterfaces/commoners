@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+No entries yet.
 
 ## [0.0.47]
 ### Changed
@@ -27,6 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the `--publish` CLI argument to work without any arguments after the flag.
 
 [Unreleased]: https://github.com/neuralinterfaces/commoners/compare/v0.0.47...HEAD
-[0.0.47]: https://github.com/neuralinterfaces/commoners/compare/v0.0.47...HEAD
+[0.0.47]: https://github.com/neuralinterfaces/commoners/compare/v0.0.46...v0.0.47
 [0.0.46]: https://github.com/neuralinterfaces/commoners/compare/v0.0.45...v0.0.46
 [0.0.45]: https://github.com/neuralinterfaces/commoners/compare/v0.0.44...v0.0.45
