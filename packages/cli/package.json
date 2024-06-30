@@ -18,7 +18,7 @@
     "watch": "vite build --watch"
   },
   "dependencies": {
-    "@commoners/solidarity": "0.0.46",
+    "@commoners/solidarity": "0.0.47",
     "cac": "^6.7.14",
     "chalk": "^5.2.0"
   },
