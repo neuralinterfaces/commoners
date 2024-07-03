@@ -9,5 +9,8 @@
     },
     "devDependencies": {
         "vite": "^4.2.1"
+    },
+    "optionalDependencies": {
+        "@capacitor-community/bluetooth-le": "^6.0.0"
     }
 }

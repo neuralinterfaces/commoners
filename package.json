@@ -19,8 +19,13 @@
     "docs:build": "vitepress build docs"
   },
   "devDependencies": {
-    "@capacitor/cli": "^5.5.1",
     "vitepress": "^1.0.0-rc.20",
     "vitest": "^0.34.5"
+  },
+  "optionalDependencies": {
+    "@capacitor/android": "^ 6.1.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^ 6.1.0",
+    "@capacitor/ios": "^ 6.1.0"
   }
 }

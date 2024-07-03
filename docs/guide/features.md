@@ -66,9 +66,13 @@ sudo gem install cocoapods:1.10.2
 If this fails, you may need to install an older version of Ruby:
 1. Install [Homebrew](https://brew.sh)
 2. Install `chruby` and `ruby-install` (`brew install chruby ruby-install`)
-3. Install and activate Ruby 2.6.3 (`ruby-install ruby 2.6.3` and `chruby 2.6.3`)
+3. Install and activate a different version of Ruby (`ruby-install ruby 3.3.0` and `chruby 3.3.0`)
 
-Once Ruby 2.6.3 is installed, try installing CocoaPods again.
+Once this new version of Ruby is installed, try installing CocoaPods again.
+
+###### Tested Ruby Versions
+- Ruby 3.3.0
+
 
 ##### Publishing to TestFlight
 Publishing your application requires [Apple Developer Program](https://developer.apple.com/programs/) membership.

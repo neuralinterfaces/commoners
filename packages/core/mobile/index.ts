@@ -65,18 +65,12 @@ type MobileOptions = {
     outDir: string
 }
 
-
-type DependencyInfo = {
-    dependencies: ResolvedConfig['dependencies'],
-    devDependencies: ResolvedConfig['devDependencies']
-}
-
 type ConfigOptions = {
     name: ResolvedConfig['name'],
     appId: ResolvedConfig['appId'],
     plugins: ResolvedConfig['plugins'],
     outDir: string
-} & DependencyInfo
+}
 
 // Create a temporary Capacitor configuration file if the user has not defined one
 export const openConfig = async ({ 
@@ -109,8 +103,8 @@ export const openConfig = async ({
 
 }
 
-const installForUser = async (pkgName, version) => {
-    const specifier = `${pkgName}${version ? `@${version}` : ''}`
+const installForUser = async (pkgName) => {
+    const specifier = pkgName // `${pkgName}${version ? `@${version}` : ''}`
     console.log(chalk.yellow(`Installing ${specifier}...`))
     await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
 }
@@ -145,18 +139,14 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
 const isInstalled = (pkgName, { dependencies, devDependencies }) => typeof pkgName === 'string' ? !!(devDependencies?.[pkgName] || dependencies?.[pkgName]) : false // Only accept strings
 
-export const checkDepinstalled = async (pkgName, opts: { version?: string } & DependencyInfo) => isInstalled(pkgName, opts) || await installForUser(pkgName, opts.version)
+export const checkDepinstalled = async (pkgName) =>  resolve(pkgName) || await installForUser(pkgName)
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
-
-    const { dependencies, devDependencies } = config
-    const depOpts = { dependencies, devDependencies }
-
-    await checkDepinstalled('@capacitor/cli', depOpts)
-    await checkDepinstalled('@capacitor/core', depOpts)
-    await checkDepinstalled(`@capacitor/${platform}`, depOpts)
-    if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`, depOpts) // NOTE: Later make these conditional
+    await checkDepinstalled('@capacitor/cli')
+    await checkDepinstalled('@capacitor/core')
+    await checkDepinstalled(`@capacitor/${platform}`)
+    if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
 }
 
 
