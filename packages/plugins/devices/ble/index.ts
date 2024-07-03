@@ -114,6 +114,8 @@ export function load() {
     device: DeviceInformation,
     timeout?: number
   ) => {
+
+    if (!device) return
     
     this.send(`match`, device)
 
