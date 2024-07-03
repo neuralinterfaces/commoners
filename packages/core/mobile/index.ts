@@ -47,17 +47,10 @@ const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => {
 }
 
 
-export const prebuild = ({ 
-    plugins,
-    dependencies,
-    devDependencies
-}: ResolvedConfig) => {
+export const prebuild = ({ plugins }: ResolvedConfig) => {
     // Map Capacitor plugin information to their availiabity
     const accessors = getCapacitorPluginAccessors(plugins)
-    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin, {
-        dependencies,
-        devDependencies
-    })) ? setParent(false) : '')
+    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin)) ? setParent(false) : '')
 }
 
 type MobileOptions = {
@@ -77,9 +70,7 @@ export const openConfig = async ({
     name, 
     appId, 
     plugins, 
-    outDir,
-    dependencies,
-    devDependencies 
+    outDir
 }: ConfigOptions, callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a: number, b: boolean) => a + (b ? 1 : 0), 0) > 0
@@ -89,7 +80,7 @@ export const openConfig = async ({
         const config = getBaseConfig({ name, appId, outDir })
         
         getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
-            if (isInstalled(ref.plugin, { dependencies, devDependencies })) {
+            if (isInstalled(ref.plugin)) {
                 config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
             }
         })
@@ -105,7 +96,7 @@ export const openConfig = async ({
 
 const installForUser = async (pkgName) => {
     const specifier = pkgName // `${pkgName}${version ? `@${version}` : ''}`
-    console.log(chalk.yellow(`Installing ${specifier}...`))
+    console.log(chalk.white(`— Installing ${specifier}...`))
     await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
 }
 
@@ -117,8 +108,6 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         name: config.name,
         appId: config.appId,
         plugins: config.plugins,
-        dependencies: config.dependencies,
-        devDependencies: config.devDependencies,
         outDir
     }, async () => {
         if (!existsSync(target)) {
@@ -137,9 +126,9 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     })
 }
 
-const isInstalled = (pkgName, { dependencies, devDependencies }) => typeof pkgName === 'string' ? !!(devDependencies?.[pkgName] || dependencies?.[pkgName]) : false // Only accept strings
+const isInstalled = (pkgName) => typeof pkgName === 'string' ? resolve(pkgName) : false // Only accept strings
 
-export const checkDepinstalled = async (pkgName) =>  resolve(pkgName) || await installForUser(pkgName)
+export const checkDepinstalled = async (pkgName) =>  isInstalled(pkgName) || await installForUser(pkgName)
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
@@ -160,8 +149,6 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         name: config.name,
         appId: config.appId,
         plugins: config.plugins,
-        dependencies: config.dependencies,
-        devDependencies: config.devDependencies,
         outDir
     }, () => runCommand("npx cap sync"))
 
