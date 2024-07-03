@@ -2,16 +2,8 @@
   "name": "@commoners/monorepo",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "**/tests/**"
-  ],
   "scripts": {
-    "build": "npm run build:core && npm run build:cli",
-    "build:cli": "cd packages/cli && npm run build",
-    "build:core": "cd packages/core && npm run build",
-    "watch": "cd packages/cli && npm run watch",
-    "watch:core": "cd packages/core && npm run watch",
+    "build": "pnpm -r run build",
     "test": "vitest",
     "test:electron": "cd packages/core/tests && vitest",
     "coverage": "vitest run --coverage",

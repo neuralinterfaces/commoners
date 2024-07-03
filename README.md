@@ -19,7 +19,17 @@ We use the term **build solidarity** to indicate the alignment of the world's we
 Let's build solidarity together!
 
 ## Local Development
-Use `npm i` to install all dependencies into the monorepo's workspaces.
+You will need to have [Node.js](https://nodejs.org/en/) installed on your machine.
+
+This repository uses PNPM for package management. Install PNPM by running the following command:
+```bash
+npm install -g pnpm
+```
+
+Install all packages by running the following command:
+```bash
+pnpm install
+```
 
 ### Core
 #### Testing

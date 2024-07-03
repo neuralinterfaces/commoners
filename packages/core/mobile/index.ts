@@ -5,7 +5,7 @@ import * as assets from './assets.js'
 
 import chalk from 'chalk'
 
-import { resolve } from "node:path"
+import { resolve as resolvePath } from "node:path"
 import plist from 'plist'
 import { ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
@@ -80,9 +80,7 @@ export const openConfig = async ({
         const config = getBaseConfig({ name, appId, outDir })
         
         getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
-            if (isInstalled(ref.plugin)) {
-                config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
-            }
+            if (isInstalled(ref.plugin)) config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
         })
 
         writeFileSync(configName, JSON.stringify(config, null, 2))
@@ -92,12 +90,6 @@ export const openConfig = async ({
 
     await callback()
 
-}
-
-const installForUser = async (pkgName) => {
-    const specifier = pkgName // `${pkgName}${version ? `@${version}` : ''}`
-    console.log(chalk.white(`— Installing ${specifier}...`))
-    await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
 }
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
@@ -117,7 +109,7 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
             if (target === 'ios') {
-                const plistPath = resolve('ios/App/App/info.plist')
+                const plistPath = resolvePath('ios/App/App/info.plist')
                 const xml = plist.parse(readFileSync(plistPath, 'utf8')) as any;
                 xml.NSBluetoothAlwaysUsageDescription = "Uses Bluetooth to connect and interact with peripheral BLE devices."
                 xml.UIBackgroundModes = ["bluetooth-central"]
@@ -126,16 +118,31 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     })
 }
 
-const isInstalled = (pkgName) => typeof pkgName === 'string' ? resolve(pkgName) : false // Only accept strings
+const isInstalled = async (pkgName) => {
+    if (typeof pkgName !== 'string') return false
 
-export const checkDepinstalled = async (pkgName) =>  isInstalled(pkgName) || await installForUser(pkgName)
+    try {
+        await import.meta.resolve(pkgName)
+        return true
+    } catch (e) { return false }
+
+}
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
-    await checkDepinstalled('@capacitor/cli')
-    await checkDepinstalled('@capacitor/core')
-    await checkDepinstalled(`@capacitor/${platform}`)
-    if (assets.has(config)) await checkDepinstalled(`@capacitor/assets`) // NOTE: Later make these conditional
+
+    const notInstalled = new Set()
+
+    await isInstalled('@capacitor/cli').then(installed => installed || notInstalled.add(`@capacitor/cli`))
+    await isInstalled('@capacitor/core').then(installed => installed || notInstalled.add(`@capacitor/core`))
+    await isInstalled(`@capacitor/${platform}`).then(installed => installed || notInstalled.add(`@capacitor/${platform}`))
+    
+    if (assets.has(config)) await isInstalled(`@capacitor/assets`).then(installed => installed || notInstalled.add(`@capacitor/assets`))
+
+    if (notInstalled.size > 0) {
+        console.log(`${chalk.bold("\nPlease install the following packages before proceeding:")} ${[...notInstalled].join(', ')}`)
+        process.exit(1)
+    }
 }
 
 
@@ -150,7 +157,9 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         appId: config.appId,
         plugins: config.plugins,
         outDir
-    }, () => runCommand("npx cap sync"))
+    }, () => runCommand("npx cap sync", {
+        // PATH: `${process.env.PATH}:${resolvedPath}`
+    }))
 
     if (assets.has(config)) {
         const info = assets.create(config)
