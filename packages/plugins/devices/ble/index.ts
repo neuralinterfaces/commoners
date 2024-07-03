@@ -1,7 +1,13 @@
 import createModal from '../modal.js'
 
-// @capacitor-community/bluetooth-le must be installed by the user
+type MACAddress = string
 
+type DeviceInformation = {
+  name: string,
+  deviceId: string
+}
+
+// @capacitor-community/bluetooth-le must be installed by the user
 export const isSupported = {
   desktop: true,
   mobile: {
@@ -25,43 +31,63 @@ export const isSupported = {
   }
 }
 
+type States = {
+  select: ((id: MACAddress) => void) | null ,
+  match: DeviceInformation | null
+}
+
 export const desktop = {
   load: function ( win ) {
 
-      // Enable Web Bluetooth
-      let selectBluetoothCallback;
-      let toSelectNext;
+    const states: States = { select: null, match: null }
 
-      this.on(`select`, (
-        _evt, //: IpcMainEvent, 
-        value //: string
-      ) => {
-          if (typeof selectBluetoothCallback === 'function') selectBluetoothCallback(value) // Select the device 
-          else toSelectNext = value // Save the device to select later
-          selectBluetoothCallback = null
-      });
+      const match = (value: DeviceInformation) => states.match = value
+
+      const select = (value: MACAddress | '') => {
+          if (typeof states.select === 'function') {
+            states.select(value) // Select the device by MAC Address, or cancel device selection
+            this.send(`selected`, value) // Notify the renderer that a device was selected
+          }
+          states.select = null
+          states.match = null
+      }
+
+      this.on(`match`, (_evt, value: DeviceInformation) => match(value))
+      this.on(`select`, ( _evt, value: MACAddress) => select(value));
 
       // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
       win.webContents.session.setBluetoothPairingHandler((details, callback) => {
         if (details.pairingKind === 'confirm') callback({ confirmed: true })
-        else console.error(`Commoners Bluetooth Extension does not support devices that need ${details.pairingKind} permissions.`)
+        else console.error(`Commoners Bluetooth Plugin does not support devices that need ${details.pairingKind} permissions.`)
       })
+      
 
       win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
 
         event.preventDefault()
 
-        // If a device was saved to select later, select it now
-        if (toSelectNext) {
-          callback(toSelectNext)
-          toSelectNext = null
-          return
-        }
-        
-        if (!selectBluetoothCallback) this.send(`open`, devices); // Initial request always starts at zero
-        this.send(`update`, devices);
-        selectBluetoothCallback = callback
+        const newRequest = !states.select
+        states.select = callback
 
+        // If a device was saved to select later, select it now
+
+        const { match } = states
+
+        if (match) {
+
+          // Match by name
+          const hasMatch = devices.find(device => {
+            if (match.name && device.deviceName !== match.name) return false
+            return true
+          })
+
+          if (hasMatch) select(hasMatch.deviceId)
+          return
+        } 
+        
+        // Open the device modal and update it with the available devices
+        if (newRequest) this.send(`open`, devices); // Initial request always starts at zero
+        this.send(`update`, devices);
       })
 
   }
@@ -73,7 +99,34 @@ export function load() {
 
   const onUpdate = (callback) => this.on(`update`, (_, devices) => callback(devices))
 
-  const select = (deviceID) => this.send(`select`, deviceID)
+  this.on(`selected`, () => {
+    if (matchTimeout) clearTimeout(matchTimeout)
+      matchTimeout = null
+  })
+
+  const onSelect = (callback) => this.on(`selected`, (_, id) => callback(id))
+
+  let matchTimeout;
+
+  const select = (deviceID: MACAddress) => this.send(`select`, deviceID)
+
+  const match = (
+    device: DeviceInformation,
+    timeout?: number
+  ) => {
+    
+    this.send(`match`, device)
+
+    if (!timeout) return
+    
+    matchTimeout = setTimeout(
+      () => commoners.plugins.bluetooth.cancel(),
+      timeout
+    )
+
+  }
+
+  const cancel = () => this.send(`select`, '')
 
   const modal = createModal({
     headerText: 'Available BLE Devices',
@@ -107,7 +160,10 @@ export function load() {
   return { 
     onOpen, 
     onUpdate,
+    onSelect,
     select,
+    match,
+    cancel,
     modal 
   }
 }
