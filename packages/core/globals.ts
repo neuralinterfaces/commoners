@@ -112,6 +112,7 @@ const knownPath = 'packages/core/dist/index.js'
 const __dirname = resolve(dirname(fileURLToPath(import.meta.url)))
 
 // Swap resolved root directories when the library is imported (e.g. from the distributed cli)
+console.log(__dirname)
 export const rootDir = (__dirname.slice(-knownPath.length) === knownPath) ? __dirname : dirname(require.resolve('@commoners/solidarity'))
 
 export const templateDir = join(rootDir, 'templates')

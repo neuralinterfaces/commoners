@@ -10,7 +10,12 @@
     "devDependencies": {
         "vite": "^4.2.1"
     },
-    "optionalDependencies": {
+    "peerDependencies": {
         "@capacitor-community/bluetooth-le": "^6.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@capacitor-community/bluetooth-le": {
+            "optional": true
+        }
     }
 }

@@ -54,7 +54,7 @@ export const prebuild = ({ plugins }: ResolvedConfig) => {
 }
 
 type MobileOptions = {
-    target: string,
+    target: 'ios' | 'android',
     outDir: string
 }
 
@@ -94,6 +94,7 @@ export const openConfig = async ({
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
+    console.log(target)
     await checkDepsInstalled(target, config)
     
     await openConfig({
@@ -118,6 +119,12 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     })
 }
 
+// const installForUser = async (pkgName) => {
+//     const specifier = pkgName // `${pkgName}${version ? `@${version}` : ''}`
+//     console.log(chalk.yellow(`Installing ${specifier}...`))
+//     await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
+// }
+
 const isInstalled = async (pkgName) => {
     if (typeof pkgName !== 'string') return false
 
@@ -136,11 +143,13 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
     await isInstalled('@capacitor/cli').then(installed => installed || notInstalled.add(`@capacitor/cli`))
     await isInstalled('@capacitor/core').then(installed => installed || notInstalled.add(`@capacitor/core`))
     await isInstalled(`@capacitor/${platform}`).then(installed => installed || notInstalled.add(`@capacitor/${platform}`))
-    
+
     if (assets.has(config)) await isInstalled(`@capacitor/assets`).then(installed => installed || notInstalled.add(`@capacitor/assets`))
 
     if (notInstalled.size > 0) {
-        console.log(`${chalk.bold("\nPlease install the following packages before proceeding:")} ${[...notInstalled].join(', ')}`)
+        const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
+        console.log(chalk.bold("\nTo continue with a mobile build, please run the equivalent command for your project:"))
+        console.log(installationCommand, '\n')
         process.exit(1)
     }
 }
@@ -157,13 +166,11 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         appId: config.appId,
         plugins: config.plugins,
         outDir
-    }, () => runCommand("npx cap sync", {
-        // PATH: `${process.env.PATH}:${resolvedPath}`
-    }))
+    }, () => runCommand("npx cap sync"))
 
     if (assets.has(config)) {
         const info = assets.create(config)
-        await runCommand(`npx capacitor-assets generate --${target}`) // Generate assets
+        await runCommand(`npx @capacitor/assets generate --${target}`) // Generate assets
         assets.cleanup(info)
     }
 

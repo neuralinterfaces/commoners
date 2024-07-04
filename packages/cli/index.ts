@@ -8,6 +8,7 @@ import {
     loadConfigFromFile,
     ShareOptions
 } 
+
 from "@commoners/solidarity";
 
 import pkg from './package.json'
