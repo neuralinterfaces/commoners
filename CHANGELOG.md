@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-No entries yet.
+### Changed
+- Fixed the `--share` command after updating the project root definition
+- Updated the Bluetooth plugin to allow for matching Bluetooth devices by name without manual user selection
+- Simplified the Capacitor peer dependency management by requiring users to handle the installation themselves
 
 ## [0.0.47]
 ### Changed

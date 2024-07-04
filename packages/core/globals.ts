@@ -66,9 +66,7 @@ export function cleanup (tempDir = globalTempDir) {
 }
 
 
-export const getDefaultMainLocation = (outDir) =>  {
-    return join(outDir, 'main.js')
-}
+export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.js')
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
@@ -107,13 +105,13 @@ export const ensureTargetConsistent = (target: TargetType, allow = []) => {
 }
 
 // Get Configuration File and Path
-const knownPath = 'packages/core/dist/index.js'
+const knownPath = join('packages', 'core', 'dist')
 
 const __dirname = resolve(dirname(fileURLToPath(import.meta.url)))
 
 // Swap resolved root directories when the library is imported (e.g. from the distributed cli)
-console.log(__dirname)
-export const rootDir = (__dirname.slice(-knownPath.length) === knownPath) ? __dirname : dirname(require.resolve('@commoners/solidarity'))
+const inKnownPath = __dirname.slice(-knownPath.length) === knownPath
+export const rootDir = inKnownPath ? __dirname : dirname(require.resolve('@commoners/solidarity'))
 
 export const templateDir = join(rootDir, 'templates')
 export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(join(templateDir, 'electron', 'electron-builder.yml')).toString())

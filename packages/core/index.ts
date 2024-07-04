@@ -24,9 +24,6 @@ export const defineConfig = (o: UserConfig): UserConfig => o
 
 export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
 
-// const autoRootSymbol = Symbol('auto-root')
-
-
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
 
 export async function loadConfigFromFile(root: string = resolveConfigPath(), selectedBuild?: string) {
@@ -134,12 +131,8 @@ export async function loadConfigFromFile(root: string = resolveConfigPath(), sel
 
     }
 
-
-    const relativeRoot = relative(process.cwd(), root)
-    if (relativeRoot) {
-        config.root = relativeRoot // Set the root of the project
-        // result[autoRootSymbol] = root
-    }
+    // Set the root of the project
+    config.root = relative(process.cwd(), root) || root
 
     return config
 }

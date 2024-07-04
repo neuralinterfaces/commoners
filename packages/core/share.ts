@@ -35,7 +35,10 @@ export default async function (opts: ShareOptions) {
 
     const serviceManager = await createServices(resolvedServices)
 
-    if (!sharePort) throw new Error(`No port specified.`)
+    if (!sharePort) {
+        console.log(`${chalk.grey('No port specified for sharing services')}\n`)
+        return
+    }
 
     // Always pass the available servers
     const server = createServer({
