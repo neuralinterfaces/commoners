@@ -33,10 +33,10 @@ jobs:
         run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
         shell: bash
 
-      - name: Use Node.js 18
+      - name: Use Node.js 20
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install Commoners
         run: npm ci 
