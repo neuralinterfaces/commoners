@@ -229,6 +229,8 @@ The following service structure would be used to handle this case:
 }
 ```
 
+> **Note:** You must refrain from using the same `--name` argument as your `--distpath` final directory, as PyInstaller uses the `[distpath]/../[name]` directory to store temporary files.
+
 ## Plugins
 Plugins are collections of JavaScript functions that run at different points during app initialization. These points include:
 

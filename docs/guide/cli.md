@@ -21,7 +21,7 @@ Build the project assets.
 
 ### commoners launch
 Launch your built application.
-- `--outDir [path]` - The output directory of the build to launch (`string`)
+- `[path]` - The output directory of the build to launch (`string`)
 
 ### commoners share
 Share the application's services—or simply run them on their own.
