@@ -1,6 +1,5 @@
 
 const { notarize } = require('@electron/notarize')
-const { spawnSync } = require('child_process')
 
 module.exports = async (context) => {
   if (process.platform !== 'darwin') return
@@ -8,7 +7,7 @@ module.exports = async (context) => {
   const envVariables = ['APPLE_TEAM_ID', 'APPLE_ID', 'APPLE_ID_PASSWORD']
 
   if (!envVariables.every((key) => !!process.env[key])) {
-    console.warn(`Skipping notarization: ${envVariables.join(' + ')} env variables must be set.`)
+    console.log(`\nSkipping notarization: ${envVariables.join(' + ')} env variables must be set.\n`)
     return
   }
 
