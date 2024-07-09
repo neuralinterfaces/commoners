@@ -169,8 +169,8 @@ export async function resolveConfig(
         name: userPkg.name ? userPkg.name.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') : 'Commoners App'
     }) as Partial<ResolvedConfig>
     
-    copy.plugins = plugins // Transfer the original plugins
-    copy.services = ogServices as any // Transfer original functions on publish
+    copy.plugins = plugins ?? {} // Transfer the original plugins
+    copy.services = ogServices as any ?? {} // Transfer original functions on publish
 
     copy.target = ensureTargetConsistent(copy.target, ['services'])
     

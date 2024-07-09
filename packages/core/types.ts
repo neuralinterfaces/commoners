@@ -47,14 +47,14 @@ export const valid = {
 
 }
 
-export type ViteOptions = {
+type BaseViteOptions = {
     outDir: string,
-    target?: TargetType
+    target?: TargetType,
 }
 
-export type ServerOptions = {
-    printUrls?: boolean
-} & ViteOptions
+export type ViteOptions = BaseViteOptions & { dev?: boolean }
+
+export type ServerOptions = { printUrls?: boolean } & BaseViteOptions
 
 
 export type TargetType = typeof valid.target[number]

@@ -55,24 +55,21 @@ Commoners relies on [Capacitor](https://capacitorjs.com) to generate the necessa
 #### iOS
 If you are building for iOS, you will need [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12) installed on your Mac. 
 
+##### Ruby
+1. Install [Homebrew](https://brew.sh)
+2. Install `chruby` and `ruby-install` (`brew install chruby ruby-install`)
+3. Install and activate a different version of Ruby (`ruby-install ruby 3.3.0` and `chruby 3.3.0`)
+
+###### Tested Ruby Versions
+- Ruby 3.3.0
+
 ##### Environment Configuration
-An older version of CocoaPods is required to build the project using Capacitor.
+An older version of CocoaPods may be required to build the project using Capacitor.
 
 Try running the following command to install CocoaPods:
 ```bash
 sudo gem install cocoapods:1.10.2
 ```
-
-If this fails, you may need to install an older version of Ruby:
-1. Install [Homebrew](https://brew.sh)
-2. Install `chruby` and `ruby-install` (`brew install chruby ruby-install`)
-3. Install and activate a different version of Ruby (`ruby-install ruby 3.3.0` and `chruby 3.3.0`)
-
-Once this new version of Ruby is installed, try installing CocoaPods again.
-
-###### Tested Ruby Versions
-- Ruby 3.3.0
-
 
 ##### Publishing to TestFlight
 Publishing your application requires [Apple Developer Program](https://developer.apple.com/programs/) membership.

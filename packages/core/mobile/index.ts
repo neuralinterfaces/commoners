@@ -5,9 +5,14 @@ import * as assets from './assets.js'
 
 import chalk from 'chalk'
 
-import { resolve as resolvePath } from "node:path"
+import { join, resolve as resolvePath } from "node:path"
 import plist from 'plist'
 import { ResolvedConfig, SupportConfigurationObject } from "../types.js"
+
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+
+const getRequireForRoot = (root) => createRequire(join(root, 'package.json'))
 
 const configName = 'capacitor.config.json'
 
@@ -47,10 +52,13 @@ const getCapacitorPluginAccessors = (plugins: ResolvedConfig["plugins"]) => {
 }
 
 
-export const prebuild = ({ plugins }: ResolvedConfig) => {
+export const prebuild = ({ plugins, root }: ResolvedConfig) => {
+
+    const require = getRequireForRoot(root);
+
     // Map Capacitor plugin information to their availiabity
     const accessors = getCapacitorPluginAccessors(plugins)
-    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin)) ? setParent(false) : '')
+    accessors.forEach(([ref, setParent]) => (!isInstalled(ref.plugin, require.resolve)) ? setParent(false) : '')
 }
 
 type MobileOptions = {
@@ -62,7 +70,8 @@ type ConfigOptions = {
     name: ResolvedConfig['name'],
     appId: ResolvedConfig['appId'],
     plugins: ResolvedConfig['plugins'],
-    outDir: string
+    outDir: string,
+    root: string
 }
 
 // Create a temporary Capacitor configuration file if the user has not defined one
@@ -70,7 +79,8 @@ export const openConfig = async ({
     name, 
     appId, 
     plugins, 
-    outDir
+    outDir,
+    root
 }: ConfigOptions, callback) => {
 
     const isUserDefined = possibleConfigNames.map(existsSync).reduce((a: number, b: boolean) => a + (b ? 1 : 0), 0) > 0
@@ -79,8 +89,10 @@ export const openConfig = async ({
 
         const config = getBaseConfig({ name, appId, outDir })
         
+        const require = getRequireForRoot(root);
+
         getCapacitorPluginAccessors(plugins).forEach(([ ref ]) => {
-            if (isInstalled(ref.plugin)) config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
+            if (isInstalled(ref.plugin, require.resolve)) config.plugins[ref.name] = ref.options ?? {} // NOTE: We use the presence of the associated plugin to infer use
         })
 
         writeFileSync(configName, JSON.stringify(config, null, 2))
@@ -94,14 +106,14 @@ export const openConfig = async ({
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    console.log(target)
-    await checkDepsInstalled(target, config)
+    checkDepsInstalled(target, config)
     
     await openConfig({
         name: config.name,
         appId: config.appId,
         plugins: config.plugins,
-        outDir
+        outDir,
+        root: config.root
     }, async () => {
         if (!existsSync(target)) {
             
@@ -119,45 +131,51 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     })
 }
 
-// const installForUser = async (pkgName) => {
-//     const specifier = pkgName // `${pkgName}${version ? `@${version}` : ''}`
-//     console.log(chalk.yellow(`Installing ${specifier}...`))
-//     await runCommand(`npm install ${specifier} -D`, undefined, {log: false })
-// }
-
-const isInstalled = async (pkgName) => {
+const isInstalled = (pkgName, resolve = require.resolve) => {
     if (typeof pkgName !== 'string') return false
 
     try {
-        await import.meta.resolve(pkgName)
+        resolve(pkgName)
         return true
-    } catch (e) { return false }
+    } catch (e) { 
+        return false 
+    }
 
 }
 
 // Install Capacitor packages as a user dependency
-export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
+export const checkDepsInstalled = (platform, config: ResolvedConfig) => {
 
     const notInstalled = new Set()
 
-    await isInstalled('@capacitor/cli').then(installed => installed || notInstalled.add(`@capacitor/cli`))
-    await isInstalled('@capacitor/core').then(installed => installed || notInstalled.add(`@capacitor/core`))
-    await isInstalled(`@capacitor/${platform}`).then(installed => installed || notInstalled.add(`@capacitor/${platform}`))
+    const require = getRequireForRoot(config.root);
 
-    if (assets.has(config)) await isInstalled(`@capacitor/assets`).then(installed => installed || notInstalled.add(`@capacitor/assets`))
+    const cliInstalled = isInstalled('@capacitor/cli', require.resolve)
+    if (!cliInstalled) notInstalled.add(`@capacitor/cli`)
+
+    const coreInstalled = isInstalled('@capacitor/core', require.resolve)
+    if (!coreInstalled) notInstalled.add(`@capacitor/core`)
+
+    const platformInstalled = isInstalled(`@capacitor/${platform}`, require.resolve)
+    if (!platformInstalled) notInstalled.add(`@capacitor/${platform}`)
+
+    if (assets.has(config)) {
+        const assetsInstalled = isInstalled(`@capacitor/assets`, require.resolve)
+        if (!assetsInstalled) notInstalled.add(`@capacitor/assets`)
+    }
 
     if (notInstalled.size > 0) {
         const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
-        console.log(chalk.bold("\nTo continue with a mobile build, please run the equivalent command for your project:"))
+        console.log(chalk.bold("\nEnsure the following packages are installed at the base of your project:"))
         console.log(installationCommand, '\n')
-        process.exit(1)
+        // process.exit(1)
     }
 }
 
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    await checkDepsInstalled(target, config)
+    checkDepsInstalled(target, config)
 
     console.log(`\n👊 Opening with ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)
 
@@ -165,7 +183,8 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
         name: config.name,
         appId: config.appId,
         plugins: config.plugins,
-        outDir
+        outDir,
+        root: config.root
     }, () => runCommand("npx cap sync"))
 
     if (assets.has(config)) {

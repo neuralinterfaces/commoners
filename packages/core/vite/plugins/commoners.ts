@@ -20,7 +20,8 @@ export default ({
     config, 
     build, 
     outDir,
-    target
+    target,
+    dev
 }) => {
     const orginalBase = normalize(config.vite?.base ?? '/').replaceAll(sep, posix.sep)
 
@@ -44,7 +45,8 @@ export default ({
         name: config.name,
         version: config.version,
         services,
-        target: normalizeTarget(target)
+        target: normalizeTarget(target),
+        dev
     }
 
     const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''

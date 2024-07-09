@@ -6,10 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added a global `commoners.dev` property for reliably detecting whether a build is running in development mode. Replaces Vite's `import.meta.env.DEV` property, which was unreliable for mobile development.
+
 ### Changed
 - Fixed the `--share` command after updating the project root definition
 - Updated the Bluetooth plugin to allow for matching Bluetooth devices by name without manual user selection
 - Simplified the Capacitor peer dependency management by requiring users to handle the installation themselves
+- Fixed building for mobile without plugins
 
 ## [0.0.47]
 ### Changed

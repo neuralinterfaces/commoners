@@ -19,7 +19,8 @@ import { lstatSync } from "node:fs"
 
 type BuildHooks = {
     services?: ResolvedConfig['services']
-    onBuildAssets?: Function
+    onBuildAssets?: Function,
+    dev?: boolean
 }
 
 const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
@@ -33,7 +34,8 @@ export default async function build (
     // Hooks
     {
         services: devServices,
-        onBuildAssets
+        onBuildAssets,
+        dev = false // Default to a production build
     }: BuildHooks = {},
 ) {
 
@@ -102,7 +104,7 @@ export default async function build (
     // ---------------- Build Assets ----------------
     if (toRebuild.assets) {
         if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await ViteBuild(await resolveViteConfig(resolvedConfig, { target, outDir }))  // Build the standard output files using Vite. Force recognition as build
+        await ViteBuild(await resolveViteConfig(resolvedConfig, { target, outDir, dev }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // ---------------- Create Standard Output Files ----------------

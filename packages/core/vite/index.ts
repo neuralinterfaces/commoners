@@ -12,7 +12,7 @@ import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import chalk from 'chalk';
 import { safePath } from '../utils/index.js';
 
-import { nodeBuiltIns } from "../utils/config.js";
+// import { nodeBuiltIns } from "../utils/config.js";
 
 const defaultOutDir = join(rootDir, 'dist')
 
@@ -85,7 +85,8 @@ export const resolveViteConfig = async (
     commonersConfig: ResolvedConfig, 
     { 
         target, 
-        outDir 
+        outDir,
+        dev = true
     }: ViteOptions, 
     build = true
 ) => {
@@ -177,7 +178,8 @@ export const resolveViteConfig = async (
             }, 
             build,
             outDir,
-            target
+            target,
+            dev
         })
     ]
     

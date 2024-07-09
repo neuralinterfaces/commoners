@@ -39,9 +39,9 @@ export default async function ( opts: UserConfig = {} ) {
 
 
         // Build for mobile before moving forward
-        if (isMobileTarget) await build(resolvedConfig, {
-            services: resolvedServices
-        })
+        if (isMobileTarget) {
+            await build(resolvedConfig, { services: resolvedServices, dev: true })
+        }
 
         // Manually clear and build the output assets
         else {
