@@ -60,7 +60,12 @@ export default async function (opts: ShareOptions) {
     server.listen(
         sharePort,
         '0.0.0.0', // All IPs
-        () => console.log(`Services shared at ${chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
+        () => {
+            console.log(`Services shared at ${chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
+            Object.entries(serviceManager.active).forEach(([id, service]) => {
+                console.log(`[${chalk.greenBright(id)}]: ${chalk.cyan(`http://${service.host}:${service.port}`)}`)
+            })
+        }
     );
 
     return {
