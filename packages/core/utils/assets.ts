@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { onExit, rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute, basename } from "node:path"
+import { rootDir } from "../globals.js"
+import { dirname, extname, join, parse, relative, isAbsolute } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
@@ -325,10 +325,9 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
         // Copy Icons
         if (resolvedConfig.icon) {
-
-            const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
-
-            assets.copy.push(...icons as string[])
+            const icons = (typeof resolvedConfig.icon === 'string') ? [ resolvedConfig.icon ] : Object.values(resolvedConfig.icon)
+            const transformedIcons = icons.map(icon => isAbsolute(icon) ? icon : join(root, icon))
+            assets.copy.push(...transformedIcons as string[])
         }
 
 
