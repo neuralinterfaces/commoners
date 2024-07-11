@@ -25,6 +25,12 @@ export default (props: ModalProps) => {
       dialog {
         padding: 0;
         display: flex;
+        border-radius: 6px;
+        border: 0;
+      }
+
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.7);
       }
 
       section {
@@ -47,13 +53,52 @@ export default (props: ModalProps) => {
         padding-top: 10px;
         background: white;
         border-top: 1px solid gainsboro;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
       }
     
       main {
-        padding: 0px 16px;
         overflow: auto;
         max-height: 300px;
         min-width: 500px;
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      ul:empty::after {
+        content: "No devices found.";
+        display: block;
+        padding: 16px;
+        text-align: center;
+        font-weight: 300;
+        color: gray;
+      }
+
+      li {
+        padding: 16px;
+        border-bottom: 1px solid gainsboro;
+      }
+
+      li:last-child {
+        border-bottom: none;
+      }
+
+      li[selected] {
+        background: #F0F0F0;
+      }
+
+      button {
+        padding: 8px 16px;
+        border: 1px solid gainsboro;
+        background: white;
+        cursor: pointer;
+        border-radius: 4px;
       }
     
       </style>
@@ -156,6 +201,12 @@ export default (props: ModalProps) => {
         const pairButton = this.shadowRoot.getElementById('pair') as HTMLButtonElement
         pairButton.removeAttribute('disabled')
         this.selectedDevice = id
+
+        const allItems = this.shadowRoot.querySelectorAll('li') as NodeListOf<HTMLLIElement>
+        allItems.forEach(item => {
+          if (item.getAttribute('data-id') === id) item.setAttribute('selected', '')
+          else item.removeAttribute('selected')
+        })
       } 
 
       renderList = (devices) => {

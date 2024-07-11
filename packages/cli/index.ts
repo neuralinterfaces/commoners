@@ -34,11 +34,7 @@ function preprocessTarget(target) {
     }
 }
 
-function getConfigPathFromOpts({ root, config }){
-    return root ? (config ? join(root, config) : root) : config
-}
-
-
+const getConfigPathFromOpts = ({ root, config }) => root ? (config ? join(root, config) : root) : config
 
 const cli = cac()
 

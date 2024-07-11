@@ -34,6 +34,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath(), sel
         root = resolve(root) // Resolve to absolute path
         if (!isDirectory(root)) root = dirname(root) // Get the parent directory
     }
+    
     else {
         if (selectedBuild) {
             console.error(`${chalk.red(root)} does not exist in the ${chalk.bold(process.cwd())} directory.`)
