@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+overrides:
+  electron-updater@<=6.3.0-alpha.5: '>=6.3.0-alpha.6'
+
 importers:
 
   .:
@@ -123,8 +126,8 @@ importers:
   packages/plugins/autoupdate:
     dependencies:
       electron-updater:
-        specifier: ^6.1.1
-        version: 6.2.1
+        specifier: '>=6.3.0-alpha.6'
+        version: 6.3.0-alpha.8
 
   packages/plugins/devices/ble:
     devDependencies:
@@ -1945,6 +1948,10 @@ packages:
     resolution: {integrity: sha512-upp+biKpN/XZMLim7aguUyW8s0FUpDvOtK6sbanMFDAMBzpHDqdhgVYm6zc9HJ6nWo7u2Lxk60i2M6Jd3aiNrA==}
     engines: {node: '>=12.0.0'}
 
+  builder-util-runtime@9.2.5-alpha.4:
+    resolution: {integrity: sha512-XGquk0b7ieYcIyMZESksJm+9gT9mDRJ5ckkhym2cyB87CPMHGLt8uhN1liZlgkBfLU/aMicR7x6XanO0z64Qzg==}
+    engines: {node: '>=12.0.0'}
+
   builder-util@24.13.1:
     resolution: {integrity: sha512-NhbCSIntruNDTOVI9fdXz0dihaqX2YuE1D6zZMrwiErzH4ELZHE6mdiB40wEgZNprDia+FghRFgKoAqMZRRjSA==}
 
@@ -2315,8 +2322,8 @@ packages:
   electron-to-chromium@1.4.816:
     resolution: {integrity: sha512-EKH5X5oqC6hLmiS7/vYtZHZFTNdhsYG5NVPRN6Yn0kQHNBlT59+xSM8HBy66P5fxWpKgZbPqb+diC64ng295Jw==}
 
-  electron-updater@6.2.1:
-    resolution: {integrity: sha512-83eKIPW14qwZqUUM6wdsIRwVKZyjmHxQ4/8G+1C6iS5PdDt7b1umYQyj1/qPpH510GmHEQe4q0kCPe3qmb3a0Q==}
+  electron-updater@6.3.0-alpha.8:
+    resolution: {integrity: sha512-u5lhB9sXXZB4SwXd3D0PA7Fb+fxV4NrifrewqMtceklkufkyAJ0eMIIEuXd0eNnVKvaC9yWobHIV0ppITKM2Ig==}
 
   electron@26.6.10:
     resolution: {integrity: sha512-pV2SD0RXzAiNRb/2yZrsVmVkBOMrf+DVsPulIgRjlL0+My9BL5spFuhHVMQO9yHl9tFpWtuRpQv0ofM/i9P8xg==}
@@ -6339,6 +6346,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  builder-util-runtime@9.2.5-alpha.4:
+    dependencies:
+      debug: 4.3.5
+      sax: 1.4.1
+    transitivePeerDependencies:
+      - supports-color
+
   builder-util@24.13.1:
     dependencies:
       7zip-bin: 5.2.0
@@ -6754,9 +6768,9 @@ snapshots:
 
   electron-to-chromium@1.4.816: {}
 
-  electron-updater@6.2.1:
+  electron-updater@6.3.0-alpha.8:
     dependencies:
-      builder-util-runtime: 9.2.4
+      builder-util-runtime: 9.2.5-alpha.4
       fs-extra: 10.1.0
       js-yaml: 4.1.0
       lazy-val: 1.0.5
