@@ -157,10 +157,14 @@ JavaScript and TypeScript services are auto-bundled using [esbuild](https://esbu
 export default {
     // ...
     services: {
-        node: './src/services/node.js',
+
+        // Simple configuration
+        node: './src/services/node.js', // Only included with Desktop builds
+
+        // Advanced configuration
         tsNode: {
             src: './src/services/node.ts',
-            publish:' https://ts-node.example.com',
+            publish:' https://ts-node.example.com', // Always publish as a remote service
         }
     }
 }
@@ -173,11 +177,17 @@ For Python services, you'll to specify a terminal command that will bundle the s
 export default {
     // ...
     services: {
+
+        // Full configuration
         python: {
             src: './src/services/python.py',
             publish: {
                 build: 'python -m PyInstaller --name python-service --onedir --clean ./src/services/python.py --distpath ./build/python-service',
+
+                // Consider a remote service for Web and Mobile
                 remote: 'https://python.example.com',
+
+                // Package into the application for Desktop
                 local: {
                     src: 'python-service',
                     base: './build/python/python-service',
