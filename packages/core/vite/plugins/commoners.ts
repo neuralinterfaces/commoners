@@ -41,15 +41,18 @@ export default ({
       propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
     })
 
+    const iconPath = assetPath(icon, outDir, build)
+
     const globalObject = {
         name: config.name,
         version: config.version,
+        icon: iconPath,
         services,
         target: normalizeTarget(target),
         dev
     }
 
-    const faviconLink = icon ? `<link rel="shortcut icon" href="${assetPath(icon, outDir, build)}" type="image/${extname(icon).slice(1)}" >` : ''
+    const faviconLink = icon ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(icon).slice(1)}" >` : ''
     
     return {
         name: 'commoners',
