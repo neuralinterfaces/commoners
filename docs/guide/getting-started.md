@@ -182,6 +182,8 @@ export default {
         python: {
             src: './src/services/python.py',
             publish: {
+
+                // Run this command to build the service into a standalone executable
                 build: 'python -m PyInstaller --name python-service --onedir --clean ./src/services/python.py --distpath ./build/python-service',
 
                 // Consider a remote service for Web and Mobile
