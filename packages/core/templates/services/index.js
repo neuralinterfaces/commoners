@@ -72,8 +72,8 @@ export async function resolveService (
 
   const resolvedConfig = resolveConfig(config)
 
-
   reconcileConfig(resolvedConfig) // Register url instead of source file
+  if (!resolvedConfig.src) return // Return if no associated file or url
 
 
   // Use the URL to determine the appropriate build strategy

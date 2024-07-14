@@ -116,10 +116,12 @@ async function buildService(
         build,
         outDir,
         src,
+        root
     }: { 
         src: string,
         outDir?: string,
-        build: ResolvedService['build'] 
+        build: ResolvedService['build'],
+        root: ResolvedConfig['root']
     }, 
     name, 
     force = false
@@ -161,13 +163,14 @@ async function buildService(
             src,
             outDir,
             force,
-            build
+            build,
+            root
         })
     }
 
     if (typeof build === 'string') {
         if (existsSync(build)) return build
-        await spawnProcess(build)
+        await spawnProcess(build, [], { cwd: root }) // Ensure 
         return outDir
     }
 }
@@ -391,7 +394,8 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                     { 
                         src: __src, 
                         build, 
-                        outDir: toCopy ? join(root, toCopy) : undefined
+                        outDir: toCopy ? join(root, toCopy) : undefined,
+                        root
                     }, 
                     name, 
                     true // Always rebuild services
@@ -406,7 +410,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                         sign: true // jsExtensions.includes(extname(__src)) 
                     })
                     
-                    else console.log(`Excluding ${chalk.red(name)} source file: Could not find ${output}`)
+                    else console.log(`${chalk.bold(`Missing ${chalk.red(name)} source file`)}\nCould not find ${output}`)
                     
                 }
 

@@ -17,13 +17,17 @@ process.on('uncaughtException', (e) => {
 process.on('beforeExit', kill);
 
 
-export const runCommand = async (string, customEnv, opts) => {
+export const runCommand = async (string, options) => {
     const splitCommand = string.split(' ')
     const [command, ...args] = splitCommand
-    await spawnProcess(command, args, customEnv, opts)
+    await spawnProcess(command, args, options)
 }
 
-export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
+export const spawnProcess = (
+    command, 
+    args, 
+    { env = {}, opts = {}, cwd } = {}
+) => {
     return new Promise((resolve) => {
         
         // NOTE: We don't need this in production builds...
@@ -32,9 +36,10 @@ export const spawnProcess = (command, args, customEnv = {}, opts = { }) => {
         const proc = spawn(command, args, { 
             shell: true, 
             env: {
-                ...customEnv,
+                ...env,
                 PATH: `${process.env.PATH}:${customPath}`
-            }
+            },
+            cwd
         });
 
         children[proc.pid] = proc;
