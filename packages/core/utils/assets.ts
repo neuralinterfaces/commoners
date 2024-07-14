@@ -406,7 +406,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                         sign: true // jsExtensions.includes(extname(__src)) 
                     })
                     
-                    else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
+                    else console.log(`Excluding ${chalk.red(name)} source file: Could not find ${output}`)
                     
                 }
 

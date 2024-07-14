@@ -189,7 +189,7 @@ export async function resolveService (
 
   Object.defineProperty(resolvedConfig, '__resolved', { value: true })
   
-  return config
+  return resolvedConfig
 
 }
 
