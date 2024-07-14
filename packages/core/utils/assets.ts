@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute } from "node:path"
+import { isDesktop, rootDir } from "../globals.js"
+import { dirname, extname, join, parse, relative, isAbsolute, sep } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
@@ -14,7 +14,7 @@ import pkg from 'pkg'
 
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
-import { exec, execSync } from "node:child_process"
+import { execSync } from "node:child_process"
 
 type AssetMetadata = {
     extraResource?: boolean,
@@ -43,10 +43,11 @@ const bundleExtensions = [ '.ts' ]
 const jsExtensions = ['.js', '.mjs', '.cjs', ...bundleExtensions]
  
 // Intelligently build service only if it hasn't been built yet (unless forced)
-const mustBuild = ({ name, out, force }, log = false) => {
-    const hasBeenBuilt = existsSync(out)
+const mustBuild = ({ name, outDir, force }) => {
+    const hasBeenBuilt = existsSync(outDir)
     if (hasBeenBuilt && !force) return false
-    if (log) console.log(`\n👊 ${hasBeenBuilt ? 'Updating' : 'Creating'} the ${chalk.bold(chalk.greenBright(name))} service\n`)
+    
+    console.log(`\n👊 Packaging ${chalk.bold(name)} service\n`)
     return true
 }
 
@@ -54,28 +55,38 @@ const mustBuild = ({ name, out, force }, log = false) => {
 type PackageInfo = {
     name: string,
     force?: boolean,
-    src: string,
-    out: string
+    src: string, // Absolute Source File
+
+    // Output configuration
+    build: {
+        src: string, // Relative source to base
+        outDir: string
+    }
 }
 
-export const packageFile = async (info: PackageInfo, log = true) => {
+export const packageFile = async (info: PackageInfo) => {
 
     const { 
         name, 
         src, 
-        out, 
-        force 
+        force,
+        build
     } = info
 
-    const tempOut = join(out, `${name}.js`)
+    const { outDir } = build
+
+    const outName = build.src || name
+
+    const tempOut = join(outDir, outName) + '.js'
+    console.log('Temp out', tempOut)
 
     const shouldBuild = mustBuild({
-        out,
+        outDir: outDir,
         force,
         name
-    }, log)
+    })
 
-    if (!shouldBuild) return out
+    if (!shouldBuild) return outDir
 
     await esbuild.build({ 
         entryPoints: [ src ],
@@ -87,70 +98,79 @@ export const packageFile = async (info: PackageInfo, log = true) => {
         external: [ "*.node" ]
     })
 
-    await pkg.exec([tempOut, '--target', 'node16', '--out-path', out]);
+    await pkg.exec([
+        tempOut, 
+        '--target', 
+        'node16', 
+        '--out-path', 
+        outDir
+    ]);
 
     rmSync(tempOut, { force: true })
 
-    return out
+    return outDir
 }
 
 
 async function buildService(
     { 
         build,
-        out,
+        outDir,
         src,
     }: { 
         src: string,
-        out: string,
+        outDir?: string,
         build: ResolvedService['build'] 
     }, 
     name, 
     force = false
 ){
 
-        if (!build) return null
-        
-        // Check Auto Builds
-        if (build && typeof build === 'object') {
-            return packageFile({
-                name,
-                force,
-                ...(build as any)
-            }, true)
-        }
-        
-        // Check Custom Builds
-        else {
+    if (!build) return null
+    
+    // Check Auto Builds
+    if (build && typeof build === 'object') {
+        return packageFile({
+            name,
+            force,
+            src,
+            build
+        })
+    }
+    
+    // Check Custom Builds
+    else {
 
-            const shouldBuild = mustBuild({
-                name,
-                out,
-                force
-            })
+        const shouldBuild = mustBuild({
+            name,
+            outDir,
+            force
+        })
 
-            if (!shouldBuild) return out
-        }
+        if (!shouldBuild) return outDir
+    }
 
-        // Dynamic Configuration
-        if (typeof build === 'function') {
-            const ctx = {
-                package: packageFile
-            }
+    // Dynamic Configuration
+    if (typeof build === 'function') {
 
-            build = await build.call(ctx, {
-                name,
-                src,
-                out,
-                force
-            })
+        const ctx = {
+            package: packageFile
         }
 
-        if (typeof build === 'string') {
-            if (existsSync(build)) return build
-            await spawnProcess(build)
-            return out
-        }
+        build = await build.call(ctx, {
+            name,
+            src,
+            outDir,
+            force,
+            build
+        })
+    }
+
+    if (typeof build === 'string') {
+        if (existsSync(build)) return build
+        await spawnProcess(build)
+        return outDir
+    }
 }
 
 // Derive assets to be transferred to the Commoners folder
@@ -175,7 +195,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         bundle: []
     }
 
-    if (toBuild.frontend !== false) {
+    if (toBuild.assets !== false) {
 
 
         if (config.__root) {
@@ -351,44 +371,48 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     }
     
     // Handle Provided Services
-        const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
-        
-        for (const [name, resolvedService] of Object.entries(resolvedServices)) {
+    const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+    
+    for (const [ name, resolvedService ] of Object.entries(resolvedServices)) {
 
-            // @ts-ignore
-            const { src, base, build, filepath } = resolvedService
+        // @ts-ignore
+        const { __src, src, base, build, filepath, compile } = resolvedService
 
-            const toCopy = base ?? src
+        const toCopy = base ?? src
 
-            if (!toCopy) continue // Cannot copy if no source has been specified
+        const isDesktopBuild = isDesktop(target)
+        if (isDesktopBuild && isValidURL(src)) continue // Skip remote services for desktop builds
 
-            const isURL = isValidURL(src)
 
+        if (__src && ( isDesktopBuild || toBuild.services )) {
 
-            if (build && isURL && isElectronTarget) continue // Do not copy if file is a url (Electron-only)
+            const output = await buildService(
+                { 
+                    src: __src, 
+                    build, 
+                    outDir: toCopy ? join(root, toCopy) : undefined
+                }, 
+                name, 
+                true // Always rebuild services
+            )
+                    
+            // Only auto-sign JavaScript files
+            if (typeof output === 'string') {
 
-            
-            if (!isURL) {
-
-                const { __src, compile } = resolvedService as any
-
-                if (__src) {
-
-                        const output = await buildService({ src: __src, build, out: join(root, toCopy) }, name, toBuild.services ?? true) // Always rebuild services
-                                
-                        if (existsSync(output)) assets.copy.push({ 
-                            input: output, 
-                            extraResource: true, 
-                            sign: true // jsExtensions.includes(extname(__src)) 
-                        }) // Only auto-sign JavaScript files
-                        
-                        else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
-                        
-                } 
+                if (existsSync(output)) assets.copy.push({ 
+                    input: output, 
+                    extraResource: true, 
+                    sign: true // jsExtensions.includes(extname(__src)) 
+                })
                 
-                else if (compile) assets.bundle.push({ input: join(root, src), output: filepath, force: true, compile })
+                else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
+                
             }
-        }
+
+        } 
+        
+        else if (compile) assets.bundle.push({ input: join(root, src), output: filepath, force: true, compile })
+    }
 
     return assets
 }
@@ -398,16 +422,13 @@ export const clear = (outDir: string) => {
     if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
 }
 
-type AssetsToBuild = {
-    services?: boolean,
-    frontend?: boolean
-}
+type AssetsToBuild = { assets?: boolean, services?: boolean }
 
 export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}) => {
 
     const { outDir } = config.build
 
-    if (toBuild.frontend !== false) {
+    if (toBuild.assets !== false) {
 
         mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
  

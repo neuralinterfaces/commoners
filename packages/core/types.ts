@@ -13,11 +13,10 @@ type OutDirType = string
 
 export type PortType = number
 
-export type ServiceOptions = boolean | string | string[]
+export type ServiceOptions = string | string[]
 
 export type ServiceCreationOptions = {
     root?: string, 
-    mode?: ModeType
     onLog?: Function
     onClosed?: Function
 }
@@ -37,7 +36,6 @@ export const valid = {
 
     // Derived
     target: tuple(...Array.from(new Set(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets))), // NOTE: Really these should transform to the relevant universal type
-    mode:  tuple('local', 'remote'),
 
     // Internal
     command: tuple('start', 'dev', 'build', 'launch', 'share'),
@@ -58,19 +56,20 @@ export type ServerOptions = { printUrls?: boolean } & BaseViteOptions
 
 
 export type TargetType = typeof valid.target[number]
-export type ModeType = typeof valid.mode[number]
 // export type PlatformType = typeof validDesktopTargets[number]
 
 
+type URLConfiguration = string | { local: string } | { remote: string }
+
 // ------------------- Services -------------------
-type BaseServiceMetadata = ({ src: string, base?: string } | { url: string })
+type BaseServiceMetadata = ({ src: string, base?: string } | { url: URLConfiguration })
 
 
 type UserBuildCommand = string | ((info: { 
     name: string, 
     force: boolean,
     src: string,
-    out: string
+    base: string
 } ) => string) // e.g. could respond to platform or manually build the executable
 
 type ExtraServiceMetadata = {
@@ -81,16 +80,13 @@ type ExtraServiceMetadata = {
 type ExtraResolvedServiceMetadata = ExtraServiceMetadata & {
     build: ExtraServiceMetadata['build'] | {
         src: string,
-        out: string,
+        base: string,
     },
     __src?: string
 }
 
 type PublishedServiceMetadata = { 
-    publish?: Partial<UserService> & {
-        local?: Partial<UserService>,
-        remote?: Partial<UserService>,
-    }
+    publish?: any // Partial<UserService>
 }
 
 type GeneratedServiceMetadata = {

@@ -215,13 +215,9 @@ The following service structure would be used to handle this case:
 ```json
 {
     "src": "src/main.py",
+    "build": "python -m PyInstaller --name test --onedir --clean ./src/main.py --distpath ./dist/pyinstaller",
     "publish": {
-        "build": {
-            "mac": "python -m PyInstaller --name test --onedir --clean ./src/main.py --distpath ./dist/pyinstaller",
-        },
-        "local": {
-            "src": "./dist/pyinstaller/test/test"
-        }
+        "src": "./dist/pyinstaller/test/test"
     }
 }
 ```

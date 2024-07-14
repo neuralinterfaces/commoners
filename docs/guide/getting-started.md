@@ -143,15 +143,25 @@ const pythonServiceUrl = commoners.services.python.url
 Use the following code snippet and update the button behavior to fetch data from your services!
 
 ```js
-await Promise.all(Object.entries(commoners.services).map(([name, { url }]) => fetch(url).then(response => response.text()).then(text => `${name}: ${text}`)))
+const responses = await Promise.allSettled(Object.values(commoners.services).map(({ url }) => fetch(url).then(response => response.text())))
 ```
 
 ## Building for Production
+The general policy for service builds is that **service builds are deferred to the user**—unless you're building for Desktop. 
+
+In these cases, you'll have to build services using the following command:
+    
+```bash
+commoners build --service node --service tsNode
+```
+
 ### Services
 To configure your services for production, you'll have to follow language-specific instructions. 
 
 #### JavaScript / TypeScript
-JavaScript and TypeScript services are auto-bundled using [esbuild](https://esbuild.github.io). To package these for distribution and/or indicate they'll be hosted on a remote server, you'll add the following configuration:
+JavaScript and TypeScript services are auto-bundled using [esbuild](https://esbuild.github.io) and [pkg](https://www.npmjs.com/package/pkg). 
+
+To package these for distribution and/or indicate they'll be hosted on a remote server, you'll add the following configuration:
 
 ```js
 export default {
@@ -164,7 +174,10 @@ export default {
         // Advanced configuration
         tsNode: {
             src: './src/services/node.ts',
-            publish:' https://ts-node.example.com', // Always publish as a remote service
+            // url: undefined, // Removed on remote builds (web, mobile)
+            // url: 'https://ts-node.example.com', // Remote for all builds (web, mobile, desktop)
+            // url: { remote: 'https://ts-node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
+            url: { local: 'https://ts-node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
         }
     }
 }
@@ -178,22 +191,17 @@ export default {
     // ...
     services: {
 
-        // Full configuration
         python: {
             src: './src/services/python.py',
+            url: { remote: 'https://python.example.com' },
+
+            // The build command
+            build: 'python -m PyInstaller --name python-service --onedir --clean ./src/services/python.py --distpath ./build/python',
+
+            // What to include from the build
             publish: {
-
-                // Will run this command to build the service into a standalone executable
-                build: 'python -m PyInstaller --name python-service --onedir --clean ./src/services/python.py --distpath ./build/python-service',
-
-                // Consider a remote service for Web and Mobile
-                remote: 'https://python.example.com',
-
-                // Package into the application for Desktop
-                local: {
-                    src: 'python-service',
-                    base: './build/python/python-service',
-                }
+                base: './build/python/python-service', // The base directory to copy
+                src: 'python-service', // The relative source location in the base directory
             }
         }
     }

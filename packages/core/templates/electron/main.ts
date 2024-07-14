@@ -250,7 +250,8 @@ runPlugins(null, 'preload').then(() => {
     // Create all services as configured by the user / main build
     // NOTE: Services cannot be filtered in desktop mode   
     const { active } = await services.createAll(config.services, {
-      mode: isProduction ? 'local' : undefined,
+      target: 'desktop', 
+      build: isProduction,
       root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir
       onClosed: (id, code) => serviceSend(id, 'closed', code),
       onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),

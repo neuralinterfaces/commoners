@@ -76,14 +76,20 @@ cli.command('share [root] [build]', 'Share the application in the specified dire
 cli.command('build [root] [build]', 'Build the application in the specified directory', { ignoreOptionDefaultValue: true })
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
-.option('--no-services', 'Skip building the services')
-.option('--service <name>', 'Build specific service(s)')
+.option('--service <name>', 'Build service(s)', { default: 'all' })
 .option('--publish [type]', 'Publish the application', { default: 'always'})
 .option('--sign', 'Enable code signing (desktop target on Mac only)')
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, buildId, options) => {
+
+    // Adjust target
+    if (!options.target) {
+        if (options.service) options.services = options.service
+    } 
     
-    if (options.target !== 'services') preprocessTarget(options.target)
+    delete options.service
+
+    preprocessTarget(options.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,

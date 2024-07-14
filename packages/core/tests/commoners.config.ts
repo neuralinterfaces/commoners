@@ -25,34 +25,32 @@ const config = {
         express: { src: expressSource },
         manual: {
             src: expressSource,
+            
+            build: async function (info) { 
+
+                const fs = await import('node:fs')
+                const path = await import('node:path')
+
+                const filename = await this.package(info) 
+
+                // Write a file to the build directory
+                fs.appendFileSync(path.join(info.base, 'test.txt'), 'Hello world!')
+
+                return filename
+            },
+
             publish: {
-                build: async function (info) { 
-
-                    const fs = await import('node:fs')
-                    const path = await import('node:path')
-
-                    const filename = await this.package(info) 
-
-                    // Write a file to the build directory
-                    fs.appendFileSync(path.join(info.out, 'test.txt'), 'Hello world!')
-
-                    return filename
-                },
-                local: {
-                    src: 'manual',
-                    base: './build/manual'
-                }
+                src: 'manual',
+                base: './build/manual'
             }
         }
         // python: {
         //     description: 'A simple Python server',
         //     src: './src/services/python/main.py',
+        //     build: 'python -m PyInstaller --name flask --onedir --clean ./src/services/python/main.py --distpath ./build/python',
         //     publish: {
-        //         build: 'python -m PyInstaller --name flask --onedir --clean ./src/services/python/main.py --distpath ./build/python',
-        //         local: {
-        //             src: 'flask',
-        //             base: './build/python/flask', // Will be copied
-        //         }
+        //         src: 'flask',
+        //         base: './build/python/flask', // Will be copied
         //     }
         // },
     }

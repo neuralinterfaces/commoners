@@ -16,8 +16,7 @@ Build the project assets.
 - `--sign` - Enable code signing (`--target desktop` on Mac only). Will be automatically enabled with `--publish`
 
 #### Service Selection
-- `--no-services` - Skip building services
-- `--target services` - Build only the services
+- `--service [name]` - Build a specific service. Can use multiple times. Use `*` to build all services (`string`)
 
 ### commoners launch
 Launch your built application.

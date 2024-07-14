@@ -4,6 +4,10 @@ import { getFreePorts } from './utils/network.js';
 import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
+const globalWorkspacePath = '.commoners'
+const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
+const globalTempServiceWorkspacePath = join(globalWorkspacePath, '.temp.services')
+
 const jsExtensions = ['.js', '.cjs', '.mjs']
 
 const precompileExtensions = {
@@ -14,6 +18,8 @@ const precompileExtensions = {
 const autobuildExtensions = {
     node: [...jsExtensions, ...precompileExtensions.node.map(({ from }) => from)],
 }
+
+const isDesktop = (target) => target === 'desktop' || target === 'electron'
 
 // ------------------------------------ COPIED ---------------------------------------
 
@@ -35,15 +41,19 @@ let processes = {}
 
 const resolveConfig = (config) => typeof config === 'string' ? { src: config } : config
 
+const reconcileConfig = (config) => {
 
-const globalWorkspacePath = '.commoners'
-const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
-const globalTempServiceWorkspacePath = join(globalWorkspacePath, '.temp.services')
+  const { src } = config
 
-// Ensure source is detected as local for all conditions
-export const isLocal = (publishConfig) => !!(publishConfig.local || (!isValidURL(publishConfig.src) && !publishConfig.remote))
+  // Register url instead of source file
+  if (isValidURL(src)) {
+    config.url = src
+    delete config.src
+  }
 
-const isPublished = !process.env.VITE_DEV_SERVER_URL
+  return config
+
+}
 
 export async function resolveService (
   config = {}, 
@@ -53,22 +63,43 @@ export async function resolveService (
 
   const { 
     root, 
-    mode
+    target,
+    build,
+    services
   } = opts
 
   if (config.__resolved) return config // Return the configuration unchanged if no file or url
 
   const resolvedConfig = resolveConfig(config)
 
-  if (mode) {
+
+  reconcileConfig(resolvedConfig) // Register url instead of source file
+
+
+  // Use the URL to determine the appropriate build strategy
+  const publishMode = (isDesktop(target) || services) ? 'local' : 'remote'
+  const isLocalMode = publishMode === 'local'
+
+  const __src = join(root, resolvedConfig.src)
+  Object.assign(resolvedConfig, { __src })
+
+  if (build) {
     
-    const publishConfig = resolveConfig(resolvedConfig.publish) ?? {}
-    const internalConfig = resolveConfig(resolvedConfig.publish?.[mode]) ?? {} // Block service if mode is not available
+    const urlSrc = resolvedConfig.url?.[publishMode] ?? resolvedConfig.url ?? false
+    delete resolvedConfig.url
 
-    const __src = resolvedConfig.src
+    const configurations = [  { src: urlSrc } ]
 
-    const mergedConfig = Object.assign(Object.assign({ src: false}, publishConfig), internalConfig)
+    // Handle URL source specification
+    if (isLocalMode) {
+      if (isValidURL(urlSrc)) {
+        delete resolvedConfig.build // Avoid building if not included
+      }
+      else configurations.push(resolveConfig(resolvedConfig.publish) ?? {})
+    }
 
+    const mergedConfig = configurations.reduce((acc, config) => Object.assign(acc, config), { src: false })
+    
     const autoBuild = !mergedConfig.build && __src && autobuildExtensions.node.includes(extname(__src))
     if (autoBuild && mergedConfig.src === false) delete mergedConfig.src
     
@@ -77,68 +108,78 @@ export async function resolveService (
 
     // Define default build command
     if ( autoBuild ) {
-
       const outDir = relative(process.cwd(), join(root, globalServiceWorkspacePath))
-
-        const out = join(outDir, name)
-
-        resolvedConfig.build =  {
-          src: join(root, __src),
-          out
-        }
-
-        if (isLocal(publishConfig)) {
-          const src =  join(out, name)
-          resolvedConfig.src = isPublished ? relative(root, src) : src
-        }
-
+      resolvedConfig.build =  { src: name, outDir: join(outDir, name) } // Combine these to get the build path
     }
-
-    Object.assign(resolvedConfig, { __src: join(root, __src) })
-
-    delete resolvedConfig.publish
-    delete resolvedConfig.remote
   }
 
   let { src } = resolvedConfig
 
-  if (isValidURL(src)) {
-    resolvedConfig.url = src
-    delete resolvedConfig.src
-  }
+  reconcileConfig(resolvedConfig) // Assign the correct URL for this build
+  
+  if (!isValidURL(src)) {
+
+    if (build) {
+      if (!isLocalMode) return  // Reject the service if not a URL on Web / Mobile
+    } 
+    
+    else delete resolvedConfig.url
+
+   }
   
   if (!src) return resolvedConfig // Return the configuration unchanged if no file or url
 
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
-
-
+  
   // Remove or add extensions based on platform
   if (process.platform === 'win32') {
     if (!extname(src)) src += '.exe' // Add .exe (Win)
   }
   else if (extname(src) === '.exe') src = src.slice(0, -4) // Remove .exe (Unix)
 
-  // Correct for Electron build process
-  const extraResourcesPath = join(root.replace(`app.asar${sep}`, ''), src)
 
-  // Choose the resolved filepath
-  const filepath = resolvedConfig.filepath = existsSync(extraResourcesPath) ? resolve(extraResourcesPath) : join(root, src)
+  // Resolve the source filepath
+  if (!isValidURL(src)) {
 
-  // Correct for future autobundling (assets.ts)
-  const precompilationInfo = Object.values(precompileExtensions).flat().find(({ from }) => existsSync(getFilePath(filepath, from)))
+    const { outDir, src: outSrc } = resolvedConfig.build ?? {}
 
-  if (precompilationInfo) {
-    const relPath = relative(root, filepath)
-    const outDir = join(root, globalTempServiceWorkspacePath)
-    resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}${precompilationInfo.to}`)
-    resolvedConfig.compile = resolvedConfig.build ?? true // Pass the top-level build command (if it exists)
+    // Correct for Electron build process
+    const resolvedBase = (outDir ?? root).replace(`app.asar${sep}`, '')
+    const extraResourcesPath = outDir ? join(resolvedBase, outSrc ?? '') : join(resolvedBase, src) 
+
+    resolvedConfig.filepath = __src
+
+    if (build && isDesktop(target)) {
+      if (!existsSync(extraResourcesPath)) return // Reject service builds that can't be resolved
+      resolvedConfig.filepath = resolve(extraResourcesPath)
+    }
+
+    const { filepath } = resolvedConfig
+
+    // Resolve bundled JS / TS files (assets.ts)
+    const precompilationInfo = Object.values(precompileExtensions).flat().find(({ from }) => existsSync(getFilePath(filepath, from)))
+
+    if (precompilationInfo) {
+      const relPath = relative(root, filepath)
+      const outDir = join(root, globalTempServiceWorkspacePath)
+      console.log('GOT OUT DIR', outDir)
+      resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}${precompilationInfo.to}`)
+      resolvedConfig.compile = resolvedConfig.build ?? true // Pass the top-level build command (if it exists)
+    }
+
   }
 
   // Always create a URL for local services
-  if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
-  if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
-  if (!resolvedConfig.url) resolvedConfig.url = `http://localhost:${resolvedConfig.port}`
+  if (!resolvedConfig.url) {
+    if (!resolvedConfig.host)  resolvedConfig.host = 'localhost'
+    if (!resolvedConfig.port) resolvedConfig.port = (await getFreePorts(1))[0]
+    resolvedConfig.url = `http://${resolvedConfig.host}:${resolvedConfig.port}`
+  } else {
+    const url = new URL(resolvedConfig.url)
+    resolvedConfig.host = url.hostname
+    resolvedConfig.port = url.port
+  }
 
   resolvedConfig.src = src
 
@@ -154,6 +195,8 @@ export async function resolveService (
 export async function start (config, id, opts = {}) {
 
   config = await resolveService(config, id, opts)
+
+  if (!config) return
 
   const { src, filepath, build } = config
 
@@ -222,7 +265,7 @@ export async function start (config, id, opts = {}) {
       }
 
     } else {
-      console.warn(`Cannot create the ${id} service from a ${ext ?? 'executable'} file...`, error)
+      console.warn(`Cannot create the ${id} service from ${filepath}`, error)
     }
 
   }
@@ -273,7 +316,11 @@ export async function resolveAll (services = {}, opts) {
   const configs = Object.entries(services).map(([id, config]) =>  [id, (typeof config === 'string') ? { src: config } : config])
   const serviceInfo = {}
 
-  await Promise.all(configs.map(async ([id, config]) => serviceInfo[id] = await resolveService(config, id, opts))) // Run sidecars automatically based on the configuration file
+  await Promise.all(configs.map(async ([id, config]) => {
+    const service = await resolveService(config, id, opts)
+    if (!service) return
+    serviceInfo[id] = service
+  })) // Run sidecars automatically based on the configuration file
 
   return serviceInfo
 }

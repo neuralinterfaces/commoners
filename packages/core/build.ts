@@ -42,17 +42,15 @@ export default async function build (
 
     // ---------------- Custom Service Resolution ----------------
     const buildTarget = opts.build?.target ?? opts.target
+    const target = ensureTargetConsistent(buildTarget)
 
-    // `services` is a valid target in the build step
-    const target = buildTarget === 'services' ? buildTarget : ensureTargetConsistent(buildTarget)
+    const buildOpts = opts.build ?? {}
 
-    const { 
-        services: userRebuildServices = validDesktopTargets.includes(target),
-        publish,
-        sign,
-    } = opts.build ?? {}
+    let { services: userRebuildServices } = buildOpts
 
-    const onlyBuildServices = target === 'services' || (!buildTarget && userRebuildServices)
+    const {  publish, sign } = buildOpts
+
+    const servicesToUse = !buildTarget ? userRebuildServices : undefined
 
     // Setup cleanup commands for after desktop build
     const isElectronBuild = target === 'electron'
@@ -60,11 +58,12 @@ export default async function build (
     const isMobileBuild = isMobile(target)
 
     // ---------------- Proper Configuration Resolution ----------------
-    const rebuildServices = userRebuildServices || onlyBuildServices
-    
+    const buildOnlyServices = !!servicesToUse
+
     const resolvedConfig = await resolveConfig(opts, { 
-        services: isDesktopBuild ? undefined : rebuildServices, // Always maintain services for desktop builds
-        mode: devServices ? undefined : (isDesktopBuild || onlyBuildServices ? 'local' : 'remote') // If no local services, this is a production build of some sort
+        services: servicesToUse, // Always maintain services for desktop builds
+        target,
+        build: true
     })
 
     const { root } = resolvedConfig
@@ -74,9 +73,7 @@ export default async function build (
     let outDir = customOutDir ?? join(root, globalWorkspacePath, target) // From project base
     const selectedOutDir = customOutDir ?? join(globalWorkspacePath, target) // From selected root
 
-    if (
-        isElectronBuild || isMobileBuild
-    ) {
+    if (isDesktopBuild || isMobileBuild) {
         outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
         initialize(dirname(outDir)) // Clear temporary directories
     }
@@ -85,20 +82,18 @@ export default async function build (
 
     const name = resolvedConfig.name
 
-    console.log(`\n✊ Building ${chalk.bold(chalk.greenBright(name))} ${onlyBuildServices ? 'services' : `for ${target}`}\n`)
+    console.log(`\n✊ Building ${chalk.bold(chalk.greenBright(name))} ${buildOnlyServices ? 'services' : `for ${target}`}\n`)
 
     if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
-    const toRebuild = {
-        assets: !onlyBuildServices, // Rebuild frontend unless services are explicitly requested
-        services: !!rebuildServices // Must explicitly decide to build services (if not desktop build)
-    }
+    // Rebuild frontend unless services are explicitly requested
+    const toRebuild = { 
+        assets: !buildOnlyServices,
+        services: buildOnlyServices
+    } 
 
     // ---------------- Clear Previous Builds ----------------
-    if (toRebuild.services) {
-        await clear(join(globalWorkspacePath, 'services')) // Clear default service directory (not custom locations...)
-    }
-
+    if (isDesktopBuild)  await clear(join(globalWorkspacePath, 'services')) // Clear default service directory
     if (toRebuild.assets) await clear(outDir)
 
     // ---------------- Build Assets ----------------
@@ -109,9 +104,9 @@ export default async function build (
 
     // ---------------- Create Standard Output Files ----------------
     const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
-    configCopy.build = { ...opts.build, outDir }  
+    configCopy.build = { ...buildOpts, outDir }  
 
-    const assets = await buildAssets( configCopy, { services: toRebuild.services } )
+    const assets = await buildAssets( configCopy, toRebuild )
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)
@@ -122,7 +117,7 @@ export default async function build (
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
 
-        console.log(`\n👊 Packaging with ${chalk.bold(chalk.cyanBright('electron-builder'))}\n`)
+        console.log(`\n👊 Running ${chalk.bold(chalk.cyanBright('electron-builder'))}\n`)
 
         const cwdRelativeOutDir = relative(process.cwd(), outDir)
         const relativeOutDir = relative(root, cwdRelativeOutDir)
@@ -195,17 +190,17 @@ export default async function build (
             else buildConfig.electronVersion = electronVersion
         }
 
-        const buildOpts: CliOptions = { 
+        const electronBuilderOpts: CliOptions = { 
             config: buildConfig as any 
         }
 
-        if (root) buildOpts.projectDir = root
+        if (root) electronBuilderOpts.projectDir = root
         
 
-        if (publish) buildOpts.publish = typeof publish === 'string' ? publish : 'always'
+        if (publish) electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
         else delete buildConfig.publish
 
-        await ElectronBuilder(buildOpts)
+        await ElectronBuilder(electronBuilderOpts)
 
     }
 

@@ -4,7 +4,7 @@ import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
 import { dependencies, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent } from './globals.js'
-import { ModeType, ResolvedConfig, ResolvedService, ServiceCreationOptions, UserConfig } from './types.js'
+import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
@@ -139,17 +139,23 @@ export async function loadConfigFromFile(root: string = resolveConfigPath(), sel
 }
 
 type ResolveOptions = {
-    services?: string | string[] | boolean,
+    services?: string | string[],
     customPort?: number,
-    mode?: ModeType
+    target?: TargetType,
+    build?: boolean
 }
 
 export async function resolveConfig(
     o: UserConfig = {}, 
     { 
-        services = true, 
+        // Service Auto-Configuration
+        target,
+        build = false,
+
+        // Advanced Service Configuration
+        services, 
         customPort,
-        mode
+
     } : ResolveOptions = {}
 ) {
 
@@ -159,8 +165,6 @@ export async function resolveConfig(
     const { services: ogServices, plugins } = temp
     delete temp.plugins
     delete temp.services
-
-
 
     const userPkg = getJSON(join(root, 'package.json'))
 
@@ -186,14 +190,10 @@ export async function resolveConfig(
     // Always have a build options object
     if (!copy.build) copy.build = {}
 
-    const isServiceOptionBoolean = typeof services === 'boolean'
-    if (isServiceOptionBoolean && services === false) copy.services = undefined // Unset services (if set to false)
+    copy.services = await resolveAll(copy.services, { target, build, services: !!services, root: copy.root }) // Always resolve all backend services before going forward
 
-    copy.services = await resolveAll(copy.services, { mode, root: copy.root }) // Always resolve all backend services before going forward
-
-    // Remove unspecified services
-    if (services && !isServiceOptionBoolean) {
-
+    // Build a subset of services if specified
+    if (build && services) {
         const selected = typeof services === 'string' ? [ services ] : services
         const isSingleService = selected.length === 1
 
@@ -202,6 +202,7 @@ export async function resolveConfig(
             else if (isSingleService && customPort) copy.services[name].port = customPort
         }
     }
+
 
     return copy as ResolvedConfig
 }
