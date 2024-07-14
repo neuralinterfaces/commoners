@@ -113,6 +113,12 @@ export async function resolveService (
     }
   }
 
+  // Do not run build commands in development mode
+  else {
+    delete resolvedConfig.build
+  }
+  
+
   let { src } = resolvedConfig
 
   reconcileConfig(resolvedConfig) // Assign the correct URL for this build
@@ -125,7 +131,7 @@ export async function resolveService (
     
     else delete resolvedConfig.url
 
-   }
+  }
   
   if (!src) return resolvedConfig // Return the configuration unchanged if no file or url
 
@@ -163,7 +169,6 @@ export async function resolveService (
     if (precompilationInfo) {
       const relPath = relative(root, filepath)
       const outDir = join(root, globalTempServiceWorkspacePath)
-      console.log('GOT OUT DIR', outDir)
       resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}${precompilationInfo.to}`)
       resolvedConfig.compile = resolvedConfig.build ?? true // Pass the top-level build command (if it exists)
     }
