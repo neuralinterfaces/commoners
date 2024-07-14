@@ -156,10 +156,7 @@ export async function resolveService (
 
     resolvedConfig.filepath = __src
 
-    if (build && isDesktop(target)) {
-      if (!existsSync(extraResourcesPath)) return // Reject service builds that can't be resolved
-      resolvedConfig.filepath = resolve(extraResourcesPath)
-    }
+    if (build && isDesktop(target)) resolvedConfig.filepath = resolve(extraResourcesPath)
 
     const { filepath } = resolvedConfig
 

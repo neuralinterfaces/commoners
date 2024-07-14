@@ -78,7 +78,6 @@ export const packageFile = async (info: PackageInfo) => {
     const outName = build.src || name
 
     const tempOut = join(outDir, outName) + '.js'
-    console.log('Temp out', tempOut)
 
     const shouldBuild = mustBuild({
         outDir: outDir,
@@ -383,35 +382,42 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         const isDesktopBuild = isDesktop(target)
         if (isDesktopBuild && isValidURL(src)) continue // Skip remote services for desktop builds
 
+        // Build for production
+        if (build){
 
-        if (__src && ( isDesktopBuild || toBuild.services )) {
+            if (__src && ( isDesktopBuild || toBuild.services )) {
 
-            const output = await buildService(
-                { 
-                    src: __src, 
-                    build, 
-                    outDir: toCopy ? join(root, toCopy) : undefined
-                }, 
-                name, 
-                true // Always rebuild services
-            )
+                const output = await buildService(
+                    { 
+                        src: __src, 
+                        build, 
+                        outDir: toCopy ? join(root, toCopy) : undefined
+                    }, 
+                    name, 
+                    true // Always rebuild services
+                )
+                        
+                // Only auto-sign JavaScript files
+                if (typeof output === 'string') {
+
+                    if (existsSync(output)) assets.copy.push({ 
+                        input: output, 
+                        extraResource: true, 
+                        sign: true // jsExtensions.includes(extname(__src)) 
+                    })
                     
-            // Only auto-sign JavaScript files
-            if (typeof output === 'string') {
+                    else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
+                    
+                }
 
-                if (existsSync(output)) assets.copy.push({ 
-                    input: output, 
-                    extraResource: true, 
-                    sign: true // jsExtensions.includes(extname(__src)) 
-                })
-                
-                else console.error(`Could not resolve ${chalk.red(name)} source file: ${output}`)
-                
-            }
+            } 
+            
+        }
 
-        } 
-        
+        // Compile for development use
         else if (compile) assets.bundle.push({ input: join(root, src), output: filepath, force: true, compile })
+
+        
     }
 
     return assets
