@@ -3,7 +3,7 @@ import { isDesktop, rootDir } from "../globals.js"
 import { dirname, extname, join, parse, relative, isAbsolute, basename, resolve, normalize, sep, posix } from "node:path"
 
 import { isValidURL } from './url.js'
-import { copyAsset } from './copy.js'
+import { copyAsset, copyAssetOld } from './copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
@@ -54,8 +54,14 @@ const mustBuild = ({ name, outDir, force }) => {
     return true
 }
 
+const getBuildDir = (outDir: string) => join(resolve(outDir), 'assets')
 
-export const getAssetBuildPath = (assetPath: string, outDir: string) => join(resolve(outDir), 'assets', encodePath(assetPath))
+
+export const getAssetBuildPath = (assetPath: string, outDir: string) => {
+    const inputToCompare = assetPath.replaceAll(sep, posix.sep)    
+    if (inputToCompare === 'commoners.config.cjs') return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
+    return join(getBuildDir(outDir), encodePath(assetPath))
+}
 
 export const getAssetLinkPath = (
     path, 
@@ -459,11 +465,14 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         const isObject = typeof info === 'object'
         const file = isObject ? info.input : info
 
-        const output: AssetOutput = { file: copyAsset(file, getAssetBuildPath(file, outDir)) }
+        const extraResource = isObject ? info.extraResource : false
+
+        // Ensure extra resources are copied to the output directory
+        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, getAssetBuildPath(file, outDir)) } 
 
         // Handle extra resources
         if (isObject) {
-            output.extraResource = info.extraResource
+            output.extraResource = extraResource
             output.sign = info.sign
         }
         

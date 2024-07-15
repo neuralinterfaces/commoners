@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { basename, extname, resolve } from 'node:path';
+import { basename, extname, posix, resolve, sep } from 'node:path';
 import { c } from 'vitest/dist/reporters-5f784f42.js';
 
 // Generate a session-specific random seed
@@ -27,9 +27,6 @@ export function encode(inputPath, length) {
 }
 
 export const encodePath = (input: string) => {
-
-  if (input === 'commoners.config.cjs') return 'commoners.config.cjs' // Ensure consistently resolved by Electron
-
   input = resolve(input) // Resolve to absolute path
   const ext = extname(input)
   return `${basename(input, ext)}-${encode(input, 16)}${ext}`
