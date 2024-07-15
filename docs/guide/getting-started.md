@@ -42,7 +42,7 @@ For example, you can add the following to your `commoners.config.js` file to cus
 ```js
 export default {
     name: 'My App',
-    icon: './assets/icon.png',
+    icon: './assets/vite.png', // Manually converted from public/vite.svg
 }
 ```
 
@@ -72,6 +72,10 @@ export default {
 
 We currently support JavaScript, TypeScript, and Python services.
 
+1. **JavaScript / TypeScript**: Reference a `.js` or `.ts` file to run using [Node.js](https://nodejs.org).
+2. **Python**: Reference a `.py` file to run using [Python](https://www.python.org).
+    - Ensure that you're running a virtual environment with the necessary dependencies. We recommend using [miniconda](https://docs.conda.io/en/latest/miniconda.html) and distributing an `environment.yml` file with your project.
+    
 For all services, you'll want to ensure that CORS is enabled to support communication between the service and the application.
 
 ### Example Services
@@ -140,7 +144,7 @@ const pythonServiceUrl = commoners.services.python.url
 ```
 
 
-Use the following code snippet and update the button behavior to fetch data from your services!
+Use the following code snippet and update the button to fetch data from your services!
 
 ```js
 const responses = await Promise.allSettled(Object.values(commoners.services).map(({ url }) => fetch(url).then(response => response.text())))
@@ -184,7 +188,7 @@ export default {
 ```
 
 #### Python
-For Python services, you'll to specify a terminal command that will bundle the service into an executable file. We recommend using `pyinstaller` for this purpose.
+For Python services, you'll to specify a terminal command that will bundle the service into a standalone executable file. We recommend using `pyinstaller` for this purpose.
 
 ```js
 export default {
