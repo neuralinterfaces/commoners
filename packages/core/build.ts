@@ -59,7 +59,6 @@ export default async function build (
 
     // ---------------- Proper Configuration Resolution ----------------
     const buildOnlyServices = !!servicesToUse
-    console.log('Building', servicesToUse, buildTarget, userRebuildServices)
 
     const resolvedConfig = await resolveConfig(opts, { 
         services: servicesToUse, // Always maintain services for desktop builds

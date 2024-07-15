@@ -252,9 +252,8 @@ type ExposedServices = {
 
 type ExposedDesktopServices = {
     [x:string]: ExposedService & {
-        onActivityDetected: () => void,
+        onActive: () => void,
         onClosed: () => void,
-        status: null | boolean
     }
 }
 

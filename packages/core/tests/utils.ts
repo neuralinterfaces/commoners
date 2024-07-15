@@ -55,7 +55,7 @@ const e2eTests = {
                     if (normalizedTarget === 'desktop') {
                       expect(typeof services[name].filepath).toBe('string');
                       expect(services[name].status).toBe(true)
-                      expect(services[name].onActivityDetected).instanceOf(Object) // Function
+                      expect(services[name].onActive).instanceOf(Object) // Function
                       expect(services[name].onClosed).instanceOf(Object)  // Function
                     }
                   })

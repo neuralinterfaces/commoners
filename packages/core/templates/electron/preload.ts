@@ -19,7 +19,9 @@ const TEMP_COMMONERS = {
 for (let id in TEMP_COMMONERS.services) {
     const service = TEMP_COMMONERS.services[id]
 
-    service.status = ipcRenderer.sendSync(`services:${id}:status`)
+    const serviceStates = {
+        status: ipcRenderer.sendSync(`services:${id}:status`)
+    }
 
     const listeners = {
         active: [],
@@ -29,26 +31,38 @@ for (let id in TEMP_COMMONERS.services) {
     }
 
     ipcRenderer.on(`services:${id}:log`, (_) => {
-      if (service.status) return
-      service.status = true
+      if (serviceStates.status) return
+      serviceStates.status = true
       listeners.active.forEach(f => f())
-      listeners.active = []
     })
 
     ipcRenderer.on(`services:${id}:closed`, (_, code) => {
-      if (service.status === false) return
-      service.status = false
+      if (serviceStates.status === false) return
+      serviceStates.status = false
       listeners.closed.forEach(f => f(code))
-      listeners.closed = []
     })
 
-    service.onActivityDetected = (listener) => {
-      if (service.status) listener()
-      listeners.active.push(listener)
+    // ---------------- Assign Functions ----------------
+    service.onActive = async (listener) => {
+
+      if (serviceStates.status) await listener()
+
+      return new Promise((promiseResolver, reject) => {
+        
+        const updatedCallback = async () => {
+          try {
+            promiseResolver(await listener())
+          } catch (e) {
+            reject(e)
+          }
+        }
+
+        listeners.active.push(updatedCallback)
+      })
     }
 
     service.onClosed = (listener) => {
-      if (service.status === false) listener()
+      if (serviceStates.status === false) listener()
       listeners.closed.push(listener)
     }
 
