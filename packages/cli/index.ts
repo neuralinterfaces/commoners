@@ -82,12 +82,7 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
 
-    // Adjust target
-    if (!options.target) {
-        if (options.service) options.services = options.service
-    } 
-    
-    delete options.service
+    const buildOnlyServices = !options.target && options.service
 
     preprocessTarget(options.target)
 
@@ -95,6 +90,14 @@ cli.command('build [root]', 'Build the application in the specified directory', 
         root,
         config: options.config
     }))
+
+    // Ensure services are built only
+    if (buildOnlyServices) {
+        delete config.target
+        options.services = options.service
+    }
+
+    delete options.service
 
     if (!config) return
 
@@ -114,7 +117,7 @@ cli.command('[root]', 'Start the application in the specified directory', { igno
 .option('--root <path>', 'Specify the root directory of the project')
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
-    
+
     preprocessTarget(options.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
