@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { isDesktop, rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute, basename, resolve, normalize, sep, posix } from "node:path"
+import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset, copyAssetOld } from './copy.js'
@@ -43,6 +43,9 @@ type AssetsCollection = {
 
 const bundleExtensions = [ '.ts' ]
 const jsExtensions = ['.js', '.mjs', '.cjs', ...bundleExtensions]
+
+
+const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
 
 
 // Intelligently build service only if it hasn't been built yet (unless forced)
@@ -247,7 +250,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         // Copy Icons
         if (resolvedConfig.icon) {
             const icons = (typeof resolvedConfig.icon === 'string') ? [ resolvedConfig.icon ] : Object.values(resolvedConfig.icon)
-            assets.copy.push(...icons.map(icon => join(root, icon)) as string[])
+            assets.copy.push(...icons.map(icon => getAbsolutePath(root, icon)) as string[])
         }
 
 
@@ -256,14 +259,14 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     if (isElectronTarget) {
 
         // Copy .env file if it exists
-        const envPath = join(root, '.env')
+        const envPath = getAbsolutePath(root, '.env')
         if (existsSync(envPath)) assets.copy.push(envPath)
 
         // Bundle Splash Page
         const splashPath = resolvedConfig.electron.splash
         if (splashPath) {
             assets.bundle.push({
-                input: join(root, splashPath),
+                input: getAbsolutePath(root, splashPath),
                 output: splashPath
             })
         }
@@ -292,7 +295,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                     { 
                         src: __src, 
                         build, 
-                        outDir: toCopy ? join(root, toCopy) : undefined,
+                        outDir: toCopy ? getAbsolutePath(root, toCopy) : undefined,
                         root
                     }, 
                     name, 
@@ -317,7 +320,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         }
 
         // Compile for development use
-        else if (compile) assets.bundle.push({ input: join(root, src), output: filepath, force: true, compile })
+        else if (compile) assets.bundle.push({ input: getAbsolutePath(root, src), output: filepath, force: true, compile })
 
         
     }
@@ -374,7 +377,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     
             const ext = extname(input)
     
-            const absPath = isAbsolute(input) ? input : join(root, input)
+            const absPath = getAbsolutePath(root, input)
 
             // NOTE: Output is always taken literally
             const outPath = typeof output === 'string' ? (force ? output : getAssetBuildPath(output, outDir)) : getAssetBuildPath(absPath, outDir)

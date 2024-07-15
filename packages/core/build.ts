@@ -1,4 +1,4 @@
-import path, { dirname, join, relative, resolve } from "node:path"
+import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
@@ -165,7 +165,7 @@ export default async function build (
         // TODO: Get platform-specific icon
         const rawIconSrc = getIcon(resolvedConfig.icon)
         if (rawIconSrc) {
-            const defaultIcon = join(root, rawIconSrc)
+            const defaultIcon = isAbsolute(rawIconSrc) ? rawIconSrc : join(root, rawIconSrc)
             const macIcon = defaultIcon ? getAssetBuildPath(defaultIcon, outDir) : defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
             buildConfig.mac.icon = macIcon 
             buildConfig.win.icon = macIcon // icon && typeof icon === 'object' && 'win' in icon ? icon.win : defaultIcon

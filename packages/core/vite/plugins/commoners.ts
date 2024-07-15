@@ -59,11 +59,6 @@ export default ({
                 ${faviconLink}
                 <script type="module">
 
-                // Directly import the plugins from the transpiled configuration object
-                import COMMONERS_CONFIG from "${getAssetLinkPath('commoners.config.mjs', outDir, relTo)}"
-
-                const { plugins } = COMMONERS_CONFIG
-
                 // Set global variable
                 const { 
                     services, 
@@ -77,7 +72,6 @@ export default ({
                 if (quit) globalThis.commoners.quit = quit
                 if (electron) globalThis.commoners.electron = electron
 
-                if (plugins) globalThis.commoners.__plugins = plugins
                 if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
 
                 commoners.ready = new Promise(res => {

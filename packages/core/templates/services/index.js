@@ -1,4 +1,4 @@
-import { basename, dirname, extname, join, parse, relative, resolve, sep } from "node:path"
+import { basename, isAbsolute, dirname, extname, join, parse, relative, resolve, sep } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn, fork } from 'node:child_process';
@@ -79,8 +79,10 @@ export async function resolveService (
   // Use the URL to determine the appropriate build strategy
   const publishMode = (isDesktop(target) || services) ? 'local' : 'remote'
   const isLocalMode = publishMode === 'local'
+  
 
-  const __src = join(root, resolvedConfig.src)
+  const ogSrc = resolvedConfig.src
+  const __src = isAbsolute(ogSrc) ? ogSrc : join(root, ogSrc)
   Object.assign(resolvedConfig, { __src })
 
   if (build) {
