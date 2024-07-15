@@ -1,20 +1,11 @@
 
-import { normalize, posix, extname, relative, sep, join } from 'node:path'
+import { extname, resolve } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 import { normalizeTarget } from '../../globals.js'
 
-import { safeJoin } from '../../utils/index.js'
+import { getAssetLinkPath } from '../../utils/assets.js'
 
 const headStartTag = '<head>'
-
-const assetPath = (path, outDir, isBuild) => {
-    let outPath = normalize(safeJoin(isBuild ? '' : outDir, path))
-    if (!(outPath[0] === sep)) outPath = sep + outPath
-
-    if (!(outPath[0] === '.')) outPath = '.' + outPath
-
-    return outPath.replaceAll(sep, posix.sep)
-}
 
 export default ({ 
     config, 
@@ -23,17 +14,20 @@ export default ({
     target,
     dev
 }) => {
-    const orginalBase = normalize(config.vite?.base ?? '/').replaceAll(sep, posix.sep)
+    
+    // const orginalBase = normalize(config.vite?.base ?? '/').replaceAll(sep, posix.sep)
 
-    const base = orginalBase[0] === posix.sep ? orginalBase.slice(1) : orginalBase
-    const nToAdjust = base.split(posix.sep).length - 1
+    // const base = orginalBase[0] === posix.sep ? orginalBase.slice(1) : orginalBase
+    // const nToAdjust = base.split(posix.sep).length - 1
 
-    const icon = getIcon(config.icon)
+    // outDir = (config.root ? relative(config.root, outDir) : outDir) // outDir should be relative to the root
+    // if (nToAdjust) outDir = [...Array.from({length: nToAdjust}, () => '..'), ...outDir.split(posix.sep)].join(posix.sep)
+    
+    const root = config.root
 
-    outDir = (config.root ? relative(config.root, outDir) : outDir) // outDir should be relative to the root
-
-    if (nToAdjust) outDir = [...Array.from({length: nToAdjust}, () => '..'), ...outDir.split(posix.sep)].join(posix.sep)
-
+    
+    const relTo = build ? outDir : root
+    
     const propsToInclude = [ 'url' ]
     const services = {} 
     Object.entries(config.services).forEach(([id, sInfo]) => {
@@ -41,7 +35,8 @@ export default ({
       propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
     })
 
-    const iconPath = assetPath(icon, outDir, build)
+    const rawIconSrc = getIcon(config.icon)
+    const iconPath = rawIconSrc ? getAssetLinkPath(resolve(root, rawIconSrc), outDir, relTo) : null
 
     const globalObject = {
         name: config.name,
@@ -52,7 +47,7 @@ export default ({
         dev
     }
 
-    const faviconLink = icon ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(icon).slice(1)}" >` : ''
+    const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
     
     return {
         name: 'commoners',
@@ -65,7 +60,7 @@ export default ({
                 <script type="module">
 
                 // Directly import the plugins from the transpiled configuration object
-                import COMMONERS_CONFIG from "${assetPath('commoners.config.mjs', outDir, build)}"
+                import COMMONERS_CONFIG from "${getAssetLinkPath('commoners.config.mjs', outDir, relTo)}"
 
                 const { plugins } = COMMONERS_CONFIG
 
@@ -96,7 +91,7 @@ export default ({
                     commoners.__ready = res
                 })    
 
-                import("${assetPath('onload.mjs', outDir, build)}")
+                import("${getAssetLinkPath('onload.mjs', outDir, relTo)}")
 
             </script>\n
             `

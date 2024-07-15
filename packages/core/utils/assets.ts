@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { isDesktop, rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute, sep } from "node:path"
+import { dirname, extname, join, parse, relative, isAbsolute, basename, resolve, normalize, sep, posix } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset } from './copy.js'
@@ -15,6 +15,8 @@ import pkg from 'pkg'
 import { spawnProcess } from './processes.js'
 import chalk from "chalk"
 import { execSync } from "node:child_process"
+
+import { encodePath } from "./encode.js"
 
 type AssetMetadata = {
     extraResource?: boolean,
@@ -41,7 +43,8 @@ type AssetsCollection = {
 
 const bundleExtensions = [ '.ts' ]
 const jsExtensions = ['.js', '.mjs', '.cjs', ...bundleExtensions]
- 
+
+
 // Intelligently build service only if it hasn't been built yet (unless forced)
 const mustBuild = ({ name, outDir, force }) => {
     const hasBeenBuilt = existsSync(outDir)
@@ -50,6 +53,26 @@ const mustBuild = ({ name, outDir, force }) => {
     console.log(`\n👊 Packaging ${chalk.bold(name)} service\n`)
     return true
 }
+
+
+export const getAssetBuildPath = (assetPath: string, outDir: string) => join(resolve(outDir), 'assets', encodePath(assetPath))
+
+export const getAssetLinkPath = (
+    path, 
+    outDir, 
+    root = outDir
+) => {
+
+    // Get the absolute path of the asset
+    const absOutPath = getAssetBuildPath(path, outDir)
+
+    // Get the relative path of the asset
+    let outPath = normalize(relative(resolve(root), absOutPath))
+    if (!(outPath[0] === sep)) outPath = sep + outPath
+    if (!(outPath[0] === '.')) outPath = '.' + outPath
+    return outPath.replaceAll(sep, posix.sep)
+}
+
 
 
 type PackageInfo = {
@@ -128,6 +151,9 @@ async function buildService(
 ){
 
     if (!build) return null
+
+
+    outDir = resolve(outDir)
     
     // Check Auto Builds
     if (build && typeof build === 'object') {
@@ -199,144 +225,11 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
     if (toBuild.assets !== false) {
 
-
-        if (config.__root) {
-
-                const multiBuildConfig = {
-                    'ROOT': {
-                        file: 'commoners.root',
-                        input: config.__root
-                    },
-                    'EXTENSION': {
-                        file: 'commoners.extension',
-                        input: configPath
-                    }
-                }
-
-
-                const mergeCode = {
-
-                    // On the backend (e.g. Electron), the properties handled will be identical to the raw configuration files
-                    cjs:  {
-                        imports: `const { join, relative } = require('path')\nconst { existsSync } = require('fs')`,
-                        text: `
-                        const isObject = (o) => o && typeof o === "object" && !Array.isArray(o);
-    
-                        const transform = (path, value) => {
-                            
-                            if (path[0] === 'builds') return undefined
-    
-                            if (value && typeof value === 'string') {
-                                const CWD = "${process.cwd()}"
-                                if (existsSync(value))  {
-                                    const configPath = "${dirname(configPath)}"
-                                    const rel = relative(configPath, join(CWD, value))
-                                    return rel
-                                }
-                            }
-                            
-                            // Provide original value
-                            return value
-                        }
-    
-                        const merge = (toMerge = {}, target = {}, _path = []) => {
-    
-                            for (const [k, v] of Object.entries(toMerge)) {
-                                const targetV = target[k];
-                                const updatedPath = [..._path, k];
-                                const updatedV = transform(updatedPath, v);
-    
-                                if (Array.isArray(updatedV) && Array.isArray(targetV)) target[k] = [...targetV, ...updatedV];
-                                else if (isObject(updatedV) || isObject(targetV)) target[k] = merge(v, target[k], updatedPath);
-                                else target[k] = updatedV; // Replace primitive values
-                            }
-                        
-                            return target;
-                        }
-        
-                        const transposedConfig = merge(COMMONERS_ROOT, {})
-                        return merge(COMMONERS_EXTENSION, transposedConfig)
-                    `
-                    },
-
-                    // On the browser, the properties handled will be sanitized
-                    mjs: {
-                        imports: '',
-                        text: ` 
-                        const isObject = (o) => o && typeof o === "object" && !Array.isArray(o);
-    
-                        const merge = (toMerge = {}, target = {}) => {
-
-                            for (const [k, v] of Object.entries(toMerge)) {
-                                const targetV = target[k];    
-                                if (Array.isArray(v) && Array.isArray(targetV)) target[k] = [...targetV, ...v];
-                                else if (isObject(v) || isObject(targetV)) target[k] = merge(v, target[k]);
-                                else target[k] = v; // Replace primitive values
-                            }
-                        
-                            return target;
-                        }
-    
-    
-                        const transposedConfig = merge(COMMONERS_ROOT, {})
-                        return merge(COMMONERS_EXTENSION, transposedConfig)
-                        `
-                    }
-                }
-
-
-                // Ensure that the configuration file is built
-
-                const mutualImports = {
-                    mjs: Object.entries(multiBuildConfig).map(([id, { file }]) => `import COMMONERS_${id} from './${file}.mjs'`).join('\n'),
-                    cjs: Object.entries(multiBuildConfig).map(([id, { file }]) => `const COMMONERS_${id} = require('./${file}.cjs').default`).join('\n')
-                }
-
-
-                // Build both files
-                assets.bundle.push(...configExtensionTargets.map(ext => {
-                    return Object.values(multiBuildConfig).map(({ file, input }) => {
-                        return { input, output: `${file}.${ext}` }
-                    })
-                }).flat())
-
-
-                // Link all files together in a master file
-                assets.bundle.push(...configExtensionTargets.map(ext => { 
-                    if (ext === 'cjs') {
-                        return { 
-                            text: `
-                            ${mergeCode.cjs.imports}\n
-                            ${mutualImports.cjs}\n
-                            module.exports = {
-                                default: (() => { ${mergeCode.cjs.text} })()
-                            }
-                            `, 
-                            output: `commoners.config.${ext}` 
-                        }
-                    } else {
-                        return { 
-                            text: `
-                            ${mergeCode.mjs.imports}\n
-                            ${mutualImports.mjs}\n
-                            export default (() => { ${mergeCode.mjs.text} })()
-                            `, 
-                            output: `commoners.config.${ext}` 
-                        }
-                    }
-
-                }))
-
-        } else {
-
-            // Create Config
-            assets.bundle.push(...configExtensionTargets.map(ext => { return configPath ? {
-                input: configPath,
-                output: `commoners.config.${ext}`
-            } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } }))
-
-        }
-
+        // Create Config
+        assets.bundle.push(...configExtensionTargets.map(ext => { return configPath ? {
+            input: configPath,
+            output: `commoners.config.${ext}`
+        } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } }))
 
         // Bundle onload script for the browser
         assets.bundle.push({
@@ -348,8 +241,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         // Copy Icons
         if (resolvedConfig.icon) {
             const icons = (typeof resolvedConfig.icon === 'string') ? [ resolvedConfig.icon ] : Object.values(resolvedConfig.icon)
-            const transformedIcons = icons.map(icon => isAbsolute(icon) ? icon : join(root, icon))
-            assets.copy.push(...transformedIcons as string[])
+            assets.copy.push(...icons.map(icon => join(root, icon)) as string[])
         }
 
 
@@ -476,11 +368,10 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     
             const ext = extname(input)
     
+            const absPath = isAbsolute(input) ? input : join(root, input)
+
             // NOTE: Output is always taken literally
-            const outPath = typeof output === 'string' ? (force ? output : join(outDir, output)) : (() => {
-                const relPath = isAbsolute(input) ? relative(root, input) : input
-                return join(outDir, relPath)
-            })()
+            const outPath = typeof output === 'string' ? (force ? output : getAssetBuildPath(output, outDir)) : getAssetBuildPath(absPath, outDir)
     
             const fileRoot =  dirname(input)
 
@@ -567,7 +458,8 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     assets.copy.map(info => {
         const isObject = typeof info === 'object'
         const file = isObject ? info.input : info
-        const output: AssetOutput = { file: copyAsset(file, { outDir, root }) }
+
+        const output: AssetOutput = { file: copyAsset(file, getAssetBuildPath(file, outDir)) }
 
         // Handle extra resources
         if (isObject) {

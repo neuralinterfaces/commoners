@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the Bluetooth plugin to allow for matching Bluetooth devices by name without manual user selection
 - Simplified the Capacitor peer dependency management by requiring users to handle the installation themselves
 - Fixed building for mobile without plugins
+- Update service configuration to allow for more uniform service definitions
+- Removed `[build]` argument option to avoid inconsistent behavior when running outside of your project root
+- Dynamically encode asset paths to avoid issues with `.commoners/assets` scoping when including assets outside the project root
 
 ## [0.0.47]
 ### Changed

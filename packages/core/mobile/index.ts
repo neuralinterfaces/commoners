@@ -5,14 +5,14 @@ import * as assets from './assets.js'
 
 import chalk from 'chalk'
 
-import { join, resolve as resolvePath } from "node:path"
+import { resolve, resolve as resolvePath } from "node:path"
 import plist from 'plist'
 import { ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
-const getRequireForRoot = (root) => createRequire(join(root, 'package.json'))
+const getRequireForRoot = (root) => createRequire(resolve(root, 'package.json'))
 
 const configName = 'capacitor.config.json'
 
@@ -174,7 +174,7 @@ export const checkDepsInstalled = (platform, config: ResolvedConfig) => {
 
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
-
+    
     checkDepsInstalled(target, config)
 
     console.log(`\n👊 Running ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)

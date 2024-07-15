@@ -1,7 +1,5 @@
 import { copyFileSync, mkdirSync, lstatSync, cpSync } from "node:fs"
-import { basename, dirname, relative, sep } from "node:path"
-
-import { safeJoin } from './index'
+import { dirname, relative, sep } from "node:path"
 
 // NOTE: This should also correct any targeting of this asset as well...
 export const getOutputPath = (root, absPath) => {
@@ -11,17 +9,7 @@ export const getOutputPath = (root, absPath) => {
     return absPath
 }
 
-export const copyAsset = (input, { outDir, root }, maintainStructure = true) => {
-
-    let tempInputRef = input
-    if (maintainStructure) {
-        const _input = relative(root, input)
-        if (!_input.includes(`..${sep}`)) tempInputRef = _input // Map only if inside the root directory
-    }
-    
-    else tempInputRef = basename(input)
-
-    const output = safeJoin(outDir, tempInputRef)
+export const copyAsset = (input, output) => {
 
     const out = dirname(output)
     

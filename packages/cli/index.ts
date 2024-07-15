@@ -50,11 +50,11 @@ cli.command('launch [outDir]', 'Launch your build application in the specified d
 })
 
 // Share services 
-cli.command('share [root] [build]', 'Share the application in the specified directory')
+cli.command('share [root]', 'Share the application in the specified directory')
 .option('--service <name>', 'Share specific service(s)')
 .option('--port <number>', 'Choose a port to share your services at')
 .option('--config <path>', 'Specify a configuration file')
-.action(async (root, buildId, options) => {
+.action(async (root, options) => {
     
     const sharePort = options.port || process.env.COMMONERS_SHARE_PORT
     const customPort = process.env.PORT ? parseInt(process.env.PORT) : undefined
@@ -62,7 +62,7 @@ cli.command('share [root] [build]', 'Share the application in the specified dire
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
         config: options.config
-    }), buildId)
+    }))
 
     if (!config) return
 
@@ -73,14 +73,14 @@ cli.command('share [root] [build]', 'Share the application in the specified dire
 })
 
 // Build the application using the specified settings
-cli.command('build [root] [build]', 'Build the application in the specified directory', { ignoreOptionDefaultValue: true })
+cli.command('build [root]', 'Build the application in the specified directory', { ignoreOptionDefaultValue: true })
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
 .option('--service <name>', 'Build service(s)', { default: 'all' })
 .option('--publish [type]', 'Publish the application', { default: 'always'})
 .option('--sign', 'Enable code signing (desktop target on Mac only)')
 .option('--config <path>', 'Specify a configuration file')
-.action(async (root, buildId, options) => {
+.action(async (root, options) => {
 
     // Adjust target
     if (!options.target) {
@@ -94,7 +94,7 @@ cli.command('build [root] [build]', 'Build the application in the specified dire
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
         config: options.config
-    }), buildId)
+    }))
 
     if (!config) return
 
@@ -105,7 +105,7 @@ cli.command('build [root] [build]', 'Build the application in the specified dire
 })
 
 // Start the application in development mode
-cli.command('[root] [build]', 'Start the application in the specified directory', { ignoreOptionDefaultValue: true })
+cli.command('[root]', 'Start the application in the specified directory', { ignoreOptionDefaultValue: true })
 .alias('start')
 .alias('dev')
 .alias('run')
@@ -113,13 +113,14 @@ cli.command('[root] [build]', 'Start the application in the specified directory'
 .option('--port <number>', 'Choose a target port (single service only)')
 .option('--root <path>', 'Specify the root directory of the project')
 .option('--config <path>', 'Specify a configuration file')
-.action(async (root, buildId, options) => {
+.action(async (root, options) => {
+    
     preprocessTarget(options.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
         config: options.config
-    }), buildId)
+    }))
 
     if (!config) return
 

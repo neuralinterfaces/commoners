@@ -80,7 +80,7 @@ const platform = process.platform === 'win32' ? 'windows' : (process.platform ==
 if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .env file in production
 
 // Get the Commoners configuration file
-const configPath = join(__dirname, 'commoners.config.cjs') // Load the .cjs config version
+const configPath = join(__dirname, 'assets', 'commoners.config.cjs') // Load the .cjs config version
 
 // --------------- App Window Management ---------------
 function restoreWindow() {

@@ -12,7 +12,7 @@ import { join } from "node:path";
 export default async function ( opts: UserConfig = {} ) {
 
         const { port } = opts
-
+    
         const resolvedConfig = await resolveConfig(opts, { customPort: port });
         
         const { target, name, root } = resolvedConfig
@@ -39,9 +39,7 @@ export default async function ( opts: UserConfig = {} ) {
 
 
         // Build for mobile before moving forward
-        if (isMobileTarget) {
-            await build(resolvedConfig, { services: resolvedServices, dev: true })
-        }
+        if (isMobileTarget) await build(resolvedConfig, { services: resolvedServices, dev: true })
 
         // Manually clear and build the output assets
         else {

@@ -3,7 +3,7 @@ import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent } from './globals.js'
+import { dependencies, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 
 import { resolveAll, createAll } from './templates/services/index.js'
@@ -26,7 +26,7 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
 
-export async function loadConfigFromFile(root: string = resolveConfigPath(), selectedBuild?: string) {
+export async function loadConfigFromFile(root: string = resolveConfigPath()) {
 
     const rootExists = existsSync(root)
 
@@ -35,14 +35,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath(), sel
         if (!isDirectory(root)) root = dirname(root) // Get the parent directory
     }
     
-    else {
-        if (selectedBuild) {
-            console.error(`${chalk.red(root)} does not exist in the ${chalk.bold(process.cwd())} directory.`)
-            return
-        }
-        selectedBuild = root
-        root = process.cwd()
-    }
+    else root = process.cwd()
     
 
     const configPath = resolveConfigPath(
@@ -81,51 +74,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath(), sel
         await writeFileSync(fileNameTmp, text)
 
         try {
-
             config = (await import(fileUrl)).default as UserConfig
-
-            if (selectedBuild) {
-
-                if (selectedBuild in (config.builds ?? {})) {
-                    const originalRoot = root
-                    const subRootPath = config.builds[selectedBuild]
-                    const newRoot = join(originalRoot, subRootPath) // Resolved based on original root
-
-                    if (!existsSync(newRoot)){
-                        console.error(`The subroot ${chalk.red(subRootPath)} is does not exist for the ${chalk.bold(selectedBuild)} build.`)
-                        return
-                    }
-
-                    const subConfig = await loadConfigFromFile(subRootPath)
-                    root = newRoot
-
-                    const transposedConfig = merge(config, {}, {
-                        transform: (path, value) => {
-                            if (path[0] === 'builds') return undefined
-                            
-                            if (value && typeof value === 'string') {
-                                const resolved = join(originalRoot, value)
-                                // Relink resolved files from the base root to the sub-root
-                                if (existsSync(resolved)) return relative(root, join(originalRoot, value))
-                            }
-                            
-                            // Provide original value
-                            return value
-                        }
-                    })
-
-                    config = merge(subConfig, transposedConfig, { arrays: true }) as UserConfig // Merge sub-config with base config
-
-                    const rootConfigPath = resolveConfigPath(process.cwd())
-                    config.__root = rootConfigPath
-                } 
-                
-                else {
-                    console.error(`The ${chalk.red(selectedBuild)} build does not exist in the current project`)
-                    return
-                }
-            }
-
         } finally {
             unlink(fileNameTmp, () => { }) // Ignore errors
         }
@@ -158,6 +107,14 @@ export async function resolveConfig(
 
     } : ResolveOptions = {}
 ) {
+
+    const initialTarget = target ?? ensureTargetConsistent(o.target, ['services'])
+
+    // Mobile commands must always run from the root of the specified project
+    if (isMobile(initialTarget) && o.root) {
+        process.chdir(o.root)
+        delete o.root
+    }
 
     const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
 

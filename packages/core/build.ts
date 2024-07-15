@@ -7,7 +7,7 @@ import * as mobile from './mobile/index.js'
 import { CliOptions, build as ElectronBuilder } from 'electron-builder'
 
 import { configureForDesktop, resolveConfig } from "./index.js"
-import { clear, buildAssets } from "./utils/assets.js"
+import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
 
 import { resolveViteConfig } from './vite/index.js'
 
@@ -162,20 +162,21 @@ export default async function build (
             if (sign === false) signIgnore.push(convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`))
         })
 
-        const defaultIcon = getIcon(resolvedConfig.icon)
-
         // TODO: Get platform-specific icon
-        const macIcon = defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
-        const winIcon = macIcon // icon && typeof icon === 'object' && 'win' in icon ? icon.win : defaultIcon
-
+        const rawIconSrc = getIcon(resolvedConfig.icon)
+        if (rawIconSrc) {
+            const defaultIcon = join(root, rawIconSrc)
+            const macIcon = defaultIcon ? getAssetBuildPath(defaultIcon, outDir) : defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
+            buildConfig.mac.icon = macIcon 
+            buildConfig.win.icon = macIcon // icon && typeof icon === 'object' && 'win' in icon ? icon.win : defaultIcon
+    
+        }
         // Ensure proper absolute paths are provided for Electron build
         const electronTemplateDir = path.join(templateDir, 'electron')
         
         buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
         buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
-        buildConfig.mac.icon = path.join(relativeOutDir, macIcon)
-        buildConfig.win.icon = path.join(relativeOutDir, winIcon)
 
         // Disable code signing if publishing or explicitly requested
         const toSign = publish || sign
