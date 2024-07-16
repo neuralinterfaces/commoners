@@ -43,7 +43,7 @@ export default async function build (
 
     // ---------------- Custom Service Resolution ----------------
     const buildTarget = opts.build?.target ?? opts.target
-    const target = ensureTargetConsistent(buildTarget)
+    const target = await ensureTargetConsistent(buildTarget)
 
     const buildOpts = opts.build ?? {}
 
@@ -76,7 +76,7 @@ export default async function build (
 
     if (isDesktopBuild || isMobileBuild) {
         outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
-        initialize(dirname(outDir)) // Clear temporary directories
+        await initialize(dirname(outDir)) // Clear temporary directories
     }
 
     outDir = resolve(outDir) // Ensure absolute path
@@ -207,8 +207,13 @@ export default async function build (
     }
 
     else if (isMobileBuild) {
+
         const mobileOpts = { target, outDir }
+
+        // @ts-ignore
         await mobile.init(mobileOpts, resolvedConfig)
+
+        // @ts-ignore
         await mobile.open(mobileOpts, resolvedConfig)
     }
     

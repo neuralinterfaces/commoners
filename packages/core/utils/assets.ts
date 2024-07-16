@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { chalk, isDesktop, rootDir } from "../globals.js"
 import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 
@@ -8,6 +8,10 @@ import { copyAsset, copyAssetOld } from './copy.js'
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { rollup } from 'rollup';
+
+import nodeResolveRollupPlugin from '@rollup/plugin-node-resolve';
+import commonjsRollupPlugin from '@rollup/plugin-commonjs';
+import terserRollupPlugin from '@rollup/plugin-terser';
 
 import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
 import { resolveConfig, resolveConfigPath } from "../index.js"
@@ -330,7 +334,9 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         }
 
         // Compile for development use
-        else if (compile) assets.bundle.push({ input: getAbsolutePath(root, src), output: filepath, force: true, compile })
+        else if (compile) {
+            assets.bundle.push({ input: getAbsolutePath(root, src), output: filepath, force: true, compile })
+        }
 
         
     }
@@ -357,7 +363,11 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
  
         // Write a package.json file to ensure these files are treated properly
         const randomId = Math.random().toString(36).substring(7)
-        writeFileSync(join(outDir, 'package.json'), JSON.stringify({ name: `commoners-build-${randomId}`, version: config.version }, null, 2)) // Write package.json to ensure these files are treated as commonjs
+        writeFileSync(join(outDir, 'package.json'), JSON.stringify({ 
+            name: `commoners-build-${randomId}`, 
+            version: config.version,
+            // type: 'module'
+        }, null, 2)) // Write package.json to ensure these files are treated as commonjs
     }
 
     // Get other assets to be copied / bundled
@@ -463,6 +473,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                     else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
                 }
 
+
                 // Handle extra resources
                 const assetOutputInfo: AssetOutput = { file: outfile }
                 if (typeof info === 'object')  {
@@ -511,13 +522,28 @@ export const bundleConfig = async ( input, outFile ) => {
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
+    const importMetaResolvePlugin = () => {
+        return {
+            resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
+        }
+    }
+
     // Bundle config file
     const bundle = await rollup({
         input,
 
-        plugins: [{
-            resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
-        }],
+        plugins: [
+            // nodeResolveRollupPlugin({
+            //     preferBuiltins: true,
+            // }),
+            commonjsRollupPlugin.default(),
+            terserRollupPlugin.default(),
+            importMetaResolvePlugin()
+        ],    
+        
+        external: [
+            'rollup'
+        ],
 
         logLevel
     })

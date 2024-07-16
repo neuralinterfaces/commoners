@@ -60,7 +60,7 @@ export default async function (options: LaunchOptions) {
         }
     }
 
-    target = ensureTargetConsistent(target)
+    target = await ensureTargetConsistent(target)
     
     const { 
         outDir = join(root, globalWorkspacePath, target),

@@ -33,17 +33,19 @@ const runBeforeExitCallbacks = (code) => {
         if (!cb.called) cb(code)
         cb.called = true
     })
-    process.exit(code)
+    process.exit(code === 'SIGINT' ? 0 : code)
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']
 
 
-export const initialize = (tempDir = globalTempDir) => {
+export const initialize = async (tempDir = globalTempDir) => {
+    
 
     // NOTE: Ensure that the single temporary directory is not overwritten for different targets
     if (existsSync(tempDir)) {
-        console.error(`\n👎 Only ${chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`)
+        const _chalk = await chalk
+        console.error(`\n👎 Only ${_chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`)
         process.exit(1)
     }
     
@@ -82,7 +84,7 @@ export const normalizeTarget = (target: TargetType) => {
     return isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
 }
 
-export const ensureTargetConsistent = (target: TargetType, allow = []) => {
+export const ensureTargetConsistent = async (target: TargetType, allow = []) => {
 
     if (allow.includes(target)) return target
     
@@ -91,9 +93,11 @@ export const ensureTargetConsistent = (target: TargetType, allow = []) => {
     if (target === 'mobile') target = PLATFORM === 'mac' ? 'ios' : 'android'  // Auto-detect mobile platform
     if (target === 'desktop') target = 'electron' // Auto-detect desktop platform
 
+    const _chalk = await chalk
+
     // Provide a custom warning message for tauri
     if (target === 'tauri') {
-        console.log(chalk.yellow(`Tauri is not yet supported.`))
+        console.log(_chalk.yellow(`Tauri is not yet supported.`))
         process.exit(1)
     }
 
@@ -101,7 +105,7 @@ export const ensureTargetConsistent = (target: TargetType, allow = []) => {
     if (isDesktop(target)) return target
     else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android')) return target // Linux and Windows can build for android
 
-    console.log(`No commoners command for ${chalk.bold(target)} on ${chalk.bold(PLATFORM)}`)
+    console.log(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
     process.exit(1)
 }
 

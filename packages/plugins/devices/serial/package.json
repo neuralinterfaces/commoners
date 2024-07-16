@@ -8,6 +8,6 @@
         "build": "vite build"
     },
     "devDependencies": {
-        "vite": "^4.2.1"
+        "vite": "^5.3.4"
     }
 }

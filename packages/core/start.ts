@@ -36,7 +36,7 @@ export default async function ( opts: UserConfig = {} ) {
 
         const outDir = join(root, globalTempDir)
 
-        initialize(outDir)
+        await initialize(outDir)
 
 
         // Build for mobile before moving forward

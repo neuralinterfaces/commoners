@@ -1,0 +1,53 @@
+// vite.config.ts
+import { defineConfig } from "file:///Users/garrettflynn/Documents/GitHub/node_modules/vite/dist/node/index.js";
+import url from "node:url";
+import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+
+// ../core/utils/config.js
+var builtIns = [
+  "node:child_process",
+  "node:fs",
+  "node:url",
+  "node:path",
+  "node:net",
+  "node:util",
+  "node:os",
+  "node:http",
+  "node:https",
+  "node:module",
+  "node:crypto"
+];
+var nodeBuiltIns = [...builtIns, ...builtIns.map((b) => b.replace("node:", ""))];
+
+// vite.config.ts
+var __vite_injected_original_import_meta_url = "file:///Users/garrettflynn/Documents/GitHub/commoners/packages/cli/vite.config.ts";
+var __dirname = url.fileURLToPath(new URL(".", __vite_injected_original_import_meta_url));
+var pkg = JSON.parse(readFileSync("package.json").toString());
+var pkgCore = JSON.parse(readFileSync(join("..", "core", "package.json")).toString());
+var external = /* @__PURE__ */ new Set([
+  ...Object.keys(pkg.dependencies),
+  ...Object.keys(pkgCore.dependencies),
+  ...nodeBuiltIns
+]);
+var vite_config_default = defineConfig({
+  build: {
+    emptyOutDir: false,
+    // This is required so we always have permission to execute the development version that is installed in the global node_modules
+    target: "node16",
+    lib: {
+      // Could also be a dictionary or array of multiple entry points
+      entry: resolve(__dirname, "index"),
+      name: "commoners",
+      formats: ["es", "cjs"],
+      fileName: (format) => `index.${format == "es" ? "mjs" : "cjs"}`
+    },
+    rollupOptions: {
+      external: Array.from(external)
+    }
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcudHMiLCAiLi4vY29yZS91dGlscy9jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCIvVXNlcnMvZ2FycmV0dGZseW5uL0RvY3VtZW50cy9HaXRIdWIvY29tbW9uZXJzL3BhY2thZ2VzL2NsaVwiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9maWxlbmFtZSA9IFwiL1VzZXJzL2dhcnJldHRmbHlubi9Eb2N1bWVudHMvR2l0SHViL2NvbW1vbmVycy9wYWNrYWdlcy9jbGkvdml0ZS5jb25maWcudHNcIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfaW1wb3J0X21ldGFfdXJsID0gXCJmaWxlOi8vL1VzZXJzL2dhcnJldHRmbHlubi9Eb2N1bWVudHMvR2l0SHViL2NvbW1vbmVycy9wYWNrYWdlcy9jbGkvdml0ZS5jb25maWcudHNcIjtpbXBvcnQgeyBkZWZpbmVDb25maWcgfSBmcm9tIFwidml0ZVwiO1xuXG5pbXBvcnQgdXJsIGZyb20gXCJub2RlOnVybFwiO1xuaW1wb3J0IHsgam9pbiwgcmVzb2x2ZSB9IGZyb20gXCJub2RlOnBhdGhcIjtcbmltcG9ydCB7IHJlYWRGaWxlU3luYywgd3JpdGVGaWxlU3luYyB9IGZyb20gXCJub2RlOmZzXCI7XG5pbXBvcnQgeyBub2RlQnVpbHRJbnMgfSBmcm9tIFwiLi4vY29yZS91dGlscy9jb25maWdcIjtcblxuY29uc3QgX19kaXJuYW1lID0gdXJsLmZpbGVVUkxUb1BhdGgobmV3IFVSTCgnLicsIGltcG9ydC5tZXRhLnVybCkpO1xuXG5jb25zdCBwa2cgPSBKU09OLnBhcnNlKHJlYWRGaWxlU3luYygncGFja2FnZS5qc29uJykudG9TdHJpbmcoKSlcbmNvbnN0IHBrZ0NvcmUgPSBKU09OLnBhcnNlKHJlYWRGaWxlU3luYyhqb2luKCcuLicsICdjb3JlJywgJ3BhY2thZ2UuanNvbicpKS50b1N0cmluZygpKVxuXG5jb25zdCBleHRlcm5hbCA9IG5ldyBTZXQoW1xuICAuLi5PYmplY3Qua2V5cyhwa2cuZGVwZW5kZW5jaWVzKSxcbiAgLi4uT2JqZWN0LmtleXMocGtnQ29yZS5kZXBlbmRlbmNpZXMpLFxuICAuLi5ub2RlQnVpbHRJbnNcbl0pXG5cbmV4cG9ydCBkZWZhdWx0IGRlZmluZUNvbmZpZyh7XG4gIGJ1aWxkOiB7XG4gICAgZW1wdHlPdXREaXI6IGZhbHNlLCAvLyBUaGlzIGlzIHJlcXVpcmVkIHNvIHdlIGFsd2F5cyBoYXZlIHBlcm1pc3Npb24gdG8gZXhlY3V0ZSB0aGUgZGV2ZWxvcG1lbnQgdmVyc2lvbiB0aGF0IGlzIGluc3RhbGxlZCBpbiB0aGUgZ2xvYmFsIG5vZGVfbW9kdWxlc1xuICAgIHRhcmdldDogJ25vZGUxNicsXG4gICAgbGliOiB7XG4gICAgICAvLyBDb3VsZCBhbHNvIGJlIGEgZGljdGlvbmFyeSBvciBhcnJheSBvZiBtdWx0aXBsZSBlbnRyeSBwb2ludHNcbiAgICAgIGVudHJ5OiByZXNvbHZlKF9fZGlybmFtZSwgJ2luZGV4JyksXG4gICAgICBuYW1lOiAnY29tbW9uZXJzJyxcbiAgICAgIGZvcm1hdHM6IFsgJ2VzJywgJ2NqcycgXSxcbiAgICAgIGZpbGVOYW1lOiAoZm9ybWF0KSA9PiBgaW5kZXguJHtmb3JtYXQgPT0gJ2VzJyA/ICdtanMnIDogJ2Nqcyd9YCxcbiAgICB9LFxuICAgIHJvbGx1cE9wdGlvbnM6IHtcbiAgICAgIGV4dGVybmFsOiBBcnJheS5mcm9tKGV4dGVybmFsKSxcbiAgICB9LFxuICB9LFxufSkiLCAiY29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2Rpcm5hbWUgPSBcIi9Vc2Vycy9nYXJyZXR0Zmx5bm4vRG9jdW1lbnRzL0dpdEh1Yi9jb21tb25lcnMvcGFja2FnZXMvY29yZS91dGlsc1wiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9maWxlbmFtZSA9IFwiL1VzZXJzL2dhcnJldHRmbHlubi9Eb2N1bWVudHMvR2l0SHViL2NvbW1vbmVycy9wYWNrYWdlcy9jb3JlL3V0aWxzL2NvbmZpZy5qc1wiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9pbXBvcnRfbWV0YV91cmwgPSBcImZpbGU6Ly8vVXNlcnMvZ2FycmV0dGZseW5uL0RvY3VtZW50cy9HaXRIdWIvY29tbW9uZXJzL3BhY2thZ2VzL2NvcmUvdXRpbHMvY29uZmlnLmpzXCI7XG5jb25zdCBidWlsdElucyA9IFtcbiAgXCJub2RlOmNoaWxkX3Byb2Nlc3NcIixcbiAgXCJub2RlOmZzXCIsXG4gIFwibm9kZTp1cmxcIixcbiAgXCJub2RlOnBhdGhcIixcbiAgXCJub2RlOm5ldFwiLFxuICBcIm5vZGU6dXRpbFwiLFxuICBcIm5vZGU6b3NcIixcbiAgXCJub2RlOmh0dHBcIixcbiAgXCJub2RlOmh0dHBzXCIsXG4gIFwibm9kZTptb2R1bGVcIixcbiAgXCJub2RlOmNyeXB0b1wiXG5dXG5cbmV4cG9ydCBjb25zdCBub2RlQnVpbHRJbnMgPSBbLi4uYnVpbHRJbnMsIC4uLmJ1aWx0SW5zLm1hcCgoYikgPT4gYi5yZXBsYWNlKFwibm9kZTpcIiwgXCJcIikpXSJdLAogICJtYXBwaW5ncyI6ICI7QUFBbVcsU0FBUyxvQkFBb0I7QUFFaFksT0FBTyxTQUFTO0FBQ2hCLFNBQVMsTUFBTSxlQUFlO0FBQzlCLFNBQVMsb0JBQW1DOzs7QUNINUMsSUFBTSxXQUFXO0FBQUEsRUFDZjtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFBQSxFQUNBO0FBQUEsRUFDQTtBQUFBLEVBQ0E7QUFDRjtBQUVPLElBQU0sZUFBZSxDQUFDLEdBQUcsVUFBVSxHQUFHLFNBQVMsSUFBSSxDQUFDLE1BQU0sRUFBRSxRQUFRLFNBQVMsRUFBRSxDQUFDLENBQUM7OztBRGZzSSxJQUFNLDJDQUEyQztBQU8vUSxJQUFNLFlBQVksSUFBSSxjQUFjLElBQUksSUFBSSxLQUFLLHdDQUFlLENBQUM7QUFFakUsSUFBTSxNQUFNLEtBQUssTUFBTSxhQUFhLGNBQWMsRUFBRSxTQUFTLENBQUM7QUFDOUQsSUFBTSxVQUFVLEtBQUssTUFBTSxhQUFhLEtBQUssTUFBTSxRQUFRLGNBQWMsQ0FBQyxFQUFFLFNBQVMsQ0FBQztBQUV0RixJQUFNLFdBQVcsb0JBQUksSUFBSTtBQUFBLEVBQ3ZCLEdBQUcsT0FBTyxLQUFLLElBQUksWUFBWTtBQUFBLEVBQy9CLEdBQUcsT0FBTyxLQUFLLFFBQVEsWUFBWTtBQUFBLEVBQ25DLEdBQUc7QUFDTCxDQUFDO0FBRUQsSUFBTyxzQkFBUSxhQUFhO0FBQUEsRUFDMUIsT0FBTztBQUFBLElBQ0wsYUFBYTtBQUFBO0FBQUEsSUFDYixRQUFRO0FBQUEsSUFDUixLQUFLO0FBQUE7QUFBQSxNQUVILE9BQU8sUUFBUSxXQUFXLE9BQU87QUFBQSxNQUNqQyxNQUFNO0FBQUEsTUFDTixTQUFTLENBQUUsTUFBTSxLQUFNO0FBQUEsTUFDdkIsVUFBVSxDQUFDLFdBQVcsU0FBUyxVQUFVLE9BQU8sUUFBUSxLQUFLO0FBQUEsSUFDL0Q7QUFBQSxJQUNBLGVBQWU7QUFBQSxNQUNiLFVBQVUsTUFBTSxLQUFLLFFBQVE7QUFBQSxJQUMvQjtBQUFBLEVBQ0Y7QUFDRixDQUFDOyIsCiAgIm5hbWVzIjogW10KfQo=

@@ -25,9 +25,9 @@ export default async function (opts: ShareOptions) {
     const resolvedConfig = await resolveConfig(opts, { services, customPort: sharePort === port ? undefined : port })
 
     const outDir = join(root, globalTempDir)
-    initialize(outDir)
+    await initialize(outDir)
 
-    await buildAssets({ ...resolvedConfig, build: { outDir } }, { frontend: false })
+    await buildAssets({ ...resolvedConfig, build: { outDir } }, { assets: false })
 
     console.log(`\n✊ Sharing ${_chalk.bold(_chalk.greenBright(resolvedConfig.name))} services ${services ? `(${services})` : ''}\n`)
 

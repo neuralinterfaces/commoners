@@ -1,4 +1,4 @@
-import { basename, isAbsolute, dirname, extname, join, parse, relative, resolve, sep } from "node:path"
+import { basename, isAbsolute, dirname, extname, join, relative, resolve, sep } from "node:path"
 import { getFreePorts } from './utils/network.js';
 
 import { spawn, fork } from 'node:child_process';
@@ -166,9 +166,8 @@ export async function resolveService (
     const precompilationInfo = Object.values(precompileExtensions).flat().find(({ from }) => existsSync(getFilePath(filepath, from)))
 
     if (precompilationInfo) {
-      const relPath = relative(root, filepath)
       const outDir = join(root, globalTempServiceWorkspacePath)
-      resolvedConfig.filepath = join(outDir, dirname(relPath), `${parse(filepath).name}${precompilationInfo.to}`)
+      resolvedConfig.filepath = join(outDir, name, `compiled${precompilationInfo.to}`)
       resolvedConfig.compile = resolvedConfig.build ?? true // Pass the top-level build command (if it exists)
     }
 
