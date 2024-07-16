@@ -5,6 +5,9 @@ import { normalizeTarget } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 
+const virtualModuleId = 'commoners:env'
+const ENV_VAR_NAMES = [ 'NAME', 'VERSION', 'ICON', 'SERVICES', 'TARGET', 'READY', 'PLUGINS', 'DESKTOP' ]
+
 const headStartTag = '<head>'
 
 export default ({ 
@@ -39,18 +42,27 @@ export default ({
     const iconPath = rawIconSrc ? getAssetLinkPath(resolve(root, rawIconSrc), outDir, relTo) : null
 
     const globalObject = {
-        name: config.name,
-        version: config.version,
-        icon: iconPath,
-        services,
-        target: normalizeTarget(target),
-        dev
+        NAME: config.name,
+        VERSION: config.version,
+        ICON: iconPath,
+        SERVICES: services,
+        TARGET: normalizeTarget(target),
     }
 
     const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
     
+    const resolvedVirtualModuleId = '\0' + virtualModuleId
+
     return {
         name: 'commoners',
+        resolveId(id) {
+            if (id === virtualModuleId)  return resolvedVirtualModuleId
+        },
+        load(id) {
+            if (id === resolvedVirtualModuleId) {
+                return `const ENV = globalThis.commoners;\n${ENV_VAR_NAMES.map(name => `export const ${name} = ENV.${name}`).join('\n')}\nexport default ENV`
+            }
+        },
         transformIndexHtml(html) {
 
             const splitByHead = html.split(headStartTag)
@@ -71,23 +83,29 @@ export default ({
                     electron
                 } = globalThis.__commoners ?? {} // Grab temporary variables
 
-                globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
 
-                if (quit) globalThis.commoners.quit = quit
-                if (electron) globalThis.commoners.electron = electron
+                const commonersGlobalVariable = globalThis.commoners = {}
 
-                if (plugins) globalThis.commoners.__plugins = plugins
-                if (services) globalThis.commoners.services = services // Replace with sanitized services from Electron if available
+                const globalObject = JSON.parse(\`${JSON.stringify(globalObject)}\`)
+                Object.keys(globalObject).forEach(key => commonersGlobalVariable[key] = globalObject[key])
 
-                commoners.ready = new Promise(res => {
+                commonersGlobalVariable.DESKTOP = {}
+
+                if (quit)  commonersGlobalVariable.DESKTOP.quit = quit
+                if (electron) commonersGlobalVariable.DESKTOP.electron = electron
+
+                if (plugins) commonersGlobalVariable.__PLUGINS = plugins
+                if (services) commonersGlobalVariable.SERVICES = services // Replace with sanitized services from Electron if available
+
+                commonersGlobalVariable.READY = new Promise(res => {
                     const ogRes = res
                     res = (...args) => {
                         ogRes(...args)
-                        delete commoners.__ready
+                        delete commonersGlobalVariable.__READY
                         if (send) send('commoners:ready')
                     }
                     
-                    commoners.__ready = res
+                    commonersGlobalVariable.__READY = res
                 })    
 
                 import("${getAssetLinkPath('onload.mjs', outDir, relTo)}")

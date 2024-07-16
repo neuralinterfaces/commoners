@@ -262,21 +262,23 @@ type ExposedPlugins = {
 }
 
 type BaseCommonersGlobalObject = {
-    name: string,
-    version: string,
-    plugins: ExposedPlugins,
-    ready: Promise<ExposedPlugins>,
-    __ready: Function, // Resolve Function
-    __plugins?: RawPlugins // Raw Plugins
+    NAME: string,
+    VERSION: string,
+    PLUGINS: ExposedPlugins,
+    READY: Promise<ExposedPlugins>,
+    __READY: Function, // Resolve Function
+    __PLUGINS?: RawPlugins // Raw Plugins
 }
 
 export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
-    target: TargetType,
-    services: ExposedServices,
+    TARGET: TargetType,
+    SERVICES: ExposedServices,
 }) | (BaseCommonersGlobalObject & {
-    target: 'desktop',
-    services: ExposedDesktopServices,
-    quit: () => void,
+    TARGET: 'desktop',
+    SERVICES: ExposedDesktopServices,
+    DESKTOP: {
+        quit: () => void,
+    }
 })
 
 declare global {

@@ -1,26 +1,28 @@
 import { asyncFilter, pluginErrorMessage, sanitizePluginProperties } from "./utils";
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
-const { __plugins, target, __ready } = commoners
-delete commoners.__plugins
 
-if ( __plugins ) {
+const ENV = commoners
+const { __PLUGINS, TARGET, __READY } = ENV
+delete ENV.__PLUGINS
+
+if ( __PLUGINS ) {
 
     const loaded = {}
 
-    asyncFilter(Object.entries(__plugins), async ([id, plugin]) => {
+    asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {
         try {
             let { isSupported } = plugin
-            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[target]
+            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[TARGET]
             if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-            return (typeof isSupported === 'function') ? await isSupported.call(plugin, target) : isSupported !== false
+            return (typeof isSupported === 'function') ? await isSupported.call(plugin, TARGET) : isSupported !== false
         } catch {
             return false
         }
     }).then(supported => {
 
     const sanitized = supported.map(([id , o]) => {
-        const { load } = sanitizePluginProperties(o, target)
+        const { load } = sanitizePluginProperties(o, TARGET)
         return { id, load }
     })
 
@@ -30,7 +32,7 @@ if ( __plugins ) {
 
         try {
             if (load) {
-                loaded[id] = commoners.target === 'desktop' ? load.call({
+                loaded[id] = ENV.TARGET === 'desktop' ? load.call({
                     quit: TEMP_COMMONERS.quit,
                     send: (channel, ...args) => TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
                     sendSync: (channel, ...args) => TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),
@@ -44,8 +46,9 @@ if ( __plugins ) {
 
     })
 
-    commoners.plugins = loaded
-    __ready(loaded)
+    ENV.PLUGINS = loaded
+
+    __READY(loaded)
 })
 
-} else __ready({})
+} else __READY({})
