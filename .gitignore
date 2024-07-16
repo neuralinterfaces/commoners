@@ -4,6 +4,8 @@ node_modules
 .commoners
 .site
 
+**/pnpm-lock.yaml
+
 # Builds
 build
 dist
