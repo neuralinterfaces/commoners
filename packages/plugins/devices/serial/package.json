@@ -3,7 +3,8 @@
     "version": "0.0.38",
     "license": "MIT",
     "type": "module",
-    "main": "./dist/serial.es.js",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
     "scripts": {
         "build": "vite build"
     },

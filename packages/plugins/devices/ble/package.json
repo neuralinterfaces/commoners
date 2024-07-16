@@ -1,7 +1,8 @@
 {
     "name": "@commoners/bluetooth",
     "version": "0.0.38",
-    "main": "./dist/ble.es.js",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
     "license": "MIT",
     "type": "module",
     "scripts": {

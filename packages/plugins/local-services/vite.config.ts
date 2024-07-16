@@ -5,8 +5,8 @@ export default defineConfig({
     lib: {
       entry: 'index',
       name: 'local-services',
-      formats: ['es'], // 'cjs'],
-      fileName: (format) => `local-services.${format}.js`
+      formats: ['es', 'cjs'],
+      fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`
     },
   }
 })

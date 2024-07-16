@@ -31,6 +31,12 @@ Install all packages by running the following command:
 pnpm install
 ```
 
+### Linking to Local `commoners` Package
+If you are working on the `commoners` package locally, you may need to link to some of its packages. Use the following template to link to a package (e.g. `@commoners/bluetooth`):
+```bash
+pnpm link ~/Documents/Github/commoners/packages/plugins/devices/ble
+```
+
 ### Core
 #### Testing
 Before testing, you'll have to run `npm run build` in the root directory.

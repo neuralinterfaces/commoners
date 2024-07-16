@@ -6,12 +6,11 @@ type ModalProps = {
   removed?: Function
 }
 
-const name = 'commoners-modal'
+const name = 'commoners-device-modal'
 
 export default (props: ModalProps) => {
 
   if (!customElements.get(name)) {
-
 
     const template = document.createElement('template');
 
@@ -24,7 +23,6 @@ export default (props: ModalProps) => {
 
       dialog {
         padding: 0;
-        display: flex;
         border-radius: 6px;
         border: 0;
       }
@@ -119,7 +117,7 @@ export default (props: ModalProps) => {
     `;
 
 
-    class CommonersModal extends HTMLElement {
+    class CommonersDeviceModal extends HTMLElement {
 
       headerText: ModalProps['headerText'] = 'Available Devices'
       mapDeviceToInfo: ModalProps['mapDeviceToInfo'] 
@@ -135,6 +133,8 @@ export default (props: ModalProps) => {
       devices = []
 
       selectedDevice = ''
+
+      #dialog: HTMLDialogElement
 
       getDialog = () => {
         return this.shadowRoot.querySelector('dialog') as HTMLDialogElement
@@ -163,7 +163,13 @@ export default (props: ModalProps) => {
         const pairButton = this.shadowRoot.getElementById('pair') as HTMLButtonElement
         pairButton.addEventListener('click', () => dialog.close(this.selectedDevice))
       
-        dialog.addEventListener('close', () => this.onClose(dialog.returnValue ?? ''))
+        dialog.addEventListener('close', () => {
+          this.onClose(dialog.returnValue ?? '')
+          console.log('Check', dialog.open)
+          setTimeout(() => {
+            console.log('Check', dialog.open)
+          }, 1000)
+        })
       
         // Wath for when the dialog opens
         let observer = new MutationObserver((ev) => {
@@ -227,7 +233,7 @@ export default (props: ModalProps) => {
       
     }
 
-    window.customElements.define('commoners-modal', CommonersModal);
+    window.customElements.define(name, CommonersDeviceModal);
   }
     
   const modal = document.createElement(name)

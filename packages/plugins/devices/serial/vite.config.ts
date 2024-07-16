@@ -5,8 +5,8 @@ export default defineConfig({
     lib: {
       entry: 'index',
       name: 'serial',
-      formats: ['es'], // 'cjs'],
-      fileName: (format) => `serial.${format}.js`
+      formats: ['es', 'cjs'],
+      fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`
     },
   }
 })
