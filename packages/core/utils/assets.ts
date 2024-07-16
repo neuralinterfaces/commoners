@@ -9,9 +9,8 @@ import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { rollup } from 'rollup';
 
-import nodeResolveRollupPlugin from '@rollup/plugin-node-resolve';
+// import nodeResolveRollupPlugin from '@rollup/plugin-node-resolve';
 import commonjsRollupPlugin from '@rollup/plugin-commonjs';
-import terserRollupPlugin from '@rollup/plugin-terser';
 
 import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
 import { resolveConfig, resolveConfigPath } from "../index.js"
@@ -231,12 +230,10 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
     const configPath = resolveConfigPath(root)
 
-    // const configExtensionTargets = [
-    //     'cjs', 
-    //     'mjs' // Fails for complicated dependencies
-    // ]
-
-    const configExtensionTargets = [ 'cjs' ]
+    const configExtensionTargets = [
+        'cjs', 
+        'mjs' // Fails for Node.js dependencies (e.g. @commoners/solidarity)
+    ]
 
     const isElectronTarget = target === 'electron'
 
@@ -514,6 +511,12 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 }
 
 
+const importMetaResolvePlugin = () => {
+    return {
+        resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
+    }
+}
+
 export const bundleConfig = async ( input, outFile ) => {
 
     const logLevel = 'silent'
@@ -522,36 +525,28 @@ export const bundleConfig = async ( input, outFile ) => {
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
-    const importMetaResolvePlugin = () => {
-        return {
-            resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
-        }
-    }
+    const plugins = [
+        // @ts-ignore
+        commonjsRollupPlugin(),
+        importMetaResolvePlugin()
+    ]
+
+    // if (format !== 'cjs') plugins.unshift(nodeResolveRollupPlugin()) // NOTE: Fails for @commoners/solidarity (rollup)
 
     // Bundle config file
     const bundle = await rollup({
         input,
-
-        plugins: [
-            // nodeResolveRollupPlugin({
-            //     preferBuiltins: true,
-            // }),
-            commonjsRollupPlugin.default(),
-            terserRollupPlugin.default(),
-            importMetaResolvePlugin()
-        ],    
-        
-        external: [
-            'rollup'
-        ],
-
+        plugins,    
         logLevel
     })
 
-    const { output } = await bundle.generate({ format });
-
+    const { output } = await bundle.generate({ format }).catch(e => {
+        console.error(e)
+        process.exit(1)
+    });
+    
     await mkdirSync(dirname(outFile), { recursive: true })
     await writeFileSync(outFile, output[0].code)
-
+    
     return outFile
 }

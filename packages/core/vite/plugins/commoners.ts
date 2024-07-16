@@ -59,12 +59,10 @@ export default ({
                 ${faviconLink}
                 <script type="module">
 
-                // // Directly import the plugins from the transpiled configuration object
-                // import COMMONERS_CONFIG from "${getAssetLinkPath('commoners.config.mjs', outDir, relTo)}"
-                // const { plugins } = COMMONERS_CONFIG
+                // Directly import the plugins from the transpiled configuration object
+                import COMMONERS_CONFIG from "${getAssetLinkPath('commoners.config.mjs', outDir, relTo)}"
+                const { plugins } = COMMONERS_CONFIG
                 
-                const { plugins } = {}
-
                 // Set global variable
                 const { 
                     services, 

@@ -152,6 +152,7 @@ export default async function build (
 
             const relPath = relative(cwdRelativeOutDir, file)
             const location = join(relativeOutDir, relPath)
+
             const glob = (lstatSync(file).isDirectory()) ? join(location, '**') : location
 
             if (extraResource) {
