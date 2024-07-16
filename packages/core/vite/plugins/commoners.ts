@@ -6,7 +6,7 @@ import { normalizeTarget } from '../../globals.js'
 import { getAssetLinkPath } from '../../utils/assets.js'
 
 const virtualModuleId = 'commoners:env'
-const ENV_VAR_NAMES = [ 'NAME', 'VERSION', 'ICON', 'SERVICES', 'TARGET', 'READY', 'PLUGINS', 'DESKTOP' ]
+const ENV_VAR_NAMES = [ 'NAME', 'VERSION', 'ICON', 'SERVICES', 'TARGET', 'READY', 'PLUGINS', 'DESKTOP', 'DEV' ]
 
 const headStartTag = '<head>'
 
@@ -47,6 +47,7 @@ export default ({
         ICON: iconPath,
         SERVICES: services,
         TARGET: normalizeTarget(target),
+        DEV: dev
     }
 
     const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
