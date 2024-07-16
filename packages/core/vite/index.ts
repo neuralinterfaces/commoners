@@ -5,11 +5,10 @@ import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve } from 'node:path'
 
-import { rootDir, isDesktop } from "../globals.js";
+import { rootDir, isDesktop, chalk } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
-import chalk from 'chalk';
 import { safePath } from '../utils/index.js';
 
 // import { nodeBuiltIns } from "../utils/config.js";
@@ -91,6 +90,8 @@ export const resolveViteConfig = async (
     build = true
 ) => {
 
+    const _chalk = await chalk
+
     const isDesktopTarget = isDesktop(target)
 
     let { vite: viteUserConfig = {} } = commonersConfig
@@ -150,7 +151,7 @@ export const resolveViteConfig = async (
         plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
 
-    console.log(`\n👊 Running ${chalk.bold(chalk.cyanBright('vite'))}\n`)
+    console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('vite'))}\n`)
 
     // Define a default set of plugins and configuration options
     const viteConfig = vite.defineConfig({

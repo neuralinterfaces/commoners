@@ -1,6 +1,5 @@
 import path, { join } from 'node:path';
 import fs from 'node:fs'
-import chalk from 'chalk';
 
 import { existsSync } from "node:fs"
 import { extname, resolve } from "node:path"
@@ -85,7 +84,6 @@ export const createFile = (filepath, data='', overwrite=false) => {
         }
 
         fs.writeFileSync(filepath, data)
-        if (!fileExists) console.log(chalk.gray(`Created ${path.relative(process.cwd(), filepath)}`))
     }
 
     return path.resolve(filepath)

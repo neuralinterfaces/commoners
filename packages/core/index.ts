@@ -1,15 +1,13 @@
 import { dirname, join, relative, normalize, resolve } from 'node:path'
 import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
-import { build } from 'esbuild'
 import { pathToFileURL } from 'node:url'
 
-import { dependencies, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
+import { getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
-
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
-import chalk from 'chalk'
+import { bundleConfig } from './utils/assets.js'
 
 // Exports
 export * from './types.js'
@@ -26,7 +24,9 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
 
-export async function loadConfigFromFile(root: string = resolveConfigPath()) {
+export async function loadConfigFromFile(
+    root: string = resolveConfigPath()
+) {
 
     const rootExists = existsSync(root)
 
@@ -35,7 +35,10 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
         if (!isDirectory(root)) root = dirname(root) // Get the parent directory
     }
     
-    else root = process.cwd()
+    else {
+        console.log(`${root} is an invalid root. Please specify an existing Commoners project path.`)
+        process.exit(1)
+    }
     
 
     const configPath = resolveConfigPath(
@@ -46,32 +49,20 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
 
     let config = {} as UserConfig // No user-defined configuration found
 
+    
     if (configPath) {
 
-        // Bundle config file
-        const result = await build({
-            absWorkingDir: root,
-            entryPoints: [ configPath ],
-            outfile: 'out.js',
-            write: false,
-            target: ['node16'],
-            platform: 'node',
-            bundle: true,
-            format: 'esm',
-            external: [...Object.keys(dependencies)] // Ensure that Commoners dependencies are external
-        })
 
-        const { text } = result.outputFiles[0]
-
-        // Load config from timestamped file
         const fileBase = `${configPath}.timestamp-${Date.now()}-${Math.random()
             .toString(16)
             .slice(2)}`
+
+            
             
         const fileNameTmp = `${fileBase}.mjs`
-        const fileUrl = `${pathToFileURL(fileBase)}.mjs`
-
-        await writeFileSync(fileNameTmp, text)
+        const bundledFilePath = await bundleConfig(configPath, fileNameTmp)
+        
+        const fileUrl = `${pathToFileURL(bundledFilePath)}`
 
         try {
             config = (await import(fileUrl)).default as UserConfig

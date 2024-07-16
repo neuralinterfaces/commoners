@@ -1,7 +1,5 @@
-import chalk from 'chalk';
-
 import { createServer } from './utils/server.js'
-import { createServices, globalTempDir, initialize, resolveConfig } from './index.js';
+import { chalk, createServices, globalTempDir, initialize, resolveConfig } from './index.js';
 
 import { ShareOptions } from './types.js';
 
@@ -16,6 +14,8 @@ import { buildAssets } from './utils/assets.js';
 
 export default async function (opts: ShareOptions) {
 
+    const _chalk = await chalk
+
     const services = opts.share?.services
     const sharePort = opts.share?.port
     const port = opts.port
@@ -29,14 +29,14 @@ export default async function (opts: ShareOptions) {
 
     await buildAssets({ ...resolvedConfig, build: { outDir } }, { frontend: false })
 
-    console.log(`\n✊ Sharing ${chalk.bold(chalk.greenBright(resolvedConfig.name))} services ${services ? `(${services})` : ''}\n`)
+    console.log(`\n✊ Sharing ${_chalk.bold(_chalk.greenBright(resolvedConfig.name))} services ${services ? `(${services})` : ''}\n`)
 
     const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 
     const serviceManager = await createServices(resolvedServices)
 
     if (!sharePort) {
-        console.log(`${chalk.grey('No port specified for sharing services')}\n`)
+        console.log(`${_chalk.grey('No port specified for sharing services')}\n`)
         return
     }
 
@@ -61,9 +61,9 @@ export default async function (opts: ShareOptions) {
         sharePort,
         '0.0.0.0', // All IPs
         () => {
-            console.log(`Services shared at ${chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
+            console.log(`Services shared at ${_chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
             Object.entries(serviceManager.active).forEach(([id, service]) => {
-                console.log(`[${chalk.greenBright(id)}]: ${chalk.cyan(`http://${service.host}:${service.port}`)}`)
+                console.log(`[${_chalk.greenBright(id)}]: ${_chalk.cyan(`http://${service.host}:${service.port}`)}`)
             })
         }
     );

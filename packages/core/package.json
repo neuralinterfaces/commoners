@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "types": "./dist/types/index.d.ts",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module":  "./dist/index.mjs",
   "engines": {
     "node": ">=20.0.0"
   },

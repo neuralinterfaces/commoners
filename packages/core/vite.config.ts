@@ -6,11 +6,11 @@ import { readFileSync } from "node:fs";
 
 import { type Plugin } from 'vite';
 import { exec } from 'child_process';
-import chalk from "chalk";
 import { nodeBuiltIns } from "./utils/config";
 
 import { normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
+import { chalk } from "./globals";
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
@@ -27,8 +27,8 @@ const dts: Plugin = {
       return new Promise((res, rej) => {
         exec(`tsc --emitDeclarationOnly --outDir ./dist/types`,{
           cwd: __dirname
-        }, (err, stdout, stderr) => {
-          console.log(chalk.yellow(stdout))
+        }, async (err, stdout, stderr) => {
+          console.log((await chalk).yellow(stdout))
           res()
         });
       });
@@ -64,11 +64,12 @@ export default defineConfig({
       // Could also be a dictionary or array of multiple entry points
       entry: resolve(__dirname, 'index'),
       name: 'index',
-      formats: ['es'], // 'cjs'],
-      fileName: (format) => `index.js`
+      formats: ['es', 'cjs'],
+      fileName: (format) => `index.${format == 'es' ? 'mjs' : 'cjs'}`,
     },
     rollupOptions: {
       external: [
+        'rollup', // Ensure rollup is handled externally
         ...Object.keys(pkg.dependencies),
         ...nodeBuiltIns
       ],

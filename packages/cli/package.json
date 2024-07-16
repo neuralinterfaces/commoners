@@ -8,7 +8,7 @@
     "node": ">=20.0.0"
   },
   "bin": {
-    "commoners": "./dist/cli.js"
+    "commoners": "./dist/index.cjs"
   },
   "files": [
     "dist"

@@ -96,7 +96,7 @@ function makeSingleInstance() {
 
 makeSingleInstance();
 
-const config = require(configPath).default // (await import (configPath)).default // // Requires putting the dist at the Resource Path:
+const config = require(configPath) // Requires putting the dist at the Resource Path
 
 const plugins = config.plugins ?? {}
 

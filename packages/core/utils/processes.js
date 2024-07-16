@@ -1,4 +1,5 @@
-import chalk from "chalk";
+const chalk = import("chalk").then(m => m.default)
+
 import { spawn } from "node:child_process";
 
 let children = {}
@@ -28,7 +29,9 @@ export const spawnProcess = (
     args, 
     { env = {}, opts = {}, cwd } = {}
 ) => {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
+
+        const _chalk = await chalk
         
         // NOTE: We don't need this in production builds...
         const customPath = `${process.cwd()}/node_modules/.bin`  // Include this library's node_modules in the PATH
@@ -36,7 +39,7 @@ export const spawnProcess = (
         const proc = spawn(command, args, { 
             shell: true, 
             env: {
-                ...env,
+            ...env,
                 PATH: `${process.env.PATH}:${customPath}`
             },
             cwd
@@ -45,10 +48,10 @@ export const spawnProcess = (
         children[proc.pid] = proc;
 
         if (opts.log !== false) {
-            proc.stdout.on('data', (data) => console.log(chalk.gray(data.toString())));
-            proc.on('data', (data) => console.log(chalk.gray(data.toString())));
-            proc.stderr.on('data', (e) => { console.log(chalk.gray(e)) });
-            proc.on('error',(e) => { console.log(chalk.gray(e))});
+            proc.stdout.on('data', (data) => console.log(_chalk.gray(data.toString())));
+            proc.on('data', (data) => console.log(_chalk.gray(data.toString())));
+            proc.stderr.on('data', (e) => { console.log(_chalk.gray(e)) });
+            proc.on('error',(e) => { console.log(_chalk.gray(e))});
         }
 
 

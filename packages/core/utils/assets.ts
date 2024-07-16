@@ -1,22 +1,24 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
-import { isDesktop, rootDir } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix } from "node:path"
+import { chalk, isDesktop, rootDir } from "../globals.js"
+import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset, copyAssetOld } from './copy.js'
 
 import * as vite from 'vite'
 import * as esbuild from 'esbuild'
+import { rollup } from 'rollup';
+
 import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
 import { resolveConfig, resolveConfigPath } from "../index.js"
 
 import pkg from 'pkg'
 
 import { spawnProcess } from './processes.js'
-import chalk from "chalk"
 import { execSync } from "node:child_process"
 
 import { encodePath } from "./encode.js"
+import { pathToFileURL } from "node:url"
 
 type AssetMetadata = {
     extraResource?: boolean,
@@ -49,11 +51,9 @@ const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path 
 
 
 // Intelligently build service only if it hasn't been built yet (unless forced)
-const mustBuild = ({ name, outDir, force }) => {
+const mustBuild = ({ outDir, force }) => {
     const hasBeenBuilt = existsSync(outDir)
     if (hasBeenBuilt && !force) return false
-    
-    console.log(`\n👊 Packaging ${chalk.bold(name)} service\n`)
     return true
 }
 
@@ -98,6 +98,8 @@ type PackageInfo = {
 
 export const packageFile = async (info: PackageInfo) => {
 
+    const _chalk = await chalk
+
     const { 
         name, 
         src, 
@@ -111,13 +113,11 @@ export const packageFile = async (info: PackageInfo) => {
 
     const tempOut = join(outDir, outName) + '.js'
 
-    const shouldBuild = mustBuild({
-        outDir: outDir,
-        force,
-        name
-    })
+    const shouldBuild = mustBuild({ outDir: outDir, force })
 
     if (!shouldBuild) return outDir
+
+    console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
 
     await esbuild.build({ 
         entryPoints: [ src ],
@@ -159,6 +159,8 @@ async function buildService(
     force = false
 ){
 
+    const _chalk = await chalk
+
     if (!build) return null
 
 
@@ -178,13 +180,14 @@ async function buildService(
     else {
 
         const shouldBuild = mustBuild({
-            name,
             outDir,
             force
         })
 
         if (!shouldBuild) return outDir
     }
+
+    console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
 
     // Dynamic Configuration
     if (typeof build === 'function') {
@@ -215,6 +218,8 @@ async function buildService(
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 
 export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {} ) => {
+
+    const _chalk = await chalk
     
     const resolvedConfig = await resolveConfig(config)
 
@@ -222,7 +227,12 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
 
     const configPath = resolveConfigPath(root)
 
-    const configExtensionTargets: ['cjs', 'mjs'] = ['cjs', 'mjs']
+    // const configExtensionTargets = [
+    //     'cjs', 
+    //     'mjs' // Fails for complicated dependencies
+    // ]
+
+    const configExtensionTargets = [ 'cjs' ]
 
     const isElectronTarget = target === 'electron'
 
@@ -311,7 +321,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                         sign: true // jsExtensions.includes(extname(__src)) 
                     })
                     
-                    else console.log(`${chalk.bold(`Missing ${chalk.red(name)} source file`)}\nCould not find ${output}`)
+                    else console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} source file`)}\nCould not find ${output}`)
                     
                 }
 
@@ -336,6 +346,8 @@ export const clear = (outDir: string) => {
 type AssetsToBuild = { assets?: boolean, services?: boolean }
 
 export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}) => {
+
+    const _chalk = await chalk
 
     const { outDir } = config.build
 
@@ -425,26 +437,31 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 const outfile = outPath.endsWith(resolvedExtension) ? outPath : _outfile
 
-                const baseConfig: esbuild.BuildOptions = {
-                    entryPoints: [ input ],
-                    bundle: true,
-                    logLevel: 'silent',
-                    outfile
+                if (basename(input, extname(input)) == 'commoners.config') bundleConfig(input, outfile) // Bundle config file differently using Rollup
+                else {
+
+
+                    const baseConfig: esbuild.BuildOptions = {
+                        entryPoints: [ input ],
+                        bundle: true,
+                        logLevel: 'silent',
+                        outfile
+                    }
+
+                    // Force a build format if the proper extension is specified
+                    const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
+
+                    const buildForNode = () => buildForBrowser({ 
+                        outfile,
+                        platform: 'node', 
+                        external: [ "*.node" ] 
+                    })
+                    
+                    const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
+                    
+                    if (ext === 'cjs') await buildForNode()
+                    else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
                 }
-
-                // Force a build format if the proper extension is specified
-                const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
-
-                const buildForNode = () => buildForBrowser({ 
-                    outfile,
-                    platform: 'node', 
-                    external: [ "*.node" ] 
-                })
-                
-                const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
-                
-                if (ext === 'cjs') await buildForNode()
-                else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
 
                 // Handle extra resources
                 const assetOutputInfo: AssetOutput = { file: outfile }
@@ -458,7 +475,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
         }
 
-        else console.error(`Could not resolve ${chalk.red(input)} asset file`)
+        else console.error(`Could not resolve ${_chalk.red(input)} asset file`)
 
     }))
 
@@ -483,4 +500,32 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     })
 
     return outputs
+}
+
+
+export const bundleConfig = async ( input, outFile ) => {
+
+    const logLevel = 'silent'
+
+    const extension = extname(outFile)
+
+    const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
+
+    // Bundle config file
+    const bundle = await rollup({
+        input,
+
+        plugins: [{
+            resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
+        }],
+
+        logLevel
+    })
+
+    const { output } = await bundle.generate({ format });
+
+    await mkdirSync(dirname(outFile), { recursive: true })
+    await writeFileSync(outFile, output[0].code)
+
+    return outFile
 }

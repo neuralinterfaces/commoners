@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 
 import * as yaml from 'js-yaml'
 
-import chalk from "chalk";
+export const chalk = import("chalk").then(m => m.default)
 
 // Types
 import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validDesktopTargets, validMobileTargets } from "./types.js";

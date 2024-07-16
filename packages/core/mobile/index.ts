@@ -1,9 +1,7 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
-import { onExit } from "../globals.js"
+import { chalk, onExit } from "../globals.js"
 import * as assets from './assets.js'
-
-import chalk from 'chalk'
 
 import { resolve, resolve as resolvePath } from "node:path"
 import plist from 'plist'
@@ -106,7 +104,9 @@ export const openConfig = async ({
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    checkDepsInstalled(target, config)
+    const _chalk = await chalk
+
+    await checkDepsInstalled(target, config)
     
     await openConfig({
         name: config.name,
@@ -117,7 +117,7 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     }, async () => {
         if (!existsSync(target)) {
             
-            console.log(`\n👊 Initializing ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)
+            console.log(`\n👊 Initializing ${_chalk.bold(_chalk.cyanBright('capacitor'))}\n`)
             await runCommand(`npx cap add ${target} && npx cap copy`)
 
             // Inject the appropriate permissions into the info.plist file (iOS only)
@@ -144,7 +144,9 @@ const isInstalled = (pkgName, resolve = require.resolve) => {
 }
 
 // Install Capacitor packages as a user dependency
-export const checkDepsInstalled = (platform, config: ResolvedConfig) => {
+export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
+
+    const _chalk = await chalk
 
     const notInstalled = new Set()
 
@@ -166,7 +168,7 @@ export const checkDepsInstalled = (platform, config: ResolvedConfig) => {
 
     if (notInstalled.size > 0) {
         const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
-        console.log(chalk.bold("\nEnsure the following packages are installed at the base of your project:"))
+        console.log(_chalk.bold("\nEnsure the following packages are installed at the base of your project:"))
         console.log(installationCommand, '\n')
         // process.exit(1)
     }
@@ -175,9 +177,11 @@ export const checkDepsInstalled = (platform, config: ResolvedConfig) => {
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
     
-    checkDepsInstalled(target, config)
+    const _chalk = await chalk
 
-    console.log(`\n👊 Running ${chalk.bold(chalk.cyanBright('capacitor'))}\n`)
+    await checkDepsInstalled(target, config)
+
+    console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('capacitor'))}\n`)
 
     await openConfig({
         name: config.name,
@@ -198,10 +202,12 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
 export const launch = async (target) => {
 
+    const _chalk = await chalk
+
     throw new Error(`Cannot launch for ${target} yet...`)
         
     // if (existsSync(platform))  {
-    //     console.log(chalk.red(`This project is not initialized for ${platform}`))
+    //     console.log(_chalk.red(`This project is not initialized for ${platform}`))
     //     process.exit()
     // }
 

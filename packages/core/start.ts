@@ -4,12 +4,13 @@ import { build, configureForDesktop, createServices, resolveConfig } from './ind
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAssets } from "./utils/assets.js";
 import { createServer } from "./vite/index.js";
-import { cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit } from "./globals.js";
-import chalk from "chalk";
+import { chalk, cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit } from "./globals.js";
 
 import { join } from "node:path";
 
 export default async function ( opts: UserConfig = {} ) {
+
+        const _chalk = await chalk
 
         const { port } = opts
     
@@ -20,7 +21,7 @@ export default async function ( opts: UserConfig = {} ) {
         const isDesktopTarget = isDesktop(target)
         const isMobileTarget = isMobile(target)
 
-        console.log(`\n✊ Starting ${chalk.bold(chalk.greenBright(name))} for ${target}\n`)
+        console.log(`\n✊ Starting ${_chalk.bold(_chalk.greenBright(name))} for ${target}\n`)
 
         // Create URLs that will be shared with the frontend
         if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
@@ -28,7 +29,7 @@ export default async function ( opts: UserConfig = {} ) {
         const { services: resolvedServices } = resolvedConfig
         
         const createAllServices = () => {
-            console.log(`\n👊 Starting ${chalk.bold('Services')}\n`)
+            console.log(`\n👊 Starting ${_chalk.bold('Services')}\n`)
             return createServices(resolvedServices, { root }) // Run services in parallel
         }
 

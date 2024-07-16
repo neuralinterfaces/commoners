@@ -1,8 +1,7 @@
 
 import { existsSync, readdirSync} from 'node:fs';
-import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort } from './globals.js';
+import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort, chalk } from './globals.js';
 import { basename, extname, join } from 'node:path';
-import chalk from 'chalk';
 
 import { spawnProcess } from './utils/processes.js'
 
@@ -12,8 +11,10 @@ import { LaunchOptions } from './types.js';
 import { createServer } from './utils/server.js'
 import { getFreePorts } from './templates/services/utils/network.js'
 
-import open from 'open'
 import { cpus } from 'node:os';
+
+
+const open = import('open').then(m => m.default)
 
 const isDesktopFolder = (outDir) => {
     let baseDir = ''
@@ -43,6 +44,8 @@ const isDesktopFolder = (outDir) => {
 
 export default async function (options: LaunchOptions) {
 
+    const _chalk = await chalk
+
     let target = options.target;
 
     const root = options.outDir && existsSync(join(options.outDir, '.commoners')) ? options.outDir : ''
@@ -65,16 +68,16 @@ export default async function (options: LaunchOptions) {
     } = options
 
     if (!existsSync(outDir)) {
-        return console.error(`${chalk.red(outDir)} directory does not exist.`)
+        return console.error(`${_chalk.red(outDir)} directory does not exist.`)
     }
 
-    console.log(`\n✊ Launching ${chalk.bold(chalk.greenBright(`${target}`))} build${outDir ? ` (${outDir})` : ''}\n`)
+    console.log(`\n✊ Launching ${_chalk.bold(_chalk.greenBright(`${target}`))} build${outDir ? ` (${outDir})` : ''}\n`)
 
 
     if (isMobile(target)) {
         if (outDir) process.chdir(outDir)
         await mobile.launch(target)
-        console.log(chalk.gray(`Opened native build tool for ${target}`))
+        console.log(_chalk.gray(`Opened native build tool for ${target}`))
     }
 
     else if (isDesktop(target)) {
@@ -91,7 +94,7 @@ export default async function (options: LaunchOptions) {
         ]);
 
         const debugUrl = `http://localhost:${electronDebugPort}`
-        console.log(chalk.gray(`Debug ${desktopInfo.name} at ${debugUrl}`))
+        console.log(_chalk.gray(`Debug ${desktopInfo.name} at ${debugUrl}`))
 
         return {
             url: debugUrl
@@ -108,9 +111,12 @@ export default async function (options: LaunchOptions) {
         const resolvedPort = port || (await getFreePorts(1))[0]
 
         const url = `http://${host}:${resolvedPort}`
-        server.listen(parseInt(resolvedPort), host, () => {
-            console.log(chalk.gray(`Server is running on ${chalk.cyan(url)}`))
-            if (!process.env.VITEST) open(url)
+        server.listen(parseInt(resolvedPort), host, async () => {
+            console.log(_chalk.gray(`Server is running on ${_chalk.cyan(url)}`))
+            if (!process.env.VITEST) {
+                const _open = await open
+                _open(url)
+            }
         });
 
         return {

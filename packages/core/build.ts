@@ -1,5 +1,5 @@
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize } from "./globals.js"
+import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -12,7 +12,7 @@ import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
 import { resolveViteConfig } from './vite/index.js'
 
 import { build as ViteBuild } from 'vite'
-import chalk from "chalk"
+
 
 import merge from './utils/merge.js'
 import { lstatSync } from "node:fs"
@@ -39,6 +39,7 @@ export default async function build (
     }: BuildHooks = {},
 ) {
 
+    const _chalk = await chalk
 
     // ---------------- Custom Service Resolution ----------------
     const buildTarget = opts.build?.target ?? opts.target
@@ -82,7 +83,7 @@ export default async function build (
 
     const name = resolvedConfig.name
 
-    console.log(`\n✊ Building ${chalk.bold(chalk.greenBright(name))} ${buildOnlyServices ? 'services' : `for ${target}`}\n`)
+    console.log(`\n✊ Building ${_chalk.bold(_chalk.greenBright(name))} ${buildOnlyServices ? 'services' : `for ${target}`}\n`)
 
     if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
@@ -117,7 +118,7 @@ export default async function build (
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
 
-        console.log(`\n👊 Running ${chalk.bold(chalk.cyanBright('electron-builder'))}\n`)
+        console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('electron-builder'))}\n`)
 
         const cwdRelativeOutDir = relative(process.cwd(), outDir)
         const relativeOutDir = relative(root, cwdRelativeOutDir)
