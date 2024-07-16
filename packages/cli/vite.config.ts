@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 
 import url from "node:url";
 import { join, resolve } from "node:path";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { nodeBuiltIns } from "../core/utils/config";
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
