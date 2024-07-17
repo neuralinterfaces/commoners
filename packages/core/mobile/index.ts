@@ -1,4 +1,4 @@
-import { existsSync, readFile, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { runCommand } from "../utils/processes.js"
 import { chalk, onExit } from "../globals.js"
 import * as assets from './assets.js'
@@ -10,8 +10,8 @@ import xml2js from 'xml2js'
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
 import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
 
+const require = createRequire(import.meta.url);
 const getRequireForRoot = (root) => createRequire(resolve(root, 'package.json'))
 
 const configName = 'capacitor.config.json'
@@ -140,17 +140,13 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     if (capacitorConfig) {
 
         const require = getRequireForRoot(root);
-        const commonersPlugins = getCommonersPlugins(plugins, root)
+        const commonersPlugins = getCommonersPlugins(plugins)
         const ignored = []
 
         const installedPlugins = commonersPlugins.filter(({ plugin }) => {
             if (isInstalled(plugin, require.resolve)) return true
             else ignored.push(plugin)
         })
-
-        if (ignored.length > 0) {
-            console.log(_chalk.yellow(`\n⚠️ The following plugins were ignored because they are not installed: ${ignored.join(', ')}\n`))
-        }
 
         // Inject the appropriate permissions into the info.plist file (iOS only)
         if (target === 'ios') {
@@ -170,7 +166,6 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
             installedPlugins.forEach(({ manifest = {}}) => Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value))
             writeFileSync(manifestPath, new xml2js.Builder().buildObject(result))
         }
-
     }
 
 }
