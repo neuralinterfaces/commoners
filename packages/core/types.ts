@@ -106,17 +106,28 @@ type LoadedPlugin = { [x:string]: any } | Function | any
 type ResolvedSupportType = boolean | any // Evaluated as boolean
 type UserSupportType = ResolvedSupportType | (() => ResolvedSupportType)
 
+type TagName = string
+type TagAttribute = Record<string, string>
+
+export type CapacitorConfig = {
+    name: string,
+    plugin: string,
+    options?: any,
+    plist?: Record<string, any>,
+    manifest?: Record<TagName, TagAttribute[]>
+}
+
 export type SupportConfigurationObject = {
     [x in TargetType]?: UserSupportType
 } & {
     mobile?: boolean | {
-        capacitor?: any // Capacitor Plugin Configuration Object
+        capacitor?: CapacitorConfig // Capacitor Plugin Configuration Object
     }
 }
 
 export type Plugin = {
 
-    isSupported?: ResolvedSupportType | SupportConfigurationObject
+    isSupported?: SupportConfigurationObject
     
     desktop?: {
         load?: (this: {

@@ -9,7 +9,7 @@ import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { rollup } from 'rollup';
 
-// import nodeResolveRollupPlugin from '@rollup/plugin-node-resolve';
+import nodeResolveRollupPlugin from '@rollup/plugin-node-resolve';
 import commonjsRollupPlugin from '@rollup/plugin-commonjs';
 
 import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
@@ -531,7 +531,8 @@ export const bundleConfig = async ( input, outFile ) => {
         importMetaResolvePlugin()
     ]
 
-    // if (format !== 'cjs') plugins.unshift(nodeResolveRollupPlugin()) // NOTE: Fails for @commoners/solidarity (rollup)
+    // Required for module resolution in production
+    if (format !== 'cjs') plugins.unshift(nodeResolveRollupPlugin()) // NOTE: Fails for @commoners/solidarity
 
     // Bundle config file
     const bundle = await rollup({
