@@ -45,7 +45,6 @@ const exitEvents = ['beforeExit', 'exit', 'SIGINT']
 
 export const initialize = async (tempDir = globalTempDir) => {
     
-
     // NOTE: Ensure that the single temporary directory is not overwritten for different targets
     if (existsSync(tempDir)) {
         const _chalk = await chalk

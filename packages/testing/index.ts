@@ -16,7 +16,7 @@ import {
   } from '../core/index'
 
 import { join, sep, relative } from 'node:path'
-import { rmSync, existsSync, readFileSync } from 'node:fs'
+import { rmSync, existsSync, readFileSync, readdirSync } from 'node:fs'
   
 import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
@@ -157,7 +157,7 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
           await page.goto(url);
       }
 
-      output.commoners = await output.page.evaluate(() => commoners.ready.then(() => commoners))
+      output.commoners = await output.page.evaluate(() => commoners.READY.then(() => commoners))
 
   })
 
@@ -210,15 +210,23 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
 
   if (!baseDir) baseDir = join(projectBase, globalTempDir)
 
+  const assetDir = join(baseDir, 'assets')
+
   //---------------------- Vite ----------------------
-  expect(existsSync(join(baseDir, 'assets'))).toBe(build)
+  expect(existsSync(assetDir)).toBe(true)
 
   // ---------------------- Common ----------------------
-  expect(existsSync(join(baseDir, 'commoners.config.mjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'commoners.config.cjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'onload.mjs'))).toBe(true)
+  const regexFindFile = (dir, regex) => readdirSync(dir).find(file => regex.test(file))
+
+
+  // Transformed paths
+  expect(regexFindFile(assetDir, /commoners.config-(.*).mjs/)).toBeTruthy()
+  expect(regexFindFile(assetDir, /onload-(.*).mjs/)).toBeTruthy()
+  expect(regexFindFile(assetDir, /icon-(.*).png/)).toBeTruthy()
+
+  // Absolute paths
+  expect(existsSync(join(assetDir, 'commoners.config.cjs'))).toBe(true)
   expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
-  expect(existsSync(safeJoin(baseDir, templateDir, 'icon.png'))).toBe(true) // Template icon
   
   // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'

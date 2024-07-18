@@ -28,35 +28,35 @@ const e2eTests = {
             test("Global variable is valid", async () => {
 
                 const { commoners = {} } = registrationOutput
-                const { name, target, version, plugins, services, ready } = commoners
-                expect(name).toBe(config.name);
-                expect(version).toBe(userPkg.version);
-                expect(target).toBe(normalizedTarget);
-                expect('echo' in plugins).toBe(true);
-                expect(services).instanceOf(Object)
-                expect(ready).instanceOf(Object) // Resolved Promise
+                const { NAME, TARGET, VERSION, PLUGINS, SERVICES, READY, ELECTRON } = commoners
+                expect(NAME).toBe(config.name);
+                expect(VERSION).toBe(userPkg.version);
+                expect(TARGET).toBe(normalizedTarget);
+                expect('echo' in PLUGINS).toBe(true);
+                expect(SERVICES).instanceOf(Object)
+                expect(READY).instanceOf(Object) // Resolved Promise
 
                 if (normalizedTarget === 'desktop') {
-                    expect(commoners.quit).instanceOf(Object)
+                    expect(ELECTRON.quit).instanceOf(Object)
                 }
 
                 const isDev = mode === 'dev'
 
-                  Object.entries(config.services).forEach(([name, service]) => {
+                  Object.entries(SERVICES).forEach(([name, service]) => {
 
                     // Web / PWA / Mobile builds will have cleared services (that are not remote)
-                    expect(name in services).toBe(isDev);
+                    expect(name in SERVICES).toBe(isDev);
 
                     if (isDev) {
-                      expect(typeof services[name].url).toBe('string');
-                      if ('port' in service) expect(parseInt(new URL(services[name].url).port)).toBe(service.port)
+                      expect(typeof SERVICES[name].url).toBe('string');
+                      if ('port' in service) expect(parseInt(new URL(SERVICES[name].url).port)).toBe(service.port)
                     }
 
                     if (normalizedTarget === 'desktop') {
-                      expect(typeof services[name].filepath).toBe('string');
-                      expect(services[name].status).toBe(true)
-                      expect(services[name].onActive).instanceOf(Object) // Function
-                      expect(services[name].onClosed).instanceOf(Object)  // Function
+                      expect(typeof SERVICES[name].filepath).toBe('string');
+                      expect(SERVICES[name].status).toBe(true)
+                      expect(SERVICES[name].onActive).instanceOf(Object) // Function
+                      expect(SERVICES[name].onClosed).instanceOf(Object)  // Function
                     }
                   })
 

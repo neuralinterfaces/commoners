@@ -3,7 +3,7 @@ import * as echo from './demo/plugins/echo'
 
 export const name = 'Test App'
 
-const basePort = 5555
+const basePort = 2345
 
 const expressSource = './demo/services/express/index.js'
 

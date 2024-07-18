@@ -531,7 +531,7 @@ export const bundleConfig = async ( input, outFile ) => {
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
-    await _vite.build({
+    const results = await _vite.build({
         logLevel,
         base: "./",
         root: dirname(input),
@@ -551,6 +551,8 @@ export const bundleConfig = async ( input, outFile ) => {
             rollupOptions: { plugins }
         },
     })
-    
-    return outFile
+
+    // Always return a flat list of the output file locations
+    return results.map(({ output }) => output).flat().map(({ fileName }) => join(outDir, fileName))
+
 }

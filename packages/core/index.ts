@@ -2,7 +2,7 @@ import { dirname, join, relative, normalize, resolve } from 'node:path'
 import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-import { getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
+import { globalWorkspacePath, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
@@ -49,25 +49,20 @@ export async function loadConfigFromFile(
 
     let config = {} as UserConfig // No user-defined configuration found
 
-    
+
     if (configPath) {
 
 
-        const fileBase = `${configPath}.timestamp-${Date.now()}-${Math.random()
-            .toString(16)
-            .slice(2)}`
-
+        const randomId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+        const configOutputPath = join(dirname(configPath), globalWorkspacePath, `commoners.config-${randomId}.mjs`)
             
-            
-        const fileNameTmp = `${fileBase}.mjs`
-        const bundledFilePath = await bundleConfig(configPath, fileNameTmp)
-        
-        const fileUrl = `${pathToFileURL(bundledFilePath)}`
+        const outputFiles = await bundleConfig(configPath, configOutputPath)
+        const fileUrl = `${pathToFileURL(configOutputPath)}`
 
         try {
             config = (await import(fileUrl)).default as UserConfig
         } finally {
-            unlink(fileNameTmp, () => { }) // Ignore errors
+            outputFiles.forEach((file) => unlink(file, () => { })) // Ignore errors
         }
 
     }
