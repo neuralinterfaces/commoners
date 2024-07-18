@@ -93,7 +93,6 @@ const startProject = (projectBase, customProps = {}) => {
   
       afterAll(async () => {
         toClear.forEach(path => {
-          console.log('Clearing', path)
           if (existsSync(path)) rmSync(path, { recursive: true })
         })
       })
