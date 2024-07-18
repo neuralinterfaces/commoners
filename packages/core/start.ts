@@ -34,7 +34,6 @@ export default async function ( opts: UserConfig = {} ) {
 
         await initialize(outDir)
 
-
         // Build for mobile before moving forward
         if (isMobileTarget) await build(resolvedConfig, { services: resolvedServices, dev: true })
 

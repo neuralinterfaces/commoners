@@ -97,19 +97,19 @@ export async function resolveService (
     const urlSrc = resolvedConfig.url?.[publishMode] ?? resolvedConfig.url ?? false
     delete resolvedConfig.url
 
+    const buildStep = resolvedConfig.build
+
     const configurations = [  { src: urlSrc } ]
 
     // Handle URL source specification
     if (isLocalMode) {
-      if (isValidURL(urlSrc)) {
-        delete resolvedConfig.build // Avoid building if not included
-      }
+      if (isValidURL(urlSrc)) delete resolvedConfig.build // Avoid building if not included
       else configurations.push(resolveConfig(resolvedConfig.publish) ?? {})
     }
 
     const mergedConfig = configurations.reduce((acc, config) => Object.assign(acc, config), { src: false })
     
-    const autoBuild = !mergedConfig.build && __src && autobuildExtensions.node.includes(extname(__src))
+    const autoBuild = !buildStep && __src && autobuildExtensions.node.includes(extname(__src))
     if (autoBuild && mergedConfig.src === false) delete mergedConfig.src
     
     // Cascade from more to less specific information
@@ -234,7 +234,7 @@ export async function start (config, id, opts = {}) {
       if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [ ], { cwd, silent: true, env })
 
       // Python Support
-      else if (ext === '.py') childProcess = spawn("python", [resolvedFilepath], { cwd, env })
+      else if (ext === '.py') childProcess = spawn("python", [ resolvedFilepath ], { cwd, env })
 
       // C++ Support
       else if (ext === '.cpp') {

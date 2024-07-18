@@ -1,11 +1,7 @@
-// ---------------- Planned for v0.0.49 ----------------
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from "node:url";
-const root = resolve(dirname(fileURLToPath(import.meta.url)))
 
-// // ---------------- v0.0.48 ----------------
-// const join = (...paths) => paths.join('/').replace(/\/+/g, '/')
-// const root = './'
+const root = resolve(dirname(fileURLToPath(import.meta.url)))
 
 import * as echo from './src/plugins/echo'
 
@@ -39,12 +35,8 @@ const config = {
 
                 const fs = await import('node:fs')
                 const path = await import('node:path')
-
                 const filename = await this.package(info) 
-
-                // Write a file to the build directory
-                fs.appendFileSync(path.join(info.base, 'test.txt'), 'Hello world!')
-
+                fs.appendFileSync(path.join(info.build.outDir, 'test.txt'), 'Hello world!')
                 return filename
             },
 

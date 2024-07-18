@@ -3,12 +3,16 @@ import { builtinModules } from 'node:module'
 type InlineConfig = import('vite').InlineConfig
 
 export function withExternalBuiltins(config: InlineConfig) {
+
+    const copy = { ...config }
+
     const builtins = builtinModules.filter(e => !e.startsWith('_')); builtins.push('electron', ...builtins.map(m => `node:${m}`))
   
-    config.build ??= {}
-    config.build.rollupOptions ??= {}
+    const buildOptionsCopy = copy.build = { ...copy.build ??= {} }
+    const rollupOptionsCopy = buildOptionsCopy.rollupOptions = { ...buildOptionsCopy.rollupOptions ??= {} }
   
-    let external = config.build.rollupOptions.external
+    let external = rollupOptionsCopy.external
+
     if (
       Array.isArray(external) ||
       typeof external === 'string' ||
@@ -26,9 +30,10 @@ export function withExternalBuiltins(config: InlineConfig) {
     } else {
       external = builtins
     }
-    config.build.rollupOptions.external = external
+
+    rollupOptionsCopy.external = external
   
-    return config
+    return copy
   }
   
   

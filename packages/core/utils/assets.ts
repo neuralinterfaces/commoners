@@ -20,6 +20,7 @@ import { execSync } from "node:child_process"
 
 import { encodePath } from "./encode.js"
 import { pathToFileURL } from "node:url"
+import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 
 type AssetMetadata = {
     extraResource?: boolean,
@@ -200,11 +201,10 @@ async function buildService(
         build = await build.call(ctx, {
             name,
             src,
-            outDir,
             force,
-            build,
-            root
+            build: { outDir }
         })
+
     }
 
     if (typeof build === 'string') {
@@ -516,7 +516,7 @@ const importMetaResolvePlugin = () => {
     }
 }
 
-export const bundleConfig = async ( input, outFile ) => {
+export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
 
     const _vite = await vite
 
@@ -527,15 +527,18 @@ export const bundleConfig = async ( input, outFile ) => {
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
-    const results = await _vite.build({
+    const plugins = []
+
+    if (!node) plugins.push(nodePolyfills())
+
+    const config = _vite.defineConfig({
         logLevel,
         base: "./",
         root: dirname(input),
 
-        plugins: [ nodePolyfills() ],
+        plugins: plugins,
         build: {
             lib: {
-                // Could also be a dictionary or array of multiple entry points
                 entry: input,
                 formats: [ format ],
                 fileName: () => outFileName,
@@ -550,6 +553,10 @@ export const bundleConfig = async ( input, outFile ) => {
             }
         },
     })
+    
+    const resolvedConfig = node ? withExternalBuiltins(config) : config
+
+    const results = await _vite.build(resolvedConfig)
 
     // Always return a flat list of the output file locations
     return results.map(({ output }) => output).flat().map(({ fileName }) => join(outDir, fileName))

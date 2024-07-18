@@ -2,12 +2,13 @@ import { dirname, join, relative, normalize, resolve } from 'node:path'
 import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-import { globalWorkspacePath, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
+import { globalWorkspacePath, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile, chalk } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
+import { printFailure, printSubtle } from './utils/formatting.js'
 
 // Exports
 export * from './types.js'
@@ -37,7 +38,8 @@ export async function loadConfigFromFile(
     }
     
     else {
-        console.log(`${root} is an invalid root. Please specify an existing Commoners project path.`)
+        await printFailure(`Invalid Commoners project provided`)
+        await printSubtle(`Please provide a different path.`)
         process.exit(1)
     }
     
@@ -57,13 +59,13 @@ export async function loadConfigFromFile(
         const randomId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
         const configOutputPath = join(dirname(configPath), globalWorkspacePath, `commoners.config-${randomId}.mjs`)
             
-        const outputFiles = await bundleConfig(configPath, configOutputPath)
+        const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
         const fileUrl = `${pathToFileURL(configOutputPath)}`
 
         try {
             config = (await import(fileUrl)).default as UserConfig
         } finally {
-            outputFiles.forEach((file) => unlink(file, () => { })) // Ignore errors
+            onExit(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }
 
     }
