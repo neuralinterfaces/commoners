@@ -6,5 +6,6 @@
   "author": "Garrett Flynn <garrettmflynn@gmail.com>",
   "workspaces": [
     "src/services/*"
-  ]
+  ],
+  "main": ".commoners/.temp/main.js"
 }

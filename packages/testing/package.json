@@ -3,7 +3,7 @@
     "version": "0.0.0",
     "devDependencies": {
         "puppeteer": "^22.12.1",
-        "vitest": "^0.34.5"
+        "vitest": "^2.0.3"
     },
     "dependencies": {
         "electron-builder": "24.13.3",
