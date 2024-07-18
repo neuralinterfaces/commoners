@@ -80,5 +80,9 @@ if (process.contextIsolated) {
 }
 
 // Proxy console methods from the main process
-["log", "warn", "error"].forEach((method) => ipcRenderer.on(`commoners:console.${method}`, (_, ...args) => console[method](`[commoners-electron-process]`, ...args)));
+["log", "warn", "error"].forEach((method) => ipcRenderer.on(`commoners:console.${method}`, (_, ...args) => {
+  console.groupCollapsed('Commoners Electron Process')
+  console[method](...args)
+  console.groupEnd()
+}));
 
