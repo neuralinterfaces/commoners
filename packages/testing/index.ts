@@ -1,11 +1,10 @@
 
-import { afterAll, beforeAll, expect, describe, vi, test } from 'vitest'
+import { afterAll, beforeAll, expect, vi } from 'vitest'
 import {
     build,
     loadConfigFromFile,
     start,
     share,
-    templateDir,
     globalTempDir,
     globalWorkspacePath,
     electronDebugPort,
@@ -22,6 +21,7 @@ import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
 
 export const sharePort = 1234
+export const scopedBuildOutDir = '.site'
 
 type Output = {
   manager?: {
@@ -62,15 +62,16 @@ const startProject = (projectBase, customProps = {}) => {
 
   const buildProject = async (projectBase, { target, outDir }, hooks = {}) => {
 
-    const tempDir = join(projectBase, globalTempDir)
-    const servicesDir = join(projectBase, globalWorkspacePath, 'services')
+    const globalWorkspace = join(projectBase, globalWorkspacePath)
     const customBuildDir = join(projectBase, 'build')
+    const customOutDir = join(projectBase, scopedBuildOutDir)
+    
 
     const toClear = [
       outDir,
-      tempDir,
-      servicesDir,
-      customBuildDir
+      globalWorkspace, // Includes services and temporary files
+      customBuildDir,
+      customOutDir
     ]
 
     const isElectron = target === 'electron'
@@ -92,6 +93,7 @@ const startProject = (projectBase, customProps = {}) => {
   
       afterAll(async () => {
         toClear.forEach(path => {
+          console.log('Clearing', path)
           if (existsSync(path)) rmSync(path, { recursive: true })
         })
       })
@@ -234,20 +236,22 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
  if (isElectron) envExpectation.toBeTruthy()
  else envExpectation.toBeFalsy()
 
+ const buildDir = join(baseDir, '..', '..', '..', 'build')
   const servicesDir = join(baseDir, '..', '..', 'services')
-  
+  const manualServiceDir = join(buildDir, 'manual')
+
   // Service
   expect(existsSync(join(servicesDir, 'http', getPackagedServiceName('http')))).toBe(isElectron)
   expect(existsSync(join(servicesDir, 'express', getPackagedServiceName('express')))).toBe(isElectron)
-  expect(existsSync(join(servicesDir, 'manual', getPackagedServiceName('manual')))).toBe(isElectron)
 
-  // Custom with extra assets
-  // // expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', getPackagedServiceName('manual')))).toBe(isElectron)
+  // Custom service with extra assets
+  expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
   
-  // const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
-  // expect(existsSync(txtFile)).toBe(isElectron)
-  // if (isElectron && build) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+  const txtFile = join(manualServiceDir, 'test.txt')
 
+  expect(existsSync(txtFile)).toBe(isElectron)
+
+  if (isElectron && build) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
 
   
   // ---------------------- PWA ----------------------

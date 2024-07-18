@@ -2,14 +2,13 @@ import { expect, test, describe } from 'vitest'
 
 import { normalizeTarget } from '../index'
 
-import { build, checkAssets, sharePort, startBrowserTest } from '../../testing'
+import { build, checkAssets, scopedBuildOutDir, sharePort, startBrowserTest } from '../../testing'
 
 import config from './demo/commoners.config'
 
 import { join } from 'node:path'
 
 const randomNumber =  Math.random().toString(36).substring(7)
-const scopedBuildOutDir = '.site'
 
 export const projectBase = join(__dirname, 'demo')
 
