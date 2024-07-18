@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Added a global `commoners.dev` property for reliably detecting whether a build is running in development mode. Replaces Vite's `import.meta.env.DEV` property, which was unreliable for mobile development.
+- Infer the `launch` target using the configuration file if not provided as an argument
 
 ### Changed
 - Fixed the `--share` command after updating the project root definition

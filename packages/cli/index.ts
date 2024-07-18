@@ -35,7 +35,12 @@ async function preprocessTarget(target) {
     }
 }
 
-const getConfigPathFromOpts = ({ root, config }) => root ? (config ? join(root, config) : root) : config
+type ConfigOpts = {
+    root?: string
+    config?: string
+}
+
+const getConfigPathFromOpts = ({ root, config }: ConfigOpts) => root ? (config ? join(root, config) : root) : config
 
 const cli = cac()
 
@@ -43,8 +48,13 @@ const cli = cac()
 cli.command('launch [outDir]', 'Launch your build application in the specified directory')
 .option('--target <target>', 'Choose a target build to launch')
 .action(async (outDir, options) => {
+
     await preprocessTarget(options.target)
+
+    const config = await loadConfigFromFile(getConfigPathFromOpts({ root: outDir }))
+
     launch({
+        ...config,
         ...options,
         outDir
     })
