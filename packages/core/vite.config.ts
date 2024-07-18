@@ -70,7 +70,6 @@ export default defineConfig({
     },
     rollupOptions: {
       external: Array.from(new Set([
-        'rollup', // Ensure rollup is handled externally
         '@commoners/solidarity', // Ensure self is handled externally
         ...Object.keys(pkg.dependencies),
         ...nodeBuiltIns

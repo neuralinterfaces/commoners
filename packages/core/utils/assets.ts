@@ -6,10 +6,9 @@ import { isValidURL } from './url.js'
 import { copyAsset, copyAssetOld } from './copy.js'
 
 import * as esbuild from 'esbuild'
-import { rollup } from 'rollup';
 
-import nodeResolveRollupPlugin from '@rollup/plugin-node-resolve';
-import commonjsRollupPlugin from '@rollup/plugin-commonjs';
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+
 
 import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
 import { resolveConfig, resolveConfigPath } from "../index.js"
@@ -444,7 +443,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 const outfile = outPath.endsWith(resolvedExtension) ? outPath : _outfile
 
-                if (basename(input, extname(input)) == 'commoners.config') bundleConfig(input, outfile) // Bundle config file differently using Rollup
+                if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, outfile) // Bundle config file differently using Rollup
                 else {
 
 
@@ -519,35 +518,39 @@ const importMetaResolvePlugin = () => {
 
 export const bundleConfig = async ( input, outFile ) => {
 
+    const _vite = await vite
+
     const logLevel = 'silent'
-
+    const outDir = dirname(outFile)
+    const outFileName = basename(outFile)
     const extension = extname(outFile)
-
-    const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
-
     const plugins = [
-        // @ts-ignore
-        commonjsRollupPlugin(),
+        // commonjsRollupPlugin(),
         importMetaResolvePlugin()
     ]
 
-    // Required for module resolution in production
-    if (format !== 'cjs') plugins.unshift(nodeResolveRollupPlugin()) // NOTE: Fails for @commoners/solidarity
+    const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
-    // Bundle config file
-    const bundle = await rollup({
-        input,
-        plugins,    
-        logLevel
+    await _vite.build({
+        logLevel,
+        base: "./",
+        root: dirname(input),
+
+        plugins: [ nodePolyfills() ],
+        build: {
+            lib: {
+                // Could also be a dictionary or array of multiple entry points
+                entry: input,
+                formats: [ format ],
+                fileName: () => outFileName,
+            },
+            emptyOutDir: false,
+            outDir,
+
+            // @ts-ignore
+            rollupOptions: { plugins }
+        },
     })
-
-    const { output } = await bundle.generate({ format }).catch(e => {
-        console.error(e)
-        process.exit(1)
-    });
-    
-    await mkdirSync(dirname(outFile), { recursive: true })
-    await writeFileSync(outFile, output[0].code)
     
     return outFile
 }

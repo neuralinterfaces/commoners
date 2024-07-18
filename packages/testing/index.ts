@@ -163,8 +163,12 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
 
   afterAll(async () => {
     if (output.browser) await output.browser.close() // Will also exit the Electron instance
-    if (output.info.server) output.info.server.close()
-    if (!toLaunch) afterStart(output.info)
+
+    // Start successful
+    if (output.info) {
+      if (output.info.server) output.info.server.close()
+      if (!toLaunch) afterStart(output.info)
+    }
 
   });
 

@@ -1,6 +1,8 @@
+import { createRequire } from 'node:module';
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite } from "./globals.js"
-import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
+
+import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite, electronVersion } from "./globals.js"
+import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
 import * as mobile from './mobile/index.js'
@@ -187,15 +189,9 @@ export default async function build (
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 
         // Correct for different project roots
-        if (!('electronVersion' in buildConfig)) {
-            const electronVersion = dependencies.electron
-            if (electronVersion[0] === '^') buildConfig.electronVersion = electronVersion.slice(1)
-            else buildConfig.electronVersion = electronVersion
-        }
+        if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
 
-        const electronBuilderOpts: CliOptions = { 
-            config: buildConfig as any 
-        }
+        const electronBuilderOpts: CliOptions = {  config: buildConfig as any  }
 
         if (root) electronBuilderOpts.projectDir = root
         

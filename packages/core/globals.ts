@@ -1,5 +1,4 @@
 import { join, resolve } from "node:path";
-import { getJSON } from "./utils/files.js";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync, rmSync } from "node:fs";
@@ -7,13 +6,15 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
-
 import * as yaml from 'js-yaml'
 
 export const chalk = import("chalk").then(m => m.default)
 export const vite = import("vite")
-export const ElectronVitePlugin = import("vite-plugin-electron").then(m => m.default)
 
+const { version: electronVersion } = require('electron/package.json')
+export {
+    electronVersion
+}
 
 // Types
 import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validDesktopTargets, validMobileTargets } from "./types.js";
@@ -123,10 +124,6 @@ export const rootDir = inKnownPath ? __dirname : dirname(require.resolve('@commo
 
 export const templateDir = join(rootDir, 'templates')
 export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(join(templateDir, 'electron', 'electron-builder.yml')).toString())
-
-// Get package file
-const corePkg = getJSON(join(rootDir, 'package.json'))
-export const dependencies = corePkg.dependencies
 
 // const resolveKey = (key) => {
 //     if (valid.mode.includes(key)) return MODE

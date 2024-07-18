@@ -161,8 +161,12 @@ const writePackageJSON = (o, root = '') => {
 
 // Ensure project can handle --desktop command
 export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
-    const pkg = { ...defaults, ...getJSON(join(root, 'package.json')) }
-    const defaultMainLocation = getDefaultMainLocation(root ? relative(root, outDir) : outDir )
+
+    const userPkg = getJSON(join(root, 'package.json'))
+    const pkg = { ...defaults, ...userPkg }
+
+    const resolvedOutDir = root ? relative(root, outDir) : outDir
+    const defaultMainLocation = getDefaultMainLocation(resolvedOutDir)
     if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
         onExit(() =>  writePackageJSON(pkg, root)) // Write back the original package.json on exit
         writePackageJSON({...pkg, main: defaultMainLocation}, root)

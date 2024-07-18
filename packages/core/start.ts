@@ -69,7 +69,7 @@ export default async function ( opts: UserConfig = {} ) {
         }
 
         // Configure the desktop instance
-        if (isDesktopTarget) await configureForDesktop(outDir) // NOTE: Do not correct for root here
+        if (isDesktopTarget) await configureForDesktop(outDir, root)
 
         // Create all services
         else activeInstances.services = await createAllServices()
