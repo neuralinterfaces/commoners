@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
-import { basename, extname, posix, resolve, sep } from 'node:path';
-import { c } from 'vitest/dist/reporters-5f784f42.js';
+import { basename, extname, resolve } from 'node:path';
 
 // Generate a session-specific random seed
 const seed = crypto.randomBytes(16).toString('hex');

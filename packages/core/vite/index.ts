@@ -1,15 +1,15 @@
-import * as vite from 'vite'
-
+import { Plugin } from 'vite'
 import ElectronVitePlugin from 'vite-plugin-electron/simple'
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve } from 'node:path'
 
-import { rootDir, isDesktop, chalk } from "../globals.js";
+import { rootDir, isDesktop, chalk, vite } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import { safePath } from '../utils/index.js';
+
 
 // import { nodeBuiltIns } from "../utils/config.js";
 
@@ -18,8 +18,10 @@ const defaultOutDir = join(rootDir, 'dist')
 // Run a development server
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
 
+    const _vite = await vite
+
     // Create the frontend server
-    const server = await vite.createServer(await resolveViteConfig(config, opts, false))
+    const server = await _vite.createServer(await resolveViteConfig(config, opts, false))
     await server.listen()
 
     // Print out the URL if everything was initialized here (i.e. dev mode)
@@ -90,14 +92,16 @@ export const resolveViteConfig = async (
     build = true
 ) => {
 
+    const _vite = await vite
+
     const _chalk = await chalk
 
     const isDesktopTarget = isDesktop(target)
 
     let { vite: viteUserConfig = {} } = commonersConfig
-    if (typeof viteUserConfig === 'string') viteUserConfig = (await vite.loadConfigFromFile({ command: build ? 'build' : 'serve', mode: build ? 'production' : 'development' }, viteUserConfig)).config
+    if (typeof viteUserConfig === 'string') viteUserConfig = (await _vite.loadConfigFromFile({ command: build ? 'build' : 'serve', mode: build ? 'production' : 'development' }, viteUserConfig)).config
     
-    const plugins: vite.Plugin[] = [ ]
+    const plugins: Plugin[] = [ ]
 
     const { name, appId, root, icon, description, dependencies = {} } = commonersConfig
 
@@ -154,7 +158,7 @@ export const resolveViteConfig = async (
     console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('vite'))}\n`)
 
     // Define a default set of plugins and configuration options
-    const viteConfig = vite.defineConfig({
+    const viteConfig = _vite.defineConfig({
         base: './',
         root, // Resolve index.html from the root directory
         build: {
@@ -168,7 +172,7 @@ export const resolveViteConfig = async (
 
 
 
-    const mergedConfig = vite.mergeConfig(viteConfig, viteUserConfig)
+    const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
 
     mergedConfig.plugins = [
         ...mergedConfig.plugins,

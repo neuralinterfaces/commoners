@@ -2,7 +2,7 @@ import { App, BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRender
 import { Configuration as ElectronBuilderConfiguration, PublishOptions } from 'electron-builder'
 import { ManifestOptions } from 'vite-plugin-pwa'
 
-import { UserConfig as ViteUserConfig } from 'vite'
+import { type UserConfig as ViteUserConfig } from 'vite'
 
 export function tuple<T extends string[]>(...o: T) {
     return o;

@@ -1,11 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { chalk, isDesktop, rootDir } from "../globals.js"
+import { chalk, isDesktop, rootDir, vite } from "../globals.js"
 import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 
 import { isValidURL } from './url.js'
 import { copyAsset, copyAssetOld } from './copy.js'
 
-import * as vite from 'vite'
 import * as esbuild from 'esbuild'
 import { rollup } from 'rollup';
 
@@ -351,6 +350,7 @@ type AssetsToBuild = { assets?: boolean, services?: boolean }
 export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}) => {
 
     const _chalk = await chalk
+    const _vite = await vite
 
     const { outDir } = config.build
 
@@ -422,7 +422,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
             // Bundle HTML Files using Vite
             else if (ext === '.html') {
 
-                await vite.build({
+                await _vite.build({
                     logLevel: 'silent',
                     base: "./",
                     root: fileRoot,

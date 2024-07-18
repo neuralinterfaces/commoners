@@ -1,5 +1,5 @@
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk } from "./globals.js"
+import { dependencies, isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig, validDesktopTargets } from "./types.js"
 import { getIcon } from "./utils/index.js"
 
@@ -10,9 +10,6 @@ import { configureForDesktop, resolveConfig } from "./index.js"
 import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
 
 import { resolveViteConfig } from './vite/index.js'
-
-import { build as ViteBuild } from 'vite'
-
 
 import merge from './utils/merge.js'
 import { lstatSync } from "node:fs"
@@ -37,7 +34,10 @@ export default async function build (
         onBuildAssets,
         dev = false // Default to a production build
     }: BuildHooks = {},
+    
 ) {
+
+    const _vite = await vite
 
     const _chalk = await chalk
 
@@ -100,7 +100,7 @@ export default async function build (
     // ---------------- Build Assets ----------------
     if (toRebuild.assets) {
         if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await ViteBuild(await resolveViteConfig(resolvedConfig, { target, outDir, dev }))  // Build the standard output files using Vite. Force recognition as build
+        await _vite.build(await resolveViteConfig(resolvedConfig, { target, outDir, dev }))  // Build the standard output files using Vite. Force recognition as build
     }
 
     // ---------------- Create Standard Output Files ----------------
