@@ -5,6 +5,6 @@
   "description": "A test app for the commoners library",
   "author": "Garrett Flynn <garrettmflynn@gmail.com>",
   "workspaces": [
-    "**/services/*"
+    "src/services/*"
   ]
 }

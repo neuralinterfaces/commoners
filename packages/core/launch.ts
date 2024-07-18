@@ -107,7 +107,6 @@ export default async function (options: LaunchOptions) {
 
         const server = createServer({  root: outDir })
 
-
         const resolvedPort = port || (await getFreePorts(1))[0]
 
         const url = `http://${host}:${resolvedPort}`

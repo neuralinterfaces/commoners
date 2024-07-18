@@ -3,14 +3,6 @@ import { dirname, relative, sep } from "node:path"
 
 import { safeJoin } from './index'
 
-// NOTE: This should also correct any targeting of this asset as well...
-export const getOutputPath = (root, absPath) => {
-    absPath = absPath.replace(/^.*?:/, '')
-    const _input = relative(root, absPath)
-    if (!_input.includes(`..${sep}`)) absPath = _input // Map only if inside the root directory
-    return absPath
-}
-
 export const copyAsset = (input, output) => {
 
     const out = dirname(output)

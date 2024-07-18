@@ -219,13 +219,20 @@ export async function start (config, id, opts = {}) {
     let error;
 
     try {
+
+      const cwd = opts.root ?? process.cwd()
+
       const env = { ...process.env, PORT: config.port, HOST: config.host }
 
+      const resolvedFilepath = resolve(filepath)
+
+      if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `Source file does not exist at ${filepath}`, 'warn')
+
       // Node Support
-      if (jsExtensions.includes(ext)) childProcess = fork(filepath, [ ], { silent: true, env })
+      if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [ ], { cwd, silent: true, env })
 
       // Python Support
-      else if (ext === '.py') childProcess = spawn("python", [filepath], { env })
+      else if (ext === '.py') childProcess = spawn("python", [resolvedFilepath], { cwd, env })
 
       // C++ Support
       else if (ext === '.cpp') {
@@ -240,9 +247,9 @@ export async function start (config, id, opts = {}) {
         // execSync(build.replace('{out}', outPath).replace('{src}', filepath)) // Compile C++ file. Will be deleted on exit
 
         // Run compiled file
-        childProcess = spawn(filepath, [], { env })
+        childProcess = spawn(resolvedFilepath, [], { cwd, env })
       }
-      else if (!ext || ext === '.exe') childProcess = spawn(filepath, [], { env })
+      else if (!ext || ext === '.exe') childProcess = spawn(resolvedFilepath, [], { cwd, env })
     } catch (e) {
       error = e
     }

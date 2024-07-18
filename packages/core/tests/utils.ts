@@ -13,7 +13,7 @@ const scopedBuildOutDir = '.site'
 
 export const projectBase = join(__dirname, 'demo')
 
-const getServices = (registrationOutput) => ((registrationOutput.commoners ?? registrationOutput.manager) ?? {}).services
+const getServices = (registrationOutput) => (registrationOutput.commoners ? registrationOutput.commoners.SERVICES : registrationOutput.manager.services) ?? {}
 
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))

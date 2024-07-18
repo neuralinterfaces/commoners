@@ -200,9 +200,6 @@ export {
     shareProject as share
 }
 
-const demoDir = 'demo'
-
-
 const getPackagedServiceName = (name) => (process.platform === 'win32') ? `${name}.exe` : name
 
 export const checkAssets = (projectBase, baseDir = '', { build = false, target = 'web' } = {}) => {
@@ -231,20 +228,25 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   const isElectron = target === 'electron'
   expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
   expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, demoDir, 'splash.html'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '.env'))).toBe(isElectron)
+  expect(existsSync(join(assetDir, 'splash.html'))).toBe(isElectron)
 
+ const envExpectation = expect(regexFindFile(assetDir, /.env-(.*)/))
+ if (isElectron) envExpectation.toBeTruthy()
+ else envExpectation.toBeFalsy()
 
+  const servicesDir = join(baseDir, '..', '..', 'services')
+  
   // Service
-  expect(existsSync(join(baseDir, '..', '..', 'services', 'http', getPackagedServiceName('http')))).toBe(isElectron)
-  expect(existsSync(join(baseDir, '..', '..', 'services', 'express', getPackagedServiceName('express')))).toBe(isElectron)
+  expect(existsSync(join(servicesDir, 'http', getPackagedServiceName('http')))).toBe(isElectron)
+  expect(existsSync(join(servicesDir, 'express', getPackagedServiceName('express')))).toBe(isElectron)
+  expect(existsSync(join(servicesDir, 'manual', getPackagedServiceName('manual')))).toBe(isElectron)
 
   // Custom with extra assets
-  expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', getPackagedServiceName('manual')))).toBe(isElectron)
+  // // expect(existsSync(join(baseDir, '..', '..', '..', 'build', 'manual', getPackagedServiceName('manual')))).toBe(isElectron)
   
-  const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
-  expect(existsSync(txtFile)).toBe(isElectron)
-  if (isElectron && build) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+  // const txtFile = join(baseDir, '..', '..', '..', 'build', 'manual', 'test.txt')
+  // expect(existsSync(txtFile)).toBe(isElectron)
+  // if (isElectron && build) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
 
 
   

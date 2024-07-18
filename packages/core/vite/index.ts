@@ -3,14 +3,15 @@ import electronPlugin from './plugins/electron/index.js'
 
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
-import { extname, join } from 'node:path'
+import { extname, isAbsolute, join, relative } from 'node:path'
 
 import { rootDir, isDesktop, vite, chalk } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
-import { safePath } from '../utils/index.js';
+import { getIcon, safePath } from '../utils/index.js';
 import { printServiceMessage } from '../utils/formatting.js';
+import { getAssetBuildPath } from '../utils/assets.js';
 
 // import { nodeBuiltIns } from "../utils/config.js";
 
@@ -41,18 +42,26 @@ type PWAOptions = {
     icon: ResolvedConfig['icon'],
     name: ResolvedConfig['name'],
     appId: ResolvedConfig['appId'],
-    description: ResolvedConfig['description']
+    description: ResolvedConfig['description'],
+    root: ResolvedConfig['root']
 }
 
-const resolvePWAOptions = (opts = {}, { name, description, appId, icon }: PWAOptions) => {
+
+const resolvePWAOptions = (opts = {}, { name, description, appId, icon, root }: PWAOptions, outDir: string) => {
 
     const pwaOpts = { ...opts } as Partial<VitePWAOptions>
 
 
     if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
     else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [ pwaOpts.includeAssets ]
-
-    const icons = icon ? (typeof icon === 'string' ? [ icon ] : Object.values(icon)) : []
+    
+    const icons = []
+    const rawIconSrc = getIcon(icon)
+    if (rawIconSrc) {
+        const defaultIcon = isAbsolute(rawIconSrc) ? rawIconSrc : join(root, rawIconSrc)
+        const iconBuildPath = getAssetBuildPath(defaultIcon, outDir)
+        icons.push(relative(outDir, iconBuildPath)) // Use the relative path for builds
+    }
 
     pwaOpts.includeAssets.push(...icons.map(safePath)) // Include specified assets
 
@@ -117,8 +126,9 @@ export const resolveViteConfig = async (
             name,
             appId,
             icon,
-            description
-        })
+            description,
+            root
+        }, outDir)
 
         // @ts-ignore
         plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))

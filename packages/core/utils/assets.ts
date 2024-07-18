@@ -446,7 +446,6 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                 if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, outfile) // Bundle config file differently using Rollup
                 else {
 
-
                     const baseConfig: esbuild.BuildOptions = {
                         entryPoints: [ input ],
                         bundle: true,
