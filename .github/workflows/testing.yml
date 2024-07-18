@@ -3,6 +3,7 @@ on:
   schedule:
     - cron: "0 16 * * *"  # Daily at noon EST
   pull_request:
+  workflow_dispatch:
 
 concurrency:  # Cancel previous workflows on the same pull request
   group: ${{ github.workflow }}-${{ github.ref }}
