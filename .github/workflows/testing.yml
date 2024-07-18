@@ -40,7 +40,7 @@ jobs:
           node-version: 20
 
       - name: Install Commoners
-        run: npm ci 
+        run: pnpm install
 
       - name: Build Commoners
         run: npm run build
