@@ -13,7 +13,6 @@ from "@commoners/solidarity";
 
 import pkg from './package.json'
 
-
 // Utilities
 import cac from 'cac'
 import { join } from "path";

@@ -12,6 +12,8 @@ import * as yaml from 'js-yaml'
 
 export const chalk = import("chalk").then(m => m.default)
 export const vite = import("vite")
+export const ElectronVitePlugin = import("vite-plugin-electron").then(m => m.default)
+
 
 // Types
 import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validDesktopTargets, validMobileTargets } from "./types.js";

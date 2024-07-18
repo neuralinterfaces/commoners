@@ -10,7 +10,8 @@ import { nodeBuiltIns } from "./utils/config";
 
 import { normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
-import { chalk } from "./globals";
+
+import chalk from 'chalk'
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
@@ -68,12 +69,12 @@ export default defineConfig({
       fileName: (format) => `index.${format == 'es' ? 'mjs' : 'cjs'}`,
     },
     rollupOptions: {
-      external: [
+      external: Array.from(new Set([
         'rollup', // Ensure rollup is handled externally
         '@commoners/solidarity', // Ensure self is handled externally
         ...Object.keys(pkg.dependencies),
         ...nodeBuiltIns
-      ],
+      ])),
     },
   },
 })

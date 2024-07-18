@@ -1,15 +1,16 @@
-import { Plugin } from 'vite'
-import ElectronVitePlugin from 'vite-plugin-electron/simple'
+type Plugin = import('vite').Plugin
+type UserConfig = import('vite').UserConfig
+type ElectronOptions = import('vite-plugin-electron').ElectronOptions
+
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
 import { extname, join, resolve } from 'node:path'
 
-import { rootDir, isDesktop, chalk, vite } from "../globals.js";
+import { rootDir, isDesktop, chalk, vite, ElectronVitePlugin } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import { safePath } from '../utils/index.js';
-
 
 // import { nodeBuiltIns } from "../utils/config.js";
 
@@ -122,22 +123,52 @@ export const resolveViteConfig = async (
             }
         }
 
-        // @ts-ignore
-        const electronPluginConfig = ElectronVitePlugin({
+        const _ElectronVitePlugin = await ElectronVitePlugin
+
+        const options = {
             main: {
-              entry: resolve(electronTemplateBase, 'main.ts'),
-              onstart: (options) => options.startup(),              
-              vite: viteOpts
+                entry: resolve(electronTemplateBase, 'main.ts'),
+                onstart: (options) => options.startup(),              
+                vite: viteOpts
             },
             preload: {
-              input: resolve(electronTemplateBase, 'preload.ts'),
-              onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
-              vite: viteOpts
+                input: resolve(electronTemplateBase, 'preload.ts'),
+                onstart: (options) => options.reload(), // Notify the Renderer-Process to reload the page when the Preload-Scripts build is complete, instead of restarting the entire Electron App.
+                vite: viteOpts
             },
         }
-    )
 
-        plugins.push(electronPluginConfig)
+        // COPIED
+        const flatApiOptions = [ options.main ]
+        const esmodule = commonersConfig.type === 'module'
+
+        if (options.preload) {
+            const { input, vite: viteConfig = {}, ...preloadOptions } = options.preload
+
+            const preload: ElectronOptions = {
+                onstart: (args) => args.reload(), // Reload the page when the Preload-Scripts build is complete
+                ...preloadOptions,
+                vite: _vite.mergeConfig({
+                    build: {
+                        rollupOptions: {
+                                input,
+                                output: {
+                                format: 'cjs',
+                                inlineDynamicImports: true,
+                                entryFileNames: `[name].${esmodule ? 'mjs' : 'js'}`,
+                                chunkFileNames: `[name].${esmodule ? 'mjs' : 'js'}`,
+                                assetFileNames: '[name].[ext]',
+                            },
+                        },
+                    },
+                } as UserConfig, viteConfig),
+            }
+
+            flatApiOptions.push(preload)
+        }
+
+        // @ts-ignore
+        plugins.push(_ElectronVitePlugin(flatApiOptions))
 
     } 
     

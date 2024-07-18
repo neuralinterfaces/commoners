@@ -2,7 +2,7 @@ import { App, BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRender
 import { Configuration as ElectronBuilderConfiguration, PublishOptions } from 'electron-builder'
 import { ManifestOptions } from 'vite-plugin-pwa'
 
-import { type UserConfig as ViteUserConfig } from 'vite'
+type ViteUserConfig = import('vite').UserConfig
 
 export function tuple<T extends string[]>(...o: T) {
     return o;
@@ -245,9 +245,14 @@ export type ResolvedConfig = BaseConfig & {
     build: BuildOptions['build'],
     launch?: LaunchOptions,
     share?: ShareOptions['share'],
-    services: {
-        [x: string]: ResolvedService
-    }
+    services: { [x: string]: ResolvedService }
+
+    // package.json properties used in the library
+    type?: 'module' | 'commonjs',
+    dependencies?: { [x:string]: string }
+    devDependencies?: { [x:string]: string }
+    peerDependencies?: { [x:string]: string }
+    optionalDependencies?: { [x:string]: string }
 }
 
 // ------------------- Global Object Declaration -------------------
