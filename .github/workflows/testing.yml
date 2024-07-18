@@ -28,12 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: git fetch --prune --unshallow --tags
-
-      - name: Set cache date
-        id: get-date
-        run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
-        shell: bash
-
+      
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -46,7 +41,7 @@ jobs:
         run: pnpm install
 
       - name: Build Commoners
-        run: pnpm run build
+        run: pnpm build
 
       - name: Run tests
-        run: pnpm run coverage
+        run: pnpm coverage
