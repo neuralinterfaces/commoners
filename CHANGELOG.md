@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update service configuration to allow for more uniform service definitions
 - Removed `[build]` argument option to avoid inconsistent behavior when running outside of your project root
 - Dynamically encode asset paths to avoid issues with `.commoners/assets` scoping when including assets outside the project root
+- Improved CLI formatting and error handling
 
 ## [0.0.47]
 ### Changed

@@ -6,7 +6,8 @@ import {
     launch, 
     start,
     loadConfigFromFile,
-    ShareOptions
+    ShareOptions,
+    format
 } 
 
 from "@commoners/solidarity";
@@ -24,10 +25,11 @@ const allTargets = [...serviceTargets, ...desktopTargets, ...mobileTargets, ...w
 
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) => Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
-function preprocessTarget(target) {
+async function preprocessTarget(target) {
     if (typeof target === 'string') {
         if (!allTargets.includes(target)) {
-            console.error(`'${target}' is not a valid target. Allowed targets: ${allTargets.join(', ')}`)
+            await format.printFailure(`'${target}' is not a valid target.`)
+            await format.printSubtle(`Valid targets: ${allTargets.join(', ')}`)
             process.exit(1)
         }
     }
@@ -40,8 +42,8 @@ const cli = cac()
 // Launch the specified build
 cli.command('launch [outDir]', 'Launch your build application in the specified directory')
 .option('--target <target>', 'Choose a target build to launch')
-.action((outDir, options) => {
-    preprocessTarget(options.target)
+.action(async (outDir, options) => {
+    await preprocessTarget(options.target)
     launch({
         ...options,
         outDir
@@ -83,7 +85,7 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 
     const buildOnlyServices = !options.target && options.service
 
-    preprocessTarget(options.target)
+    await preprocessTarget(options.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
@@ -117,7 +119,7 @@ cli.command('[root]', 'Start the application in the specified directory', { igno
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
 
-    preprocessTarget(options.target)
+    await preprocessTarget(options.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,

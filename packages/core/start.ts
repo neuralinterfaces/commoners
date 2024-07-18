@@ -12,8 +12,6 @@ import { printHeader, printTarget } from "./utils/formatting.js"
 
 export default async function ( opts: UserConfig = {} ) {
 
-        const _chalk = await chalk
-
         const { port } = opts
     
         const resolvedConfig = await resolveConfig(opts, { customPort: port });

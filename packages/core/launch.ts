@@ -12,7 +12,7 @@ import { createServer } from './utils/server.js'
 import { getFreePorts } from './templates/services/utils/network.js'
 
 import { cpus } from 'node:os';
-import { printHeader, printTarget } from './utils/formatting.js';
+import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
 
 
 const open = import('open').then(m => m.default)
@@ -68,16 +68,15 @@ export default async function (options: LaunchOptions) {
         port 
     } = options
 
-    if (!existsSync(outDir)) {
-        return console.error(`${_chalk.red(outDir)} directory does not exist.`)
-    }
 
-    await printHeader(`Launching ${printTarget(target)} build${outDir ? ` (${outDir})` : ''}`)
+    await printHeader(`Launching ${printTarget(target)} Build${outDir ? ` (${outDir})` : ''}`)
+
+    if (!existsSync(outDir)) return printFailure(`Directory does not exist.`)
 
     if (isMobile(target)) {
         if (outDir) process.chdir(outDir)
         await mobile.launch(target)
-        console.log(_chalk.gray(`Opened native build tool for ${target}`))
+        await printSubtle(`Opening native launcher for ${target}...`)
     }
 
     else if (isDesktop(target)) {
@@ -94,7 +93,7 @@ export default async function (options: LaunchOptions) {
         ]);
 
         const debugUrl = `http://localhost:${electronDebugPort}`
-        console.log(_chalk.gray(`Debug ${desktopInfo.name} at ${debugUrl}`))
+        printSubtle(`Debug your application at ${_chalk.cyan(debugUrl)}`)
 
         return {
             url: debugUrl
@@ -111,7 +110,7 @@ export default async function (options: LaunchOptions) {
 
         const url = `http://${host}:${resolvedPort}`
         server.listen(parseInt(resolvedPort), host, async () => {
-            console.log(_chalk.gray(`Server is running on ${_chalk.cyan(url)}`))
+            printSubtle(`Server is running on ${_chalk.cyan(url)}`)
             if (!process.env.VITEST) {
                 const _open = await open
                 _open(url)

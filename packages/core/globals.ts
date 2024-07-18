@@ -21,6 +21,7 @@ import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validD
 
 // Environment Variables
 import dotenv from 'dotenv'
+import { printFailure } from "./utils/formatting.js";
 dotenv.config()
 
 export const globalWorkspacePath = '.commoners'
@@ -47,8 +48,7 @@ export const initialize = async (tempDir = globalTempDir) => {
     
     // NOTE: Ensure that the single temporary directory is not overwritten for different targets
     if (existsSync(tempDir)) {
-        const _chalk = await chalk
-        console.error(`\n👎 Only ${_chalk.redBright('one')} commoners command can be run at a time in the same repo.\n`)
+        printFailure(`\n👎 Only one commoners command can be run at a time in the same repo.\n`)
         process.exit(1)
     }
     

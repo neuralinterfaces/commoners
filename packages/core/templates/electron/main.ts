@@ -10,6 +10,8 @@ import * as services from '../services/index'
 
 import dotenv from 'dotenv'
 
+const chalk = import('chalk').then(m => m.default)
+
 let mainWindow;
 
 function send(this: BrowserWindow, channel: string, ...args: any[]) {
@@ -88,9 +90,13 @@ function restoreWindow() {
   return mainWindow
 }
 
-function makeSingleInstance() {
+async function makeSingleInstance() {
   if (process.mas) return;
-  if (!app.requestSingleInstanceLock()) app.exit(); // Skip quit callbacks
+  if (!app.requestSingleInstanceLock()) {  
+    const _chalk = await chalk
+    console.log(_chalk.yellow('Another instance of this application is already running.'))
+    app.exit(); // Skip quit callbacks
+  }
   else app.on("second-instance", () => restoreWindow());
 }
 
@@ -285,7 +291,7 @@ runPlugins(null, 'preload').then(() => {
     })
 
     // Start the application from scratch
-    await createMainWindow(config)
+    createMainWindow(config)
     app.on('activate', () => createMainWindow(config)) // Handle dock interactions
   })
 

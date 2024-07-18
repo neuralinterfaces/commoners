@@ -220,7 +220,9 @@ export async function start (config, id, opts = {}) {
 
     try {
 
-      const cwd = opts.root ?? process.cwd()
+      const { build } = opts
+      const root = !build && opts.root
+      const cwd = root || process.cwd()
 
       const env = { ...process.env, PORT: config.port, HOST: config.host }
 

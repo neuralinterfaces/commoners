@@ -16,6 +16,7 @@ export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'
 export { default as start } from './start.js'
+export * as format from './utils/formatting.js'
 
 
 export const defineConfig = (o: UserConfig): UserConfig => o

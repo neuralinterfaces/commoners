@@ -21,3 +21,13 @@ export const printServiceMessage = async (label, msg, type = 'log') => {
     const _chalk = await chalk
     console[type](`${_chalk.bold(_chalk.greenBright(`[${label}]`))} ${msg}`)
 }
+
+export const printFailure = async (msg) => {
+    const _chalk = await chalk
+    console.error(`\n${_chalk.redBright(`❌ ${msg}`)}\n`)
+}
+
+export const printSubtle = async (msg) => {
+    const _chalk = await chalk
+    console.log(`${_chalk.gray(msg)}\n`)
+}
