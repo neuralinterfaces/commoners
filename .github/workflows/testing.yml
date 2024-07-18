@@ -46,7 +46,7 @@ jobs:
         run: pnpm install
 
       - name: Build Commoners
-        run: npm run build
+        run: pnpm run build
 
       - name: Run tests
-        run: npm run coverage
+        run: pnpm run coverage
