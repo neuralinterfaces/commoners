@@ -15,3 +15,9 @@ export const printHeader = async (msg) => {
     const _chalk = await chalk
     console.log(`\n✊ ${_chalk.bold(msg)}\n`)
 }
+
+
+export const printServiceMessage = async (label, msg, type = 'log') => {
+    const _chalk = await chalk
+    console[type](`${_chalk.bold(_chalk.greenBright(`[${label}]`))} ${msg}`)
+}

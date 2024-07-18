@@ -9,7 +9,7 @@ import { getLocalIP } from './utils/ip/cross-platform.js'
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { buildAssets } from './utils/assets.js';
-import { printHeader } from './utils/formatting.js';
+import { printHeader, printServiceMessage } from './utils/formatting.js';
 
 export default async function (opts: ShareOptions) {
 
@@ -59,11 +59,9 @@ export default async function (opts: ShareOptions) {
     server.listen(
         sharePort,
         '0.0.0.0', // All IPs
-        () => {
-            console.log(`Services shared at ${_chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
-            Object.entries(serviceManager.active).forEach(([id, service]) => {
-                console.log(`[${_chalk.bold(_chalk.greenBright(id))}] ${_chalk.cyan(`http://${service.host}:${service.port}`)}`)
-            })
+        async () => {
+            await printServiceMessage('commoners-share-hub', _chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`))
+            for (const [id, service] of Object.entries(serviceManager.active)) await printServiceMessage(id, _chalk.cyan(`http://${service.host}:${service.port}`))
         }
     );
 

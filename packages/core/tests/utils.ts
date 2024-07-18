@@ -1,4 +1,3 @@
-// sum.test.js
 import { expect, test, describe } from 'vitest'
 
 import { normalizeTarget } from '../index'
@@ -6,12 +5,13 @@ import { normalizeTarget } from '../index'
 import { build, checkAssets, sharePort, startBrowserTest } from '../../testing'
 
 import config from './demo/commoners.config'
-import userPkg from './package.json' assert { type: 'json'}
+
+import { join } from 'node:path'
 
 const randomNumber =  Math.random().toString(36).substring(7)
 const scopedBuildOutDir = '.site'
 
-export const projectBase = __dirname
+export const projectBase = join(__dirname, 'demo')
 
 const getServices = (registrationOutput) => ((registrationOutput.commoners ?? registrationOutput.manager) ?? {}).services
 
@@ -26,6 +26,8 @@ const e2eTests = {
         describe('Basic E2E Test', () => {
     
             test("Global variable is valid", async () => {
+
+                const userPkg = require(join(projectBase, 'package.json'))
 
                 const { commoners = {} } = registrationOutput
                 const { NAME, TARGET, VERSION, PLUGINS, SERVICES, READY, ELECTRON } = commoners

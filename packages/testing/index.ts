@@ -15,12 +15,11 @@ import {
     CommonersGlobalObject,
   } from '../core/index'
 
-import { join, sep, relative } from 'node:path'
+import { join } from 'node:path'
 import { rmSync, existsSync, readFileSync, readdirSync } from 'node:fs'
   
 import * as puppeteer from 'puppeteer'
 import { sleep } from '../core/tests/utils'
-import { safeJoin } from '../core/utils'
 
 export const sharePort = 1234
 

@@ -251,6 +251,9 @@ export async function start (config, id, opts = {}) {
 
     if (childProcess) {
 
+      const _chalk = await chalk
+      printServiceMessage(label, _chalk.cyanBright(config.url))
+
       if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
         config.status = true
         if (opts.onLog) opts.onLog(id, data)

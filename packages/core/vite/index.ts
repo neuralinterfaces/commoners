@@ -10,6 +10,7 @@ import { rootDir, isDesktop, vite, chalk } from "../globals.js";
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import { safePath } from '../utils/index.js';
+import { printServiceMessage } from '../utils/formatting.js';
 
 // import { nodeBuiltIns } from "../utils/config.js";
 
@@ -30,7 +31,7 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
         const { port, host } = server.config.server;
         const protocol = server.config.server.https ? 'https' : 'http';
         const url = `${protocol}://${host || 'localhost'}:${port}`;
-        console.log(`${_chalk.bold(_chalk.greenBright('[commoners-dev-server]:'))} ${_chalk.cyanBright(url)}\n`)
+        await printServiceMessage('commoners-dev-server', _chalk.cyanBright(url))
     }
 
     return server
