@@ -511,6 +511,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
 const importMetaResolvePlugin = () => {
     return {
+        name: 'import-meta-resolve',
         resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
     }
 }
@@ -523,10 +524,6 @@ export const bundleConfig = async ( input, outFile ) => {
     const outDir = dirname(outFile)
     const outFileName = basename(outFile)
     const extension = extname(outFile)
-    const plugins = [
-        // commonjsRollupPlugin(),
-        importMetaResolvePlugin()
-    ]
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
@@ -546,8 +543,11 @@ export const bundleConfig = async ( input, outFile ) => {
             emptyOutDir: false,
             outDir,
 
-            // @ts-ignore
-            rollupOptions: { plugins }
+            rollupOptions: { 
+                plugins: [ 
+                    importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
+                ] 
+            }
         },
     })
 
