@@ -3,9 +3,9 @@ import electronPlugin from './plugins/electron/index.js'
 
 import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
 
-import { extname, join, resolve } from 'node:path'
+import { extname, join } from 'node:path'
 
-import { rootDir, isDesktop, chalk, vite } from "../globals.js";
+import { rootDir, isDesktop, vite, chalk } from "../globals.js";
 
 import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
@@ -19,6 +19,7 @@ const defaultOutDir = join(rootDir, 'dist')
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
 
     const _vite = await vite
+    const _chalk = await chalk
 
     // Create the frontend server
     const server = await _vite.createServer(await resolveViteConfig(config, opts, false))
@@ -26,14 +27,14 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
 
     // Print out the URL if everything was initialized here (i.e. dev mode)
     if (opts.printUrls !== false) {
-        console.log('\n')
-        server.printUrls()
-        console.log('\n')
+        const { port, host } = server.config.server;
+        const protocol = server.config.server.https ? 'https' : 'http';
+        const url = `${protocol}://${host || 'localhost'}:${port}`;
+        console.log(`${_chalk.bold(_chalk.greenBright('[commoners-dev-server]:'))} ${_chalk.cyanBright(url)}\n`)
     }
 
     return server
 }
-
 
 type PWAOptions = {
     icon: ResolvedConfig['icon'],
@@ -94,8 +95,6 @@ export const resolveViteConfig = async (
 
     const _vite = await vite
 
-    const _chalk = await chalk
-
     const isDesktopTarget = isDesktop(target)
 
     let { vite: viteUserConfig = {} } = commonersConfig
@@ -124,10 +123,9 @@ export const resolveViteConfig = async (
         plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
     }
 
-    console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('vite'))}\n`)
-
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
+        logLevel: dev ? 'silent' : 'info',
         base: './',
         root, // Resolve index.html from the root directory
         build: {
@@ -138,8 +136,6 @@ export const resolveViteConfig = async (
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
         clearScreen: false,
     })
-
-
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
 

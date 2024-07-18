@@ -96,7 +96,8 @@ function makeSingleInstance() {
 
 makeSingleInstance();
 
-const config = require(configPath) // Requires putting the dist at the Resource Path
+const _config = require(configPath) // Requires putting the dist at the Resource Path
+const config = _config.default || _config
 
 const plugins = config.plugins ?? {}
 
@@ -112,7 +113,9 @@ const contexts = Object.keys(plugins).reduce((acc, id) => {
   return acc
 }, {})
 
-const runPlugins = (win: BrowserWindow | null = null, type = 'load') => Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => plugin.desktop?.[type] && plugin.desktop[type].call(contexts[id], win)))
+const runPlugins = async (win: BrowserWindow | null = null, type = 'load') => {
+  return await Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => plugin.desktop?.[type] && plugin.desktop[type].call(contexts[id], win)))
+}
 
 
 
@@ -124,7 +127,7 @@ function createMainWindow(config, opts = config.electron ?? {}) {
   // ------------------- Avoid window creation if the user has specified not to -------------------
   const windowOpts = opts.window
   const noWindowCreation = windowOpts === false || windowOpts === null
-  if (noWindowCreation) return runPlugins()
+  if (noWindowCreation) return runPlugins() // Just create the backend plugins
 
   // ------------------- Main Window Creation -------------------
   // Replace with getIcon (?)

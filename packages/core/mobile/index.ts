@@ -124,17 +124,11 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
     const projectBase = resolvePath(root, target)
 
-    const _chalk = await chalk
-
     await checkDepsInstalled(target, config)
     
     const capacitorConfig = await openConfig({ name, appId, plugins, outDir, root })
 
-    if (!existsSync(projectBase)) {
-        
-        console.log(`\n👊 Initializing ${_chalk.bold(_chalk.cyanBright('capacitor'))}\n`)
-        await runCommand(`npx cap add ${target} && npx cap copy`)
-    }
+    if (!existsSync(projectBase)) await runCommand(`npx cap add ${target} && npx cap copy`)
 
     // Update when creating a dynamic configuration
     if (capacitorConfig) {
@@ -219,8 +213,6 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     const _chalk = await chalk
 
     await checkDepsInstalled(target, config)
-
-    console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('capacitor'))}\n`)
 
     await openConfig({
         name: config.name,

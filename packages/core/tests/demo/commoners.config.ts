@@ -1,30 +1,39 @@
+// ---------------- Planned for v0.0.49 ----------------
+import { resolve, dirname, join } from 'node:path'
+import { fileURLToPath } from "node:url";
+const root = resolve(dirname(fileURLToPath(import.meta.url)))
 
-import * as echo from './demo/plugins/echo'
+// // ---------------- v0.0.48 ----------------
+// const join = (...paths) => paths.join('/').replace(/\/+/g, '/')
+// const root = './'
+
+import * as echo from './src/plugins/echo'
 
 export const name = 'Test App'
 
 const basePort = 2345
 
-const expressSource = './demo/services/express/index.js'
+const httpSrc = join(root, 'src/services/http/index.ts')
+const expressSrc = join(root, 'src/services/express/index.js')
 
 const config = {
 
     name,
 
     electron: {
-        splash: './demo/splash.html'
+        splash: join(root, 'splash.html'),
     },
 
     plugins: { echo },
 
     services: {
         http: { 
-            src: './demo/services/http/index.ts', 
+            src: httpSrc, 
             port: basePort // Hardcoded port
         },
-        express: { src: expressSource },
+        express: { src: expressSrc },
         manual: {
-            src: expressSource,
+            src: expressSrc,
             
             build: async function (info) { 
 

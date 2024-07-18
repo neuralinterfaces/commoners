@@ -4,6 +4,8 @@ import { getFreePorts } from './utils/network.js';
 import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
+const chalk = import('chalk').then(m => m.default)
+
 const globalWorkspacePath = '.commoners'
 const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
 const globalTempServiceWorkspacePath = join(globalWorkspacePath, '.temp.services')
@@ -20,6 +22,11 @@ const autobuildExtensions = {
 }
 
 const isDesktop = (target) => target === 'desktop' || target === 'electron'
+
+const printServiceMessage = async (id, message, type='log') => {
+  const _chalk = await chalk
+  console[type](`${_chalk.bold(_chalk.greenBright(`[${id}]`))} ${message}`)
+}
 
 // ------------------------------------ COPIED ---------------------------------------
 
@@ -240,25 +247,28 @@ export async function start (config, id, opts = {}) {
       error = e
     }
     
+    const label = id ?? 'commoners-service'
+
     if (childProcess) {
-      const label = id ?? 'commoners-service'
+
       if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
         config.status = true
         if (opts.onLog) opts.onLog(id, data)
-        console.log(`[${label}]: ${data}`)
+        printServiceMessage(label, data)
       });
-      if (childProcess.stderr) childProcess.stderr.on('data', (data) => console.error(`[${label}]: ${data}`));
+
+      if (childProcess.stderr) childProcess.stderr.on('data', (data) => printServiceMessage(label, data, 'error'));
       
       childProcess.on('close', (code) => {
         if (code !== null) {
           config.status = false
           if (opts.onClosed) opts.onClosed(id, code)
           delete processes[id]
-          console.error(`[${label}]: exited with code ${code}`)
+          printServiceMessage(label, `Exited with code ${code}`, 'error')
         }
       }); 
 
-      // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}]: exited with code ${code}`))); 
+      // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`))); 
       
       processes[id] = childProcess
 
@@ -268,7 +278,7 @@ export async function start (config, id, opts = {}) {
       }
 
     } else {
-      console.warn(`Cannot create the ${id} service from ${filepath}`, error)
+      await printServiceMessage(label, `Failed to create service from ${filepath}: ${error}`, 'warn')
     }
 
   }

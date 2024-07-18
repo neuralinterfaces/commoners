@@ -9,8 +9,7 @@ import { getLocalIP } from './utils/ip/cross-platform.js'
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { buildAssets } from './utils/assets.js';
-
-
+import { printHeader } from './utils/formatting.js';
 
 export default async function (opts: ShareOptions) {
 
@@ -29,7 +28,7 @@ export default async function (opts: ShareOptions) {
 
     await buildAssets({ ...resolvedConfig, build: { outDir } }, { assets: false })
 
-    console.log(`\n✊ Sharing ${_chalk.bold(_chalk.greenBright(resolvedConfig.name))} services ${services ? `(${services})` : ''}\n`)
+    await printHeader(`${resolvedConfig.name} — Sharing Services ${services ? `(${services})` : ''}`)
 
     const resolvedServices = updateServicesWithLocalIP(resolvedConfig.services)
 
@@ -63,7 +62,7 @@ export default async function (opts: ShareOptions) {
         () => {
             console.log(`Services shared at ${_chalk.cyan(`http://${getLocalIP(networkInterfaces)}:${sharePort}`)}\n`)
             Object.entries(serviceManager.active).forEach(([id, service]) => {
-                console.log(`[${_chalk.greenBright(id)}]: ${_chalk.cyan(`http://${service.host}:${service.port}`)}`)
+                console.log(`[${_chalk.bold(_chalk.greenBright(id))}] ${_chalk.cyan(`http://${service.host}:${service.port}`)}`)
             })
         }
     );

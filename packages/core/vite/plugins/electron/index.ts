@@ -1,6 +1,6 @@
 import { join, resolve } from 'node:path'
 import { vite } from '../../../globals.js'
-import { rootDir } from '../../../globals.js'
+import { rootDir, globalWorkspacePath } from '../../../globals.js'
 
 import { withExternalBuiltins } from './inbuilt.js'
 import { resolveServerUrl } from './server.js'
@@ -66,6 +66,8 @@ export const buildWithVite = async (options: ElectronOptions) => {
 
     const _vite = await vite
 
+    // const commonersOutputLocation  = join(root, globalWorkspacePath)
+
     let userConfig: UserConfig
     let configEnv: ConfigEnv
 
@@ -80,13 +82,14 @@ export const buildWithVite = async (options: ElectronOptions) => {
     const main: ElectronOptions = {
         entry: mainLocation,
         onstart: (options) => options.startup(),              
-        vite: _vite.defineConfig({ build: sharedBuildConfig })
+        vite: _vite.defineConfig({ root, build: sharedBuildConfig })
     }
 
     const preload: ElectronOptions = {
         entry: preloadLocation,
         onstart: (args) => args.reload(), // Reload the page when the Preload-Scripts build is complete
         vite: _vite.defineConfig({
+          root,
           build: {...sharedBuildConfig, rollupOptions: { output: { inlineDynamicImports: true } } }
         }),
     }
@@ -110,8 +113,9 @@ export const buildWithVite = async (options: ElectronOptions) => {
               assignFromConfigEnv.forEach(assignToConfig)
               assignFromUserConfig.forEach(assignToConfig)
 
-              options.vite.build.watch ??= {}
-              options.vite.build.minify ??= false
+              const buildOptions = options.vite.build
+              buildOptions.watch ??= {}
+              buildOptions.minify ??= false
 
               options.vite.plugins = [
                 {

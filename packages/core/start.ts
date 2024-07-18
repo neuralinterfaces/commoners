@@ -8,6 +8,8 @@ import { chalk, cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit 
 
 import { join } from "node:path";
 
+import { printHeader, printTarget } from "./utils/formatting.js"
+
 export default async function ( opts: UserConfig = {} ) {
 
         const _chalk = await chalk
@@ -21,18 +23,14 @@ export default async function ( opts: UserConfig = {} ) {
         const isDesktopTarget = isDesktop(target)
         const isMobileTarget = isMobile(target)
 
-        console.log(`\n✊ Starting ${_chalk.bold(_chalk.greenBright(name))} for ${target}\n`)
+        await printHeader(`${name} — ${printTarget(target)} Development`)
 
         // Create URLs that will be shared with the frontend
         if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
 
         const { services: resolvedServices } = resolvedConfig
         
-        const createAllServices = () => {
-            console.log(`\n👊 Starting ${_chalk.bold('Services')}\n`)
-            return createServices(resolvedServices, { root }) // Run services in parallel
-        }
-
+        const createAllServices = () => createServices(resolvedServices, { root }) // Run services in parallel
 
         const outDir = join(root, globalTempDir)
 

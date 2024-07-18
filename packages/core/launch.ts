@@ -12,6 +12,7 @@ import { createServer } from './utils/server.js'
 import { getFreePorts } from './templates/services/utils/network.js'
 
 import { cpus } from 'node:os';
+import { printHeader, printTarget } from './utils/formatting.js';
 
 
 const open = import('open').then(m => m.default)
@@ -71,8 +72,7 @@ export default async function (options: LaunchOptions) {
         return console.error(`${_chalk.red(outDir)} directory does not exist.`)
     }
 
-    console.log(`\n✊ Launching ${_chalk.bold(_chalk.greenBright(`${target}`))} build${outDir ? ` (${outDir})` : ''}\n`)
-
+    await printHeader(`Launching ${printTarget(target)} build${outDir ? ` (${outDir})` : ''}`)
 
     if (isMobile(target)) {
         if (outDir) process.chdir(outDir)

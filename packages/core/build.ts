@@ -1,9 +1,9 @@
-import { createRequire } from 'node:module';
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite, electronVersion } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
 import { getIcon } from "./utils/index.js"
+import { printHeader, printTarget } from "./utils/formatting.js"
 
 import * as mobile from './mobile/index.js'
 import { CliOptions, build as ElectronBuilder } from 'electron-builder'
@@ -85,7 +85,7 @@ export default async function build (
 
     const name = resolvedConfig.name
 
-    console.log(`\n✊ Building ${_chalk.bold(_chalk.greenBright(name))} ${buildOnlyServices ? 'services' : `for ${target}`}\n`)
+    if (!dev) await printHeader(`${name} — ${buildOnlyServices ? 'Services' : `${printTarget(target)} Build`}`)
 
     if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
@@ -102,7 +102,12 @@ export default async function build (
     // ---------------- Build Assets ----------------
     if (toRebuild.assets) {
         if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
-        await _vite.build(await resolveViteConfig(resolvedConfig, { target, outDir, dev }))  // Build the standard output files using Vite. Force recognition as build
+
+        // Build the standard output files using Vite. Force recognition as build
+        await _vite.build(await resolveViteConfig(resolvedConfig, { target, outDir, dev }))
+
+        // Log build success
+        console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
     }
 
     // ---------------- Create Standard Output Files ----------------

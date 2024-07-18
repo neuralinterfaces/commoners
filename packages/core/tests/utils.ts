@@ -5,7 +5,7 @@ import { normalizeTarget } from '../index'
 
 import { build, checkAssets, sharePort, startBrowserTest } from '../../testing'
 
-import config from './commoners.config'
+import config from './demo/commoners.config'
 import userPkg from './package.json' assert { type: 'json'}
 
 const randomNumber =  Math.random().toString(36).substring(7)
