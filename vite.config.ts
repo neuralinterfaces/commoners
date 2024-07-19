@@ -3,7 +3,15 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   test: {
-    // testTimeout: 50000,
-    // threads: false
+    coverage: {
+      exclude: [
+        '**/docs/**', 
+        '**/node_modules/**', 
+        '**/dist/**', 
+        '**/coverage/**', 
+        '**/vite.config.ts',
+        '**/.commoners/**',
+      ],
+    }
   },
 })
