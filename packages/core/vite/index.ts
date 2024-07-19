@@ -125,8 +125,10 @@ export const resolveViteConfig = async (
         const plugin = await electronPlugin({ build, root, outDir })
         plugins.push(...plugin)
     
+    } 
+    
     // PWA Build
-    } else if (target === 'pwa') {
+    else if (target === 'pwa') {
         
         const opts = resolvePWAOptions(commonersConfig.pwa, {
             name,
@@ -142,6 +144,8 @@ export const resolveViteConfig = async (
         plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
 
+    const viteOutDir = join(outDir, '.vite')
+
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
         logLevel: dev ? 'silent' : 'info',
@@ -149,7 +153,7 @@ export const resolveViteConfig = async (
         root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
-            outDir
+            outDir: viteOutDir // Ensures all outputs are placed in the temporary directory
         },
         plugins,
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
@@ -157,7 +161,7 @@ export const resolveViteConfig = async (
     })
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
-
+    
     mergedConfig.plugins = [
         ...mergedConfig.plugins,
         commonersPlugin({ 

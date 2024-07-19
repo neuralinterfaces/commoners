@@ -37,17 +37,7 @@ export default ({
     const desktop = isDesktop(target)
     const mobile = isMobile(target)
     
-    // const orginalBase = normalize(config.vite?.base ?? '/').replaceAll(sep, posix.sep)
-
-    // const base = orginalBase[0] === posix.sep ? orginalBase.slice(1) : orginalBase
-    // const nToAdjust = base.split(posix.sep).length - 1
-
-    // outDir = (config.root ? relative(config.root, outDir) : outDir) // outDir should be relative to the root
-    // if (nToAdjust) outDir = [...Array.from({length: nToAdjust}, () => '..'), ...outDir.split(posix.sep)].join(posix.sep)
-    
     const root = config.root
-
-    
     const relTo = build ? outDir : root
     
     const propsToInclude = [ 'url' ]
@@ -75,8 +65,6 @@ export default ({
         // Production vs Development
         DEV: dev,
         PROD: !dev,
-        
-
     }
 
     const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
