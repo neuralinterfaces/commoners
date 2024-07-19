@@ -16,7 +16,7 @@ Build the project assets.
 - `--sign` - Enable code signing (`--target desktop` on Mac only). Will be automatically enabled with `--publish`
 
 #### Service Selection
-- `--service [name]` - Build a specific service. Can use multiple times. Use `*` to build all services (`string`)
+- `--service [name]` - Build a specific service. Can use multiple times. (`string`)
 
 ### commoners launch
 Launch your built application.
@@ -28,8 +28,6 @@ Share the application's services—or simply run them on their own.
 - `--service [name]` - For specific service(s) (`string`)
 
 ## Shared Options
-Many CLI commands for `commoners` share a similar options structure:
-
 ### Target Platform (`commoners` / `build` / `launch`)
 Specify the target platform for the command.
 - `--target [target]`
@@ -41,7 +39,3 @@ Specify the target platform for the command.
     - `mobile` - For the mobile platform corresponding to your build enviroment 
         - `ios` - For iOS (`ios` only)
         - `android` - For Android
-    
-
-### Service Selection (`commoners` / `build` / `share`)
-- `--service [name]` - Apply action to **specific service(s)** (`string`). Can be used multiple times.

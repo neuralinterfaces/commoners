@@ -51,10 +51,10 @@ All of the available configuration options are documented in the [Configuration]
 In your built application, you can access Commoners configuration values using the `commoners` object:
 
 ```js
-console.log(commoners) // { name: 'My App', version: '0.0.0', target: 'desktop', ready: Promise, services: { ... } }
+console.log(commoners) // { NAME: 'My App', VERSION: '0.0.0', ICON: '<path>', TARGET: 'desktop', READY: Promise, SERVICES: { ... } }
 ```
 
-Try replacing the default `h1` and `img` tags with your custom `name` and `icon` using the `commoners` global variable!
+Try replacing the default `h1` and `img` tags with your custom `NAME` and `ICON` using the `commoners` global variable!
 
 ## Adding Services
 To add services to your Commoners application in development, simply add fill out the `services` property of the configuration file.
@@ -138,16 +138,17 @@ httpd.serve_forever()
 To use services in your application, you can import them using the `commoners` global variable:
 
 ```js
-const nodeServiceUrl = commoners.services.node.url
-const tsNodeServiceUrl = commoners.services.tsNode.url
-const pythonServiceUrl = commoners.services.python.url
+const { SERVICES } = commoners
+const nodeServiceUrl = SERVICES.node.url
+const tsNodeServiceUrl = SERVICES.tsNode.url
+const pythonServiceUrl = SERVICES.python.url
 ```
 
 
 Use the following code snippet and update the button to fetch data from your services!
 
 ```js
-const responses = await Promise.allSettled(Object.values(commoners.services).map(({ url }) => fetch(url).then(response => response.text())))
+const responses = await Promise.allSettled(Object.values(SERVICES).map(({ url }) => fetch(url).then(response => response.text())))
 ```
 
 ## Building for Production

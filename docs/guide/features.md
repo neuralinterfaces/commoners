@@ -152,37 +152,10 @@ If you'd like to run a Commoners project but aren't at the base, you can run the
 commoners /path/to/project
 ```
 
-### Builds
-Pairing the concepts of a root declaration and a target build, you can specify multiple builds of a single project using the `builds` property in your [Configuration File](./config.md).
-
-```js
-export default {
-    builds: {
-        web: './builds/main',
-        desktop: './builds/desktop',
-        mobile: './builds/mobile'
-    }
-}
-```
-
-These can be triggered identically to the root declaration:
-
-```bash
-commoners desktop
-```
-
-If you're not inside the project root, you'll specify _both_ the root and the build target:
-
-```bash
-commoners /path/to/project desktop
-```
-
-Notably, this project structure allows you to declare a `commoners.config.js` file for each build target, which will inherit from the configuration file at the project root (if specified).
-
 ## Services
 Services are independent processes that the main application depends on. These may be `local` or `remote` based on the distributed application files.
 
-> **Note:** Commoners currently supports `.js`, `.ts`, `.py`, `.exe`, and `.pkg` services.
+> **Note:** Commoners currently supports `.js`, `.ts`, `.py`, and `.exe` services.
 
 To declare a service, you simply add the source file path to the `commoners.config.js` file:
 ```js
@@ -193,31 +166,50 @@ export default {
 }
 ```
 
-To use a service, you should (1) check for the existence of the service, then (2) instantiate the appropriate URL from the `commoners` global object:
+Before using a service, it's good practice to:
+1. Check for the existence of the service.
+2. Instantiate the appropriate URL from the `commoners` global object.
 
 ```js
-    if ('test' in COMMMONERS.services) {
-        const url = new URL(commoners.services.test.url)
+    const { SERVICES } = commoners
+    if ('test' in SERVICES) {
+        const url = new URL(SERVICES.test.url)
         // ....
     }
 ```
 
-If your service will be accessible from a particular URL, you'll want to make sure that the `port` used is derived from the `PORT` environment variable:
+If your service will be accessible from a particular URL, you'll want to make sure to instantiate your server using the `HOST` and `PORT` environment variables:
 
 ```js
-const port = process.env.PORT || 3000
+import http from 'node:http';
+const host = process.env.HOST
+const port = process.env.PORT
+http.createServer((req, res) => { /* ... */ }).listen(port)
 ```
 
 ### Using Services in Production
-Service configurations may be different between development and production. For instance, `.py` services are commonly packaged using `pyinstaller`, which will output an `.exe` / `.pkg` file that includes all dependencies.
+Service configurations may be different between development and production. 
 
-The following service structure would be used to handle this case:
-```json
-{
-    "src": "src/main.py",
-    "build": "python -m PyInstaller --name test --onedir --clean ./src/main.py --distpath ./dist/pyinstaller",
-    "publish": {
-        "src": "./dist/pyinstaller/test/test"
+For instance, `.py` services can be packaged into an `.exe` file using `pyinstaller`.
+
+#### Python
+The following configuration will allow you to include the `--onedir` bundle from PyInstaller in your `desktop` builds:
+
+```js
+
+const pythonService = {
+    name: 'python-service',
+    src: 'src/main.py',
+    outDir: 'dist/pyinstaller',
+}
+
+export default {
+    // ...
+    src: pythonService.src,
+    build: `python -m PyInstaller --name ${pythonService.name} --onedir --clean ${pythonService.src} --distpath ${pythonService.outDir}`,
+     publish: {
+        src: pythonService.name, // The relative executable location in the base directory
+        base: `${pythonService.outDir}/${pythonService.name}`, // The base directory to copy
     }
 }
 ```
@@ -233,12 +225,11 @@ Plugins are collections of JavaScript functions that run at different points dur
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
 
-To declare a plugin, you simply add the relevant configuration object in the `plugins` array of your [Configuration File](./config.md) file:
+To add a new plugin, simply provide a named `Plugin` on the `plugins` registry of your [Configuration File](./config.md):
 ```js
 export default {
-    plugins: [
-        {
-            name: 'selective-builds',
+    plugins: {
+        selectiveBuild: {
             isSupported: {
                 web: {
                     load: false
@@ -250,17 +241,20 @@ export default {
                 preload: () => console.log('desktop build (load)')
             }
         }
-    ]
+    }
 }
 ```
 
-To use a plugin, you should check for the existence of the plugin, which *may* have a return value stored in the `plugins` property:
+To use a plugin, you should check for the existence of the plugin, which *may* have a return value stored in the `PLUGINS` property.
+
+However, some plugins are asynchronously loaded. You can use the `READY` promise to ensure you're working with the resolved plugins:
 
 ```js
-    if ('test' in COMMMONERS.plugins) {
-        const loaded = COMMMONERS.plugins.test
-        // ....
-    }
+
+    const { READY } = commoners
+    READY.then(({ selectiveBuild }) => {
+        if (selectiveBuild) console.log('Loaded!')
+    })
 ```
 
 Global variables will be loaded from your `.env` file (if present). which you can use in `desktop` load functions.
