@@ -26,29 +26,54 @@ export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoner
 
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
 
+const isCommonersProject = async (
+    root: string = process.cwd()
+) => {
+
+    const rootExists = existsSync(root)
+
+    let failMessage = ''
+
+    // Root does not exist
+    if (root && !rootExists) failMessage = `This path does not exist.`
+
+    // No index.html file
+    else if (!existsSync(join(root, 'index.html'))) failMessage = `This directory does not contain an index.html file.`
+
+
+    if (failMessage) {
+        await printFailure(`Invalid Commoners project`)
+        await printSubtle(failMessage)
+        return false
+    }
+
+    return true
+}
+
 export async function loadConfigFromFile(
     root: string = resolveConfigPath()
 ) {
 
-    const rootExists = existsSync(root)
 
-    if (rootExists) {
+    const rootExists = existsSync(root)
+    
+    if (existsSync(root)) {
         root = resolve(root) // Resolve to absolute path
         if (!isDirectory(root)) root = dirname(root) // Get the parent directory
     }
-    
-    else {
-        await printFailure(`Invalid Commoners project provided`)
-        await printSubtle(`Please provide a different path.`)
-        process.exit(1)
-    }
-    
+
+
+    const isValidProject = await isCommonersProject(root)
+    if (!isValidProject) process.exit(1)
+
 
     const configPath = resolveConfigPath(
         rootExists ? 
             root : // New root config
             '' // Base config
         )
+
+    const resolvedRoot = configPath ? dirname(configPath) : process.cwd()
 
     let config = {} as UserConfig // No user-defined configuration found
 
@@ -57,7 +82,7 @@ export async function loadConfigFromFile(
 
 
         const randomId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
-        const configOutputPath = join(dirname(configPath), globalWorkspacePath, `commoners.config-${randomId}.mjs`)
+        const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config-${randomId}.mjs`)
             
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
         const fileUrl = `${pathToFileURL(configOutputPath)}`
@@ -71,7 +96,7 @@ export async function loadConfigFromFile(
     }
 
     // Set the root of the project
-    config.root = relative(process.cwd(), root) || root
+    config.root = relative(process.cwd(), resolvedRoot) || resolvedRoot
 
     return config
 }
@@ -129,6 +154,7 @@ export async function resolveConfig(
 
     // Set default values for certain properties shared across config and package.json
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
+        
     if (!copy.version) copy.version = '0.0.0'
 
     if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '').toLowerCase()}.app`

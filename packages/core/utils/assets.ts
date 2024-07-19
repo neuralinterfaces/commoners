@@ -244,10 +244,10 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     if (toBuild.assets !== false) {
 
         // Create Config
-        assets.bundle.push(...configExtensionTargets.map(ext => { return configPath ? {
-            input: configPath,
-            output: `commoners.config.${ext}`
-        } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output: `commoners.config.${ext}` } }))
+        assets.bundle.push(...configExtensionTargets.map(ext => { 
+            const output = `commoners.config.${ext}`
+            return configPath ? { input: configPath, output } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output }
+        }))
 
         // Bundle onload script for the browser
         assets.bundle.push({
@@ -376,14 +376,21 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     // Create an assets folder with copied assets (ESM)
     await Promise.all(assets.bundle.map(async info => {
 
+        // Just copy text to the output file
+        if (typeof info !== 'string' && 'text' in info) {
+            const { output } = info
+            if (typeof output === 'string') {
+                const outPath = getAssetBuildPath(output, outDir)
+                mkdirSync(dirname(outPath), { recursive: true }) // Ensure base and asset output directory exists
+                return writeFileSync(outPath, info.text)
+            }
+            else return // Nowhere to write the text
+        }
+
+        // Proceed with bundling
         const isString = typeof info === 'string'
         const output = isString ? null : info.output
 
-        // Just copy text to the output file
-        if (typeof info !== 'string' && 'text' in info) {
-            if (typeof output === 'string') return writeFileSync(join(outDir, output), info.text)
-            else return // Nowhere to write the text
-        }
         
         // Transform an input file in some way
         const input = isString ? info : info.input
@@ -478,7 +485,6 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 outputs.push(assetOutputInfo)
             }
-
         }
 
         else console.error(`Could not resolve ${_chalk.red(input)} asset file`)
