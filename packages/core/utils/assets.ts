@@ -22,8 +22,6 @@ import { encodePath } from "./encode.js"
 import { pathToFileURL } from "node:url"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 
-type RollupOutput = import('rollup').RollupOutput
-
 type AssetMetadata = {
     extraResource?: boolean,
     sign?: boolean
@@ -558,7 +556,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
     
     const resolvedConfig = node ? withExternalBuiltins(config) : config
 
-    const results = await _vite.build(resolvedConfig) as RollupOutput[]
+    const results = await _vite.build(resolvedConfig) as any[] // RollupOutput[]
 
     // Always return a flat list of the output file locations
     return results.map(({ output }) => output).flat().map(({ fileName }) => join(outDir, fileName))
