@@ -125,8 +125,10 @@ export const resolveViteConfig = async (
         const plugin = await electronPlugin({ build, root, outDir })
         plugins.push(...plugin)
     
+    } 
+    
     // PWA Build
-    } else if (target === 'pwa') {
+    else if (target === 'pwa') {
         
         const opts = resolvePWAOptions(commonersConfig.pwa, {
             name,
@@ -157,7 +159,7 @@ export const resolveViteConfig = async (
     })
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
-
+    
     mergedConfig.plugins = [
         ...mergedConfig.plugins,
         commonersPlugin({ 

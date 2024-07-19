@@ -92,7 +92,9 @@ export async function loadConfigFromFile(
         try {
             config = (await import(fileUrl)).default as UserConfig
         } finally {
-            onExit(() => outputFiles.forEach((file) => unlink(file, () => { })))
+            onExit(() => {
+                outputFiles.forEach((file) => unlink(file, () => { }))
+            })
         }
 
     }
