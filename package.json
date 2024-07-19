@@ -12,7 +12,6 @@
     "cleanup": "pnpm run clean:modules && pnpm run clean:dist",
     "clean:modules": "rm -rf node_modules && pnpm -r exec rm -rf node_modules",
     "clean:dist": "rm -rf dist && pnpm -r exec rm -rf dist"
-
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.0.3",

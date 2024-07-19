@@ -2,6 +2,8 @@ import { printServiceMessage } from '../../../utils/formatting.js'
 import { treeKillSync } from './processes.js'
 
 
+type ChildProcess = import('node:child_process').ChildProcess
+
 const labelRegexp = /\[.*\] /
 const ansiRegex = new RegExp('[\\u001b\\x1b][[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]', 'g');
 
@@ -11,6 +13,10 @@ const log = async (data, method = 'log') => {
     else await printServiceMessage('commoners-electron-process', message, method)
 }
 
+
+const globalStates: { app?: ChildProcess } = {}
+
+let electronApp: ChildProcess | null = null
 
 export async function startup( root ) {
     
@@ -22,7 +28,7 @@ export async function startup( root ) {
     await startup.exit()
   
     // Start Electron.app
-    const app = process.electronApp = spawn(electronPath, argv, {  cwd: root,  env: { ...process.env, FORCE_COLOR: '1' } }) // Ensure the app is started from the root of the selected project
+    const app = globalStates.app = spawn(electronPath, argv, {  cwd: root,  env: { ...process.env, FORCE_COLOR: '1' } }) // Ensure the app is started from the root of the selected project
     
     // Exit command after Electron.app exits
     app.once('exit', process.exit)
@@ -42,8 +48,9 @@ export async function startup( root ) {
   startup.hookedProcessExit = false
 
   startup.exit = async () => {
-    if (process.electronApp) {
-      process.electronApp.removeAllListeners()
-      treeKillSync(process.electronApp.pid!)
+    if (globalStates.app) {
+      globalStates.app.removeAllListeners()
+      treeKillSync(globalStates.app.pid!)
     }
+    delete globalStates.app
   }
