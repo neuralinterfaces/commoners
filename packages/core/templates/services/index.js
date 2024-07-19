@@ -32,6 +32,9 @@ const printServiceMessage = async (id, message, type='log') => {
 
 // NOTE: From core/utils/url.js to remove the need to copy this asset...
 export const isValidURL = (s) => {
+  
+  if (existsSync(s)) return false
+
   try {
     new URL(s);
     return true;
@@ -80,6 +83,7 @@ export async function resolveService (
   const resolvedConfig = resolveConfig(config)
 
   reconcileConfig(resolvedConfig) // Register url instead of source file
+
   if (!resolvedConfig.src) return // Return if no associated file or url
 
 
