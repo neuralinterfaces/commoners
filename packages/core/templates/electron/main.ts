@@ -10,6 +10,8 @@ import * as services from '../services/index'
 
 import dotenv from 'dotenv'
 
+const assetsPath = join(__dirname, 'assets')
+
 const chalk = import('chalk').then(m => m.default)
 
 let mainWindow;
@@ -79,10 +81,10 @@ if (process.env.VITEST) {
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
-if (isProduction) dotenv.config({ path: join(__dirname, '.env') }) // Load the .env file in production
+if (isProduction) dotenv.config({ path: join(assetsPath, '.env') }) // Load the .env file in production
 
 // Get the Commoners configuration file
-const configPath = join(__dirname, 'assets', 'commoners.config.cjs') // Load the .cjs config version
+const configPath = join(assetsPath, 'commoners.config.cjs') // Load the .cjs config version
 
 // --------------- App Window Management ---------------
 function restoreWindow() {
@@ -154,7 +156,7 @@ function createMainWindow(config, opts = config.electron ?? {}) {
       transparent: true,
     });
 
-    const completeSplashPath = join(__dirname, splashURL)
+    const completeSplashPath = join(assetsPath, splashURL)
 
     splash.loadFile(completeSplashPath)
 

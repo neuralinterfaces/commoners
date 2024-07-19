@@ -45,8 +45,6 @@ const e2eTests = {
 
                 } = commoners
 
-                console.log(normalizedTarget, DESKTOP, MOBILE, WEB)
-
                 const isDesktop = normalizedTarget === 'desktop'
                 const isDev = mode === 'dev' 
 

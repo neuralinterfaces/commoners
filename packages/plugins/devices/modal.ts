@@ -165,10 +165,6 @@ export default (props: ModalProps) => {
       
         dialog.addEventListener('close', () => {
           this.onClose(dialog.returnValue ?? '')
-          console.log('Check', dialog.open)
-          setTimeout(() => {
-            console.log('Check', dialog.open)
-          }, 1000)
         })
       
         // Wath for when the dialog opens

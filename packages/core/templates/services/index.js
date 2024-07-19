@@ -167,6 +167,7 @@ export async function resolveService (
     const resolvedBase = (outDir ?? root).replace(`app.asar${sep}`, '')
     const extraResourcesPath = outDir ? join(resolvedBase, outSrc ?? '') : join(resolvedBase, src) 
 
+
     resolvedConfig.filepath = __src
 
     if (build && isDesktop(target)) resolvedConfig.filepath = resolve(extraResourcesPath)
@@ -208,6 +209,8 @@ export async function resolveService (
 // Create and monitor arbitary processes
 export async function start (config, id, opts = {}) {
 
+  const label = id ?? 'commoners-service'
+
   config = await resolveService(config, id, opts)
 
   if (!config) return
@@ -232,7 +235,7 @@ export async function start (config, id, opts = {}) {
 
       const resolvedFilepath = resolve(filepath)
 
-      if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `Source file does not exist at ${filepath}`, 'warn')
+      if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `Source file does not exist at ${resolvedFilepath}`, 'warn')
 
       // Node Support
       if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [ ], { cwd, silent: true, env })
@@ -260,8 +263,6 @@ export async function start (config, id, opts = {}) {
       error = e
     }
     
-    const label = id ?? 'commoners-service'
-
     if (childProcess) {
 
       const _chalk = await chalk
