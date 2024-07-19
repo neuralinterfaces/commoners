@@ -558,7 +558,6 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
             outDir,
 
             rollupOptions: { 
-                external: [ '@commoners/solidarity' ],
                 plugins: [ 
                     importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
                 ] 

@@ -13,23 +13,14 @@ export function withExternalBuiltins(config: InlineConfig) {
   
     let external = rollupOptionsCopy.external
 
-    if (
-      Array.isArray(external) ||
-      typeof external === 'string' ||
-      external instanceof RegExp
-    ) {
-      external = builtins.concat(external as string[])
-    } else if (typeof external === 'function') {
+    if (Array.isArray(external) || typeof external === 'string' || external instanceof RegExp) external = builtins.concat(external as string[])
+    
+      else if (typeof external === 'function') {
       const original = external
-      external = function (source, importer, isResolved) {
-        if (builtins.includes(source)) {
-          return true
-        }
-        return original(source, importer, isResolved)
-      }
-    } else {
-      external = builtins
+      external = (source, importer, isResolved) => builtins.includes(source) ? true : original(source, importer, isResolved)
     }
+
+    else external = builtins
 
     rollupOptionsCopy.external = external
   

@@ -4,7 +4,7 @@ type ViteUserConfig = import('vite').UserConfig
 type ElectronBuilderConfiguration = import('electron-builder').Configuration
 type PublishOptions = import('electron-builder').PublishOptions
 
-import { ManifestOptions } from 'vite-plugin-pwa'
+type ManifestOptions = import ('vite-plugin-pwa').ManifestOptions
 
 export function tuple<T extends string[]>(...o: T) {
     return o;
