@@ -526,6 +526,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
     const extension = extname(outFile)
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
+    
 
     const plugins = []
 
@@ -537,6 +538,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
         root: dirname(input),
 
         plugins: plugins,
+
         build: {
             lib: {
                 entry: input,
@@ -547,6 +549,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
             outDir,
 
             rollupOptions: { 
+                external: [ '@commoners/solidarity' ],
                 plugins: [ 
                     importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
                 ] 
