@@ -51,7 +51,7 @@ All of the available configuration options are documented in the [Configuration]
 In your built application, you can access Commoners configuration values using the `commoners` object:
 
 ```js
-console.log(commoners) // { NAME: 'My App', VERSION: '0.0.0', ICON: '<path>', TARGET: 'desktop', READY: Promise, SERVICES: { ... } }
+console.log(commoners) // { NAME: 'My App', VERSION: '0.0.0', ICON: '<path>', DESKTOP: true, READY: Promise, SERVICES: { ... } }
 ```
 
 Try replacing the default `h1` and `img` tags with your custom `NAME` and `ICON` using the `commoners` global variable!

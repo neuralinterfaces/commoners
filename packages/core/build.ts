@@ -1,20 +1,24 @@
+// Build-In Modules
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
+import { lstatSync } from "node:fs"
 
+// General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite, electronVersion } from "./globals.js"
 import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
-import { getIcon } from "./utils/index.js"
-import { printHeader, printTarget } from "./utils/formatting.js"
 
-import * as mobile from './mobile/index.js'
-import { CliOptions, build as ElectronBuilder } from 'electron-builder'
-
-import { configureForDesktop, resolveConfig } from "./index.js"
+// Internal Utilities
 import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
+import { printHeader, printTarget } from "./utils/formatting.js"
+import { getIcon } from "./utils/index.js"
+import merge from './utils/merge.js'
 
+// Core Internal Imports
+import { configureForDesktop, resolveConfig } from "./index.js"
+import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
 
-import merge from './utils/merge.js'
-import { lstatSync } from "node:fs"
+
+type CliOptions = import('electron-builder').CliOptions
 
 type BuildHooks = {
     services?: ResolvedConfig['services']
@@ -204,7 +208,9 @@ export default async function build (
         if (publish) electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
         else delete buildConfig.publish
 
-        await ElectronBuilder(electronBuilderOpts)
+        // Use electron-builder to package the app
+        const { build } = await import('electron-builder')
+        await build(electronBuilderOpts)
 
     }
 

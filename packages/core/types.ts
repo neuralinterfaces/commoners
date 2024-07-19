@@ -1,8 +1,10 @@
 import { App, BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
-import { Configuration as ElectronBuilderConfiguration, PublishOptions } from 'electron-builder'
-import { ManifestOptions } from 'vite-plugin-pwa'
 
 type ViteUserConfig = import('vite').UserConfig
+type ElectronBuilderConfiguration = import('electron-builder').Configuration
+type PublishOptions = import('electron-builder').PublishOptions
+
+import { ManifestOptions } from 'vite-plugin-pwa'
 
 export function tuple<T extends string[]>(...o: T) {
     return o;
@@ -282,19 +284,27 @@ type BaseCommonersGlobalObject = {
     VERSION: string,
     PLUGINS: ExposedPlugins,
     READY: Promise<ExposedPlugins>,
+
+    DEV: boolean,
+    PROD: boolean,
+
+
     __READY: Function, // Resolve Function
     __PLUGINS?: RawPlugins // Raw Plugins
 }
 
 export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
-    TARGET: TargetType,
+    DESKTOP: false,
+    MOBILE: boolean,
+    WEB: boolean,
     SERVICES: ExposedServices,
 }) | (BaseCommonersGlobalObject & {
-    TARGET: 'desktop',
-    SERVICES: ExposedDesktopServices,
-    DESKTOP: {
+    DESKTOP:  {
         quit: () => void,
-    }
+    },
+    MOBILE: false,
+    WEB: false,
+    SERVICES: ExposedDesktopServices
 })
 
 declare global {

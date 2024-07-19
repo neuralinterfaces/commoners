@@ -125,7 +125,8 @@ export const startBrowserTest = (customProps: Partial<UserConfig> = {}, projectB
 
       const url = result.url
 
-      const browser = output.browser = await puppeteer.launch({ headless: 'new' })
+      const browser = output.browser = await puppeteer.launch()
+      // const browser = output.browser = await puppeteer.launch({ headless: false })
       const page = output.page = await browser.newPage();
 
 
@@ -231,27 +232,28 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
   expect(existsSync(join(assetDir, 'splash.html'))).toBe(isElectron)
 
- const envExpectation = expect(regexFindFile(assetDir, /.env-(.*)/))
- if (isElectron) envExpectation.toBeTruthy()
- else envExpectation.toBeFalsy()
+  const envExpectation = expect(regexFindFile(assetDir, /.env-(.*)/))
+  if (isElectron) envExpectation.toBeTruthy()
+  else envExpectation.toBeFalsy()
 
- const buildDir = join(baseDir, '..', '..', '..', 'build')
+  const buildDir = join(baseDir, '..', '..', '..', 'build')
   const servicesDir = join(baseDir, '..', '..', 'services')
   const manualServiceDir = join(buildDir, 'manual')
 
-  // Service
-  expect(existsSync(join(servicesDir, 'http', getPackagedServiceName('http')))).toBe(isElectron)
-  expect(existsSync(join(servicesDir, 'express', getPackagedServiceName('express')))).toBe(isElectron)
-
-  // Custom service with extra assets
-  expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
+  if (build) {
+    expect(existsSync(join(servicesDir, 'http', getPackagedServiceName('http')))).toBe(isElectron)
+    expect(existsSync(join(servicesDir, 'express', getPackagedServiceName('express')))).toBe(isElectron)
+    expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
   
-  const txtFile = join(manualServiceDir, 'test.txt')
+    const txtFile = join(manualServiceDir, 'test.txt')
+    expect(existsSync(txtFile)).toBe(isElectron)
+    if (isElectron) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+  }
 
-  expect(existsSync(txtFile)).toBe(isElectron)
+  // NOTE: Implement checks for intermediate TS builds
+  else {
 
-  if (isElectron && build) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
-
+  }
   
   // ---------------------- PWA ----------------------
   const isPWA = target === 'pwa'

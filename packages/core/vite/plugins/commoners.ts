@@ -1,12 +1,28 @@
 
 import { extname, resolve } from 'node:path'
 import { getIcon } from '../../utils/index.js'
-import { normalizeTarget } from '../../globals.js'
+import { isDesktop, isMobile } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 
 const virtualModuleId = 'commoners:env'
-const ENV_VAR_NAMES = [ 'NAME', 'VERSION', 'ICON', 'SERVICES', 'TARGET', 'READY', 'PLUGINS', 'DESKTOP', 'DEV' ]
+
+const ENV_VAR_NAMES = [ 
+    'NAME', 
+    'VERSION', 
+    'ICON', 
+    'SERVICES', 
+
+    'READY', 
+    'PLUGINS', 
+
+    'DESKTOP',
+    'MOBILE',
+    'WEB', 
+
+    'DEV',
+    'PROD',
+]
 
 const headStartTag = '<head>'
 
@@ -17,6 +33,9 @@ export default ({
     target,
     dev
 }) => {
+
+    const desktop = isDesktop(target)
+    const mobile = isMobile(target)
     
     // const orginalBase = normalize(config.vite?.base ?? '/').replaceAll(sep, posix.sep)
 
@@ -42,12 +61,22 @@ export default ({
     const iconPath = rawIconSrc ? getAssetLinkPath(resolve(root, rawIconSrc), outDir, relTo) : null
 
     const globalObject = {
+
         NAME: config.name,
         VERSION: config.version,
         ICON: iconPath,
         SERVICES: services,
-        TARGET: normalizeTarget(target),
-        DEV: dev
+
+        // Target Shortcuts
+        DESKTOP: desktop,
+        MOBILE: mobile,
+        WEB: !desktop && !mobile,
+
+        // Production vs Development
+        DEV: dev,
+        PROD: !dev,
+        
+
     }
 
     const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
@@ -90,10 +119,11 @@ export default ({
                 const globalObject = JSON.parse(\`${JSON.stringify(globalObject)}\`)
                 Object.keys(globalObject).forEach(key => commonersGlobalVariable[key] = globalObject[key])
 
-                commonersGlobalVariable.DESKTOP = {}
-
-                if (quit)  commonersGlobalVariable.DESKTOP.quit = quit
-                if (electron) commonersGlobalVariable.DESKTOP.electron = electron
+                if (commonersGlobalVariable.DESKTOP) {
+                    commonersGlobalVariable.DESKTOP = {}
+                    if (quit)  commonersGlobalVariable.DESKTOP.quit = quit
+                    if (electron) commonersGlobalVariable.DESKTOP.electron = electron
+                }
 
                 if (plugins) commonersGlobalVariable.__PLUGINS = plugins
                 if (services) commonersGlobalVariable.SERVICES = services // Replace with sanitized services from Electron if available

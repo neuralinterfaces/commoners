@@ -1,8 +1,10 @@
+// Built-In Modules
 import { dirname, join, relative, normalize, resolve } from 'node:path'
 import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-import { globalWorkspacePath, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile, chalk } from './globals.js'
+// Internal Imports
+import { globalWorkspacePath, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
@@ -10,16 +12,16 @@ import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
 import { printFailure, printSubtle } from './utils/formatting.js'
 
-// Exports
+// Top-Level Package Exports
 export * from './types.js'
 export * from './globals.js'
+export * as format from './utils/formatting.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as share } from './share.js'
 export { default as start } from './start.js'
-export * as format from './utils/formatting.js'
 
-
+// ------------------ Configuration File Handling ------------------
 export const defineConfig = (o: UserConfig): UserConfig => o
 
 export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
@@ -154,7 +156,7 @@ export async function resolveConfig(
 
     // Set default values for certain properties shared across config and package.json
     if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
-        
+
     if (!copy.version) copy.version = '0.0.0'
 
     if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '').toLowerCase()}.app`

@@ -3,8 +3,10 @@ import { asyncFilter, pluginErrorMessage, sanitizePluginProperties } from "./uti
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
 const ENV = commoners
-const { __PLUGINS, TARGET, __READY } = ENV
+const { __PLUGINS, DESKTOP, MOBILE, __READY } = ENV
 delete ENV.__PLUGINS
+
+const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
 if ( __PLUGINS ) {
 
@@ -32,7 +34,7 @@ if ( __PLUGINS ) {
 
         try {
             if (load) {
-                loaded[id] = ENV.TARGET === 'desktop' ? load.call({
+                loaded[id] = ENV.DESKTOP ? load.call({
                     quit: TEMP_COMMONERS.quit,
                     send: (channel, ...args) => TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
                     sendSync: (channel, ...args) => TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),

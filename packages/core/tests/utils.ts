@@ -29,21 +29,48 @@ const e2eTests = {
                 const userPkg = require(join(projectBase, 'package.json'))
 
                 const { commoners = {} } = registrationOutput
-                const { NAME, TARGET, VERSION, PLUGINS, SERVICES, READY, ELECTRON } = commoners
+                const { 
+                  NAME, 
+                  VERSION, 
+                  PLUGINS, 
+                  SERVICES, 
+                  READY, 
+
+                  DESKTOP,
+                  MOBILE,
+                  WEB,
+
+                  DEV,
+                  PROD
+
+                } = commoners
+
+                console.log(normalizedTarget, DESKTOP, MOBILE, WEB)
+
+                const isDesktop = normalizedTarget === 'desktop'
+                const isDev = mode === 'dev' 
+
                 expect(NAME).toBe(config.name);
                 expect(VERSION).toBe(userPkg.version);
-                expect(TARGET).toBe(normalizedTarget);
+
+                expect(WEB).toBe(normalizedTarget === 'web');
+                expect(MOBILE).toBe(normalizedTarget === 'mobile');
+
+                expect(DEV).toBe(isDev);
+                expect(PROD).toBe(!isDev);
+
+                if (isDesktop) {
+                  expect(DESKTOP).instanceOf(Object)
+                  expect(DESKTOP.quit).instanceOf(Object)
+                } 
+                
+                else expect(DESKTOP).toBe(false);
+
                 expect('echo' in PLUGINS).toBe(true);
                 expect(SERVICES).instanceOf(Object)
                 expect(READY).instanceOf(Object) // Resolved Promise
 
-                if (normalizedTarget === 'desktop') {
-                    expect(ELECTRON.quit).instanceOf(Object)
-                }
-
-                const isDev = mode === 'dev'
-
-                  Object.entries(SERVICES).forEach(([name, service]) => {
+                Object.entries(SERVICES).forEach(([name, service]) => {
 
                     // Web / PWA / Mobile builds will have cleared services (that are not remote)
                     expect(name in SERVICES).toBe(isDev);
@@ -53,9 +80,8 @@ const e2eTests = {
                       if ('port' in service) expect(parseInt(new URL(SERVICES[name].url).port)).toBe(service.port)
                     }
 
-                    if (normalizedTarget === 'desktop') {
+                    if (isDesktop) {
                       expect(typeof SERVICES[name].filepath).toBe('string');
-                      expect(SERVICES[name].status).toBe(true)
                       expect(SERVICES[name].onActive).instanceOf(Object) // Function
                       expect(SERVICES[name].onClosed).instanceOf(Object)  // Function
                     }

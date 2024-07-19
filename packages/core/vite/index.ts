@@ -1,17 +1,23 @@
-type Plugin = import('vite').Plugin
-import electronPlugin from './plugins/electron/index.js'
-
-import { ManifestOptions, VitePWA, VitePWAOptions } from 'vite-plugin-pwa'
-
+// Built-In Modules
 import { extname, isAbsolute, join, relative } from 'node:path'
 
+// General Internal Imports
 import { rootDir, isDesktop, vite, chalk } from "../globals.js";
-
-import commonersPlugin from './plugins/commoners.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
+
+// Internal Plugins
+import electronPlugin from './plugins/electron/index.js'
+import commonersPlugin from './plugins/commoners.js'
+
+// Internal Imports
 import { getIcon, safePath } from '../utils/index.js';
 import { printServiceMessage } from '../utils/formatting.js';
 import { getAssetBuildPath } from '../utils/assets.js';
+
+type ManifestOptions = import ('vite-plugin-pwa').ManifestOptions
+type VitePWAOptions = import ('vite-plugin-pwa').VitePWAOptions
+
+type Plugin = import('vite').Plugin
 
 // import { nodeBuiltIns } from "../utils/config.js";
 
@@ -130,8 +136,10 @@ export const resolveViteConfig = async (
             root
         }, outDir)
 
+        const VitePWAPlugin = await import('vite-plugin-pwa').then(m => m.VitePWA)
+
         // @ts-ignore
-        plugins.push(...VitePWA({ registerType: 'autoUpdate',  ...opts }))
+        plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
 
     // Define a default set of plugins and configuration options

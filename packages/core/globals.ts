@@ -1,28 +1,26 @@
+// Built-In Modules
 import { join, resolve } from "node:path";
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync, rmSync } from "node:fs";
-
 import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
 
+// External Packages
 import * as yaml from 'js-yaml'
+import dotenv from 'dotenv'
+dotenv.config()
 
+// Internal Imports
+import { printFailure } from "./utils/formatting.js";
+import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validDesktopTargets, validMobileTargets } from "./types.js";
+
+// Dynamic Imports
 export const chalk = import("chalk").then(m => m.default)
 export const vite = import("vite")
 
+const require = createRequire(import.meta.url);
 const { version: electronVersion } = require('electron/package.json')
-export {
-    electronVersion
-}
-
-// Types
-import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validDesktopTargets, validMobileTargets } from "./types.js";
-
-// Environment Variables
-import dotenv from 'dotenv'
-import { printFailure } from "./utils/formatting.js";
-dotenv.config()
+export { electronVersion }
 
 export const globalWorkspacePath = '.commoners'
 
@@ -42,7 +40,6 @@ const runBeforeExitCallbacks = (code) => {
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']
-
 
 export const initialize = async (tempDir = globalTempDir) => {
     

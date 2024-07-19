@@ -1,14 +1,16 @@
-import { UserConfig } from "./types.js";
-
-import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
-import { updateServicesWithLocalIP } from "./utils/ip/index.js";
-import { buildAssets } from "./utils/assets.js";
-import { createServer } from "./vite/index.js";
-import { chalk, cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit } from "./globals.js";
-
+// Built-In Modules
 import { join } from "node:path";
 
+// Internal Imports
+import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
+import { cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit } from "./globals.js";
+import { UserConfig } from "./types.js";
+import { createServer } from "./vite/index.js";
+
+// Internal Utilities
+import { buildAssets } from "./utils/assets.js";
 import { printHeader, printTarget } from "./utils/formatting.js"
+import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 
 export default async function ( opts: UserConfig = {} ) {
 

@@ -1,15 +1,19 @@
+// Built-In Modules
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { runCommand } from "../utils/processes.js"
-import { chalk, onExit } from "../globals.js"
-import * as assets from './assets.js'
-
 import { join, resolve, resolve as resolvePath } from "node:path"
-import plist from 'plist'
-import xml2js from 'xml2js'
+import { createRequire } from 'node:module';
 
+// Internal Imports
+import * as assets from './assets.js'
+import { chalk, onExit } from "../globals.js"
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
-import { createRequire } from 'node:module';
+// Internal Utilities
+import { runCommand } from "../utils/processes.js"
+
+// External Packages
+import plist from 'plist'
+import xml2js from 'xml2js'
 
 const require = createRequire(import.meta.url);
 const getRequireForRoot = (root) => createRequire(resolve(root, 'package.json'))

@@ -1,19 +1,16 @@
 
 import { existsSync, readdirSync} from 'node:fs';
-import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort, chalk } from './globals.js';
 import { basename, extname, join } from 'node:path';
+import { cpus } from 'node:os';
 
+import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort, chalk } from './globals.js';
+import { getFreePorts } from './templates/services/utils/network.js'
+import { LaunchOptions } from './types.js';
+import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
 import { spawnProcess } from './utils/processes.js'
+import { createServer } from './utils/server.js'
 
 import * as mobile from './mobile/index.js'
-import { LaunchOptions } from './types.js';
-
-import { createServer } from './utils/server.js'
-import { getFreePorts } from './templates/services/utils/network.js'
-
-import { cpus } from 'node:os';
-import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
-
 
 const open = import('open').then(m => m.default)
 

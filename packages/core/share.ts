@@ -1,15 +1,17 @@
-import { createServer } from './utils/server.js'
-import { chalk, createServices, globalTempDir, initialize, resolveConfig } from './index.js';
-
-import { ShareOptions } from './types.js';
-
-import { updateServicesWithLocalIP } from './utils/ip/index.js'
-import { getLocalIP } from './utils/ip/cross-platform.js'
-
+// Built-In Modules
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
+
+// Internal Imports
+import { chalk, createServices, globalTempDir, initialize, resolveConfig } from './index.js';
+import { ShareOptions } from './types.js';
+
+// Internal Utilities
 import { buildAssets } from './utils/assets.js';
 import { printHeader, printServiceMessage } from './utils/formatting.js';
+import { updateServicesWithLocalIP } from './utils/ip/index.js'
+import { getLocalIP } from './utils/ip/cross-platform.js'
+import { createServer } from './utils/server.js'
 
 export default async function (opts: ShareOptions) {
 

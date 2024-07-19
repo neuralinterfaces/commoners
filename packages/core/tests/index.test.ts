@@ -31,8 +31,7 @@ describe('Start', () => {
 
   registerStartTest(
     'Desktop', 
-    { target: 'electron'},
-    false // NOTE: Valid test suite—but causes a SIGABRT that results in a crash
+    { target: 'electron'}
   )
 
   // NOTE: Skipped because Ruby Gems needs to be updated

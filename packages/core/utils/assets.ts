@@ -1,26 +1,21 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { chalk, isDesktop, rootDir, vite } from "../globals.js"
-import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
-
-import { isValidURL } from './url.js'
-import { copyAsset, copyAssetOld } from './copy.js'
-
-import * as esbuild from 'esbuild'
-
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
-
-
-import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
-import { resolveConfig, resolveConfigPath } from "../index.js"
-
-import pkg from 'pkg'
-
-import { spawnProcess } from './processes.js'
+// Built-In Modules
 import { execSync } from "node:child_process"
-
-import { encodePath } from "./encode.js"
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 import { pathToFileURL } from "node:url"
+
+
+// Internal Imports
+import { resolveConfig, resolveConfigPath } from "../index.js"
+import { copyAsset, copyAssetOld } from './copy.js'
+import { encodePath } from "./encode.js"
+import { chalk, isDesktop, rootDir, vite } from "../globals.js"
+import { spawnProcess } from './processes.js'
+import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
+import { isValidURL } from './url.js'
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
+
+type ESBuildBuildOptions = import('esbuild').BuildOptions
 
 type AssetMetadata = {
     extraResource?: boolean,
@@ -120,6 +115,9 @@ export const packageFile = async (info: PackageInfo) => {
     if (!shouldBuild) return outDir
 
     console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
+
+    const esbuild = await import('esbuild')
+    const pkg = await import('pkg')
 
     await esbuild.build({ 
         entryPoints: [ src ],
@@ -453,7 +451,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                 if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, outfile) // Bundle config file differently using Rollup
                 else {
 
-                    const baseConfig: esbuild.BuildOptions = {
+                    const baseConfig: ESBuildBuildOptions = {
                         entryPoints: [ input ],
                         bundle: true,
                         logLevel: 'silent',
@@ -462,6 +460,8 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                     // Force a build format if the proper extension is specified
                     const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
+
+                    const esbuild = await import('esbuild')
 
                     const buildForNode = () => buildForBrowser({ 
                         outfile,
@@ -536,7 +536,10 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
 
     const plugins = []
 
-    if (!node) plugins.push(nodePolyfills())
+    if (!node) {
+        const nodePolyfills = await import('vite-plugin-node-polyfills').then(({ nodePolyfills }) => nodePolyfills)
+        plugins.push(nodePolyfills())
+    }
 
     const config = _vite.defineConfig({
         logLevel,

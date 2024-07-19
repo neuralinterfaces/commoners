@@ -1,7 +1,6 @@
 import { printServiceMessage } from '../../../utils/formatting.js'
 import { treeKillSync } from './processes.js'
 
-
 type ChildProcess = import('node:child_process').ChildProcess
 
 const labelRegexp = /\[.*\] /
@@ -19,8 +18,10 @@ export const electronGlobalStates: { app?: ChildProcess } = {}
 export async function startup( root ) {
     
     const argv = ['.', '--no-sandbox']
+
     const { spawn } = await import('node:child_process')
     const electron = await import('electron')
+    
     const electronPath = <any>(electron.default ?? electron)
   
     await startup.exit()
