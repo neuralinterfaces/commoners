@@ -9,6 +9,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import * as services from '../services/index'
 
 import dotenv from 'dotenv'
+import { existsSync } from 'node:fs'
 
 const assetsPath = join(__dirname, 'assets')
 
@@ -80,8 +81,6 @@ if (process.env.VITEST) {
 
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-
-if (isProduction) dotenv.config({ path: join(assetsPath, '.env') }) // Load the .env file in production
 
 // Get the Commoners configuration file
 const configPath = join(assetsPath, 'commoners.config.cjs') // Load the .cjs config version

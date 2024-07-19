@@ -120,11 +120,13 @@ export const resolveViteConfig = async (
 
     const { name, appId, root, icon, description } = commonersConfig
 
+
+    const assetPath = join(root, 'assets')
+
     // Desktop Build
     if (isDesktopTarget) {
         const plugin = await electronPlugin({ build, root, outDir })
         plugins.push(...plugin)
-    
     } 
     
     // PWA Build
@@ -155,7 +157,7 @@ export const resolveViteConfig = async (
         },
         plugins,
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
-        clearScreen: false,
+        clearScreen: false
     })
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)

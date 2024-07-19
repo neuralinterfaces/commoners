@@ -14,6 +14,7 @@ import { spawnProcess } from './processes.js'
 import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
 import { isValidURL } from './url.js'
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
+import { printSubtle } from "./formatting.js"
 
 type ESBuildBuildOptions = import('esbuild').BuildOptions
 
@@ -56,10 +57,11 @@ const mustBuild = ({ outDir, force }) => {
 
 const getBuildDir = (outDir: string) => join(resolve(outDir), 'assets')
 
+const sharedWithElectron = [ 'commoners.config.cjs' ]
 
 export const getAssetBuildPath = (assetPath: string, outDir: string) => {
-    const inputToCompare = assetPath.replaceAll(sep, posix.sep)    
-    if (inputToCompare === 'commoners.config.cjs') return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
+    const inputToCompare = assetPath.replaceAll(sep, posix.sep)  
+    if (sharedWithElectron.includes(inputToCompare)) return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
     return join(getBuildDir(outDir), encodePath(assetPath))
 }
 
@@ -112,9 +114,10 @@ export const packageFile = async (info: PackageInfo) => {
 
     const shouldBuild = mustBuild({ outDir: outDir, force })
 
-    if (!shouldBuild) return outDir
-
-    console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
+    if (!shouldBuild) {
+        printSubtle(`Skipping ${_chalk.bold(name)} build`)
+        return outDir
+    }
 
     const esbuild = await import('esbuild')
     const pkg = await import('pkg')
@@ -167,34 +170,12 @@ async function buildService(
     outDir = resolve(outDir)
     
     // Check Auto Builds
-    if (build && typeof build === 'object') {
-        return packageFile({
-            name,
-            force,
-            src,
-            build
-        })
-    }
-    
-    // Check Custom Builds
-    else {
-
-        const shouldBuild = mustBuild({
-            outDir,
-            force
-        })
-
-        if (!shouldBuild) return outDir
-    }
-
     console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
 
     // Dynamic Configuration
     if (typeof build === 'function') {
 
-        const ctx = {
-            package: packageFile
-        }
+        const ctx = { package: packageFile }
 
         build = await build.call(ctx, {
             name,
@@ -202,12 +183,15 @@ async function buildService(
             force,
             build: { outDir }
         })
-
     }
-
-    if (typeof build === 'string') {
+    
+    // Auto Build
+    else if (build && typeof build === 'object') return packageFile({ name, force, src, build })
+    
+    // Terminal Command
+    else if (typeof build === 'string') {
         if (existsSync(build)) return build
-        await spawnProcess(build, [], { cwd: root }) // Ensure 
+        await spawnProcess(build, [], { cwd: root })
         return outDir
     }
 }
@@ -264,20 +248,8 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     }
 
     if (isElectronTarget) {
-
-        // Copy .env file if it exists
-        const envPath = getAbsolutePath(root, '.env')
-        if (existsSync(envPath)) assets.copy.push(envPath)
-
-        // Bundle Splash Page
         const splashPath = resolvedConfig.electron.splash
-        if (splashPath) {
-            assets.bundle.push({
-                input: getAbsolutePath(root, splashPath),
-                output: splashPath
-            })
-        }
-
+        if (splashPath) assets.bundle.push({ input: getAbsolutePath(root, splashPath), output: splashPath })
     }
     
     // Handle Provided Services
@@ -494,13 +466,15 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
     // Copy static assets
     assets.copy.map(info => {
+
         const isObject = typeof info === 'object'
         const file = isObject ? info.input : info
+        const locationToEncode = (isObject ? info.output : undefined) ?? file
 
         const extraResource = isObject ? info.extraResource : false
 
         // Ensure extra resources are copied to the output directory
-        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, getAssetBuildPath(file, outDir)) } 
+        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, getAssetBuildPath(locationToEncode, outDir)) } 
 
         // Handle extra resources
         if (isObject) {
@@ -536,6 +510,8 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
 
     const plugins = []
 
+    const root =  dirname(input)
+
     if (!node) {
         const nodePolyfills = await import('vite-plugin-node-polyfills').then(({ nodePolyfills }) => nodePolyfills)
         plugins.push(nodePolyfills())
@@ -544,7 +520,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
     const config = _vite.defineConfig({
         logLevel,
         base: "./",
-        root: dirname(input),
+        root,
 
         plugins: plugins,
 
@@ -563,6 +539,9 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
                 ] 
             }
         },
+
+        envDir: root
+
     })
     
     const resolvedConfig = node ? withExternalBuiltins(config) : config
