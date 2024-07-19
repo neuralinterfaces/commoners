@@ -538,9 +538,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
                     importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
                 ] 
             }
-        },
-
-        envDir: root
+        }
 
     })
     

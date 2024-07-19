@@ -8,9 +8,6 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
 
-import dotenv from 'dotenv'
-import { existsSync } from 'node:fs'
-
 const assetsPath = join(__dirname, 'assets')
 
 const chalk = import('chalk').then(m => m.default)
