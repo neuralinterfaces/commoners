@@ -14,9 +14,7 @@ const log = async (data, method = 'log') => {
 }
 
 
-const globalStates: { app?: ChildProcess } = {}
-
-let electronApp: ChildProcess | null = null
+export const electronGlobalStates: { app?: ChildProcess } = {}
 
 export async function startup( root ) {
     
@@ -28,7 +26,7 @@ export async function startup( root ) {
     await startup.exit()
   
     // Start Electron.app
-    const app = globalStates.app = spawn(electronPath, argv, {  cwd: root,  env: { ...process.env, FORCE_COLOR: '1' } }) // Ensure the app is started from the root of the selected project
+    const app = electronGlobalStates.app = spawn(electronPath, argv, {  cwd: root,  env: { ...process.env, FORCE_COLOR: '1' } }) // Ensure the app is started from the root of the selected project
     
     // Exit command after Electron.app exits
     app.once('exit', process.exit)
@@ -48,9 +46,10 @@ export async function startup( root ) {
   startup.hookedProcessExit = false
 
   startup.exit = async () => {
-    if (globalStates.app) {
-      globalStates.app.removeAllListeners()
-      treeKillSync(globalStates.app.pid!)
+    const { app } = electronGlobalStates
+    if (app) {
+      app.removeAllListeners()
+      treeKillSync(app.pid!)
     }
-    delete globalStates.app
+    delete electronGlobalStates.app
   }

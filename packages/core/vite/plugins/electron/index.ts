@@ -1,10 +1,10 @@
 import { join, resolve } from 'node:path'
 import { vite } from '../../../globals.js'
-import { rootDir, globalWorkspacePath } from '../../../globals.js'
+import { rootDir } from '../../../globals.js'
 
 import { withExternalBuiltins } from './inbuilt.js'
 import { resolveServerUrl } from './server.js'
-import { startup } from './electron.js'  
+import { electronGlobalStates, startup } from './electron.js'  
 
 type UserConfig = import('vite').UserConfig
 type ConfigEnv = import('vite').ConfigEnv
@@ -127,7 +127,7 @@ export const buildWithVite = async (options: ElectronOptions) => {
                       options.onstart.call(this, {
                         startup: () => startup(root),
                         reload() {
-                          if (process.electronApp) server.ws.send({ type: 'full-reload' })
+                          if (electronGlobalStates.app) server.ws.send({ type: 'full-reload' })
                           else startup(root)
                         },
                       })
