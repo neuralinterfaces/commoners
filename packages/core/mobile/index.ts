@@ -214,8 +214,6 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
     
-    const _chalk = await chalk
-
     await checkDepsInstalled(target, config)
 
     await openConfig({

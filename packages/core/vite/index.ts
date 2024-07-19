@@ -144,8 +144,6 @@ export const resolveViteConfig = async (
         plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
 
-    const viteOutDir = join(outDir, '.vite')
-
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
         logLevel: dev ? 'silent' : 'info',
@@ -153,7 +151,7 @@ export const resolveViteConfig = async (
         root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
-            outDir: viteOutDir // Ensures all outputs are placed in the temporary directory
+            outDir
         },
         plugins,
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
