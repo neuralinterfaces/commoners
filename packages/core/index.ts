@@ -173,6 +173,15 @@ export async function resolveConfig(
         const selected = typeof services === 'string' ? [ services ] : services
         const isSingleService = selected.length === 1
 
+
+        const allServices = Object.keys(copy.services)
+        if (!selected.every(name => allServices.includes(name))) {
+            await printFailure(`Invalid service selection`)
+            // Print actual services as a nice list
+            await printSubtle(`Available services: ${allServices.join(', ')}`)
+            process.exit(1)
+        }
+
         for (let name in copy.services) {
             if (!selected.includes(name)) delete copy.services[name]
             else if (isSingleService && customPort) copy.services[name].port = customPort

@@ -8,7 +8,7 @@ import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./t
 
 // Internal Utilities
 import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
-import { printHeader, printTarget } from "./utils/formatting.js"
+import { printHeader, printSubtle, printTarget } from "./utils/formatting.js"
 import { getIcon } from "./utils/index.js"
 import merge from './utils/merge.js'
 
@@ -89,7 +89,7 @@ export default async function build (
 
     const name = resolvedConfig.name
 
-    if (!dev) await printHeader(`${name} — ${buildOnlyServices ? 'Services' : `${printTarget(target)} Build`}`)
+    if (!dev) await printHeader(`${name} — ${buildOnlyServices ? 'Building Selected Services' : `${printTarget(target)} Build`}`)
 
     if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
