@@ -25,9 +25,7 @@ type AssetMetadata = {
 
 type CoreAssetInfo = string | {
     input: string,
-    output?: string | {
-        extension: 'mjs' | 'cjs', // JavaScript
-    },
+    output?: string
     force?: boolean,
     compile?: string | boolean // Terminal command to compile the file
 } & AssetMetadata
@@ -411,7 +409,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
             } else{
 
-                const extension = typeof output === 'string' ? extname(output).slice(1) : (output?.extension ?? ext.slice(1))
+                const extension = typeof output === 'string' ? extname(output).slice(1) : ext.slice(1)
                 const resolvedExtension = bundleExtensions.includes(`.${extension}`) ? 'js' : extension
 
                 // Correct for invalid extensions
