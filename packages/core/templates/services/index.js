@@ -97,8 +97,11 @@ export async function resolveService (
   Object.assign(resolvedConfig, { __src })
 
   if (build) {
+
+
     
-    const urlSrc = resolvedConfig.url?.[publishMode] ?? resolvedConfig.url ?? false
+    const { url } = resolvedConfig
+    const urlSrc = (typeof url === 'string' ? url : url?.[publishMode]) ??false
     delete resolvedConfig.url
 
     const buildStep = resolvedConfig.build
@@ -150,7 +153,7 @@ export async function resolveService (
 
   // NOTE: Base must be contained in project root
   if (resolvedConfig.base) src = join(resolvedConfig.base, src) // Resolve relative paths
-  
+    
   // Remove or add extensions based on platform
   if (process.platform === 'win32') {
     if (!extname(src)) src += '.exe' // Add .exe (Win)
