@@ -84,6 +84,12 @@ const e2eTests = {
                       expect(SERVICES[name].onClosed).instanceOf(Object)  // Function
                     }
               })
+
+              // // Environment Variables
+              // expect(import.meta.env.VITE_ENV_VARIABLE).toBe('test')
+
+
+
             });
           })
     }
