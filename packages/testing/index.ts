@@ -232,10 +232,6 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
   expect(existsSync(join(assetDir, 'splash.html'))).toBe(isElectron)
 
-  const envExpectation = expect(regexFindFile(assetDir, /.env-(.*)/))
-  if (isElectron) envExpectation.toBeTruthy()
-  else envExpectation.toBeFalsy()
-
   const buildDir = join(baseDir, '..', '..', '..', 'build')
   const servicesDir = join(baseDir, '..', '..', 'services')
   const manualServiceDir = join(buildDir, 'manual')

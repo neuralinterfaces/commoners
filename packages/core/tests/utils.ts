@@ -24,7 +24,7 @@ const e2eTests = {
         
         describe('Basic E2E Test', () => {
     
-            test("Global variable is valid", async () => {
+            test("Global variables are valid", async () => {
 
                 const userPkg = require(join(projectBase, 'package.json'))
 
@@ -83,8 +83,7 @@ const e2eTests = {
                       expect(SERVICES[name].onActive).instanceOf(Object) // Function
                       expect(SERVICES[name].onClosed).instanceOf(Object)  // Function
                     }
-                  })
-
+              })
             });
           })
     }
