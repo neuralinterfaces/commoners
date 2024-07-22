@@ -43,9 +43,7 @@ for (let id in TEMP_COMMONERS.services) {
     })
 
     // ---------------- Assign Functions ----------------
-    service.onActive = async (listener) => {
-
-      if (serviceStates.status) await listener()
+    service.onActive = async (listener = () => {}) => {
 
       return new Promise((promiseResolver, reject) => {
         
@@ -56,9 +54,13 @@ for (let id in TEMP_COMMONERS.services) {
             reject(e)
           }
         }
-
+          
         listeners.active.push(updatedCallback)
+        
+        if (serviceStates.status) updatedCallback()
+
       })
+      
     }
 
     service.onClosed = (listener) => {
