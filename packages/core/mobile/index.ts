@@ -128,11 +128,13 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
     const projectBase = resolvePath(root, target)
 
-    await checkDepsInstalled(target, config)
+    await checkDepsInstalled(config)
     
     const capacitorConfig = await openConfig({ name, appId, plugins, outDir, root })
 
     if (!existsSync(projectBase)) await runCommand(`npx cap add ${target} && npx cap copy`)
+
+    const platformConfigPath = await checkPlaformConfigExists(target, root)
 
     // Update when creating a dynamic configuration
     if (capacitorConfig) {
@@ -148,21 +150,27 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
         // Inject the appropriate permissions into the info.plist file (iOS only)
         if (target === 'ios') {
-            const plistPath = resolvePath(projectBase, 'App/App/info.plist')
-            const xml = plist.parse(readFileSync(plistPath, 'utf8')) as any;
+            const xml = plist.parse(readFileSync(platformConfigPath, 'utf8')) as any;
             installedPlugins.forEach(({ plist = {}}) => Object.entries(plist).forEach(([key, value]) => xml[key] = value))
-            writeFileSync(plistPath, plist.build(xml));
+            writeFileSync(platformConfigPath, plist.build(xml));
         }
 
 
         // Inject the appropriate permissions into the AndroidManifest.xml file (Android only) (UNTESTED)
         else if (target === 'android') {
-            const manifestPath = resolvePath(projectBase, 'app/src/main/AndroidManifest.xml')
-            const xml = readFileSync(manifestPath, 'utf8')
+            const xml = readFileSync(platformConfigPath, 'utf8')
             const result = await xml2js.parseStringPromise(xml)
             const androidManifest = result.manifest
-            installedPlugins.forEach(({ manifest = {}}) => Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value))
-            writeFileSync(manifestPath, new xml2js.Builder().buildObject(result))
+
+            // console.log('Original', androidManifest)
+            // installedPlugins.forEach(({ manifest = {}}) =>{
+            //     console.log('Adding', manifest)
+            //     Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value)
+            // })
+
+            // console.log('Final', androidManifest)
+
+            writeFileSync(platformConfigPath, new xml2js.Builder().buildObject(result))
         }
     }
 
@@ -180,8 +188,19 @@ const isInstalled = (pkgName, resolve = require.resolve) => {
 
 }
 
+const checkPlaformConfigExists = async (platform, root) => {
+    const projectBase = resolvePath(root, platform)
+    const configFilePath = join(projectBase, platform === 'ios' ? 'App/App/info.plist' : 'app/src/main/AndroidManifest.xml')
+    if (!existsSync(configFilePath)) {
+        const _chalk = await chalk
+        console.log(`Please ensure that ${_chalk.bold(`@capacitor/${platform}`)} is installed at the base of your project.`)
+        process.exit(1)
+    }
+    return configFilePath
+}
+
 // Install Capacitor packages as a user dependency
-export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
+export const checkDepsInstalled = async (config: ResolvedConfig) => {
 
     const _chalk = await chalk
 
@@ -195,9 +214,6 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
     const coreInstalled = isInstalled('@capacitor/core', require.resolve)
     if (!coreInstalled) notInstalled.add(`@capacitor/core`)
 
-    const platformInstalled = isInstalled(`@capacitor/${platform}`, require.resolve)
-    if (!platformInstalled) notInstalled.add(`@capacitor/${platform}`)
-
     if (assets.has(config)) {
         const assetsInstalled = isInstalled(`@capacitor/assets`, require.resolve)
         if (!assetsInstalled) notInstalled.add(`@capacitor/assets`)
@@ -207,14 +223,14 @@ export const checkDepsInstalled = async (platform, config: ResolvedConfig) => {
         const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
         console.log(_chalk.bold("\nEnsure the following packages are installed at the base of your project:"))
         console.log(installationCommand, '\n')
-        // process.exit(1)
+        process.exit(1)
     }
 }
 
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
     
-    await checkDepsInstalled(target, config)
+    await checkDepsInstalled(config)
 
     await openConfig({
         name: config.name,
