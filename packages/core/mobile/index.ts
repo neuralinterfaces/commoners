@@ -105,7 +105,12 @@ export const openConfig = async ({
 
     const isUserDefined = possibleConfigNames.map(x => join(root, x)).find(x => existsSync(x))
 
-    if (isUserDefined) return JSON.parse(readFileSync(isUserDefined, 'utf8'))
+    if (isUserDefined) {
+        return {
+            config: JSON.parse(readFileSync(isUserDefined, 'utf8')),
+            close: () => {}
+        }
+    }
 
     const capacitorConfig = getBaseConfig({ name, appId, outDir })
     
@@ -117,63 +122,77 @@ export const openConfig = async ({
 
     writeFileSync(configName, JSON.stringify(capacitorConfig, null, 2))
 
-    onExit(() => rmSync(configName)) // Remove configuration if not specified by the user
+    const result = {
+        config: capacitorConfig,
+        close: () => existsSync(configName) && rmSync(configName)
+    }
 
-    return capacitorConfig
+    // Remove configuration if not specified by the user
+    onExit(result.close)
+
+    return result
+}
+
+const addProjectTarget = async (target, config: ResolvedConfig, outDir: string) => {
+    const { name, appId, plugins, root } = config
+    const { close } = await openConfig({ name, appId, plugins, outDir, root })
+    await runCommand(`npx cap add ${target} && npx cap copy`)
+    close()
+}
+
+const syncProject = async (config: ResolvedConfig, outDir: string) => {
+    const { name, appId, plugins, root } = config
+    const { close } = await openConfig({ name, appId, plugins, outDir, root })
+    await runCommand("npx cap sync")
+    close()
 }
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
 
-    const { name, appId, plugins, root } = config
+    const { plugins, root } = config
 
     const projectBase = resolvePath(root, target)
 
     await checkDepsInstalled(config)
     
-    const capacitorConfig = await openConfig({ name, appId, plugins, outDir, root })
 
-    if (!existsSync(projectBase)) await runCommand(`npx cap add ${target} && npx cap copy`)
+    if (!existsSync(projectBase)) await addProjectTarget(target, config, outDir)
 
     const platformConfigPath = await checkPlaformConfigExists(target, root)
 
     // Update when creating a dynamic configuration
-    if (capacitorConfig) {
+    const require = getRequireForRoot(root);
+    const commonersPlugins = getCommonersPlugins(plugins)
+    const ignored = []
 
-        const require = getRequireForRoot(root);
-        const commonersPlugins = getCommonersPlugins(plugins)
-        const ignored = []
+    const installedPlugins = commonersPlugins.filter(({ plugin }) => {
+        if (isInstalled(plugin, require.resolve)) return true
+        else ignored.push(plugin)
+    })
 
-        const installedPlugins = commonersPlugins.filter(({ plugin }) => {
-            if (isInstalled(plugin, require.resolve)) return true
-            else ignored.push(plugin)
-        })
-
-        // Inject the appropriate permissions into the info.plist file (iOS only)
-        if (target === 'ios') {
-            const xml = plist.parse(readFileSync(platformConfigPath, 'utf8')) as any;
-            installedPlugins.forEach(({ plist = {}}) => Object.entries(plist).forEach(([key, value]) => xml[key] = value))
-            writeFileSync(platformConfigPath, plist.build(xml));
-        }
-
-
-        // Inject the appropriate permissions into the AndroidManifest.xml file (Android only) (UNTESTED)
-        else if (target === 'android') {
-            const xml = readFileSync(platformConfigPath, 'utf8')
-            const result = await xml2js.parseStringPromise(xml)
-            const androidManifest = result.manifest
-
-            // console.log('Original', androidManifest)
-            // installedPlugins.forEach(({ manifest = {}}) =>{
-            //     console.log('Adding', manifest)
-            //     Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value)
-            // })
-
-            // console.log('Final', androidManifest)
-
-            writeFileSync(platformConfigPath, new xml2js.Builder().buildObject(result))
-        }
+    // Inject the appropriate permissions into the info.plist file (iOS only)
+    if (target === 'ios') {
+        const xml = plist.parse(readFileSync(platformConfigPath, 'utf8')) as any;
+        installedPlugins.forEach(({ plist = {}}) => Object.entries(plist).forEach(([key, value]) => xml[key] = value))
+        writeFileSync(platformConfigPath, plist.build(xml));
     }
 
+    // Inject the appropriate permissions into the AndroidManifest.xml file (Android only) (UNTESTED)
+    else if (target === 'android') {
+        const xml = readFileSync(platformConfigPath, 'utf8')
+        const result = await xml2js.parseStringPromise(xml)
+        const androidManifest = result.manifest
+
+        // console.log('Original', androidManifest)
+        // installedPlugins.forEach(({ manifest = {}}) =>{
+        //     console.log('Adding', manifest)
+        //     Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value)
+        // })
+
+        // console.log('Final', androidManifest)
+
+        writeFileSync(platformConfigPath, new xml2js.Builder().buildObject(result))
+    }
 }
 
 const isInstalled = (pkgName, resolve = require.resolve) => {
@@ -228,19 +247,12 @@ export const checkDepsInstalled = async (config: ResolvedConfig) => {
 }
 
 
+
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
     
     await checkDepsInstalled(config)
 
-    await openConfig({
-        name: config.name,
-        appId: config.appId,
-        plugins: config.plugins,
-        outDir,
-        root: config.root
-    })
-
-    await runCommand("npx cap sync")
+    await syncProject(config, outDir)
 
     if (assets.has(config)) {
         const info = assets.create(config)
@@ -249,6 +261,7 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     }
 
     await runCommand(`npx cap open ${target}`)
+
 }
 
 export const launch = async (target) => {
