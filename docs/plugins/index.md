@@ -1,6 +1,6 @@
 # Plugins
 ## Official Plugins
-### `@commoners/ble`
+### `@commoners/bluetooth`
 Connect seamlessly to Bluetooth Low Energy devices across **all platforms** using the [Web Bluetooth API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API) (web, desktop) or Capacitor's `@capacitor-community/bluetooth-le` plugin (web, desktop, mobile)
 
 ### `@commoners/serial`
