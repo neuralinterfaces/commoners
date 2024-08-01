@@ -2,6 +2,8 @@ name: Back-end Tests
 on:
   schedule:
     - cron: "0 16 * * *"  # Daily at noon EST
+  push:
+    branches: ["main"]
   pull_request:
   workflow_dispatch:
 
