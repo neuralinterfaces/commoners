@@ -225,9 +225,9 @@ Plugins are collections of JavaScript functions that run at different points dur
 2. `desktop.preload` - Immediately on Electron main process instantiation (`--desktop` builds only)
 2. `desktop.load` - When Electron app is ready (`--desktop` builds only)
 
-> **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](/plugins/official) section.
+> **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](../plugins/index.md#official-plugins) section.
 
-To add a new plugin, simply provide a named `Plugin` on the `plugins` registry of your [Configuration File](./config.md):
+To add a new plugin, simply provide a named `Plugin` on the `plugins` registry of your [Configuration File](../config/index.md):
 ```js
 export default {
     plugins: {

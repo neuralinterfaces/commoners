@@ -46,7 +46,7 @@ export default {
 }
 ```
 
-All of the available configuration options are documented in the [Configuration](./config.md) documentation.
+All of the available configuration options are documented in the [Configuration](../config/index.md) documentation.
 
 In your built application, you can access Commoners configuration values using the `commoners` object:
 
