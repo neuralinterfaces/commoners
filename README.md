@@ -18,7 +18,17 @@ We use the term **build solidarity** to indicate the alignment of the world's we
 
 Let's build solidarity together!
 
-## Local Development
+## Packages
+
+| Package                                         | Version (click for changelogs)                                                                                                    |
+| ----------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+| [commoners](packages/cli)                           | [![commoners changelog](https://img.shields.io/npm/v/commoners.svg?label=%20)](./packages/cli/CHANGELOG.md)                                    |
+| [@commoners/solidarity](packages/core) | [![solidarity changelog](https://img.shields.io/npm/v/@commoners/solidarity.svg?label=%20)](packages/core/CHANGELOG.md) |
+| [@commoners/bluetooth](packages/plugins/devices/ble)             | [![bluetooth changelog](https://img.shields.io/npm/v/@commoners/bluetooth.svg?label=%20)](packages/plugins/devices/ble/CHANGELOG.md)               |
+| [@commoners/serial](packages/plugins/devices/serial)             | [![serial changelog](https://img.shields.io/npm/v/@commoners/serial.svg?label=%20)](packages/plugins/devices/serial/CHANGELOG.md)               |
+
+
+## Contributing
 You will need to have [Node.js](https://nodejs.org/en/) installed on your machine.
 
 This repository uses PNPM for package management. Install PNPM by running the following command:
@@ -29,33 +39,6 @@ npm install -g pnpm
 Install all packages by running the following command:
 ```bash
 pnpm install
-```
-
-### Linking to Local `commoners` Package
-If you are working on the `commoners` package locally, you may need to link to some of its packages. Use the following template to link to a package (e.g. `@commoners/bluetooth`):
-```bash
-pnpm link ~/Documents/Github/commoners/packages/plugins/devices/ble
-```
-
-### Core
-#### Testing
-Before testing, you'll have to run `npm run build` in the root directory.
-
-### CLI
-To get started with the CLI, you'll need to use `npm link` to connect it with the `@commoners/solidarity` package in `packages/core`:
-```
-cd packages/core
-npm link
-cd ../cli
-npm link @commoners/solidarity
-```
-
-You'll only have to do this once.
-
-After this, you can then install `commoners` globally from the `packages/cli` directory:
-
-```
-npm install -g .
 ```
 
 ## Acknowledgements
