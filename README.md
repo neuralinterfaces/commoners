@@ -22,10 +22,10 @@ Let's build solidarity together!
 
 | Package                                         | Version (click for changelogs)                                                                                                    |
 | ----------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-| [commoners](packages/cli)                           | [![commoners changelog](https://img.shields.io/npm/v/commoners.svg?label=%20)](./packages/cli/CHANGELOG.md)                                    |
-| [@commoners/solidarity](packages/core) | [![solidarity changelog](https://img.shields.io/npm/v/@commoners/solidarity.svg?label=%20)](packages/core/CHANGELOG.md) |
-| [@commoners/bluetooth](packages/plugins/devices/ble)             | [![bluetooth changelog](https://img.shields.io/npm/v/@commoners/bluetooth.svg?label=%20)](packages/plugins/devices/ble/CHANGELOG.md)               |
-| [@commoners/serial](packages/plugins/devices/serial)             | [![serial changelog](https://img.shields.io/npm/v/@commoners/serial.svg?label=%20)](packages/plugins/devices/serial/CHANGELOG.md)               |
+| [commoners](packages/cli)                           | [![commoners version](https://img.shields.io/npm/v/commoners.svg?label=%20)](./packages/cli/CHANGELOG.md)                                    |
+| [@commoners/solidarity](packages/core) | [![solidarity version](https://img.shields.io/npm/v/@commoners/solidarity.svg?label=%20)](packages/core/CHANGELOG.md) |
+| [@commoners/bluetooth](packages/plugins/devices/ble)             | [![bluetooth version](https://img.shields.io/npm/v/@commoners/bluetooth.svg?label=%20)](packages/plugins/devices/ble/CHANGELOG.md)               |
+| [@commoners/serial](packages/plugins/devices/serial)             | [![serial version](https://img.shields.io/npm/v/@commoners/serial.svg?label=%20)](packages/plugins/devices/serial/CHANGELOG.md)               |
 
 
 ## Contributing
