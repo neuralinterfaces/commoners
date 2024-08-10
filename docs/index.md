@@ -5,7 +5,7 @@ layout: home
 hero:
   name: Commoners
   text: Build Solidarity
-  tagline: A Cross-Platform Framework for the Rest of Us
+  tagline: The Cross-Platform Framework for the Rest of Us
   image:
     src: /logo.png
     alt: Commoners
