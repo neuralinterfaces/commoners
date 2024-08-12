@@ -328,20 +328,16 @@ export function close (id) {
     }
 }
 
-function isValidService(info) {
-  return info.src || info.url
-}
+const isValidService = (info)=> info.src || info.url
 
-export function sanitize(services) {
-  const propsToInclude = [ 'url', 'filepath' ]
-  const info = {} 
-  Object.entries(services).forEach(([id, sInfo]) => {
-    if (!isValidService(sInfo)) return
-    const gInfo = info[id] = {}
-    propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
-  })
-
-  return info
+export const sanitize = (services) => {
+  return Object.entries(services).reduce((acc, [id, info]) => {
+      if (!isValidService(info)) return
+      const { url, filepath } = info
+      const service = acc[id] = { filepath }
+      if (url) service.url = url.replace('0.0.0.0', 'localhost')
+      return acc
+  }, {})
 }
 
 export async function resolveAll (services = {}, opts) {

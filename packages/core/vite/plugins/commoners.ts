@@ -4,6 +4,7 @@ import { getIcon } from '../../utils/index.js'
 import { isDesktop, isMobile } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
+import { ResolvedConfig } from '../../types.js'
 
 const virtualModuleId = 'commoners:env'
 
@@ -26,13 +27,21 @@ const ENV_VAR_NAMES = [
 
 const headStartTag = '<head>'
 
+type CommonersPluginOptions = {
+    config: ResolvedConfig
+    build: boolean
+    outDir: string
+    target: string
+    dev: boolean
+}
+
 export default ({ 
     config, 
     build, 
     outDir,
     target,
     dev
-}) => {
+}: CommonersPluginOptions) => {
 
     const desktop = isDesktop(target)
     const mobile = isMobile(target)
@@ -40,12 +49,16 @@ export default ({
     const root = config.root
     const relTo = build ? outDir : root
     
-    const propsToInclude = [ 'url' ]
-    const services = {} 
-    Object.entries(config.services).forEach(([id, sInfo]) => {
-      const gInfo = services[id] = {}
-      propsToInclude.forEach(prop => gInfo[prop] = sInfo[prop])
-    })
+    const services = Object.entries(config.services).reduce((acc, [ 
+        id, 
+        { url } 
+    ]) => {
+
+        acc[id] = {}
+        if (url) acc[id].url = url.replace('0.0.0.0', 'localhost')// Replace public with local IP
+
+        return acc
+    }, {})
 
     const rawIconSrc = getIcon(config.icon)
     const iconPath = rawIconSrc ? getAssetLinkPath(resolve(root, rawIconSrc), outDir, relTo) : null
@@ -66,7 +79,7 @@ export default ({
         DEV: dev,
         PROD: !dev,
     }
-
+    
     const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
     
     const resolvedVirtualModuleId = '\0' + virtualModuleId
