@@ -136,14 +136,14 @@ export const openConfig = async ({
 const addProjectTarget = async (target, config: ResolvedConfig, outDir: string) => {
     const { name, appId, plugins, root } = config
     const { close } = await openConfig({ name, appId, plugins, outDir, root })
-    await runCommand(`npx cap add ${target} && npx cap copy`)
+    await runCommand(`npx cap add ${target} && npx cap copy ${target}`)
     close()
 }
 
 const syncProject = async (config: ResolvedConfig, outDir: string) => {
-    const { name, appId, plugins, root } = config
+    const { name, appId, target, plugins, root } = config
     const { close } = await openConfig({ name, appId, plugins, outDir, root })
-    await runCommand("npx cap sync")
+    await runCommand(`npx cap sync ${target}`)
     close()
 }
 
@@ -155,7 +155,6 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
     await checkDepsInstalled(config)
     
-
     if (!existsSync(projectBase)) await addProjectTarget(target, config, outDir)
 
     const platformConfigPath = await checkPlaformConfigExists(target, root)
