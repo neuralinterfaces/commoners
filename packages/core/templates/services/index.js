@@ -53,12 +53,14 @@ const resolveConfig = (config) => typeof config === 'string' ? { src: config } :
 
 const reconcileConfig = (config) => {
 
-  const { src } = config
+  const { src, url } = config
 
   // Register url instead of source file
   if (isValidURL(src)) {
-    config.url = src
-    delete config.src
+    if (!url) {
+      config.url = src
+      delete config.src
+    }
   }
 
   return config
@@ -136,15 +138,16 @@ export async function resolveService (
   let { src } = resolvedConfig
 
   reconcileConfig(resolvedConfig) // Assign the correct URL for this build
-  
-  if (!isValidURL(src)) {
 
-    if (build) {
-      if (!isLocalMode) return  // Reject non-URL service on Web / Mobile builds
-    } 
-    
-    else if (src) delete resolvedConfig.url // Clear the registered URL if running source file
+  const srcIsUrl = isValidURL(src)
 
+  if (build) {
+    if (!srcIsUrl && !isLocalMode) return // Reject non-URL service on Web / Mobile builds
+  }
+
+  else if (src) {
+    if (srcIsUrl) resolvedConfig.url = src // Register URL if running source file
+    else delete resolvedConfig.url // Clear the registered URL if running source file
   }
   
   if (!src) return resolvedConfig // Return the configuration unchanged if no file or url
