@@ -84,22 +84,20 @@ export async function resolveService (
 
   reconcileConfig(resolvedConfig) // Register url instead of source file
 
-  if (!resolvedConfig.src) return // Return if no associated file or url
-
-
   // Use the URL to determine the appropriate build strategy
   const publishMode = (isDesktop(target) || services) ? 'local' : 'remote'
   const isLocalMode = publishMode === 'local'
   
+  // Resolve the original source file path
+  if (resolvedConfig.src) {
+    const ogSrc = resolvedConfig.src
+    Object.assign(resolvedConfig, { __src: isAbsolute(ogSrc) ? ogSrc : join(root, ogSrc) })
+  }
 
-  const ogSrc = resolvedConfig.src
-  const __src = isAbsolute(ogSrc) ? ogSrc : join(root, ogSrc)
-  Object.assign(resolvedConfig, { __src })
+  const { __src } = resolvedConfig
 
   if (build) {
 
-
-    
     const { url } = resolvedConfig
     const urlSrc = (typeof url === 'string' ? url : url?.[publishMode]) ??false
     delete resolvedConfig.url
@@ -142,10 +140,10 @@ export async function resolveService (
   if (!isValidURL(src)) {
 
     if (build) {
-      if (!isLocalMode) return  // Reject the service if not a URL on Web / Mobile
+      if (!isLocalMode) return  // Reject non-URL service on Web / Mobile builds
     } 
     
-    else delete resolvedConfig.url
+    else if (src) delete resolvedConfig.url // Clear the registered URL if running source file
 
   }
   
