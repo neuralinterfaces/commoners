@@ -64,7 +64,6 @@ export async function loadConfigFromFile(
         if (!isDirectory(root)) root = dirname(root) // Get the parent directory
     }
 
-
     const isValidProject = await isCommonersProject(root)
     if (!isValidProject) process.exit(1)
 
@@ -75,10 +74,10 @@ export async function loadConfigFromFile(
             '' // Base config
         )
 
-    const resolvedRoot = configPath ? dirname(configPath) : process.cwd()
+
+    const resolvedRoot = configPath ? dirname(configPath) : root || process.cwd()
 
     let config = {} as UserConfig // No user-defined configuration found
-
 
     if (configPath) {
 
