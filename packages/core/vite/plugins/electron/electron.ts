@@ -54,3 +54,6 @@ export async function startup( root ) {
     }
     delete electronGlobalStates.app
   }
+
+  // Properly close Electron process on Windows
+  process.on('SIGINT', startup.exit)
