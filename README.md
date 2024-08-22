@@ -1,6 +1,7 @@
 # Commoners
 [![Npm package version](https://badgen.net/npm/v/commoners)](https://npmjs.com/package/commoners)
 [![Npm package monthly downloads](https://badgen.net/npm/dm/commoners)](https://npmjs.ccom/package/commoners)
+![GitHub repo size](https://img.shields.io/github/repo-size/neuralinterfaces/commoners)
 
  The `commoners` CLI allows anyone to build their application as a Progressive Web App (PWA); Mac, Windows, and Linux desktop application; and iOS and Android mobile application—all using only HTML, CSS, and JavaScript.
 
@@ -20,12 +21,12 @@ Let's build solidarity together!
 
 ## Packages
 
-| Package                                         | Version (click for changelogs)                                                                                                    |
+| Package                                         | Latest Release                                                                                              |
 | ----------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-| [commoners](packages/cli)                           | [![commoners version](https://img.shields.io/npm/v/commoners.svg?label=%20)](./packages/cli/CHANGELOG.md)                                    |
-| [@commoners/solidarity](packages/core) | [![solidarity version](https://img.shields.io/npm/v/@commoners/solidarity.svg?label=%20)](packages/core/CHANGELOG.md) |
-| [@commoners/bluetooth](packages/plugins/devices/ble)             | [![bluetooth version](https://img.shields.io/npm/v/@commoners/bluetooth.svg?label=%20)](packages/plugins/devices/ble/CHANGELOG.md)               |
-| [@commoners/serial](packages/plugins/devices/serial)             | [![serial version](https://img.shields.io/npm/v/@commoners/serial.svg?label=%20)](packages/plugins/devices/serial/CHANGELOG.md)               |
+| [commoners](packages/cli)                           | [![commoners version](https://img.shields.io/npm/v/commoners.svg?label=View%20Changelog)](./packages/cli/CHANGELOG.md)                                    |
+| [@commoners/solidarity](packages/core) | [![solidarity version](https://img.shields.io/npm/v/@commoners/solidarity.svg?label=View%20Changelog)](packages/core/CHANGELOG.md) |
+| [@commoners/bluetooth](packages/plugins/devices/ble)             | [![bluetooth version](https://img.shields.io/npm/v/@commoners/bluetooth.svg?label=View%20Changelog)](packages/plugins/devices/ble/CHANGELOG.md)               |
+| [@commoners/serial](packages/plugins/devices/serial)             | [![serial version](https://img.shields.io/npm/v/@commoners/serial.svg?label=View%20Changelog)](packages/plugins/devices/serial/CHANGELOG.md)               |
 
 
 ## Contributing
