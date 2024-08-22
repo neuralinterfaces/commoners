@@ -3,7 +3,7 @@
 layout: home
 
 hero:
-  text: Commoners
+  name: Commoners
   tagline: Cross-Platform Development for the Rest of Us
   image:
     src: /logo.png
