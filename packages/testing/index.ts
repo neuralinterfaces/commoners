@@ -26,19 +26,14 @@ export const beforeStart = async (projectBase, customProps) => {
 
   const config = await loadConfigFromFile(projectBase)
 
-  const result = await start({
+  const { url, close: cleanup } = await start({
     ...config,
     ...customProps
   })
 
-  return {
-    url: result.url,
-    cleanup: result.close
-  }
+  return { url, cleanup }
 }
 
-
-// const waitTime = (isElectron || isMobile) ? 1 * 60 * 1000 : undefined // Wait a minute for Electron services to build
 
 // NOTE: You'll likely have to wait longer for Electron to build
 export const beforeBuild = async (projectBase, { target, outDir }, hooks = {}) => {
@@ -67,13 +62,15 @@ export const beforeBuild = async (projectBase, { target, outDir }, hooks = {}) =
 }
 
 type BrowserTestOutput = {
-  page?: puppeteer.Page,
-  browser?: puppeteer.Browser,
-  commoners?: CommonersGlobalObject,
-  toSpyOn?: { object: any, method: string }[],
+
+  page: puppeteer.Page,
+  browser: puppeteer.Browser,
+
+  toSpyOn: { object: any, method: string }[],
 
   url: string,
-  server?: any,
+  server?: any
+
 } & Output
 
 export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, projectBase?: string, useBuild = false) => {
@@ -85,8 +82,6 @@ export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, pr
   const states: Partial<BrowserTestOutput> = {}
 
   const result = await (useBuild ? launch(customProps) : beforeStart(projectBase, customProps))
-
-  // if (toLaunch) await sleep(500) // Ensure server finishes opening
 
   const browser = states.browser = await puppeteer.launch()
   // const browser = output.browser = await puppeteer.launch({ headless: false })
@@ -115,6 +110,7 @@ export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, pr
 
   const output = {
     cleanup: () => {},
+    ...result,
     ...states,
     toSpyOn: [
       { object: process, method: 'exit' } // Ensure Electron will exit gracefully
@@ -122,7 +118,6 @@ export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, pr
   } as BrowserTestOutput
 
   return output
-
 
   // output.toSpyOn.forEach(({ object, method }) => {  
   //   const mockExit = vi.spyOn(object, method).mockImplementation(() => {
@@ -135,15 +130,12 @@ export const afterAppControl = async (output: BrowserTestOutput) => {
 
   if (output.browser) await output.browser.close() // Will also exit the Electron instance
 
-  // Start successful
-  if (output.info) {
-    if (output.info.server) output.info.server.close()
+  if (output.server) output.server.close()
 
-    output.cleanup({
-      services: true,
-      frontend: true
-    })
-  }
+  output.cleanup({
+    services: true,
+    frontend: true
+  })
 
 }
 

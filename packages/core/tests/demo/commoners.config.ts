@@ -8,8 +8,6 @@ import * as echo from './src/plugins/echo'
 
 export const name = 'Test App'
 
-const basePort = 2345
-
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
 
@@ -26,7 +24,7 @@ const config = {
     services: {
         http: { 
             src: httpSrc, 
-            port: basePort // Hardcoded port
+            port: 2345 // Hardcoded port
         },
         express: { src: expressSrc },
         manual: {
