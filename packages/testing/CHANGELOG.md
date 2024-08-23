@@ -3,4 +3,4 @@
 All notable changes to this project will be documented in this file.
 
 ## 0.1.0
-- Ensure Electron process is exiting on Windows using Ctrl+C.
+Coming soon...

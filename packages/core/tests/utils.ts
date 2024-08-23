@@ -1,24 +1,45 @@
-import { expect, test, describe } from 'vitest'
+import { vi, expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import { normalizeTarget } from '../index'
 
-import { build, checkAssets, scopedBuildOutDir, sharePort, startBrowserTest } from '../../testing'
+import { beforeBuild, beforeAppControl, afterAppControl } from '../../testing/index'
+import { checkAssets } from './assets'
+
 
 import config from './demo/commoners.config'
 
 import { join } from 'node:path'
 
+export const scopedBuildOutDir = '.site'
+export const sharePort = 1234
+
 const randomNumber =  Math.random().toString(36).substring(7)
 
 export const projectBase = join(__dirname, 'demo')
 
-const getServices = (registrationOutput) => (registrationOutput.commoners ? registrationOutput.commoners.SERVICES : registrationOutput.manager.services) ?? {}
+const getServices = async (output) => {
+
+  if (output.page) {
+    const { SERVICES } = await output.page.evaluate(() => commoners.READY.then(() => commoners))
+    return SERVICES ?? {}
+  }
+
+  return output.services
+}
 
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
+export const spyOnAll = (output) => {
+  output.toSpyOn.forEach(({ object, method }) => {  
+    const mockExit = vi.spyOn(object, method).mockImplementation(() => {
+      mockExit.mockRestore()
+    });
+  })
+}
+
 const e2eTests = {
-    basic: (registrationOutput, { target }, mode = 'dev') => {
+    basic: (output, { target }, mode = 'dev') => {
 
         const normalizedTarget = normalizeTarget(target)
         
@@ -28,7 +49,6 @@ const e2eTests = {
 
                 const userPkg = require(join(projectBase, 'package.json'))
 
-                const { commoners = {} } = registrationOutput
                 const { 
                   NAME, 
                   VERSION, 
@@ -43,7 +63,7 @@ const e2eTests = {
                   DEV,
                   PROD
 
-                } = commoners
+                } = await output.page.evaluate(() => commoners.READY.then(() => commoners))
 
                 const isDesktop = normalizedTarget === 'desktop'
                 const isDev = mode === 'dev' 
@@ -101,15 +121,20 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
   describeCommand(name, () => {
 
-    // start(projectBase, { target })
-    const output = startBrowserTest({ target }, projectBase)
-
-    test('All assets are generated', async () => {
-      checkAssets(projectBase, undefined, { target })
+    const output = {}
+    beforeAll(async () => {
+      const _output = await beforeAppControl({ target }, projectBase)
+      spyOnAll(_output)
+      Object.assign(output, _output)
     })
 
-    runAllServiceTests(output)
+    afterAll(() => afterAppControl(output))
 
+    test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
+
+    serviceTests.echo('http', output)
+    serviceTests.echo('express', output)
+    serviceTests.echo('manual', output)
     e2eTests.basic(output, { target })
 
   })
@@ -126,19 +151,32 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     const opts = { target, outDir: scopedBuildOutDir }
 
     let triggerAssetsBuilt
-    let assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
+    const assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
 
     const skipPackageStep = isElectron  || isMobile
 
     // NOTE: Desktop and mobile builds are not fully built
     const describeFn = skipPackageStep ? describe.skip : describe
 
-    build(projectBase, opts, {
-      onBuildAssets: (assetDir) => {
-        triggerAssetsBuilt(assetDir)
-        if (skipPackageStep) return null
-      }
-    })
+    const waitTime = (isElectron || isMobile) ? 1 * 60 * 1000 : undefined // Wait a minute for Electron services to build
+
+    // Setup build for testing
+    const output = {}
+
+    beforeAll(async () => {
+
+      const _output = await beforeBuild(projectBase, opts, {
+        onBuildAssets: (assetDir) => {
+          triggerAssetsBuilt(assetDir)
+          if (skipPackageStep) return null
+        }
+      })
+
+      Object.assign(output, _output)
+
+    }, waitTime)
+
+    afterAll(() =>  output.cleanup([ 'build', scopedBuildOutDir ])) // Cleanup
 
     test('All assets are found', async () => {
       const baseDir = (await assetsBuilt) as string
@@ -146,27 +184,30 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     })
 
     describeFn('Launched application tests', async () => {
-      const output = startBrowserTest({  launch: opts })
+
+      const output = {}
+      beforeAll(async () => {
+        const _output = await beforeAppControl(opts, projectBase, true)
+        spyOnAll(_output)
+        Object.assign(output, _output)
+      })
+
+      afterAll(() => afterAppControl(output))
+
       e2eTests.basic(output, { target }, 'local')
     })
 
   })
 }
 
-const runAllServiceTests = (registrationOutput) => {
-  serviceTests.echo('http', registrationOutput)
-  serviceTests.echo('express', registrationOutput)
-  serviceTests.echo('manual', registrationOutput)
-}
-
 export const serviceTests = {
 
   // Ensure shared server allows you to locate your services correctly
   share: {
-    basic: (registrationOutput) => {
+    basic: (output) => {
       test(`Shared Server Test`, async () => {
         
-        const liveServices = getServices(registrationOutput)
+        const liveServices = await getServices(output)
 
         const { commoners, services = {} } = await fetch(`http://0.0.0.0:${sharePort}`).then(res => res.json());
 
@@ -182,13 +223,13 @@ export const serviceTests = {
   },
 
   // Ensure a basic echo test passes on the chosen service
-  echo: (id, registrationOutput) => {
+  echo: (id, output) => {
       test(`Service Echo Test (${id})`, async () => {
 
         await sleep(500)
         
         // Grab live services
-        const services = getServices(registrationOutput)
+        const services = await getServices(output)
         
         // Request an echo response
         const res = await fetch(new URL('echo', services[id].url), { method: "POST", body: JSON.stringify({ randomNumber }) }).then(res => res.json())

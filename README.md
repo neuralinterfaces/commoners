@@ -25,9 +25,13 @@ Let's build solidarity together!
 | ----------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
 | [commoners](packages/cli)                           | [![commoners version](https://img.shields.io/npm/v/commoners.svg?label=View%20Changelog)](./packages/cli/CHANGELOG.md)                                    |
 | [@commoners/solidarity](packages/core) | [![solidarity version](https://img.shields.io/npm/v/@commoners/solidarity.svg?label=View%20Changelog)](packages/core/CHANGELOG.md) |
+| [@commoners/testing](packages/testing/CHANGELOG.md)             | [![testing utilities version](https://img.shields.io/npm/v/@commoners/testing.svg?label=View%20Changelog)](packages/testing/CHANGELOG.md)               |
+
+### Plugins
+| Package                                         | Latest Release                                                                                              |
+| ----------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
 | [@commoners/bluetooth](packages/plugins/devices/ble)             | [![bluetooth version](https://img.shields.io/npm/v/@commoners/bluetooth.svg?label=View%20Changelog)](packages/plugins/devices/ble/CHANGELOG.md)               |
 | [@commoners/serial](packages/plugins/devices/serial)             | [![serial version](https://img.shields.io/npm/v/@commoners/serial.svg?label=View%20Changelog)](packages/plugins/devices/serial/CHANGELOG.md)               |
-
 
 ## Contributing
 You will need to have [Node.js](https://nodejs.org/en/) installed on your machine.

@@ -1,12 +1,17 @@
 {
     "name": "@commoners/testing",
-    "version": "0.0.0",
-    "devDependencies": {
-        "puppeteer": "^22.12.1",
-        "vitest": "^2.0.3"
+    "version": "0.0.48",
+    "license": "MIT",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
+    "scripts": {
+        "build": "vite build"
     },
     "dependencies": {
-        "electron-builder": "24.13.3",
-        "express": "4.19.2"
+        "@commoners/solidarity": "0.0.48",
+        "puppeteer": "^22.12.1",
+        "vite": "^5.4.2",
+        "vitest": "^2.0.3"
     }
 }

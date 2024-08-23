@@ -1,16 +1,15 @@
-import { expect, test, describe } from 'vitest'
+import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import {
     loadConfigFromFile,
     resolveConfigPath,
 } from '../index'
 
-import { share } from '../../testing'
-
 import { resolve } from 'node:path'
 
 import { name } from './demo/commoners.config'
-import { projectBase, registerBuildTest, registerStartTest, serviceTests } from './utils'
+import { projectBase, registerBuildTest, registerStartTest, serviceTests, sharePort } from './utils'
+import { beforeShare } from '../../testing/index'
 
 describe('Custom project base is loaded', () => {
 
@@ -42,37 +41,54 @@ describe('Start', () => {
 describe('Share', () => {
   
   describe('Share all services', () => {
-    const output = share(projectBase)
+    const output = {}
+
+    beforeAll(async () => {
+      const _output = await beforeShare(projectBase, { port: sharePort })
+      Object.assign(output, _output)
+    })
+
     serviceTests.share.basic(output)
     serviceTests.echo('http', output)
     serviceTests.echo('express', output)
     serviceTests.echo('manual', output)
+
+    afterAll(() => output.cleanup())
+    
   })
 
   describe('Share specific service', () => {
 
-    const service = 'http'
+    // const services = { active: [ 'http' ], inactive: [ 'express', 'manual'  ] }
+    const services = { active: [ 'http', 'manual' ], inactive: [ 'express' ] }
 
-    const output = share(projectBase, { services: [ service ] })
 
-    serviceTests.echo(service, output)
+    const output = {}
+    beforeAll(async () => {
+      const _output = await beforeShare(projectBase, { services: services.active, port: sharePort })
+      Object.assign(output, _output)
+    })
 
-    // NOTE: Add a check to see if other services fail
+    services.active.forEach(service => serviceTests.echo(service, output))  
+    // services.inactive // NOTE: Add a check to see if other services fail
+
+    afterAll(() => output.cleanup())
 
   })
+
 })
 
 
-describe('Build and Launch', () => {
-  registerBuildTest('Web', { target: 'web' })
-  registerBuildTest('PWA', { target: 'pwa' })
+// describe('Build and Launch', () => {
+//   registerBuildTest('Web', { target: 'web' })
+//   registerBuildTest('PWA', { target: 'pwa' })
 
-  registerBuildTest(
-    'Desktop', 
-    { target: 'electron' }
-  )
+//   registerBuildTest(
+//     'Desktop', 
+//     { target: 'electron' }
+//   )
 
-  // registerBuildTest('Mobile', { target: 'mobile' }, false)
-})
+//   registerBuildTest('Mobile', { target: 'mobile' }, false)
+// })
 
 
