@@ -2,7 +2,7 @@ import { vi, expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import { normalizeTarget } from '../index'
 
-import { beforeBuild, beforeAppControl, afterAppControl } from '../../testing/index'
+import { build, open } from '../../testing/index'
 import { checkAssets } from './assets'
 
 
@@ -123,12 +123,12 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
     const output = {}
     beforeAll(async () => {
-      const _output = await beforeAppControl({ target }, projectBase)
+      const _output = await open(projectBase, { target })
       spyOnAll(_output)
       Object.assign(output, _output)
     })
 
-    afterAll(() => afterAppControl(output))
+    afterAll(() => output.cleanup())
 
     test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
 
@@ -148,8 +148,6 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 
   describeCommand(name, () => {
 
-    const opts = { target, outDir: scopedBuildOutDir }
-
     let triggerAssetsBuilt
     const assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
 
@@ -160,23 +158,31 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 
     const waitTime = (isElectron || isMobile) ? 1 * 60 * 1000 : undefined // Wait a minute for Electron services to build
 
+    // Define inputs
+    const opts = { target, build: { outDir: scopedBuildOutDir } }
+
+    const hooks = {
+      onBuildAssets: (assetDir) => {
+        triggerAssetsBuilt(assetDir)
+        if (skipPackageStep) return null
+      }
+    }
+
+
     // Setup build for testing
     const output = {}
 
+
     beforeAll(async () => {
 
-      const _output = await beforeBuild(projectBase, opts, {
-        onBuildAssets: (assetDir) => {
-          triggerAssetsBuilt(assetDir)
-          if (skipPackageStep) return null
-        }
-      })
+      const _output = await build( projectBase,  opts, hooks )
 
       Object.assign(output, _output)
 
     }, waitTime)
 
-    afterAll(() =>  output.cleanup([ 'build', scopedBuildOutDir ])) // Cleanup
+    // Cleanup build outputs
+    afterAll(() =>  output.cleanup([ 'build', scopedBuildOutDir ]))
 
     test('All assets are found', async () => {
       const baseDir = (await assetsBuilt) as string
@@ -187,12 +193,12 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 
       const output = {}
       beforeAll(async () => {
-        const _output = await beforeAppControl(opts, projectBase, true)
+        const _output = await open(projectBase, opts, true)
         spyOnAll(_output)
         Object.assign(output, _output)
       })
 
-      afterAll(() => afterAppControl(output))
+      afterAll(() => output.cleanup())
 
       e2eTests.basic(output, { target }, 'local')
     })

@@ -9,7 +9,7 @@ import { resolve } from 'node:path'
 
 import { name } from './demo/commoners.config'
 import { projectBase, registerBuildTest, registerStartTest, serviceTests, sharePort } from './utils'
-import { beforeShare } from '../../testing/index'
+import { share } from '../../testing/index'
 
 describe('Custom project base is loaded', () => {
 
@@ -44,7 +44,7 @@ describe('Share', () => {
     const output = {}
 
     beforeAll(async () => {
-      const _output = await beforeShare(projectBase, { port: sharePort })
+      const _output = await share(projectBase, { port: sharePort })
       Object.assign(output, _output)
     })
 
@@ -65,7 +65,7 @@ describe('Share', () => {
 
     const output = {}
     beforeAll(async () => {
-      const _output = await beforeShare(projectBase, { services: services.active, port: sharePort })
+      const _output = await share(projectBase, { services: services.active, port: sharePort })
       Object.assign(output, _output)
     })
 
@@ -90,5 +90,4 @@ describe('Build and Launch', () => {
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)
 })
-
 

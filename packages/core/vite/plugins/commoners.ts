@@ -25,7 +25,13 @@ const ENV_VAR_NAMES = [
     'PROD',
 ]
 
-const headStartTag = '<head>'
+
+const TAGS = {
+    head: {
+        start: '<head>',
+        end: '</head>'
+    }
+}
 
 type CommonersPluginOptions = {
     config: ResolvedConfig
@@ -96,9 +102,14 @@ export default ({
         },
         transformIndexHtml(html) {
 
-            const splitByHead = html.split(headStartTag)
+            const headStart = html.indexOf(TAGS.head.start)
+            const headEnd = html.indexOf(TAGS.head.end)
+            const headContent = headStart && headEnd ? html.slice(headStart + TAGS.head.start.length, headEnd) : ''
+            const beforeHead = headStart ? html.slice(0, headStart) : ''
+            const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
 
             const injection = `
+                <title>${config.name}</title>
                 ${faviconLink}
                 <script type="module">
 
@@ -145,7 +156,8 @@ export default ({
             </script>\n
             `
 
-            return [splitByHead[0] + injection, splitByHead[1]].join(headStartTag)
+            return `${beforeHead}${TAGS.head.start}${headContent}${injection}${TAGS.head.end}${afterHead}`
+            
         }
     }
 }

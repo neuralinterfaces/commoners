@@ -79,7 +79,7 @@ cli.command('share [root]', 'Share the application in the specified directory')
 
     share({
         ...config,
-        share: reconcile(config.share, options, { port: sharePort || customPort }) as ShareOptions['share']
+        share: reconcile(config.share, options, { port: sharePort || customPort }) as ShareOptions
     })
 })
 

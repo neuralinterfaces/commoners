@@ -4,7 +4,7 @@ import { lstatSync } from "node:fs"
 
 // General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite, electronVersion } from "./globals.js"
-import { BuildOptions, ResolvedConfig, WritableElectronBuilderConfig } from "./types.js"
+import { BuildOptions, BuildHooks, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
 import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
@@ -17,14 +17,7 @@ import { configureForDesktop, resolveConfig } from "./index.js"
 import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
 
-
 type CliOptions = import('electron-builder').CliOptions
-
-type BuildHooks = {
-    services?: ResolvedConfig['services']
-    onBuildAssets?: Function,
-    dev?: boolean
-}
 
 const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 

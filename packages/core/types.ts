@@ -215,16 +215,16 @@ type BaseConfig = {
 
 export type UserConfig = Partial<BaseConfig> & {
     launch?: LaunchOptions,
-    share?: ShareOptions['share'],
+    share?: ShareOptions,
     build?: BuildOptions['build']
 }
 
-export type ShareOptions = Partial<BaseConfig> & {
-    share?: {
-        port: PortType,
-        services?: ServiceOptions
-    }
+export type ShareOptions = {
+    port?: PortType,
+    services?: ServiceOptions
 }
+
+export type ShareConfig = Partial<BaseConfig> & { share?: ShareOptions }
 
 // NOTE: No need for configuration-related options
 export type LaunchOptions = {
@@ -243,10 +243,17 @@ export type BuildOptions = Partial<BaseConfig> & {
     }
 }
 
+export type BuildHooks = {
+    services?: ResolvedConfig['services']
+    onBuildAssets?: Function,
+    dev?: boolean
+}
+
+
 export type ResolvedConfig = BaseConfig & {
     build: BuildOptions['build'],
     launch?: LaunchOptions,
-    share?: ShareOptions['share'],
+    share?: ShareOptions,
     services: { [x: string]: ResolvedService }
 
     // package.json properties used in the library

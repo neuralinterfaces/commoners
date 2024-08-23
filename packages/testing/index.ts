@@ -1,20 +1,25 @@
 
 import {
-  build,
   loadConfigFromFile,
-  start,
-  share,
+  start as CommonersStart,
+  launch as CommonersLaunch,
+  build as CommonersBuild,
+  share as CommonersShare,
   globalWorkspacePath,
   electronDebugPort,
-  launch,
   UserConfig,
-  CommonersGlobalObject,
-} from '@commoners/solidarity'
+  BuildHooks
+// } from '@commoners/solidarity'
+} from '../core/index'
 
 import { join } from 'node:path'
 import { rmSync, existsSync } from 'node:fs'
 
 import * as puppeteer from 'puppeteer'
+import { ShareOptions } from '../core'
+import merge from '../core/utils/merge'
+
+const getOutDir = (config) => config.launch?.outDir || config.build?.outDir || config.outDir
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -22,41 +27,30 @@ type Output = {
   cleanup: Function
 }
 
-export const beforeStart = async (projectBase, customProps) => {
-
-  const config = await loadConfigFromFile(projectBase)
-
-  const { url, close: cleanup } = await start({
-    ...config,
-    ...customProps
-  })
-
-  return { url, cleanup }
-}
-
-
 // NOTE: You'll likely have to wait longer for Electron to build
-export const beforeBuild = async (projectBase, { target, outDir }, hooks = {}) => {
+export const build = async (
+  root, 
+  overrides: Partial<UserConfig> = {},
+  hooks: BuildHooks = {}
+) => {
 
-  const toClear = [
+  const config = await loadConfigFromFile(root)
+  const updatedConfig = merge(config, overrides)
+
+  const { outDir } = updatedConfig.build || {}
+  console.log('outDir', outDir)
+
+  const AUTOCLEAR = [
     outDir,
-    join(projectBase, globalWorkspacePath), // Includes services and temporary files
+    join(root, globalWorkspacePath), // Includes services and temporary files
   ]
 
-  const config = await loadConfigFromFile(projectBase)
-
-  const updatedConfig = { ...config, build: { outDir, ...config.build }, target }
-
-  await build(updatedConfig, hooks)
+  await CommonersBuild(updatedConfig, hooks)
 
   return {
     cleanup: async (relativePathsToRemove = []) => {
-      
-      const toRemove = [...toClear, ...relativePathsToRemove.map(path => join(projectBase, path))]
-
-      toRemove.forEach(path => {
-        if (existsSync(path)) rmSync(path, { recursive: true })
-      })
+      const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
+      toRemove.forEach(path => existsSync(path) ? rmSync(path, { recursive: true }) : '')
     }
   }
 }
@@ -73,16 +67,38 @@ type BrowserTestOutput = {
 
 } & Output
 
-export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, projectBase?: string, useBuild = false) => {
-
-  const { target } = customProps // NOTE: Should derive
-
-  const isElectron = target === 'electron'
+export const open = async (
+  root?: string, 
+  overrides: Partial<UserConfig> = {}, 
+  useBuild = false
+) => {
 
   const states: Partial<BrowserTestOutput> = {}
 
-  const result = await (useBuild ? launch(customProps) : beforeStart(projectBase, customProps))
+  const config = await loadConfigFromFile(root)
+  const updatedConfig = merge(config, overrides)
 
+  const isElectron = updatedConfig.target === 'electron'
+
+  // Launch build of the project
+  if (useBuild) {
+    
+    const launchResults = await CommonersLaunch({
+      target: updatedConfig.target,
+      outDir: getOutDir(updatedConfig),
+      port: updatedConfig.port
+    })
+
+    Object.assign(states, launchResults)
+  }
+
+
+  // Start development server for the project
+  else {
+    const { url, close: cleanup } = await CommonersStart(updatedConfig)
+    Object.assign(states, { url, cleanup })
+  }
+  
   const browser = states.browser = await puppeteer.launch()
   // const browser = output.browser = await puppeteer.launch({ headless: false })
 
@@ -106,18 +122,19 @@ export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, pr
   }
 
   // Non-Electron Instance
-  else await page.goto(result.url);
+  else await page.goto(states.url);
 
-  const output = {
-    cleanup: () => {},
-    ...result,
+  return {
     ...states,
     toSpyOn: [
       { object: process, method: 'exit' } // Ensure Electron will exit gracefully
-    ]
+    ],
+    cleanup: async () => {
+      if (states.cleanup) await states.cleanup({ services: true, frontend: true })
+      if (states.browser) await states.browser.close() // Will also exit the Electron instance
+      if (states.server) states.server.close()
+    }
   } as BrowserTestOutput
-
-  return output
 
   // output.toSpyOn.forEach(({ object, method }) => {  
   //   const mockExit = vi.spyOn(object, method).mockImplementation(() => {
@@ -126,28 +143,15 @@ export const beforeAppControl = async (customProps: Partial<UserConfig> = {}, pr
   // })
 }
 
-export const afterAppControl = async (output: BrowserTestOutput) => {
 
-  if (output.browser) await output.browser.close() // Will also exit the Electron instance
+export const share = async (
+  root, 
+  overrides: ShareOptions = {}
+) => {
 
-  if (output.server) output.server.close()
-
-  output.cleanup({
-    services: true,
-    frontend: true
-  })
-
-}
-
-type ShareOptions = {
-  port: number,
-  [key: string]: any
-}
-
-export const beforeShare = async (projectBase, additionalProps: ShareOptions) => {
-  const config = await loadConfigFromFile(projectBase)
-  config.share = { ...(config.share ?? {}), ...additionalProps } // Specify share port
-  const result = await share(config)
+  const config = await loadConfigFromFile(root)
+  const updatedConfig = merge(config, { share: overrides })
+  const result = await CommonersShare(updatedConfig)
 
   return {
     services: result.services,
