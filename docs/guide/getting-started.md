@@ -24,14 +24,13 @@ Then, modify `scripts` in your `package.json` to include the following:
     "scripts": {
         "start": "commoners --target desktop",
         "dev": "commoners",
-        "build": "npm run build:desktop",
-        "build:web": "commoners build",
+        "build": "commoners build",
         "build:desktop": "commoners build --target desktop"
     }
 }
 ```
 
-Now you can run `npm start` to start your application as an Electron desktop application, `npm run dev` to start your application as a web application, and the tagged `npm run build` commands to create different distributions of your application.
+Now you can run `npm start` to start your application as an Electron desktop application, `npm run dev` to start your application as a web application, and the `npm run build` commands to create different distributions of your application.
 
 
 ## Getting Started
@@ -178,37 +177,30 @@ Use the following code snippet and update the button to fetch data from your ser
 const responses = await Promise.allSettled(Object.values(SERVICES).map(({ url }) => fetch(url).then(response => response.text())))
 ```
 
-## Monorepo Development
-Commoners supports monorepo development using [PNPM](https://pnpm.io). To get started, run the following commands:
-
-```bash
-corepack enable pnpm && pnpm install
-```
-
-This will install all dependencies for the monorepo.
-
-Each application can be managed with the following command syntax:
-
-```bash
-commoners ./apps/my-app # Run the application in the specified directory
-```
-
-This allows you to manage multiple applications in a single repository, such as separate desktop and mobile applications that share a common core (e.g. services, plugins, frontend components, etc.).
-
-
 ## Building for Production
-The general policy for service builds is that **service builds are deferred to the user**—unless you're building for Desktop. 
+### Application
+To build your application for production, run the following command:
 
-In these cases, you'll have to build services using the following command:
-    
 ```bash
-commoners build --service node --service tsNode
+commoners build --target [platform]
 ```
 
 ### Services
-To configure your services for production, you'll have to follow language-specific instructions. 
+Service builds are generally deferred to the user.
+    
+```bash
+commoners build --service node --service tsNode # Specified services are built
+```
 
-#### JavaScript / TypeScript
+In the case of desktop builds, all relevant services are bundled by default.
+
+```bash
+commoners build --target desktop
+```
+
+#### Configuration
+
+##### JavaScript / TypeScript
 JavaScript and TypeScript services are auto-bundled using [esbuild](https://esbuild.github.io) and [pkg](https://www.npmjs.com/package/pkg). 
 
 To package these for distribution and/or indicate they'll be hosted on a remote server, you'll add the following configuration:
@@ -233,7 +225,7 @@ export default {
 }
 ```
 
-#### Python
+##### Python
 For Python services, you'll to specify a terminal command that will bundle the service into a standalone executable file. We recommend using `pyinstaller` for this purpose.
 
 ```js
@@ -319,3 +311,21 @@ describe('App runs in production mode', () => registerTests(true))
 Using GitHub Actions, you can automate the release of your application to GitHub Pages, GitHub Releases, and mobile app stores.
 
 *Demo coming soon...*
+
+
+## Monorepo Development
+Commoners supports monorepo development using [PNPM](https://pnpm.io). To get started, run the following commands:
+
+```bash
+corepack enable pnpm && pnpm install
+```
+
+This will install all dependencies for the monorepo.
+
+Each application can be managed with the following command syntax:
+
+```bash
+commoners ./apps/my-app # Run the application in the specified directory
+```
+
+This allows you to manage multiple applications in a single repository, such as separate desktop and mobile applications that share a common core (e.g. services, plugins, frontend components, etc.).

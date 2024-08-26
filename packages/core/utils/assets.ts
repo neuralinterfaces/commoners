@@ -261,7 +261,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         const isDesktopBuild = isDesktop(target)
         if (isDesktopBuild && isValidURL(src)) continue // Skip remote services for desktop builds
 
-        const toCopy = base ? resolve(root, base) : filepath
+        const toPublish = base ? resolve(root, base) : filepath
 
         // Build for production
         if ( publish ){
@@ -282,7 +282,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
                     true // Always rebuild services
                 )
 
-                const willCopy = output === null ? null : output ?? toCopy
+                const willCopy = output === null ? null : output ?? toPublish
                         
                 // Only auto-sign JavaScript files
                 if (typeof willCopy === 'string') {

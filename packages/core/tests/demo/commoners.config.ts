@@ -79,13 +79,13 @@ const config = {
             publish: './build/cpp/server.exe', // Specified output folder
         },
 
-
-
         // // NOTE: Must adjust testing code to ignore services when not present
         // dynamicNode: {
         //     description: 'A simple Node.js server',
         //     src: './src/services/node/index.js',
-        //     url: 'https://node-production-aa81.up.railway.app/' // NOTE: Currently down...
+        //     // url: 'https://node.example.com', // Remote for all builds (web, mobile, desktop)
+        //     // url: { remote: 'https://node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
+        //     // url: { local: 'https://node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
         // },
 
         // devNode: {

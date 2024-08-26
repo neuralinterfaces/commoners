@@ -97,6 +97,7 @@ export async function resolveService(
   }
 
   const { __src, build: buildStep } = resolvedConfig
+  resolvedConfig.filepath = __src // Always set the original source file path
 
   if (build) {
 
@@ -173,8 +174,6 @@ export async function resolveService(
 
   // Resolve the source filepath
   if (!isValidURL(src)) {
-
-    resolvedConfig.filepath = __src
 
     // Correct for Electron build process
     if (build && isDesktop(target)) {
