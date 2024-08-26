@@ -8,8 +8,6 @@
 Read the [documentation](https://commoners.dev) to learn more.
 
 ## Key Projects
-- [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — A template Commoners app with all the bells and whistles.
-- [tqdm.me](https://github.com/neuralinterfaces/tqdm.me) —  View your `tqdm` progress bars anywhere.
 - [Brains@Play](https://github.com/neuralinterfaces/brainsatplay) — A multi-platform application for accessing neural data.
 
 ## Build Solidarity
