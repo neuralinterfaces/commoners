@@ -7,7 +7,8 @@ import {
   globalWorkspacePath,
   electronDebugPort,
   UserConfig,
-  BuildHooks
+  BuildHooks,
+  cleanup
 } from '@commoners/solidarity'
 // } from '../core/index'
 
@@ -49,6 +50,7 @@ export const build = async (
     cleanup: async (relativePathsToRemove = []) => {
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
       toRemove.forEach(path => existsSync(path) ? rmSync(path, { recursive: true }) : '')
+      cleanup() // Cleanup after the build process
     }
   }
 }
@@ -128,11 +130,16 @@ export const open = async (
     toSpyOn: [
       { object: process, method: 'exit' } // Ensure Electron will exit gracefully
     ],
+
+    // Override cleanup function
     cleanup: async () => {
-      if (states.cleanup) await states.cleanup({ services: true, frontend: true })
+      
+      cleanup() // Cleanup the command
+
       if (states.browser) await states.browser.close() // Will also exit the Electron instance
       if (states.server) states.server.close()
     }
+
   } as BrowserTestOutput
 
   // output.toSpyOn.forEach(({ object, method }) => {  

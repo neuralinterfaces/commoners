@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 
 // Internal Imports
 import * as assets from './assets.js'
-import { chalk, onExit } from "../globals.js"
+import { chalk, onCleanup } from "../globals.js"
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfigurationObject } from "../types.js"
 
 // Internal Utilities
@@ -122,15 +122,14 @@ export const openConfig = async ({
 
     writeFileSync(configName, JSON.stringify(capacitorConfig, null, 2))
 
-    const result = {
+    const manager = {
         config: capacitorConfig,
-        close: () => existsSync(configName) && rmSync(configName)
+        close: () => existsSync(configName) && rmSync(configName) // Remove configuration if not specified by the user
     }
 
-    // Remove configuration if not specified by the user
-    onExit(result.close)
+    onCleanup(manager.close)
 
-    return result
+    return manager
 }
 
 const addProjectTarget = async (target, config: ResolvedConfig, outDir: string) => {

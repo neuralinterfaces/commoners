@@ -8,7 +8,7 @@ import { BuildOptions, BuildHooks, WritableElectronBuilderConfig } from "./types
 
 // Internal Utilities
 import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
-import { printHeader, printSubtle, printTarget } from "./utils/formatting.js"
+import { printHeader, printTarget } from "./utils/formatting.js"
 import { getIcon } from "./utils/index.js"
 import merge from './utils/merge.js'
 

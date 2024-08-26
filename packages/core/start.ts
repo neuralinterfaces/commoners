@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 // Internal Imports
 import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
-import { cleanup, globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onExit } from "./globals.js";
+import { removeDirectory, globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
 import { UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
 
@@ -52,7 +52,7 @@ export default async function (
         } = {}
 
         const closeFunction = (o) => {
-            cleanup(outDir) // Ensure the temporary directory is cleared
+            removeDirectory(outDir) // Ensure the temporary directory is cleared
             if (o.frontend) activeInstances.frontend?.close()
             if (o.services) activeInstances.services?.close()
         }
@@ -83,8 +83,7 @@ export default async function (
         
         }
 
-
-        onExit(() => manager.close({ services: true, frontend: true })) // Close all services and frontend on exit
+        onCleanup(() => manager.close({ services: true, frontend: true })) // Close all services and frontend on exit
 
         return manager
 }

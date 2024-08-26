@@ -12,7 +12,7 @@ import { join } from 'node:path'
 
 export const scopedBuildOutDir = join('.commoners', 'custom_output_dir')
 
-const randomNumber =  Math.random().toString(36).substring(7)
+const getRandomNumber = () => Math.random().toString(36).substring(7)
 
 export const projectBase = join(__dirname, 'demo')
 
@@ -141,6 +141,9 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
     serviceTests.echo('http', output)
     serviceTests.echo('express', output)
     serviceTests.echo('manual', output)
+    serviceTests.echo('python', output)
+    serviceTests.echo('cpp', output)
+
     e2eTests.basic(output, { target })
 
   })
@@ -187,7 +190,7 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     }, waitTime)
 
     // Cleanup build outputs
-    afterAll(() =>  output.cleanup([ 'build', scopedBuildOutDir ]))
+    afterAll(() =>  output.cleanup([ 'build' ]))
 
     test('All build assets have been created', async () => {
       const baseDir = (await assetsBuilt) as string
@@ -217,26 +220,6 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
 
 export const serviceTests = {
 
-  // Ensure shared server allows you to locate your services correctly
-  share: {
-    basic: (output) => {
-      test(`Shared Server Test`, async () => {
-        
-        const liveServices = await getServices(output)
-
-        const { commoners, services = {} } = await fetch(`http://0.0.0.0:${sharePort}`).then(res => res.json());
-
-        if (commoners) {
-            const ids = [ 'http' ]
-            ids.forEach(id => {
-              const url = new URL(liveServices[id].url)
-              expect(parseInt(url.port)).toBe(services['http'])
-            })
-        }
-      })
-    }
-  },
-
   // Ensure a basic echo test passes on the chosen service
   echo: (id, output) => {
       test(`Service Echo Test (${id})`, async () => {
@@ -247,6 +230,7 @@ export const serviceTests = {
         const services = await getServices(output)
         
         // Request an echo response
+        const randomNumber = getRandomNumber()
         const res = await fetch(new URL('echo', services[id].url), { method: "POST", body: JSON.stringify({ randomNumber }) }).then(res => res.json())
         expect(res.randomNumber).toBe(randomNumber)
       })

@@ -1,37 +1,35 @@
 import os
-import json
-import sys
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS, cross_origin
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-app = Flask(__name__)
-cors = CORS(app)
-app.config['CORS_HEADERS'] = 'Content-Type'
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def _set_default_headers(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
+        self.send_header('Access-Control-Allow-Headers', 'X-Requested-With,content-type')
 
-@app.route('/.commoners')
-@cross_origin()
-def openapi():
-    return send_file('openapi.json')
+    # Hello World
+    def do_GET(self):
+        self._set_default_headers()
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Hello, world!')
 
-@app.route('/version')
-@cross_origin()
-def version():
-    print(f'Getting version: {sys.version}', flush=True) # Required to show in logs
-    return jsonify(sys.version)
+    # Echo
+    def do_POST(self):
+        self._set_default_headers()
+        self.send_header('Content-type', self.headers['Content-Type'])
+        self.end_headers()
 
-@app.route('/users')
-@cross_origin()
-def users():
-    return jsonify([{}, {}, {}])
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        self.wfile.write(post_data)
 
-@app.route('/echo', methods=['POST'])
-@cross_origin()
-def post():
-    data = json.loads(request.data) if request.data else {}
-    return jsonify(data)
+        
 
-if __name__ == "__main__":
-    env_port = os.getenv('PORT')
-    PORT = int(env_port) if env_port else 8080
-    HOST = os.getenv('HOST') or 'localhost'
-    app.run(host=HOST, port = PORT)
+PORT = int(os.getenv('PORT', 8000))
+HOST = os.getenv('HOST', '')
+
+server_address = (HOST, PORT)
+httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+httpd.serve_forever()

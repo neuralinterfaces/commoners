@@ -22,12 +22,17 @@ const config = {
     plugins: { echo },
 
     services: {
+
+        // TypeScript
         http: { 
             src: httpSrc, 
             port: 2345 // Hardcoded port
         },
+
+        // JavaScript
         express: { src: expressSrc },
 
+        // Manual JavaScript Compilation
         manual: {
             src: expressSrc,
             
@@ -40,23 +45,62 @@ const config = {
                 return filename
             },
 
-            // NOTE: Must be hardcoded
             publish: {
                 src: 'manual',
                 base: './.commoners/custom_services_dir/manual'
             }
-        }
+        },
 
 
-        // python: {
-        //     description: 'A simple Python server',
-        //     src: './src/services/python/main.py',
-        //     build: 'python -m PyInstaller --name flask --onedir --clean ./src/services/python/main.py --distpath ./build/python',
-        //     publish: {
-        //         src: 'flask',
-        //         base: './build/python/flask', // Will be copied
-        //     }
+        // Python
+        python: {
+            description: 'A simple Python server',
+            src: './src/services/python/main.py',
+            build: 'python -m PyInstaller --name flask --onedir --clean ./src/services/python/main.py --distpath ./build/python',
+            publish: {
+                src: 'flask',
+                base: './build/python/flask', // Will be copied
+            }
+        },
+
+        // C++
+        cpp: {
+            description: 'A local C++ server',
+            src: './src/services/cpp/server.cpp',
+
+            // Compilation + build step
+            build: async ({ src, out }) => {
+                const { mkdirSync, existsSync } = await import('node:fs')
+                const { dirname, resolve } = await import('node:path')
+                mkdirSync(dirname(out), { recursive: true }) // Ensure base and asset output directory exists
+                return `g++ ${resolve(src)} -o ${resolve(out)} -std=c++11`
+            },
+
+            publish: './build/cpp/server.exe', // Specified output folder
+        },
+
+
+
+        // // NOTE: Must adjust testing code to ignore services when not present
+        // dynamicNode: {
+        //     description: 'A simple Node.js server',
+        //     src: './src/services/node/index.js',
+        //     url: 'https://node-production-aa81.up.railway.app/' // NOTE: Currently down...
         // },
+
+        // devNode: {
+        //     description: 'A local Node.js server',
+        //     src: './src/services/node/index.js',
+        //     publish: false // Do not publish this service
+        // },
+
+        // remote: 'https://jsonplaceholder.typicode.com',
+
+        // dynamic: {
+        //     src: 'http://localhost:1111', // Call the python server in development
+        //     url: 'https://jsonplaceholder.typicode.com'
+        // }
+
     }
 }
 

@@ -4,7 +4,7 @@ import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 // Internal Imports
-import { globalWorkspacePath, getDefaultMainLocation, templateDir, onExit, ensureTargetConsistent, isMobile } from './globals.js'
+import { globalWorkspacePath, getDefaultMainLocation, templateDir, onCleanup, ensureTargetConsistent, isMobile } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 import { resolveAll, createAll } from './templates/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
@@ -88,9 +88,7 @@ export async function loadConfigFromFile(
         try {
             config = (await import(fileUrl)).default as UserConfig
         } finally {
-            onExit(() => {
-                outputFiles.forEach((file) => unlink(file, () => { }))
-            })
+            onCleanup(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }
 
     }
@@ -198,7 +196,7 @@ export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
     const resolvedOutDir = root ? relative(root, outDir) : outDir
     const defaultMainLocation = getDefaultMainLocation(resolvedOutDir)
     if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
-        onExit(() =>  writePackageJSON(pkg, root)) // Write back the original package.json on exit
+        onCleanup(() =>  writePackageJSON(pkg, root)) // Write back the original package.json on exit
         writePackageJSON({...pkg, main: defaultMainLocation}, root)
     }
 

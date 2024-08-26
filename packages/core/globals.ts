@@ -29,18 +29,20 @@ export const electronDebugPort = 8315
 export const globalTempDir = join(globalWorkspacePath, '.temp')
 
 const callbacks = []
-export const onExit = (callback) => callbacks.push(callback)
+export const onCleanup = (callback) => callbacks.push(callback)
 
-const runBeforeExitCallbacks = (code) => {
+export const cleanup = (code = 0) => {
     callbacks.forEach(cb => {
         if (!cb.called) cb(code)
-        cb.called = true
+        cb.called = true // Prevent double-calling
     })
-    process.exit(code === 'SIGINT' ? 0 : code)
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']
-exitEvents.forEach(event => process.on(event, runBeforeExitCallbacks))
+exitEvents.forEach(event => process.on(event, (code) => {
+    cleanup(code)
+    process.exit(code === 'SIGINT' ? 0 : code)
+}))
 
 export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     
@@ -52,21 +54,18 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     
     // Always clear the temp directories on exit
     const onClose = () => {
-        cleanup(tempDir)
-        cleanup(`${tempDir}.services`)
+        removeDirectory(tempDir)
+        removeDirectory(`${tempDir}.services`)
     }
 
-    onExit(onClose)
+    onCleanup(onClose)
 
     return {
         close: onClose
     }
 }
 
-export function cleanup (tempDir = globalTempDir) {
-    rmSync(tempDir, { recursive: true, force: true })
-}
-
+export const removeDirectory = (path) => rmSync(path, { recursive: true, force: true })
 
 export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.js')
 

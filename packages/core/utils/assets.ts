@@ -186,6 +186,7 @@ async function buildService(
 
         // Terminal Command
         await spawnProcess(build, [], { cwd: root })
+        
     }
 
     // Auto Build Configuration
@@ -260,7 +261,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         const isDesktopBuild = isDesktop(target)
         if (isDesktopBuild && isValidURL(src)) continue // Skip remote services for desktop builds
 
-        const toCopy = base ?? src
+        const toCopy = base ? resolve(root, base) : filepath
 
         // Build for production
         if ( publish ){

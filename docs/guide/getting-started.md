@@ -90,15 +90,29 @@ const host = process.env.HOST
 const port = process.env.PORT
 
 const server = http.createServer((
-    _: http.IncomingMessage,
+    req: http.IncomingMessage,
     res: http.ServerResponse
 ) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // Echo Request
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => body += chunk.toString());
+    req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': req.headers['content-type'] });
+      res.end(body);
+    });
+    return;
+  }
+
+  // Default Response
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Hello World\n');
+  return;
 });
 
 server.listen(port, 
@@ -114,23 +128,36 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def _set_headers(self):
+    def _set_default_headers(self):
         self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
         self.send_header('Access-Control-Allow-Headers', 'X-Requested-With,content-type')
+
+    # Hello World
+    def do_GET(self):
+        self._set_default_headers()
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Hello, world!')
+
+    # Echo
+    def do_POST(self):
+        self._set_default_headers()
+        self.send_header('Content-type', self.headers['Content-Type'])
         self.end_headers()
 
-    def do_GET(self):
-        self._set_headers()
-        self.wfile.write(b'Hello, world!')
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        self.wfile.write(post_data)
+
+        
 
 PORT = int(os.getenv('PORT', 8000))
 HOST = os.getenv('HOST', '')
 
 server_address = (HOST, PORT)
-httpd = server_class(server_address, handler_class)
+httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
 httpd.serve_forever()
 ```
 

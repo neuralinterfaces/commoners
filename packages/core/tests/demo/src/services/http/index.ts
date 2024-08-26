@@ -1,43 +1,35 @@
-import { readFileSync } from 'node:fs';
+import http from 'node:http';
 
-import { createServer as createHTTPSServer } from 'node:https';
-import { createServer as createHTTPServer } from 'node:http';
+const host = process.env.HOST
+const port = process.env.PORT
 
-const cfg = {
-  ssl: false,
-  port: process.env.PORT || 8080,
-  ssl_key: './ssl.key',
-  ssl_cert: './ssl.crt'
-};
+const server = http.createServer((
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-const host = process.env.HOST || 'localhost'
-
-function getBody(request) {
-  return new Promise((resolve) => {
-    const bodyParts: Buffer[] = [];
-    let body;
-    request.on('data', (chunk) => {
-      bodyParts.push(chunk);
-    }).on('end', () => {
-      body = Buffer.concat(bodyParts).toString();
-      resolve(body)
+  // Echo Request
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => body += chunk.toString());
+    req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': req.headers['content-type'] });
+      res.end(body);
     });
-  });
-}
+    return;
+  }
 
-const server = cfg.ssl ? createHTTPSServer({
-  cert: readFileSync('/path/to/cert.pem'),
-  key: readFileSync('/path/to/key.pem')
-}) : createHTTPServer(async function (req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*'); /* @dev First, read about security */
-    res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET');
-    res.setHeader('Access-Control-Max-Age', 2592000); // 30 days
-    res.setHeader('Content-type', 'text/json');
-    getBody(req).then(result => {
-      res.end(JSON.stringify(JSON.parse(result as string)))
-    })
-})
+  // Default Response
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Hello World\n');
+  return;
 
-server.listen(cfg.port)
+});
 
-console.log(`Server running at http://${host}:${cfg.port}/`)
+server.listen(port, 
+    () => console.log(`Server running at http://${host}:${port}/`)
+);
