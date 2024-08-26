@@ -3,6 +3,11 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     hookTimeout: 30000,
+    server: { 
+      watch: { 
+        ignored: ['**/package.json'] 
+      } 
+    },
     coverage: {
       exclude: [
         '**/docs/**', 

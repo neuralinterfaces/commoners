@@ -8,8 +8,7 @@ import {
 import { resolve } from 'node:path'
 
 import { name } from './demo/commoners.config'
-import { projectBase, registerBuildTest, registerStartTest, serviceTests, sharePort } from './utils'
-import { share } from '../../testing/index'
+import { projectBase, registerBuildTest, registerStartTest } from './utils'
 
 describe('Custom project base is loaded', () => {
 
@@ -37,47 +36,6 @@ describe('Start', () => {
   registerStartTest('Mobile', { target: 'mobile' }, false)
 
 })
-
-describe('Share', () => {
-  
-  describe('Share all services', () => {
-    const output = {}
-
-    beforeAll(async () => {
-      const _output = await share(projectBase, { port: sharePort })
-      Object.assign(output, _output)
-    })
-
-    serviceTests.share.basic(output)
-    serviceTests.echo('http', output)
-    serviceTests.echo('express', output)
-    serviceTests.echo('manual', output)
-
-    afterAll(() => output.cleanup())
-    
-  })
-
-  describe('Share specific service', () => {
-
-    // const services = { active: [ 'http' ], inactive: [ 'express', 'manual'  ] }
-    const services = { active: [ 'http', 'manual' ], inactive: [ 'express' ] }
-
-
-    const output = {}
-    beforeAll(async () => {
-      const _output = await share(projectBase, { services: services.active, port: sharePort })
-      Object.assign(output, _output)
-    })
-
-    services.active.forEach(service => serviceTests.echo(service, output))  
-    // services.inactive // NOTE: Add a check to see if other services fail
-
-    afterAll(() => output.cleanup())
-
-  })
-
-})
-
 
 describe('Build and Launch', () => {
   registerBuildTest('Web', { target: 'web' })

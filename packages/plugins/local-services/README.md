@@ -1,5 +1,5 @@
 # @commoners/local-services
-Connect to shared services (exposed via `commoners share`) available on your local network on **desktop**.
+Share and connect to services available on your local network (**desktop** only).
 
 ## Arguments
 - `isValid` - A function that returns whether or not a service should be connected to (`(ip, env) => boolean`)
@@ -17,9 +17,9 @@ import localServicesPlugin from '@commoners/local-services'
 export default {
     plugins: [
         localServicesPlugin((ip, env) => {
-                if (ip === 'localhost') return true
-                return env.SECRET_KEY === '****************'
-            }, 3768)
+            if (ip === 'localhost') return true
+            return env.SECRET_KEY === '****************'
+        }, 3768)
     ]
 }
 ```

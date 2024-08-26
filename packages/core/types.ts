@@ -40,7 +40,7 @@ export const valid = {
     target: tuple(...Array.from(new Set(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets))), // NOTE: Really these should transform to the relevant universal type
 
     // Internal
-    command: tuple('start', 'dev', 'build', 'launch', 'share'),
+    command: tuple('start', 'dev', 'build', 'launch'),
 
     // Configuration
     icon: tuple('light', 'dark'),
@@ -215,19 +215,12 @@ type BaseConfig = {
 
 export type UserConfig = Partial<BaseConfig> & {
     launch?: LaunchOptions,
-    share?: ShareOptions,
     build?: BuildOptions['build']
 }
 
-export type ShareOptions = {
-    port?: PortType,
-    services?: ServiceOptions
-}
-
-export type ShareConfig = Partial<BaseConfig> & { share?: ShareOptions }
-
 // NOTE: No need for configuration-related options
 export type LaunchOptions = {
+    root?: string,
     target: TargetType,
     port?: PortType,
     outDir?: OutDirType
@@ -253,7 +246,6 @@ export type BuildHooks = {
 export type ResolvedConfig = BaseConfig & {
     build: BuildOptions['build'],
     launch?: LaunchOptions,
-    share?: ShareOptions,
     services: { [x: string]: ResolvedService }
 
     // package.json properties used in the library

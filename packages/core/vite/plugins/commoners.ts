@@ -108,9 +108,12 @@ export default ({
             const beforeHead = headStart ? html.slice(0, headStart) : ''
             const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
 
-            const injection = `
+            const lowPriority = `
                 <title>${config.name}</title>
                 ${faviconLink}
+            `
+
+            const highPriority = `
                 <script type="module">
 
                 // Directly import the plugins from the transpiled configuration object
@@ -156,7 +159,7 @@ export default ({
             </script>\n
             `
 
-            return `${beforeHead}${TAGS.head.start}${headContent}${injection}${TAGS.head.end}${afterHead}`
+            return `${beforeHead}${TAGS.head.start}${highPriority}${headContent}${lowPriority}${TAGS.head.end}${afterHead}`
             
         }
     }

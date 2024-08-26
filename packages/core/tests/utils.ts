@@ -10,8 +10,7 @@ import config from './demo/commoners.config'
 
 import { join } from 'node:path'
 
-export const scopedBuildOutDir = '.site'
-export const sharePort = 1234
+export const scopedBuildOutDir = join('.commoners', 'custom_output_dir')
 
 const randomNumber =  Math.random().toString(36).substring(7)
 
@@ -43,12 +42,19 @@ const e2eTests = {
 
         const normalizedTarget = normalizeTarget(target)
         
+        const isDev = mode === 'dev' 
+
         describe('Basic E2E Test', () => {
     
             test("Global variables are valid", async () => {
 
                 const userPkg = require(join(projectBase, 'package.json'))
 
+                const COMMONERS = await output.page.evaluate(() => {
+                  const { commoners } = globalThis
+                  return commoners.READY.then(() => commoners)
+                })
+                
                 const { 
                   NAME, 
                   VERSION, 
@@ -63,10 +69,10 @@ const e2eTests = {
                   DEV,
                   PROD
 
-                } = await output.page.evaluate(() => commoners.READY.then(() => commoners))
+                } = COMMONERS
 
                 const isDesktop = normalizedTarget === 'desktop'
-                const isDev = mode === 'dev' 
+                const hasPublishedServices = isDev || isDesktop
 
                 expect(NAME).toBe(config.name);
                 expect(VERSION).toBe(userPkg.version);
@@ -91,9 +97,9 @@ const e2eTests = {
                 Object.entries(SERVICES).forEach(([name, service]) => {
 
                     // Web / PWA / Mobile builds will have cleared services (that are not remote)
-                    expect(name in SERVICES).toBe(isDev);
+                    expect(name in SERVICES).toBe(hasPublishedServices);
 
-                    if (isDev) {
+                    if (hasPublishedServices) {
                       expect(typeof SERVICES[name].url).toBe('string');
                       if ('port' in service) expect(parseInt(new URL(SERVICES[name].url).port)).toBe(service.port)
                     }
@@ -151,7 +157,7 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     let triggerAssetsBuilt
     const assetsBuilt = new Promise(res => triggerAssetsBuilt = res)
 
-    const skipPackageStep = isElectron  || isMobile
+    const skipPackageStep = isMobile
 
     // NOTE: Desktop and mobile builds are not fully built
     const describeFn = skipPackageStep ? describe.skip : describe
@@ -176,7 +182,6 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     beforeAll(async () => {
 
       const _output = await build( projectBase,  opts, hooks )
-
       Object.assign(output, _output)
 
     }, waitTime)
@@ -184,9 +189,13 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     // Cleanup build outputs
     afterAll(() =>  output.cleanup([ 'build', scopedBuildOutDir ]))
 
-    test('All assets are found', async () => {
+    test('All build assets have been created', async () => {
       const baseDir = (await assetsBuilt) as string
       checkAssets(projectBase, baseDir, { build: true, target })
+    })
+
+    test.skip('All assets have been included in the build', async () => {
+      // checkAssets(projectBase, scopedBuildOutDir, { build: true, target })
     })
 
     describeFn('Launched application tests', async () => {

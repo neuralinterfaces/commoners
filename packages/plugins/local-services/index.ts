@@ -3,6 +3,7 @@ import { getLocalIP } from "../../core/utils/ip/cross-platform";
 
 import pkg from './package.json'
 
+
 function checkPort(port, host, callback) {
     const net = require('node:net');
     let socket = new net.Socket(), status: null | 'open' | 'closed' = null;
@@ -24,20 +25,19 @@ const isSupported = {
     web: false
 }
 
-function loadDesktop(
+async function loadDesktop(
     {
         isValid: isValidService,
         port
     }: LocalServicesPluginOptions
 ) {
 
-    if (!port && process.env.COMMONERS_SHARE_PORT) port = parseInt(process.env.COMMONERS_SHARE_PORT) // Fallback to the port provided by the environment
+    // if (!port && process.env.COMMONERS_SHARE_PORT) port = parseInt(process.env.COMMONERS_SHARE_PORT) // Fallback to the port provided by the environment
     if (!port) return console.error(`[commoners:local-services] No port provided`)
 
     console.log(`[${pkg.name}]: Searching for local services on port ${port}\n`)
 
-    const http = require('node:http');
-
+    const http = require('node:http')
     const localIP = getLocalIP(require('node:os').networkInterfaces)
 
     const active: { [x: string]: string[] | null } = {}
@@ -58,30 +58,21 @@ function loadDesktop(
 
                     const url = getURL(ip, port)
 
-                    http.get(url, res => {
+                    fetch(url).then(res => {
 
-                        if (res.statusCode === 200) {
+                        const result = res.json()
 
-                            if (ip in active) return
-
-                            const data: string[] = [];
-
-                            res.on('data', chunk => data.push(chunk));
-
-                            res.on('end', () => {
-                                try {
-                                    const { commoners, services = {} } = JSON.parse(Buffer.concat(data).toString());
-                                    if (commoners) {
-                                        if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
-                                        active[ip] = services
-                                        Object.values(services).forEach(port => this.send(`found`, getURL(ip, port)))
-                                    }
-                                } catch {
-                                    active[ip] = null
-                                }
-                            });
-
-                        } else res.destroy()
+                        try {
+                            const { commoners, services = {} } = result
+                            if (commoners) {
+                                if (isValidService && isValidService(ip === localIP ? 'localhost' : ip, commoners) === false) return // Skip invalid services
+                                active[ip] = services
+                                Object.values(services).forEach(port => this.send(`found`, getURL(ip, port)))
+                            }
+                        } catch {
+                            active[ip] = null
+                        }
+                        
                     })
                 } else if (ip in active) {
                     const info = active[ip]

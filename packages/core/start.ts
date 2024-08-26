@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 // Internal Imports
 import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
-import { cleanup, globalTempDir, initialize, isDesktop, isMobile, onExit } from "./globals.js";
+import { cleanup, globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onExit } from "./globals.js";
 import { UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
 
@@ -12,11 +12,11 @@ import { buildAssets } from "./utils/assets.js";
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 
-export default async function ( opts: UserConfig = {} ) {
-
-        const { port } = opts
-    
-        const resolvedConfig = await resolveConfig(opts, { customPort: port });
+export default async function ( 
+    opts: UserConfig = {} 
+) {
+        
+        const resolvedConfig = await resolveConfig(opts);
         
         const { target, name, root } = resolvedConfig
 
@@ -34,7 +34,7 @@ export default async function ( opts: UserConfig = {} ) {
 
         const outDir = join(root, globalTempDir)
 
-        await initialize(outDir)
+        await handleTemporaryDirectories(outDir)
 
         // Build for mobile before moving forward
         if (isMobileTarget) await build(resolvedConfig, { services: resolvedServices, dev: true })
@@ -45,7 +45,6 @@ export default async function ( opts: UserConfig = {} ) {
             copy.build = { ...copy.build, outDir }
             await buildAssets(copy)
         }
-
 
         const activeInstances: {
             frontend?: Awaited<ReturnType<typeof createServer>>,

@@ -1,5 +1,4 @@
 // Built-In Modules
-import { execSync } from "node:child_process"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -23,11 +22,18 @@ type AssetMetadata = {
     sign?: boolean
 }
 
+type BuildInfo = {
+    src: string,
+    out: string,
+}
+
+type BuildFunction = (info: BuildInfo) => string
+
 type CoreAssetInfo = string | {
     input: string,
     output?: string
     force?: boolean,
-    compile?: string | boolean // Terminal command to compile the file
+    compile?: BuildFunction | boolean // Function to compile the asset
 } & AssetMetadata
 
 type AssetInfo = CoreAssetInfo | { text: string, output: string }
@@ -85,12 +91,7 @@ type PackageInfo = {
     name: string,
     force?: boolean,
     src: string, // Absolute Source File
-
-    // Output configuration
-    build: {
-        src: string, // Relative source to base
-        outDir: string
-    }
+    out: string, // Absolute Output File
 }
 
 export const packageFile = async (info: PackageInfo) => {
@@ -100,13 +101,12 @@ export const packageFile = async (info: PackageInfo) => {
     const { 
         name, 
         src, 
-        force,
-        build
+        out,
+        force
     } = info
 
-    const { outDir } = build
-
-    const outName = build.src || name
+    const outDir = dirname(out)
+    const outName = basename(out, extname(out))
 
     const tempOut = join(outDir, outName) + '.js'
 
@@ -147,12 +147,12 @@ export const packageFile = async (info: PackageInfo) => {
 async function buildService(
     { 
         build,
-        outDir,
+        out,
         src,
         root
     }: { 
         src: string,
-        outDir?: string,
+        out: string,
         build: ResolvedService['build'],
         root: ResolvedConfig['root']
     }, 
@@ -162,36 +162,35 @@ async function buildService(
 
     const _chalk = await chalk
 
-    if (!build) return null
-
-
-    outDir = resolve(outDir)
+    out = resolve(out)
     
-    // Check Auto Builds
     console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
 
+    const buildInfo = { name, src, out, force }
+    
     // Dynamic Configuration
     if (typeof build === 'function') {
 
         const ctx = { package: packageFile }
 
-        build = await build.call(ctx, {
-            name,
-            src,
-            force,
-            build: { outDir }
-        })
+        build = await build.call(ctx, buildInfo)
+
     }
     
-    // Auto Build
-    else if (build && typeof build === 'object') return packageFile({ name, force, src, build })
-    
-    // Terminal Command
-    else if (typeof build === 'string') {
-        if (existsSync(build)) return build
+
+    // Handle string build commands
+    if (typeof build === 'string') {
+
+        // Output path
+        if (existsSync(build)) return build 
+
+        // Terminal Command
         await spawnProcess(build, [], { cwd: root })
-        return outDir
     }
+
+    // Auto Build Configuration
+    else return packageFile(buildInfo)
+
 }
 
 // Derive assets to be transferred to the Commoners folder
@@ -256,39 +255,44 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     for (const [ name, resolvedService ] of Object.entries(resolvedServices)) {
 
         // @ts-ignore
-        const { __src, src, base, build, filepath, compile } = resolvedService
-
-        const toCopy = base ?? src
+        const { __src, src, base, build, publish, filepath, __compile } = resolvedService
 
         const isDesktopBuild = isDesktop(target)
         if (isDesktopBuild && isValidURL(src)) continue // Skip remote services for desktop builds
 
-        // Build for production
-        if (build){
+        const toCopy = base ?? src
 
-            if (__src && ( isDesktopBuild || toBuild.services )) {
+        // Build for production
+        if ( publish ){
+
+            if (
+                __src 
+                && ( isDesktopBuild || toBuild.services )
+            ) {
 
                 const output = await buildService(
                     { 
                         src: __src, 
                         build, 
-                        outDir: toCopy ? getAbsolutePath(root, toCopy) : undefined,
+                        out: filepath,
                         root
                     }, 
                     name, 
                     true // Always rebuild services
                 )
+
+                const willCopy = output === null ? null : output ?? toCopy
                         
                 // Only auto-sign JavaScript files
-                if (typeof output === 'string') {
+                if (typeof willCopy === 'string') {
 
-                    if (existsSync(output)) assets.copy.push({ 
-                        input: output, 
+                    if (existsSync(willCopy)) assets.copy.push({ 
+                        input: willCopy, 
                         extraResource: true, 
                         sign: true // jsExtensions.includes(extname(__src)) 
                     })
                     
-                    else console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} source file`)}\nCould not find ${output}`)
+                    else console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${willCopy}`)
                     
                 }
 
@@ -297,9 +301,12 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         }
 
         // Compile for development use
-        else if (compile) {
-            assets.bundle.push({ input: getAbsolutePath(root, src), output: filepath, force: true, compile })
-        }
+        else if (__compile) assets.bundle.push({ 
+            input: __src,
+            output: filepath, 
+            force: true, 
+            compile: __compile 
+        })
 
         
     }
@@ -364,7 +371,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         const input = isString ? info : info.input
         const hasExplicitInput = typeof input === 'string'
         const force = isString ? false : info.force
-        const compile = isString ? null : info.compile
+        const compile = isString ? false : info.compile
 
         if (hasExplicitInput) {
     
@@ -378,20 +385,10 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
             const fileRoot =  dirname(input)
 
             // Handle custom compilation commands
-            if (typeof compile === 'string') {
-
-                const matchVars = {
-                    'src': input,
-                    'out': outPath
-                }
-                
-                mkdirSync(dirname(outPath), { recursive: true }) // Ensure base and asset output directory exists
-                
-                const command = Object.entries(matchVars).reduce((acc, [key, value]) => acc.replace(`{${key}}`, value), compile)
-                execSync(command, { stdio: 'inherit' })
-
+            if (typeof compile === 'function') {
+                const result = await compile({ src: input, out: outPath })
+                if (typeof result === 'string') await spawnProcess(result, [], { cwd: root }) // Execute returned commands
             }
-    
 
             // Bundle HTML Files using Vite
             else if (ext === '.html') {

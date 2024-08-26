@@ -4,19 +4,17 @@ import {
   start as CommonersStart,
   launch as CommonersLaunch,
   build as CommonersBuild,
-  share as CommonersShare,
   globalWorkspacePath,
   electronDebugPort,
   UserConfig,
   BuildHooks
-// } from '@commoners/solidarity'
-} from '../core/index'
+} from '@commoners/solidarity'
+// } from '../core/index'
 
 import { join } from 'node:path'
 import { rmSync, existsSync } from 'node:fs'
 
 import * as puppeteer from 'puppeteer'
-import { ShareOptions } from '../core'
 import merge from '../core/utils/merge'
 
 const getOutDir = (config) => config.launch?.outDir || config.build?.outDir || config.outDir
@@ -38,13 +36,13 @@ export const build = async (
   const updatedConfig = merge(config, overrides)
 
   const { outDir } = updatedConfig.build || {}
-  console.log('outDir', outDir)
+
 
   const AUTOCLEAR = [
     outDir,
-    join(root, globalWorkspacePath), // Includes services and temporary files
+    join(root, globalWorkspacePath), // All default commoners outputs, including services and temporary files
   ]
-
+  
   await CommonersBuild(updatedConfig, hooks)
 
   return {
@@ -68,7 +66,7 @@ type BrowserTestOutput = {
 } & Output
 
 export const open = async (
-  root?: string, 
+  root?: string,
   overrides: Partial<UserConfig> = {}, 
   useBuild = false
 ) => {
@@ -84,6 +82,7 @@ export const open = async (
   if (useBuild) {
     
     const launchResults = await CommonersLaunch({
+      root,
       target: updatedConfig.target,
       outDir: getOutDir(updatedConfig),
       port: updatedConfig.port
@@ -141,21 +140,4 @@ export const open = async (
   //     mockExit.mockRestore()
   //   });
   // })
-}
-
-
-export const share = async (
-  root, 
-  overrides: ShareOptions = {}
-) => {
-
-  const config = await loadConfigFromFile(root)
-  const updatedConfig = merge(config, { share: overrides })
-  const result = await CommonersShare(updatedConfig)
-
-  return {
-    services: result.services,
-    port: result.port,
-    cleanup: result.close
-  }
 }

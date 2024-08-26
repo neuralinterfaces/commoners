@@ -40,17 +40,16 @@ const runBeforeExitCallbacks = (code) => {
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']
+exitEvents.forEach(event => process.on(event, runBeforeExitCallbacks))
 
-export const initialize = async (tempDir = globalTempDir) => {
+export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     
     // NOTE: Ensure that the single temporary directory is not overwritten for different targets
     if (existsSync(tempDir)) {
-        printFailure(`\n👎 Only one commoners command can be run at a time in the same repo.\n`)
+        await printFailure('Only one commoners command can be run at a time in the same repo.')
         process.exit(1)
     }
     
-    exitEvents.forEach(event => process.on(event, runBeforeExitCallbacks))
-
     // Always clear the temp directories on exit
     const onClose = () => {
         cleanup(tempDir)

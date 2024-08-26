@@ -27,23 +27,27 @@ const config = {
             port: 2345 // Hardcoded port
         },
         express: { src: expressSrc },
+
         manual: {
             src: expressSrc,
             
             build: async function (info) { 
-
                 const fs = await import('node:fs')
                 const path = await import('node:path')
                 const filename = await this.package(info) 
-                fs.appendFileSync(path.join(info.build.outDir, 'test.txt'), 'Hello world!')
+                const outDir = path.dirname(info.out)
+                fs.appendFileSync(path.join(outDir, 'test.txt'), 'Hello world!')
                 return filename
             },
 
+            // NOTE: Must be hardcoded
             publish: {
                 src: 'manual',
-                base: './build/manual'
+                base: './.commoners/custom_services_dir/manual'
             }
         }
+
+
         // python: {
         //     description: 'A simple Python server',
         //     src: './src/services/python/main.py',

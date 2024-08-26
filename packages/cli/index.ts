@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 
 import { 
-    share, 
     build, 
     launch, 
     start,
     loadConfigFromFile,
-    ShareOptions,
     format
 } 
 
@@ -45,41 +43,18 @@ const getConfigPathFromOpts = ({ root, config }: ConfigOpts) => root ? (config ?
 const cli = cac()
 
 // Launch the specified build
-cli.command('launch [outDir]', 'Launch your build application in the specified directory')
+cli.command('launch [root]', 'Launch your build application in the specified directory')
 .option('--target <target>', 'Choose a target build to launch')
-.action(async (outDir, options) => {
+.option('--outDir <path>', 'Choose an output directory for your build files')
+.action(async (root, options) => {
 
     await preprocessTarget(options.target)
 
-    const config = await loadConfigFromFile(getConfigPathFromOpts({ root: outDir }))
+    const config = await loadConfigFromFile(getConfigPathFromOpts({ root }))
 
     launch({
         ...config,
         ...options,
-        outDir
-    })
-})
-
-// Share services 
-cli.command('share [root]', 'Share the application in the specified directory')
-.option('--service <name>', 'Share specific service(s)')
-.option('--port <number>', 'Choose a port to share your services at')
-.option('--config <path>', 'Specify a configuration file')
-.action(async (root, options) => {
-    
-    const sharePort = options.port || process.env.COMMONERS_SHARE_PORT
-    const customPort = process.env.PORT ? parseInt(process.env.PORT) : undefined
-
-    const config = await loadConfigFromFile(getConfigPathFromOpts({
-        root,
-        config: options.config
-    }))
-
-    if (!config) return
-
-    share({
-        ...config,
-        share: reconcile(config.share, options, { port: sharePort || customPort }) as ShareOptions
     })
 })
 
@@ -123,10 +98,9 @@ cli.command('[root]', 'Start the application in the specified directory', { igno
 .alias('start')
 .alias('dev')
 .alias('run')
-.option('--target <target>', 'Choose a build target to simulate', { default: 'web' })
-.option('--port <number>', 'Choose a target port (single service only)')
-.option('--root <path>', 'Specify the root directory of the project')
+.option('--target <target>', 'Choose a development target', { default: 'web' })
 .option('--config <path>', 'Specify a configuration file')
+
 .action(async (root, options) => {
 
     await preprocessTarget(options.target)

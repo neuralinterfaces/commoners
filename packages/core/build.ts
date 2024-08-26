@@ -3,7 +3,7 @@ import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { lstatSync } from "node:fs"
 
 // General Internal Imports
-import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, initialize, chalk, vite, electronVersion } from "./globals.js"
+import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
 import { BuildOptions, BuildHooks, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
@@ -70,12 +70,14 @@ export default async function build (
 
     // ---------------- Output Directory Resolution ----------------
     const customOutDir = opts?.build?.outDir
-    let outDir = customOutDir ?? join(root, globalWorkspacePath, target) // From project base
-    const selectedOutDir = customOutDir ?? join(globalWorkspacePath, target) // From selected root
 
-    if (isDesktopBuild || isMobileBuild) {
+    const selectedOutDir = customOutDir ?? join(root, globalWorkspacePath, target) // From explicit path
+    let outDir = selectedOutDir  // From project base
+
+    const customTempDir = isDesktopBuild || isMobileBuild
+    if (customTempDir) {
         outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
-        await initialize(dirname(outDir)) // Clear temporary directories
+        await handleTemporaryDirectories(dirname(outDir)) // Queue removal of temporary directories
     }
 
     outDir = resolve(outDir) // Ensure absolute path
@@ -138,7 +140,9 @@ export default async function build (
         buildConfig.productName = name
         buildConfig.appId = resolvedConfig.appId
 
-        buildConfig.directories.output = selectedOutDir
+        const actualOutDir = isAbsolute(selectedOutDir) ? selectedOutDir : join(process.cwd(), selectedOutDir)
+
+        buildConfig.directories.output = actualOutDir
 
         const files = buildConfig.files = [ 
             `${relativeOutDir}/**`, 

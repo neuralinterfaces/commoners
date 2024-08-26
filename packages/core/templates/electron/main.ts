@@ -71,9 +71,14 @@ const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
 // Enable remote debugging port for Vitest
-if (process.env.VITEST) {
+const IS_TESTING = process.env.VITEST
+if (IS_TESTING) {
   app.commandLine.appendSwitch('remote-debugging-port', `${8315}`) // Mirrors the global electronDebugPort variable
   app.commandLine.appendSwitch('remote-allow-origins', '*') // Allow all remote origins
+}
+
+const showWindow = (win) => {
+  if (!IS_TESTING) win.show()
 }
 
 // Populate platform variable if it doesn't exist
@@ -150,6 +155,7 @@ function createMainWindow(config, opts = config.electron ?? {}) {
       ...platformDependentWindowConfig,
       alwaysOnTop: true,
       transparent: true,
+      show: !IS_TESTING // Hide the window if testing
     });
 
     const completeSplashPath = join(assetsPath, splashURL)
@@ -181,6 +187,8 @@ function createMainWindow(config, opts = config.electron ?? {}) {
   // Always enable the web preferences
   windowConfig.webPreferences.enableRemoteModule = true
 
+  if (IS_TESTING) windowConfig.show = false // Hide the window if testing
+
   // Create the browser window.
   const win = new BrowserWindow(windowConfig)
 
@@ -206,12 +214,15 @@ function createMainWindow(config, opts = config.electron ?? {}) {
           globals.splash.close();
           delete globals.splash
         }
-        win.show();
+
+        showWindow(win)
+
         globals.isFirstOpen = false
       }, globals.isFirstOpen ? 1000 : 200);
     }
 
-    else win.show()
+    else showWindow(win)
+
   })
 
   // De-register the main window

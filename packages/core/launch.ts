@@ -46,9 +46,6 @@ export default async function (options: LaunchOptions) {
 
     let target = options.target;
 
-    const root = options.outDir && existsSync(join(options.outDir, '.commoners')) ? options.outDir : ''
-    if (root) delete options.outDir
-
     if (options.outDir) {
         const desktopInfo = isDesktopFolder(options.outDir)
 
@@ -61,17 +58,16 @@ export default async function (options: LaunchOptions) {
     target = await ensureTargetConsistent(target)
     
     const { 
-        outDir = join(root, globalWorkspacePath, target),
+        outDir = join((options.root ?? ''), globalWorkspacePath, target),
         port 
     } = options
 
+    await printHeader(`Launching ${printTarget(target)} Build (${outDir})`)
 
-    await printHeader(`Launching ${printTarget(target)} Build${outDir ? ` (${outDir})` : ''}`)
-
-    if (!existsSync(outDir)) return printFailure(`Directory does not exist.`)
+    if (!existsSync(outDir)) return await printFailure(`Directory does not exist.`)
 
     if (isMobile(target)) {
-        if (outDir) process.chdir(outDir)
+        process.chdir(outDir)
         await mobile.launch(target)
         await printSubtle(`Opening native launcher for ${target}...`)
     }
@@ -87,7 +83,7 @@ export default async function (options: LaunchOptions) {
             '--args', 
             `--remote-debugging-port=${electronDebugPort}`, 
             `--remote-allow-origins=*`
-        ]);
+        ], { env: process.env  }); // Share the same environment variables
 
         const debugUrl = `http://localhost:${electronDebugPort}`
         printSubtle(`Debug your application at ${_chalk.cyan(debugUrl)}`)
@@ -101,7 +97,7 @@ export default async function (options: LaunchOptions) {
 
         const host = 'localhost'
 
-        const server = createServer({  root: outDir })
+        const server = createServer({ root: outDir })
 
         const resolvedPort = port || (await getFreePorts(1))[0]
 

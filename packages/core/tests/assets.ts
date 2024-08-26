@@ -37,16 +37,21 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
 
   const buildDir = join(baseDir, '..', '..', '..', 'build')
   const servicesDir = join(baseDir, '..', '..', 'services')
-  const manualServiceDir = join(buildDir, 'manual')
+  // const manualServiceDir = join(buildDir, 'manual')
 
   if (build) {
-    expect(existsSync(join(servicesDir, 'http', getPackagedServiceName('http')))).toBe(isElectron)
-    expect(existsSync(join(servicesDir, 'express', getPackagedServiceName('express')))).toBe(isElectron)
-    expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
+    const services = [ 'http', 'express' ]
+
+    services.forEach(name => {
+      const location = join(servicesDir, name, getPackagedServiceName(name))
+      expect(existsSync(location)).toBe(isElectron)
+    })
+
+    // expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
   
-    const txtFile = join(manualServiceDir, 'test.txt')
-    expect(existsSync(txtFile)).toBe(isElectron)
-    if (isElectron) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+    // const txtFile = join(manualServiceDir, 'test.txt')
+    // expect(existsSync(txtFile)).toBe(isElectron)
+    // if (isElectron) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
   }
 
   // NOTE: Implement checks for intermediate TS builds

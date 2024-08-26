@@ -18,7 +18,6 @@ export * from './globals.js'
 export * as format from './utils/formatting.js'
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
-export { default as share } from './share.js'
 export { default as start } from './start.js'
 
 // ------------------ Configuration File Handling ------------------
@@ -82,9 +81,7 @@ export async function loadConfigFromFile(
     if (configPath) {
 
 
-        const randomId = `${Date.now()}-${Math.random().toString(16).slice(2)}`
-        const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config-${randomId}.mjs`)
-            
+        const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
         const fileUrl = `${pathToFileURL(configOutputPath)}`
 
@@ -106,7 +103,6 @@ export async function loadConfigFromFile(
 
 type ResolveOptions = {
     services?: string | string[],
-    customPort?: number,
     target?: TargetType,
     build?: boolean
 }
@@ -119,8 +115,7 @@ export async function resolveConfig(
         build = false,
 
         // Advanced Service Configuration
-        services, 
-        customPort,
+        services
 
     } : ResolveOptions = {}
 ) {
@@ -183,7 +178,6 @@ export async function resolveConfig(
 
         for (let name in copy.services) {
             if (!selected.includes(name)) delete copy.services[name]
-            else if (isSingleService && customPort) copy.services[name].port = customPort
         }
     }
 

@@ -22,11 +22,6 @@ Build the project assets.
 Launch your built application.
 - `[path]` - The output directory of the build to launch (`string`)
 
-### commoners share
-Share the application's services—or simply run them on their own.
-- `--port` - The port to use for the service gateway (`number`). Can also use the `COMMONERS_SHARE_PORT` environment variable.
-- `--service [name]` - For specific service(s) (`string`)
-
 ## Shared Options
 ### Target Platform (`commoners` / `build` / `launch`)
 Specify the target platform for the command.
