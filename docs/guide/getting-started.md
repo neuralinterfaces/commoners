@@ -138,7 +138,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self._set_default_headers()
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write(b'Hello, world!')
+        self.wfile.write(b'Hello World')
 
     # Echo
     def do_POST(self):

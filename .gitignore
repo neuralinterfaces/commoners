@@ -6,6 +6,9 @@ node_modules
 
 **/pnpm-lock.yaml
 
+# Testing Resources
+.vite-templates
+
 # Builds
 build
 dist
