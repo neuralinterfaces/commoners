@@ -129,9 +129,10 @@ export async function resolveConfig(
     const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
 
     const temp = { ...o }
-    const { services: ogServices, plugins } = temp
+    const { services: ogServices, plugins, vite } = temp
     delete temp.plugins
     delete temp.services
+    delete temp.vite
 
     const userPkg = getJSON(join(root, 'package.json'))
 
@@ -143,6 +144,7 @@ export async function resolveConfig(
     
     copy.plugins = plugins ?? {} // Transfer the original plugins
     copy.services = ogServices as any ?? {} // Transfer original functions on publish
+    copy.vite = vite ?? {} // Transfer the original Vite config
 
     copy.target = await ensureTargetConsistent(copy.target, ['services'])
     
