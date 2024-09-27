@@ -26,7 +26,10 @@ let readyQueue: ReadyFunction[] = []
 const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
 
 const scopedOn = (type, id, channel, callback) => ipcMain.on(`${type}:${id}:${channel}`, callback)
-const scopedSend = (type, id, channel, ...args) => onWindowReady((win) => send.call(win, `${type}:${id}:${channel}`, ...args))
+const scopedSend = (type, id, channel, ...args) => onWindowReady(() => {
+  const allWindows = BrowserWindow.getAllWindows()
+  allWindows.forEach(win => send.call(win, `${type}:${id}:${channel}`, ...args)) // Send to all windows
+})
 const serviceSend = (id, channel, ...args) => scopedSend('services', id, channel, ...args)
 const serviceOn = (id, channel, callback) => scopedOn('services', id, channel, callback)
 
@@ -115,6 +118,7 @@ const contexts = Object.keys(plugins).reduce((acc, id) => {
   acc[id] = { 
     id,
     electron,
+    createWindow,
     open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow(config))),
     send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
     on: function (channel, callback) { return pluginOn(this.id, channel, callback) },
@@ -128,24 +132,57 @@ const runPlugins = async (win: BrowserWindow | null = null, type = 'load') => {
 
 
 
-function createMainWindow(config, opts = config.electron ?? {}) {
+  // ------------------- Configure the main window properties -------------------  
+  const preload = join(__dirname, 'preload.js')
 
-  // ------------------- Force only one main window -------------------
-  if (BrowserWindow.getAllWindows().length !== 0) return
-
-  // ------------------- Avoid window creation if the user has specified not to -------------------
-  const windowOpts = opts.window
-  const noWindowCreation = windowOpts === false || windowOpts === null
-  if (noWindowCreation) return runPlugins() // Just create the backend plugins
-
-  // ------------------- Main Window Creation -------------------
   // Replace with getIcon (?)
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
   const linuxIcon = config.icon?.linux || defaultIcon
 
   const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
-  const splashURL = opts.splash
+  const mainWindowOpts = config.electron ?? {}
+
+  const mainWindowConfig = {
+    width: 900,
+    height: 670,
+    show: false,
+    autoHideMenuBar: true,
+    ...platformDependentWindowConfig,
+    webPreferences: {
+      sandbox: false
+    },
+    ...mainWindowOpts.window ?? {} // Merge User-Defined Window Variables
+  }
+
+  function createWindow (options) {
+    const copy = structuredClone(options)
+    
+    // Ensure web preferences exist
+    if (!copy.webPreferences) copy.webPreferences = {}
+    if (!('preload' in mainWindowConfig.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
+    copy.webPreferences.enableRemoteModule = true // Always enable remote module
+
+    // Hide the window if testing
+    if (IS_TESTING) copy.show = false
+
+    const win = new BrowserWindow(copy)
+
+    return win
+  }
+
+
+function createMainWindow(config) {
+  
+  // ------------------- Force only one main window -------------------
+  if (BrowserWindow.getAllWindows().length !== 0) return
+
+  // ------------------- Avoid window creation if the user has specified not to -------------------
+  const windowOpts = mainWindowOpts.window
+  const noWindowCreation = windowOpts === false || windowOpts === null
+  if (noWindowCreation) return runPlugins() // Just create the backend plugins
+
+  const splashURL = mainWindowOpts.splash
 
   if (splashURL) {
     const splash = new BrowserWindow({
@@ -166,34 +203,12 @@ function createMainWindow(config, opts = config.electron ?? {}) {
     globals.splash = splash // Replace splash entry with the active window
   }
 
-  // ------------------- Create the main window -------------------  
-  const preload = join(__dirname, 'preload.js')
-
-  const windowConfig = {
-    width: 900,
-    height: 670,
-    show: false,
-    autoHideMenuBar: true,
-    ...platformDependentWindowConfig,
-    webPreferences: {
-      sandbox: false
-    },
-    ...opts.window ?? {} // Merge User-Defined Window Variables
-  }
-
-  // Ensure preload is added
-  if (!('preload' in windowConfig.webPreferences)) windowConfig.webPreferences.preload = preload
-
-  // Always enable the web preferences
-  windowConfig.webPreferences.enableRemoteModule = true
-
-  if (IS_TESTING) windowConfig.show = false // Hide the window if testing
-
   // Create the browser window.
-  const win = new BrowserWindow(windowConfig)
+  const win = createWindow(mainWindowConfig)
 
   // Activate specified plugins from the configuration file
   runPlugins(win)
+
 
   // Is ready to receive IPC messages
   ipcMain.on('commoners:ready', () => {
