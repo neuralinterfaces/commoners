@@ -120,9 +120,6 @@ export const resolveViteConfig = async (
 
     const { name, appId, root, icon, description } = commonersConfig
 
-
-    const assetPath = join(root, 'assets')
-
     // Desktop Build
     if (isDesktopTarget) {
         const plugin = await electronPlugin({ build, root, outDir })

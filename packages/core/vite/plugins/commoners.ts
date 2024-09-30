@@ -1,5 +1,5 @@
 
-import { extname, resolve } from 'node:path'
+import { extname, join, resolve } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 import { isDesktop, isMobile } from '../../globals.js'
 
@@ -53,8 +53,10 @@ export default ({
     const mobile = isMobile(target)
     
     const root = config.root
-    const relTo = build ? outDir : root
-    
+    const configOut = config.build.outDir // This variable catches where the index.html file is expected to be. This catches subpage builds
+    const indexHTMLRoot = configOut ? join(configOut, 'assets') : root
+    const relTo = build ? outDir : indexHTMLRoot
+
     const services = Object.entries(config.services).reduce((acc, [ 
         id, 
         { url } 
@@ -108,6 +110,8 @@ export default ({
             const beforeHead = headStart ? html.slice(0, headStart) : ''
             const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
 
+            const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', outDir, relTo)
+
             const lowPriority = `
                 <title>${config.name}</title>
                 ${faviconLink}
@@ -117,7 +121,7 @@ export default ({
                 <script type="module">
 
                 // Directly import the plugins from the transpiled configuration object
-                import COMMONERS_CONFIG from "${getAssetLinkPath('commoners.config.mjs', outDir, relTo)}"
+                import COMMONERS_CONFIG from "${updatedConfigURL}"
                 const { plugins } = COMMONERS_CONFIG
                 
                 // Set global variable

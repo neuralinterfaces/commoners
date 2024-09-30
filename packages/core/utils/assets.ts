@@ -15,6 +15,10 @@ import { isValidURL } from './url.js'
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
 
+import { resolveViteConfig } from "../vite/index.js"
+import { mergeConfig } from "vite"
+
+
 type ESBuildBuildOptions = import('esbuild').BuildOptions
 
 type AssetMetadata = {
@@ -74,6 +78,7 @@ export const getAssetLinkPath = (
     outDir, 
     root = outDir
 ) => {
+
 
     // Get the absolute path of the asset
     const absOutPath = getAssetBuildPath(path, outDir)
@@ -205,6 +210,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     const resolvedConfig = await resolveConfig(config)
 
     const { root, target } = resolvedConfig
+    const { outDir } = resolvedConfig.build
 
     const configPath = resolveConfigPath(root)
 
@@ -248,6 +254,21 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     if (isElectronTarget) {
         const splashPath = resolvedConfig.electron.splash
         if (splashPath) assets.bundle.push({ input: getAbsolutePath(root, splashPath), output: splashPath })
+    }
+
+    // Handle Provided Plugins
+    for (const plugin of Object.values(resolvedConfig.plugins)) {
+        const assetsCopy = structuredClone(plugin.assets ?? {})
+        Object.entries(assetsCopy).map(([ key, fileInfo ]) => {
+            const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
+            const { src, overrides }  = fileInfoDictionary
+            const absPath = getAbsolutePath(root, src)
+            const outPath = getAssetBuildPath(absPath, outDir)
+            assets.bundle.push({ input: absPath, output: outPath, config: overrides })
+            assetsCopy[key] = outPath
+        })
+
+        if (plugin.assets) plugin.assets = assetsCopy
     }
     
     // Handle Provided Services
@@ -322,7 +343,7 @@ export const clear = (outDir: string) => {
 
 type AssetsToBuild = { assets?: boolean, services?: boolean }
 
-export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}) => {
+export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false) => {
 
     const _chalk = await chalk
     const _vite = await vite
@@ -393,19 +414,38 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
             // Bundle HTML Files using Vite
             else if (ext === '.html') {
+                const { target } = config
+                const { config: commonersConfig } = info
 
-                await _vite.build({
+                // Default Build Configuration
+                const buildConfig = {
                     logLevel: 'silent',
                     base: "./",
                     root: fileRoot,
                     build: {
                         emptyOutDir: false, // Ensure assets already built are maintained
-                        outDir: relative(fileRoot, dirname(outPath)),
+                        outDir: relative(fileRoot, dirname(outPath)), // Configure the output directory of the linked build assets
                         rollupOptions: { input }
                     },
-                })
+                }
 
-            } else{
+
+                // Treat as Commoners Frontend with Configuration Specified 
+                if (commonersConfig) {
+
+                    const mergedConfig = {...config, ...commonersConfig, root: fileRoot }
+                    const viteConfig = await resolveViteConfig(mergedConfig, { 
+                        target, 
+                        outDir, // Provide the original output directory to link to Commoners assets correctly
+                        dev 
+                    }, false)
+                    const mergedViteConfig = mergeConfig(viteConfig, buildConfig)
+                    await _vite.build(mergedViteConfig)
+                }
+
+                else await _vite.build(buildConfig)
+
+            } else {
 
                 const extension = typeof output === 'string' ? extname(output).slice(1) : ext.slice(1)
                 const resolvedExtension = bundleExtensions.includes(`.${extension}`) ? 'js' : extension

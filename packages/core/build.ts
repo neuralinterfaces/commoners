@@ -113,7 +113,7 @@ export default async function build (
     const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
     configCopy.build = { ...buildOpts, outDir }  
 
-    const assets = await buildAssets( configCopy, toRebuild )
+    const assets = await buildAssets( configCopy, toRebuild, dev)
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)

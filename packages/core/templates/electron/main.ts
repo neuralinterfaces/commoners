@@ -114,7 +114,10 @@ const config = _config.default || _config
 const plugins = config.plugins ?? {}
 
 // Precreate contexts to track custom properties 
-const contexts = Object.keys(plugins).reduce((acc, id) => {
+const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
+
+  const { assets = {} } = plugin
+
   acc[id] = { 
     id,
     electron,
@@ -122,6 +125,15 @@ const contexts = Object.keys(plugins).reduce((acc, id) => {
     open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow(config))),
     send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
     on: function (channel, callback) { return pluginOn(this.id, channel, callback) },
+
+    // Provide specific variables from the plugin
+    plugin: {
+      assets: Object.entries(assets).reduce((acc, [key, value]) => {
+        const filepath = typeof value === 'string' ? value : value.src
+        acc[key] = join(assetsPath, filepath)
+        return acc
+      }, {})
+    },
   }
   return acc
 }, {})
@@ -155,7 +167,7 @@ const runPlugins = async (win: BrowserWindow | null = null, type = 'load') => {
     ...mainWindowOpts.window ?? {} // Merge User-Defined Window Variables
   }
 
-  function createWindow (options) {
+  function createWindow (options = {}) {
     const copy = structuredClone(options)
     
     // Ensure web preferences exist
