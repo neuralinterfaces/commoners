@@ -25,7 +25,15 @@ let readyQueue: ReadyFunction[] = []
 
 const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
 
-const scopedOn = (type, id, channel, callback) => ipcMain.on(`${type}:${id}:${channel}`, callback)
+const scopedOn = (type, id, channel, callback) => {
+  const event = `${type}:${id}:${channel}`
+  ipcMain.on(event, callback)
+  const remove = () => ipcMain.removeListener(event, callback)
+  return { 
+    remove // A helper function to remove the listener
+   } 
+}
+
 const scopedSend = (type, id, channel, ...args) => onWindowReady(() => {
   const allWindows = BrowserWindow.getAllWindows()
   allWindows.forEach(win => send.call(win, `${type}:${id}:${channel}`, ...args)) // Send to all windows
