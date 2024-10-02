@@ -164,24 +164,23 @@ const runPlugins = async (win: BrowserWindow | null = null, type = 'load') => {
 
   const mainWindowOpts = config.electron ?? {}
 
-  const mainWindowConfig = {
-    width: 900,
-    height: 670,
-    show: false,
+  const defaultWindowConfig = {
     autoHideMenuBar: true,
+    webPreferences: { sandbox: false },
+  }
+
+  const mainWindowConfig = {
+    show: false,
     ...platformDependentWindowConfig,
-    webPreferences: {
-      sandbox: false
-    },
     ...mainWindowOpts.window ?? {} // Merge User-Defined Window Variables
   }
 
   function createWindow (options = {}) {
-    const copy = structuredClone(options)
+    const copy = structuredClone({...defaultWindowConfig, ...options})
     
     // Ensure web preferences exist
     if (!copy.webPreferences) copy.webPreferences = {}
-    if (!('preload' in mainWindowConfig.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
+    if (!('preload' in copy.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
     copy.webPreferences.enableRemoteModule = true // Always enable remote module
 
     // Hide the window if testing
