@@ -5,6 +5,7 @@ import { isDesktop, isMobile } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
+import { UserConfig } from 'vite'
 
 const virtualModuleId = 'commoners:env'
 
@@ -49,13 +50,18 @@ export default ({
     dev
 }: CommonersPluginOptions) => {
 
+    const actualOutDir = outDir
+    const _assetOutDir = config.build?.outDir
+    const assetOutDir = _assetOutDir ?? actualOutDir
+
     const desktop = isDesktop(target)
     const mobile = isMobile(target)
     
-    const root = config.root
-    const configOut = config.build.outDir // This variable catches where the index.html file is expected to be. This catches subpage builds
-    const indexHTMLRoot = configOut ? join(configOut, 'assets') : root
-    const relTo = build ? outDir : indexHTMLRoot
+    const configRoot = config.root
+    const root = _assetOutDir ? actualOutDir : configRoot
+    const relTo = build ? assetOutDir : root
+
+    const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
 
     const services = Object.entries(config.services).reduce((acc, [ 
         id, 
@@ -69,7 +75,8 @@ export default ({
     }, {})
 
     const rawIconSrc = getIcon(config.icon)
-    const iconPath = rawIconSrc ? getAssetLinkPath(resolve(root, rawIconSrc), outDir, relTo) : null
+    const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
+    const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
 
     const globalObject = {
 
@@ -109,8 +116,6 @@ export default ({
             const headContent = headStart && headEnd ? html.slice(headStart + TAGS.head.start.length, headEnd) : ''
             const beforeHead = headStart ? html.slice(0, headStart) : ''
             const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
-
-            const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', outDir, relTo)
 
             const lowPriority = `
                 <title>${config.name}</title>
@@ -158,7 +163,7 @@ export default ({
                     commonersGlobalVariable.__READY = res
                 })    
 
-                import("${getAssetLinkPath('onload.mjs', outDir, relTo)}")
+                import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
 
             </script>\n
             `

@@ -3,7 +3,7 @@
 // --------------------------------------------------------------------------------------------------------------
 
 import electron, { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
-import { join } from 'node:path'
+import { join, basename } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
@@ -138,7 +138,8 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
     plugin: {
       assets: Object.entries(assets).reduce((acc, [key, value]) => {
         const filepath = typeof value === 'string' ? value : value.src
-        acc[key] = join(assetsPath, filepath)
+        const filename = basename(filepath)
+        acc[key] = join(assetsPath, 'plugins', id, key, filename)
         return acc
       }, {})
     },

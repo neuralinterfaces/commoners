@@ -109,6 +109,8 @@ export const resolveViteConfig = async (
     build = true
 ) => {
 
+    const isMainCommonersFile = !commonersConfig.build?.outDir
+
     const _vite = await vite
 
     const isDesktopTarget = isDesktop(target)
@@ -120,27 +122,31 @@ export const resolveViteConfig = async (
 
     const { name, appId, root, icon, description } = commonersConfig
 
-    // Desktop Build
-    if (isDesktopTarget) {
-        const plugin = await electronPlugin({ build, root, outDir })
-        plugins.push(...plugin)
-    } 
+    if (isMainCommonersFile) {
     
-    // PWA Build
-    else if (target === 'pwa') {
+        // Desktop Build
+        if (isDesktopTarget) {
+            const plugin = await electronPlugin({ build, root, outDir })
+            plugins.push(...plugin)
+        } 
         
-        const opts = resolvePWAOptions(commonersConfig.pwa, {
-            name,
-            appId,
-            icon,
-            description,
-            root
-        }, outDir)
+        // PWA Build
+        else if (target === 'pwa') {
+            
+            const opts = resolvePWAOptions(commonersConfig.pwa, {
+                name,
+                appId,
+                icon,
+                description,
+                root
+            }, outDir)
 
-        const VitePWAPlugin = await import('vite-plugin-pwa').then(m => m.VitePWA)
+            const VitePWAPlugin = await import('vite-plugin-pwa').then(m => m.VitePWA)
 
-        // @ts-ignore
-        plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
+            // @ts-ignore
+            plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
+        }
+
     }
 
     // Define a default set of plugins and configuration options

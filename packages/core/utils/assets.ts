@@ -4,6 +4,7 @@ import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize
 import { pathToFileURL } from "node:url"
 
 
+
 // Internal Imports
 import { resolveConfig, resolveConfigPath } from "../index.js"
 import { copyAsset, copyAssetOld } from './copy.js'
@@ -17,7 +18,6 @@ import { printSubtle } from "./formatting.js"
 
 import { resolveViteConfig } from "../vite/index.js"
 import { mergeConfig } from "vite"
-
 
 type ESBuildBuildOptions = import('esbuild').BuildOptions
 
@@ -67,10 +67,13 @@ const getBuildDir = (outDir: string) => join(resolve(outDir), 'assets')
 
 const sharedWithElectron = [ 'commoners.config.cjs' ]
 
-export const getAssetBuildPath = (assetPath: string, outDir: string) => {
+export const getAssetBuildPath = (assetPath: string, outDir: string, isSharedWithElectron?: boolean) => {
     const inputToCompare = assetPath.replaceAll(sep, posix.sep)  
-    if (sharedWithElectron.includes(inputToCompare)) return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
-    return join(getBuildDir(outDir), encodePath(assetPath))
+    if (isSharedWithElectron === undefined) isSharedWithElectron = sharedWithElectron.includes(inputToCompare)
+    if (isSharedWithElectron) return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
+    const buildDir = getBuildDir(outDir)
+    const encoded = encodePath(assetPath)
+    return join(buildDir, encoded)
 }
 
 export const getAssetLinkPath = (
@@ -82,12 +85,15 @@ export const getAssetLinkPath = (
 
     // Get the absolute path of the asset
     const absOutPath = getAssetBuildPath(path, outDir)
+    const resolvedRoot = resolve(root)
 
     // Get the relative path of the asset
-    let outPath = normalize(relative(resolve(root), absOutPath))
+    let outPath = normalize(relative(resolvedRoot, absOutPath))
     if (!(outPath[0] === sep)) outPath = sep + outPath
     if (!(outPath[0] === '.')) outPath = '.' + outPath
-    return outPath.replaceAll(sep, posix.sep)
+    const result = outPath.replaceAll(sep, posix.sep)
+    return result
+
 }
 
 
@@ -257,14 +263,26 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     }
 
     // Handle Provided Plugins
-    for (const plugin of Object.values(resolvedConfig.plugins)) {
+    for (const [ id, plugin ] of Object.entries(resolvedConfig.plugins)) {
         const assetsCopy = structuredClone(plugin.assets ?? {})
         Object.entries(assetsCopy).map(([ key, fileInfo ]) => {
             const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src, overrides }  = fileInfoDictionary
+            const { src,  overrides }  = fileInfoDictionary
             const absPath = getAbsolutePath(root, src)
-            const outPath = getAssetBuildPath(absPath, outDir)
-            assets.bundle.push({ input: absPath, output: outPath, config: overrides })
+
+            // const dir = dirname(src) // NOTE: This may overwrite files that are named the same
+            const filename = basename(src)
+
+            const assetPath = join('plugins', id, key, filename)
+            const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
+
+            assets.bundle.push({ 
+                input: absPath, 
+                output: outPath, 
+                force: true, // Ensure strict output location
+                config: overrides,
+            })
+            
             assetsCopy[key] = outPath
         })
 
@@ -417,6 +435,8 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                 const { target } = config
                 const { config: commonersConfig } = info
 
+                const outDir = dirname(outPath)
+
                 // Default Build Configuration
                 const buildConfig = {
                     logLevel: 'silent',
@@ -424,8 +444,8 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                     root: fileRoot,
                     build: {
                         emptyOutDir: false, // Ensure assets already built are maintained
-                        outDir: relative(fileRoot, dirname(outPath)), // Configure the output directory of the linked build assets
-                        rollupOptions: { input }
+                        outDir, // Configure the output directory of the linked build assets
+                        rollupOptions: { input } 
                     },
                 }
 
@@ -434,11 +454,13 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                 if (commonersConfig) {
 
                     const mergedConfig = {...config, ...commonersConfig, root: fileRoot }
+                    
                     const viteConfig = await resolveViteConfig(mergedConfig, { 
                         target, 
-                        outDir, // Provide the original output directory to link to Commoners assets correctly
+                        outDir, // Provide a new outDir to link to the original (provided by the mergedConfig above)
                         dev 
                     }, false)
+                    
                     const mergedViteConfig = mergeConfig(viteConfig, buildConfig)
                     await _vite.build(mergedViteConfig)
                 }
