@@ -1,6 +1,8 @@
 async function isOnGithubActions(): Promise<boolean> {
     const { CI, GITHUB_RUN_ID, GITHUB_TOKEN, GITHUB_REPOSITORY } = process.env;
 
+    console.log('GitHub Actions Environment', CI, GITHUB_RUN_ID, GITHUB_TOKEN, GITHUB_REPOSITORY);
+
     if (!CI || !GITHUB_RUN_ID || !GITHUB_TOKEN || !GITHUB_REPOSITORY) {
         return false;
     }
@@ -20,6 +22,7 @@ async function isOnGithubActions(): Promise<boolean> {
     }
 
     const data = await response.json();
+    console.log('GitHub Actions Data', data);
     return 'workflow_runs' in data;
 }
 

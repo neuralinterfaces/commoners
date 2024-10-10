@@ -4,13 +4,13 @@
     #pragma comment(lib, "ws2_32.lib") // Link with ws2_32.lib
     typedef int socklen_t;
     #define close closesocket
-    #define read recv
+    #define read_recv(s, b, l) recv(s, b, l, 0) // Windows uses recv
 #else
     #include <sys/socket.h> // For socket functions
     #include <netinet/in.h> // For sockaddr_in
     #include <arpa/inet.h>  // For inet_pton, etc.
     #include <unistd.h>     // For read, close
-    #include <errno.h>      // For errno
+    #define read_recv(s, b, l) read(s, b, l) // Unix-like systems use read
 #endif
 
 #include <cstdlib>   // For exit() and EXIT_FAILURE
@@ -37,7 +37,6 @@ std::string handlePostRequest(const std::string& postData, const std::string& co
 }
 
 int main() {
-    // Set up platform-specific initialization (WSA for Windows)
     #ifdef _WIN32
     WSADATA wsaData;
     int wsaResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -47,14 +46,12 @@ int main() {
     }
     #endif
 
-    // Get port and host from environment variables, with defaults
     const char* envPort = std::getenv("PORT");
     int port = envPort ? std::atoi(envPort) : 8080;
 
     const char* host = std::getenv("HOST");
     std::cout << "Starting server on http://" << (host ? host : "0.0.0.0") << ":" << port << std::endl;
 
-    // Create socket
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
         #ifdef _WIN32
@@ -65,7 +62,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Allow address reuse
     int opt = 1;
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
         #ifdef _WIN32
@@ -76,14 +72,11 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Configure sockaddr_in struct
     sockaddr_in sockaddr;
     sockaddr.sin_family = AF_INET;
-    sockaddr.sin_addr.s_addr = INADDR_ANY; // Bind to all interfaces (IPv4)
-
+    sockaddr.sin_addr.s_addr = INADDR_ANY; 
     sockaddr.sin_port = htons(port);
 
-    // Bind to port
     if (bind(sockfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
         #ifdef _WIN32
         std::cerr << "Failed to bind to port " << port << ". WSA error: " << WSAGetLastError() << std::endl;
@@ -93,7 +86,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Start listening for connections
     if (listen(sockfd, 10) < 0) {
         #ifdef _WIN32
         std::cerr << "Failed to listen on socket. WSA error: " << WSAGetLastError() << std::endl;
@@ -103,7 +95,6 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Accept and handle connections
     while (true) {
         auto addrlen = sizeof(sockaddr);
         int connection = accept(sockfd, (struct sockaddr*)&sockaddr, (socklen_t*)&addrlen);
@@ -117,7 +108,7 @@ int main() {
         }
 
         char buffer[1024] = {0};
-        read(connection, buffer, 1024);
+        read_recv(connection, buffer, 1024);
 
         std::string request(buffer);
         std::string response;
@@ -131,7 +122,7 @@ int main() {
                 postData = request.substr(pos + 4);
             }
 
-            std::string contentType = "application/octet-stream"; // Default content type
+            std::string contentType = "application/octet-stream"; 
             pos = request.find("Content-Type: ");
             if (pos != std::string::npos) {
                 auto end = request.find("\r\n", pos);
@@ -146,7 +137,6 @@ int main() {
         close(connection);
     }
 
-    // Clean up platform-specific resources (WSA for Windows)
     #ifdef _WIN32
     WSACleanup();
     #endif
