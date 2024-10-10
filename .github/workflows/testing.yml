@@ -52,6 +52,10 @@ jobs:
         with:
           node-version: 20
 
+      - if: matrix.os == 'ubuntu-latest'
+        name: Install FUSE for AppImage support
+        run: sudo apt-get update && sudo apt-get install -y fuse
+
       - name: Install and build dependencies
         run: corepack enable pnpm && pnpm install && pnpm build
 
