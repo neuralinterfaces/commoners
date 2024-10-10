@@ -52,8 +52,8 @@ jobs:
         with:
           node-version: 20
 
-      - if: matrix.os == 'ubuntu-latest'
-        name: Install FUSE for AppImage support
+      - name: Install FUSE for AppImage support
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y fuse
 
       - name: Install and build dependencies
@@ -77,13 +77,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm coverage
 
-      - name: Find app.asar
+      - name: Find and set app.asar path
+        if: always()
+        id: set_asar_path
         run: |
-          find . -name app.asar
-        id: find_asar
+          ASAR_PATH=$(find . -name app.asar)
+          echo "asar-path=${ASAR_PATH}" >> $GITHUB_ENV
 
       - name: Upload app.asar as artifact
+        if: always()
         uses: actions/upload-artifact@v3
         with:
           name: app-asar
-          path: ${{ steps.find_asar.outputs.files }}
+          path: ${{ env.asar-path }}
