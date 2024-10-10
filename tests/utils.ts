@@ -175,7 +175,6 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
     const describeFn = skipPackageStep ? describe.skip : describe
 
     const buildWaitTime = (isElectron || isMobile) ? getMinutes(5) : undefined // Wait for five minutes (max) for Electron services to build
-    const launchWaitTime = getMinutes(3) // Wait for five seconds for Electron to open
 
     // Define inputs
     const opts = { target, build: { outDir: scopedBuildOutDir } }
@@ -223,7 +222,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
         const _output = await open(projectBase, opts, true)
         spyOnAll(_output)
         Object.assign(output, _output)
-      }, launchWaitTime)
+      })
 
       afterAll(() => output.cleanup())
 
