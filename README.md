@@ -44,5 +44,23 @@ Install all packages by running the following command:
 pnpm install
 ```
 
+### Testing
+#### Initial Setup
+```bash
+conda env create -f packages/core/tests/demo/src/services/python/environment.yml
+```
+
+#### Running Tests
+Always run tests with the `commoners-test-app` environment activated.
+
+```bash
+conda activate commoners-test-app
+```
+
+Then, simply run the following command:
+```bash
+pnpm test
+```
+
 ## Acknowledgements
 This project is part of [Neural Interfaces](https://github.com/neuralinterfaces).

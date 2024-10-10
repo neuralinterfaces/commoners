@@ -1,8 +1,8 @@
 import { vi, expect, test, describe, beforeAll, afterAll } from 'vitest'
 
-import { normalizeTarget } from '../index'
+import { normalizeTarget } from '@commoners/solidarity'
 
-import { build, open } from '../../testing/index'
+import { build, open } from '@commoners/testing'
 import { checkAssets } from './assets'
 
 
@@ -123,6 +123,7 @@ const e2eTests = {
 
 export const registerStartTest = (name, { target = 'web' } = {}, enabled = true) => {
   
+  
   const describeCommand = enabled ? describe : describe.skip
 
   describeCommand(name, () => {
@@ -132,9 +133,12 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
       const _output = await open(projectBase, { target })
       spyOnAll(_output)
       Object.assign(output, _output)
+
     })
 
-    afterAll(() => output.cleanup())
+    afterAll(() => {
+      output.cleanup()
+    })
 
     test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
 

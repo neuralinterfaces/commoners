@@ -34,7 +34,7 @@ export default async function (
 
         const outDir = join(root, globalTempDir)
 
-        await handleTemporaryDirectories(outDir)
+       const tempDirManager = await handleTemporaryDirectories(outDir)
 
         // Build for mobile before moving forward
         if (isMobileTarget) await build(resolvedConfig, { services: resolvedServices, dev: true })
@@ -64,6 +64,7 @@ export default async function (
             close: closeFunction
         }
 
+
         // Configure the desktop instance
         if (isDesktopTarget) await configureForDesktop(outDir, root)
 
@@ -72,7 +73,6 @@ export default async function (
 
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) {
-            
             const frontend = activeInstances.frontend = await createServer(resolvedConfig, { 
                 printUrls: !isDesktopTarget, 
                 outDir,
@@ -80,10 +80,20 @@ export default async function (
             })
 
             manager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
-        
+
         }
 
-        onCleanup(() => manager.close({ services: true, frontend: true })) // Close all services and frontend on exit
+        const closeAll = (o) => {
+            tempDirManager.close()
+            manager.close(o)
+        }
 
-        return manager
+        onCleanup(() => {
+            closeAll({ services: true, frontend: true }) // Close all services and frontend on exit
+        })
+
+        return {
+            url: manager.url,
+            close: closeAll
+        }
 }

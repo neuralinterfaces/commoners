@@ -6,4 +6,4 @@ dependencies:
   - python=3.10.13
   - pip:
     - pyinstaller==6.0.0
-prefix: /opt/anaconda3/envs/commoners-python-service
+prefix: /opt/anaconda3/envs/commoners-test-app

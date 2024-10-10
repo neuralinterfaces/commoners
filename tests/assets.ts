@@ -1,5 +1,5 @@
 import { expect } from 'vitest'
-import { globalTempDir } from '../../core/index'
+import { globalTempDir } from '@commoners/solidarity'
 
 import { join } from 'node:path'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
