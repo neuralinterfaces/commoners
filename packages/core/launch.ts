@@ -109,15 +109,12 @@ export default async function (options: LaunchOptions) {
         else if (PLATFORM === 'linux') runExecutableCommand = args.shift() // Run executable directly on Linux
         else if (PLATFORM === 'mac') args.splice(1, 0, "--args") // macOS-specific flag to pass additional arguments
 
-        console.log(`Launching application with ${_chalk.bold([runExecutableCommand, ...args].join(' '))}`)
+        printSubtle([runExecutableCommand, ...args].join(' '))
 
         await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
 
-        const debugUrl = `http://localhost:${electronDebugPort}`
-        printSubtle(`Debug your application at ${_chalk.cyan(debugUrl)}`)
-
         return {
-            url: debugUrl
+            url: `http://localhost:${electronDebugPort}`
         }
     } 
 
