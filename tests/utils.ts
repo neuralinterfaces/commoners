@@ -153,7 +153,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
   })
 }
 
-export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) => {
+export const registerBuildTest = (name, { target = 'web', publish = false } = {}, enabled = true) => {
   const describeCommand = enabled ? describe : describe.skip
 
   const isElectron = target === 'electron'
@@ -172,7 +172,7 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     const waitTime = (isElectron || isMobile) ? 10 * 60 * 1000 : undefined // Wait for ten minutes (max) for Electron services to build
 
     // Define inputs
-    const opts = { target, build: { outDir: scopedBuildOutDir } }
+    const opts = { target, publish, build: { outDir: scopedBuildOutDir } }
 
     const hooks = {
       onBuildAssets: (assetDir) => {

@@ -12,6 +12,7 @@ import { execSync } from 'node:child_process'
 import { name } from './demo/commoners.config'
 import { projectBase, registerBuildTest, registerStartTest } from './utils'
 import { existsSync, rmSync, mkdirSync } from 'node:fs'
+import isOnGithubActions from './github'
 
 describe('Custom project base is loaded', () => {
 
@@ -40,13 +41,16 @@ describe('Start', () => {
 
 })
 
-describe('Build and Launch', () => {
+describe('Build and Launch', async () => {
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
 
+  const shouldPublish = await isOnGithubActions()
+  console.log('Should publish', shouldPublish)
+
   registerBuildTest(
     'Desktop', 
-    { target: 'electron' }
+    { target: 'electron', publish: shouldPublish }
   )
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)
