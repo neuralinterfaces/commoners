@@ -30,21 +30,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: git fetch --prune --unshallow --tags
+
+      - name: Install Python 3.10
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Conda Environment
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: commoners-test-app
+          environment-file: tests/demo/src/services/python/environment.yml
+          auto-activate-base: false
       
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install Commoners
-        run: pnpm install
-
-      - name: Build Commoners
-        run: pnpm build
-
+      - name: Install and build dependencies
+        run: corepack enable pnpm && pnpm install && pnpm build
 
       - if: matrix.os != 'ubuntu-latest'
         name: Run tests

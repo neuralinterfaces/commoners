@@ -151,7 +151,15 @@ export default async function build (
         // Ensure platform-specific configs exist
         if (!buildConfig.mac) buildConfig.mac = {}
         if (!buildConfig.win) buildConfig.win = {}
+        if (!buildConfig.linux) buildConfig.linux = {}
 
+        // Ensure proper linux configuration
+        buildConfig.linux.executableName = buildConfig.productName
+        Object.assign(buildConfig.linux, {
+            executableName: buildConfig.productName,
+            artifactName: "${productName}-${version}.${ext}"
+        })
+        
         // Handle extra resources and code signing
         const extraResources = buildConfig.extraResources = []
         const signIgnore = buildConfig.mac.signIgnore = []
