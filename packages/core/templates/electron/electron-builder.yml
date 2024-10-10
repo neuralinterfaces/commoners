@@ -13,9 +13,7 @@ mac:
 
 linux:
   target:
-    - AppImage
-    - snap
-    - deb
+    - AppImage # Default to AppImage
 
 npmRebuild: true
 
