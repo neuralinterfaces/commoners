@@ -17,22 +17,24 @@ const open = import('open').then(m => m.default)
 const isDesktopFolder = (outDir) => {
     let baseDir = ''
     let filename = null
-    let ext;
+    const extensions = []
     if (PLATFORM === 'mac') {
         const isMx = /Apple\sM\d+/.test(cpus()[0].model)
         baseDir = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`)
-        ext = '.app'
+        extensions.push('.app')
     } else if (PLATFORM === 'windows') {
         baseDir = join(outDir, `win-unpacked`)
-        ext = '.exe'
+        extensions.push('.exe')
     }
 
     else if (PLATFORM === 'linux') {
         baseDir = join(outDir, `linux-unpacked`)
-        ext = ''
+        extensions.push('.AppImage', '.deb', '.rpm', '.snap')
     }
 
-    if (existsSync(baseDir)) filename = readdirSync(baseDir).find(file => file.endsWith(ext))
+    if (existsSync(baseDir)) filename = readdirSync(baseDir).find(file => extensions.some(ext => file.endsWith(ext)))
+
+    console.log(`Launching ${filename} from ${baseDir}`)
 
     const filepath = filename ? join(baseDir, filename) : null
     const name = filename ? basename(filename, extname(filename)) : null
