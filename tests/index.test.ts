@@ -41,16 +41,13 @@ describe('Start', () => {
 
 })
 
-describe('Build and Launch', async () => {
+describe('Build and Launch', () => {
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
 
-  const shouldPublish = await isOnGithubActions()
-  console.log('Should publish', shouldPublish)
-
   registerBuildTest(
     'Desktop', 
-    { target: 'electron', publish: shouldPublish }
+    { target: 'electron', publish: isOnGithubActions }
   )
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)

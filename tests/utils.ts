@@ -153,7 +153,10 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
   })
 }
 
-export const registerBuildTest = (name, { target = 'web', publish = false } = {}, enabled = true) => {
+type PublishOption = boolean | string | Function
+type BuildOptions = { target?: string, publish?: PublishOption }
+
+export const registerBuildTest = (name, { target = 'web', publish = false }: BuildOptions = {}, enabled = true) => {
   const describeCommand = enabled ? describe : describe.skip
 
   const isElectron = target === 'electron'
@@ -187,10 +190,9 @@ export const registerBuildTest = (name, { target = 'web', publish = false } = {}
 
 
     beforeAll(async () => {
-
+      if (typeof opts.publish === 'function') opts.publish = await opts.publish() // Resolve dynamic publish option
       const _output = await build( projectBase,  opts, hooks )
       Object.assign(output, _output)
-
     }, waitTime)
 
     // Cleanup build outputs

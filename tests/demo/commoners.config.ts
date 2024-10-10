@@ -70,7 +70,8 @@ const config = {
 
             // Compilation + build step
             build: async ({ src, out }) => {
-                const isWindows = process.platform === 'win32'
+                const os = await import('node:os')
+                const isWindows = os.platform() === 'win32'
                 const { mkdirSync } = await import('node:fs')
                 const { dirname, resolve } = await import('node:path')
                 mkdirSync(dirname(out), { recursive: true }) // Ensure base and asset output directory exists

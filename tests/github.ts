@@ -3,11 +3,7 @@ async function isOnGithubActions(): Promise<boolean> {
 
     const TOKEN = GITHUB_TOKEN || GH_TOKEN;
 
-    console.log('GitHub Actions Environment', CI, GITHUB_RUN_ID, TOKEN, GITHUB_REPOSITORY);
-
-    if (!CI || !GITHUB_RUN_ID || !TOKEN || !GITHUB_REPOSITORY) {
-        return false;
-    }
+    if (!CI || !GITHUB_RUN_ID || !TOKEN || !GITHUB_REPOSITORY) return false;
 
     const url = `https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;
     const response = await fetch(url, {
@@ -19,13 +15,10 @@ async function isOnGithubActions(): Promise<boolean> {
         }
     });
 
-    if (!response.ok) {
-        return false;
-    }
+    if (!response.ok)  return false;
 
     const data = await response.json();
-    console.log('GitHub Actions Data', data);
-    return 'workflow_runs' in data;
+    return data["status"] === "in_progress";
 }
 
 export default isOnGithubActions;
