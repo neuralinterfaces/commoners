@@ -18,9 +18,7 @@ async function isOnGithubActions(): Promise<boolean> {
     if (!response.ok)  return false;
 
     const data = await response.json();
-    const isInProgress = data["status"] === "in_progress";
-    console.log('In Progress on Github Actions:', isInProgress);
-    return isInProgress
+    return data["status"] === "in_progress";
 }
 
 export default isOnGithubActions;

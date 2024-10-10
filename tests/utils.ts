@@ -178,7 +178,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
     const launchWaitTime = getMinutes(3) // Wait for five seconds for Electron to open
 
     // Define inputs
-    const opts = { target, publish, build: { outDir: scopedBuildOutDir } }
+    const opts = { target, build: { outDir: scopedBuildOutDir } }
 
     const hooks = {
       onBuildAssets: (assetDir) => {
@@ -193,7 +193,13 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
 
 
     beforeAll(async () => {
-      if (typeof opts.publish === 'function') opts.publish = await opts.publish() // Resolve dynamic publish option
+
+      // Set publish option if specified
+      if (publish) {
+        if (typeof publish === 'function') publish = await publish()
+        Object.assign(opts.build, { publish })
+      }
+
       const _output = await build( projectBase,  opts, hooks )
       Object.assign(output, _output)
     }, buildWaitTime)

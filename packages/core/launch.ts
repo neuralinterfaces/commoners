@@ -14,7 +14,7 @@ import * as mobile from './mobile/index.js'
 
 const open = import('open').then(m => m.default)
 
-const isDesktopFolder = (outDir) => {
+const getDesktopPath = (outDir) => {
     let baseDir = ''
     let filename = null
     const extensions = []
@@ -36,7 +36,6 @@ const isDesktopFolder = (outDir) => {
 
     else if (platform.linux) {
         baseDir = join(outDir, `linux-unpacked`)
-        filename = '' // Run the directory as an executable if no file is found
         extensions.push('.AppImage', '.deb', '.rpm', '.snap')
     }
 
@@ -45,17 +44,10 @@ const isDesktopFolder = (outDir) => {
         if (resolved) filename = resolved
     }
 
-    console.log(`Launching ${filename} from ${baseDir}`)
+    const fullPath = filename ? join(baseDir, `"${filename}"`)  : (platform.linux ? baseDir : null)
+    if (!fullPath || !existsSync(fullPath)) return null
+    return fullPath
 
-    const filepath = filename ? join(baseDir, filename) : null
-    const name = filename ? basename(filename, extname(filename)) : null
-
-    return {
-        name,
-        filename,
-        base: baseDir,
-        filepath
-    }
 }
 
 export default async function (options: LaunchOptions) {
@@ -65,11 +57,11 @@ export default async function (options: LaunchOptions) {
     let target = options.target;
 
     if (options.outDir) {
-        const desktopInfo = isDesktopFolder(options.outDir)
+        const desktopPath = getDesktopPath(options.outDir)
 
         // Autodetect target build type
         if (options.outDir){
-            if (desktopInfo.filepath) target = 'electron'
+            if (desktopPath) target = 'electron'
         }
     }
 
@@ -92,12 +84,14 @@ export default async function (options: LaunchOptions) {
 
     else if (isDesktop(target)) {
         
-        const desktopInfo = isDesktopFolder(outDir)
+        const fullPath = getDesktopPath(outDir)
 
-        if (!desktopInfo.filepath || !existsSync(desktopInfo.filepath)) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
+        if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
+
+        console.log(`Launching ${fullPath}`)
 
         await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [
-            `${join(desktopInfo.base, `"${desktopInfo.filename}"`)}`, 
+            `${fullPath}`, 
             '--args', 
             `--remote-debugging-port=${electronDebugPort}`, 
             `--remote-allow-origins=*`
