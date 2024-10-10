@@ -3,7 +3,15 @@
   "version": "0.0.40",
   "private": true,
   "description": "A test app for the commoners library",
-  "author": "Garrett Flynn <garrettmflynn@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neuralinterfaces/commoners.git"
+  },
+  "author": {
+    "name": "Garrett Flynn",
+    "email": "garrettmflynn@gmail.com",
+    "url": "https://garrettflynn.com/"
+  },
   "workspaces": [
     "src/services/*"
   ]
