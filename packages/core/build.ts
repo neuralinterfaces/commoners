@@ -211,7 +211,7 @@ export default async function build (
         
 
         if (publish) electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
-        else buildConfig.publish = 'never' // Never publish by default
+        else buildConfig.publish = null
 
         // Use electron-builder to package the app
         const { build } = await import('electron-builder')
