@@ -105,8 +105,7 @@ export default async function (options: LaunchOptions) {
         ];
 
         // Set the appropriate command based on the platform
-        if (PLATFORM === 'windows') runExecutableCommand = 'start';
-        else if (PLATFORM === 'linux') runExecutableCommand = args.shift() // Run executable directly on Linux
+        if (PLATFORM === 'windows'|| PLATFORM === 'linux') runExecutableCommand = args.shift() // Run executable directly on Linux
         else if (PLATFORM === 'mac') args.splice(1, 0, "--args") // macOS-specific flag to pass additional arguments
 
         printSubtle([runExecutableCommand, ...args].join(' '))
