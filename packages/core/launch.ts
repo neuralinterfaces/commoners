@@ -11,6 +11,7 @@ import { spawnProcess } from './utils/processes.js'
 import { createServer } from './utils/server.js'
 
 import * as mobile from './mobile/index.js'
+import { run } from 'node:test';
 
 const open = import('open').then(m => m.default)
 
@@ -95,8 +96,6 @@ export default async function (options: LaunchOptions) {
 
         if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
 
-        console.log(`Launching application from ${fullPath}`)
-
         let runExecutableCommand = "open" // Default to macOS command
         
         const args = [
@@ -109,6 +108,8 @@ export default async function (options: LaunchOptions) {
         if (PLATFORM === 'windows') runExecutableCommand = 'start';
         else if (PLATFORM === 'linux') runExecutableCommand = args.shift() // Run executable directly on Linux
         else if (PLATFORM === 'mac') args.splice(1, 0, "--args") // macOS-specific flag to pass additional arguments
+
+        console.log(`Launching application with ${_chalk.bold([runExecutableCommand, ...args].join(' '))}`)
 
         await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
 
