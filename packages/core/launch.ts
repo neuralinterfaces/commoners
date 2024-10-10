@@ -14,6 +14,14 @@ import * as mobile from './mobile/index.js'
 
 const open = import('open').then(m => m.default)
 
+const matchFile = (directory, extensions) => {
+    if (!existsSync(directory)) return null
+    return readdirSync(directory).find(file => {
+        const fileExtension = extname(file)
+        return extensions.some(ext => fileExtension === ext)
+    })
+}
+
 const getDesktopPath = (outDir) => {
     let baseDir = ''
     let filename = null
@@ -28,23 +36,23 @@ const getDesktopPath = (outDir) => {
     if (platform.mac) {
         const isMx = /Apple\sM\d+/.test(cpus()[0].model)
         baseDir = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`)
-        extensions.push('.app')
+        filename = matchFile(baseDir, [".app"])
     } else if (platform.windows) {
         baseDir = join(outDir, `win-unpacked`)
-        extensions.push('.exe')
+        filename = matchFile(baseDir, ['.exe'])
     }
 
     else if (platform.linux) {
         baseDir = join(outDir, `linux-unpacked`)
-        extensions.push('.AppImage', '.deb', '.rpm', '.snap')
+        filename = matchFile(outDir, ['.AppImage', '.deb', '.rpm', '.snap'])
+        if (filename) baseDir = outDir
+        else {
+            baseDir = join(outDir, `linux-unpacked`)
+            filename = matchFile(baseDir, [''])
+        }
     }
 
-    if (existsSync(baseDir)) {
-        const resolved = readdirSync(baseDir).find(file => extensions.some(ext => file.endsWith(ext)))
-        if (resolved) filename = resolved
-    }
-
-    const fullPath = filename ? join(baseDir, filename)  : (platform.linux ? baseDir : null)
+    const fullPath = filename && join(baseDir, filename)
     if (!fullPath || !existsSync(fullPath)) return null
     return fullPath
 
