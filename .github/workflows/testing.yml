@@ -76,11 +76,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm coverage
-
-      - name: Archive app.asar
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: app-asar-${{ matrix.os }}
-          path: .commoners/custom_output_dir/**/*.asar
-          
