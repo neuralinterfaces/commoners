@@ -79,8 +79,9 @@ jobs:
 
       - name: Archive app.asar
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: app-asar-${{ matrix.os }}
-          path: tests/demo/.commoners/custom_output_dir/**/app.asar
-
+          tests/demo/.commoners/**/*.asar
+          path: .commoners/custom_output_dir/**/*.asar
           
