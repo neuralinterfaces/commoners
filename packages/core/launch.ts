@@ -27,6 +27,11 @@ const isDesktopFolder = (outDir) => {
         ext = '.exe'
     }
 
+    else if (PLATFORM === 'linux') {
+        baseDir = join(outDir, `linux-unpacked`)
+        ext = ''
+    }
+
     if (existsSync(baseDir)) filename = readdirSync(baseDir).find(file => file.endsWith(ext))
 
     const filepath = filename ? join(baseDir, filename) : null
