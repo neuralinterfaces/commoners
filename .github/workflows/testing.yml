@@ -82,6 +82,5 @@ jobs:
         if: always()
         with:
           name: app-asar-${{ matrix.os }}
-          tests/demo/.commoners/**/*.asar
           path: .commoners/custom_output_dir/**/*.asar
           
