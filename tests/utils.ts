@@ -14,6 +14,8 @@ export const scopedBuildOutDir = join('.commoners', 'custom_output_dir')
 
 const getRandomNumber = () => Math.random().toString(36).substring(7)
 
+const getMinutes = (minutes) => minutes * 60 * 1000
+
 export const projectBase = join(__dirname, 'demo')
 
 const getServices = async (output) => {
@@ -172,7 +174,8 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
     // NOTE: Desktop and mobile builds are not fully built
     const describeFn = skipPackageStep ? describe.skip : describe
 
-    const waitTime = (isElectron || isMobile) ? 10 * 60 * 1000 : undefined // Wait for ten minutes (max) for Electron services to build
+    const buildWaitTime = (isElectron || isMobile) ? getMinutes(5) : undefined // Wait for five minutes (max) for Electron services to build
+    const launchWaitTime = getMinutes(3) // Wait for five seconds for Electron to open
 
     // Define inputs
     const opts = { target, publish, build: { outDir: scopedBuildOutDir } }
@@ -193,7 +196,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
       if (typeof opts.publish === 'function') opts.publish = await opts.publish() // Resolve dynamic publish option
       const _output = await build( projectBase,  opts, hooks )
       Object.assign(output, _output)
-    }, waitTime)
+    }, buildWaitTime)
 
     // Cleanup build outputs
     afterAll(() =>  output.cleanup([ 'build' ]))
@@ -214,7 +217,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
         const _output = await open(projectBase, opts, true)
         spyOnAll(_output)
         Object.assign(output, _output)
-      })
+      }, launchWaitTime)
 
       afterAll(() => output.cleanup())
 

@@ -18,21 +18,32 @@ const isDesktopFolder = (outDir) => {
     let baseDir = ''
     let filename = null
     const extensions = []
-    if (PLATFORM === 'mac') {
+
+    const platform = {
+        mac: PLATFORM === 'mac',
+        windows: PLATFORM === 'windows',
+        linux: PLATFORM === 'linux'
+    }
+    
+    if (platform.mac) {
         const isMx = /Apple\sM\d+/.test(cpus()[0].model)
         baseDir = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`)
         extensions.push('.app')
-    } else if (PLATFORM === 'windows') {
+    } else if (platform.windows) {
         baseDir = join(outDir, `win-unpacked`)
         extensions.push('.exe')
     }
 
-    else if (PLATFORM === 'linux') {
+    else if (platform.linux) {
         baseDir = join(outDir, `linux-unpacked`)
+        filename = '' // Run the directory as an executable if no file is found
         extensions.push('.AppImage', '.deb', '.rpm', '.snap')
     }
 
-    if (existsSync(baseDir)) filename = readdirSync(baseDir).find(file => extensions.some(ext => file.endsWith(ext)))
+    if (existsSync(baseDir)) {
+        const resolved = readdirSync(baseDir).find(file => extensions.some(ext => file.endsWith(ext)))
+        if (resolved) filename = resolved
+    }
 
     console.log(`Launching ${filename} from ${baseDir}`)
 
