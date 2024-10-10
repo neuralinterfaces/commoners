@@ -76,3 +76,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm coverage
+
+      - name: Find app.asar
+        run: |
+          find . -name app.asar
+        id: find_asar
+
+      - name: Upload app.asar as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-asar
+          path: ${{ steps.find_asar.outputs.files }}
