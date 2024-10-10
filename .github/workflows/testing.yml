@@ -77,16 +77,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm coverage
 
-      - name: Find and set app.asar path
-        if: always()
-        id: set_asar_path
-        run: |
-          ASAR_PATH=$(find . -name app.asar)
-          echo "asar-path=${ASAR_PATH}" >> $GITHUB_ENV
-
-      - name: Upload app.asar as artifact
-        if: always()
-        uses: actions/upload-artifact@v3
+      - name: Archive app.asar
+        uses: actions/upload-artifact@v4
         with:
-          name: app-asar
-          path: ${{ env.asar-path }}
+          name: app-asar-${{ matrix.os }}
+          path: tests/demo/.commoners/custom_output_dir/**/app.asar
+
+          
