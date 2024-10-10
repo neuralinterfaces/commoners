@@ -169,7 +169,7 @@ export const registerBuildTest = (name, { target = 'web'} = {}, enabled = true) 
     // NOTE: Desktop and mobile builds are not fully built
     const describeFn = skipPackageStep ? describe.skip : describe
 
-    const waitTime = (isElectron || isMobile) ? 2 * 60 * 1000 : undefined // Wait two minutes for Electron services to build
+    const waitTime = (isElectron || isMobile) ? 10 * 60 * 1000 : undefined // Wait for ten minutes (max) for Electron services to build
 
     // Define inputs
     const opts = { target, build: { outDir: scopedBuildOutDir } }

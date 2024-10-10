@@ -51,10 +51,20 @@ jobs:
       - name: Install and build dependencies
         run: corepack enable pnpm && pnpm install && pnpm build
 
-      - if: matrix.os != 'ubuntu-latest'
-        name: Run tests
+      - if: matrix.os == 'macos-latest'
+        name: Run tests for Mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm coverage
+
+      - if: matrix.os == 'windows-latest'
+        name: Run tests for Windows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pnpm coverage
 
       - if: matrix.os == 'ubuntu-latest'
-        name: Run tests with xvfb
+        name: Run tests for Linux (xvfb)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm coverage
