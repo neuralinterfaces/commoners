@@ -44,7 +44,7 @@ const getDesktopPath = (outDir) => {
         if (resolved) filename = resolved
     }
 
-    const fullPath = filename ? join(baseDir, `"${filename}"`)  : (platform.linux ? baseDir : null)
+    const fullPath = filename ? join(baseDir, filename)  : (platform.linux ? baseDir : null)
     if (!fullPath || !existsSync(fullPath)) return null
     return fullPath
 
@@ -91,7 +91,7 @@ export default async function (options: LaunchOptions) {
         console.log(`Launching ${fullPath}`)
 
         await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [
-            `${fullPath}`, 
+            `"${fullPath}"`, 
             '--args', 
             `--remote-debugging-port=${electronDebugPort}`, 
             `--remote-allow-origins=*`

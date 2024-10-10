@@ -12,7 +12,8 @@
     "clean:modules": "rm -rf node_modules && pnpm -r exec rm -rf node_modules",
     "clean:dist": "rm -rf dist && pnpm -r exec rm -rf dist",
     "demo": "commoners tests/demo",
-    "demo:build": "commoners build tests/demo"
+    "demo:build": "commoners build tests/demo",
+    "demo:launch": "commoners launch tests/demo"
   },
   "devDependencies": {
     "@commoners/solidarity": "0.0.49",
