@@ -98,7 +98,11 @@ export default async function (options: LaunchOptions) {
 
         console.log(`Launching application from ${fullPath}`)
 
-        await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [
+        let runExecutableCommand = "open"
+        if (PLATFORM === 'windows') runExecutableCommand = "start"
+        else if (PLATFORM === 'linux') runExecutableCommand = "xdg-open"
+
+        await spawnProcess(runExecutableCommand, [
             `"${fullPath}"`, 
             '--args', 
             `--remote-debugging-port=${electronDebugPort}`, 
