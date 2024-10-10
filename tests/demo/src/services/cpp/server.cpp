@@ -8,7 +8,7 @@
 #else
     #include <sys/socket.h> // For socket functions
     #include <netinet/in.h> // For sockaddr_in
-    #include <arpa/inet.h>  // For inet_addr
+    #include <arpa/inet.h>  // For inet_pton, etc.
     #include <unistd.h>     // For read, close
     #include <errno.h>      // For errno
 #endif
@@ -52,8 +52,6 @@ int main() {
     int port = envPort ? std::atoi(envPort) : 8080;
 
     const char* host = std::getenv("HOST");
-    in_addr_t inAddr = host ? inet_addr(host) : INADDR_ANY;
-
     std::cout << "Starting server on http://" << (host ? host : "0.0.0.0") << ":" << port << std::endl;
 
     // Create socket
@@ -81,9 +79,10 @@ int main() {
     // Configure sockaddr_in struct
     sockaddr_in sockaddr;
     sockaddr.sin_family = AF_INET;
-    sockaddr.sin_addr.s_addr = inAddr;
+    sockaddr.sin_addr.s_addr = INADDR_ANY; // Bind to all interfaces (IPv4)
+
     sockaddr.sin_port = htons(port);
-    
+
     // Bind to port
     if (bind(sockfd, (struct sockaddr*)&sockaddr, sizeof(sockaddr)) < 0) {
         #ifdef _WIN32
