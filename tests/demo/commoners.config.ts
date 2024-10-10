@@ -70,10 +70,13 @@ const config = {
 
             // Compilation + build step
             build: async ({ src, out }) => {
-                const { mkdirSync, existsSync } = await import('node:fs')
+                const isWindows = process.platform === 'win32'
+                const { mkdirSync } = await import('node:fs')
                 const { dirname, resolve } = await import('node:path')
                 mkdirSync(dirname(out), { recursive: true }) // Ensure base and asset output directory exists
-                return `g++ ${resolve(src)} -o ${resolve(out)} -std=c++11`
+                const buildCommand = `g++ ${resolve(src)} -o ${resolve(out)} -std=c++11`
+                if (isWindows) return buildCommand + ` -lws2_32` // Windows requires additional linking
+                return buildCommand
             },
 
             publish: './build/cpp/server.exe', // Specified output folder

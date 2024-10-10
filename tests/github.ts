@@ -1,9 +1,11 @@
 async function isOnGithubActions(): Promise<boolean> {
-    const { CI, GITHUB_RUN_ID, GITHUB_TOKEN, GITHUB_REPOSITORY } = process.env;
+    const { CI, GITHUB_RUN_ID, GITHUB_TOKEN, GH_TOKEN, GITHUB_REPOSITORY } = process.env;
 
-    console.log('GitHub Actions Environment', CI, GITHUB_RUN_ID, GITHUB_TOKEN, GITHUB_REPOSITORY);
+    const TOKEN = GITHUB_TOKEN || GH_TOKEN;
 
-    if (!CI || !GITHUB_RUN_ID || !GITHUB_TOKEN || !GITHUB_REPOSITORY) {
+    console.log('GitHub Actions Environment', CI, GITHUB_RUN_ID, TOKEN, GITHUB_REPOSITORY);
+
+    if (!CI || !GITHUB_RUN_ID || !TOKEN || !GITHUB_REPOSITORY) {
         return false;
     }
 
@@ -11,7 +13,7 @@ async function isOnGithubActions(): Promise<boolean> {
     const response = await fetch(url, {
         method: 'GET',
         headers: {
-            'Authorization': `Bearer ${GITHUB_TOKEN}`,
+            'Authorization': `Bearer ${TOKEN}`,
             'User-Agent': 'Node.js', // GitHub API requires a user agent
             'Accept': 'application/vnd.github.v3+json' // Specify GitHub API version
         }
