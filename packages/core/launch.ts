@@ -88,7 +88,7 @@ export default async function (options: LaunchOptions) {
 
         if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
 
-        console.log(`Launching ${fullPath}`)
+        console.log(`Launching application from ${fullPath}`)
 
         await spawnProcess(PLATFORM === 'mac' ? 'open' : 'start', [
             `"${fullPath}"`, 
