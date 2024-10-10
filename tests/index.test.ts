@@ -12,7 +12,6 @@ import { execSync } from 'node:child_process'
 import { name } from './demo/commoners.config'
 import { projectBase, registerBuildTest, registerStartTest } from './utils'
 import { existsSync, rmSync, mkdirSync } from 'node:fs'
-import isOnGithubActions from './github'
 
 describe('Custom project base is loaded', () => {
 
@@ -47,7 +46,7 @@ describe('Build and Launch', () => {
 
   registerBuildTest(
     'Desktop', 
-    { target: 'electron', publish: isOnGithubActions }
+    { target: 'electron' }
   )
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)
