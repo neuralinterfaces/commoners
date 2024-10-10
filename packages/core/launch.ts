@@ -1,6 +1,6 @@
 
 import { existsSync, readdirSync} from 'node:fs';
-import { basename, extname, join } from 'node:path';
+import { extname, join } from 'node:path';
 import { cpus } from 'node:os';
 
 import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort, chalk } from './globals.js';
@@ -25,7 +25,6 @@ const matchFile = (directory, extensions) => {
 const getDesktopPath = (outDir) => {
     let baseDir = ''
     let filename = null
-    const extensions = []
 
     const platform = {
         mac: PLATFORM === 'mac',
@@ -98,16 +97,20 @@ export default async function (options: LaunchOptions) {
 
         console.log(`Launching application from ${fullPath}`)
 
-        let runExecutableCommand = "open"
-        if (PLATFORM === 'windows') runExecutableCommand = "start"
-        else if (PLATFORM === 'linux') runExecutableCommand = "xdg-open"
+        let runExecutableCommand = "open" // Default to macOS command
+        
+        const args = [
+            `"${fullPath}"`,  // The executable or path to open
+            `--remote-debugging-port=${electronDebugPort}`,
+            '--remote-allow-origins=*'
+        ];
 
-        await spawnProcess(runExecutableCommand, [
-            `"${fullPath}"`, 
-            '--args', 
-            `--remote-debugging-port=${electronDebugPort}`, 
-            `--remote-allow-origins=*`
-        ], { env: process.env  }); // Share the same environment variables
+        // Set the appropriate command based on the platform
+        if (PLATFORM === 'windows') runExecutableCommand = 'start';
+        else if (PLATFORM === 'linux') runExecutableCommand = 'xdg-open';
+        else if (PLATFORM === 'mac') args.splice(1, 0, "--args") // macOS-specific flag to pass additional arguments
+
+        await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
 
         const debugUrl = `http://localhost:${electronDebugPort}`
         printSubtle(`Debug your application at ${_chalk.cyan(debugUrl)}`)
