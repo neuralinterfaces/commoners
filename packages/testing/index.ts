@@ -75,18 +75,11 @@ export const open = async (
 
   const states: Partial<BrowserTestOutput> = {}
 
-  console.log('LOAD CONFIG', root)
-
   const config = await loadConfigFromFile(root)
 
-  console.log('config', config, overrides)
-
   const updatedConfig = merge(config, overrides)
-  console.log('MERGED', config)
 
   const isElectron = updatedConfig.target === 'electron'
-
-  console.log('USE BUILD', useBuild)
 
   // Launch build of the project
   if (useBuild) {

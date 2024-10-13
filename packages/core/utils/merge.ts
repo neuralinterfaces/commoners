@@ -21,7 +21,7 @@ const merge = (toMerge: ArbitraryObject = {}, target: ArbitraryObject = {}, opts
         
         const updatedV = opts.transform ? opts.transform(updatedPath, v) : v; // Apply transformation
 
-        if (updatedV === undefined) return // Ignore undefined values
+        if (updatedV === undefined) continue // Ignore undefined values
 
         if (opts.arrays && Array.isArray(updatedV) && Array.isArray(targetV)) output[k] = [...targetV, ...updatedV]; // Merge array entries together
         else if (isObject(updatedV) || isObject(targetV)) output[k] = merge(v, targetV, opts, updatedPath); // Recurse into objects
