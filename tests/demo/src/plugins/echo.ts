@@ -10,6 +10,5 @@ export function load () {
 export const desktop = {
     load: function () {
         this.on(messageEventName, (ev, message) => ev.returnValue = message)
-    },
-    preload: () => {} // NOTE: Add a preload test later
+    }
 }

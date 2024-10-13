@@ -11,6 +11,9 @@ type MergeOptions = {
 type ArbitraryObject = {[x:string]: any}
 
 const merge = (toMerge: ArbitraryObject = {}, target: ArbitraryObject = {}, opts: MergeOptions = {}, _path = []) => {
+
+    const output = { ...target } // Shallow copy the target at each location
+
     // Deep merge objects
     for (const [k, v] of Object.entries(toMerge)) {
         const targetV = target[k];
@@ -18,14 +21,14 @@ const merge = (toMerge: ArbitraryObject = {}, target: ArbitraryObject = {}, opts
         
         const updatedV = opts.transform ? opts.transform(updatedPath, v) : v; // Apply transformation
 
-        if (updatedV === undefined) delete target[k]; // Remove undefined values
+        if (updatedV === undefined) return // Ignore undefined values
 
-        if (opts.arrays && Array.isArray(updatedV) && Array.isArray(targetV)) target[k] = [...targetV, ...updatedV]; // Merge array entries together
-        else if (isObject(updatedV) || isObject(targetV)) target[k] = merge(v, target[k], opts, updatedPath); // Recurse into objects
-        else target[k] = updatedV; // Replace primitive values
+        if (opts.arrays && Array.isArray(updatedV) && Array.isArray(targetV)) output[k] = [...targetV, ...updatedV]; // Merge array entries together
+        else if (isObject(updatedV) || isObject(targetV)) output[k] = merge(v, targetV, opts, updatedPath); // Recurse into objects
+        else output[k] = updatedV; // Replace primitive values
     }
 
-    return target;
+    return output;
 }
 
 export default merge

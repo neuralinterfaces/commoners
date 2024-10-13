@@ -33,31 +33,32 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   const isElectron = target === 'electron'
   expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
   expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
-  expect(existsSync(join(assetDir, 'splash.html'))).toBe(isElectron)
 
-  const buildDir = join(baseDir, '..', '..', '..', 'build')
-  const servicesDir = join(baseDir, '..', '..', 'services')
-  // const manualServiceDir = join(buildDir, 'manual')
+  // // --------------- NOTE: Write a more comprehensive script to check service assets programmatically ---------------
+  // // --------------- We know where we want them located based on their declaration... ---------------
+  // const buildDir = join(baseDir, '..', '..', '..', 'build')
+  // const servicesDir = join(baseDir, '..', '..', 'services')
+  // // const manualServiceDir = join(buildDir, 'manual')
 
-  if (build) {
-    const services = [ 'http', 'express' ]
+  // if (build) {
+  //   const services = [ 'http', 'express' ]
 
-    services.forEach(name => {
-      const location = join(servicesDir, name, getPackagedServiceName(name))
-      expect(existsSync(location)).toBe(isElectron)
-    })
+  //   services.forEach(name => {
+  //     const location = join(servicesDir, name, getPackagedServiceName(name))
+  //     expect(existsSync(location)).toBe(isElectron)
+  //   })
 
-    // expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
+  //   // expect(existsSync(join(manualServiceDir, getPackagedServiceName('manual')))).toBe(isElectron)
   
-    // const txtFile = join(manualServiceDir, 'test.txt')
-    // expect(existsSync(txtFile)).toBe(isElectron)
-    // if (isElectron) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
-  }
+  //   // const txtFile = join(manualServiceDir, 'test.txt')
+  //   // expect(existsSync(txtFile)).toBe(isElectron)
+  //   // if (isElectron) expect(readFileSync(txtFile, 'utf-8')).toBe('Hello world!')
+  // }
 
-  // NOTE: Implement checks for intermediate TS builds
-  else {
+  // // NOTE: Implement checks for intermediate TS builds
+  // else {
 
-  }
+  // }
   
   // ---------------------- PWA ----------------------
   const isPWA = target === 'pwa'

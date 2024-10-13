@@ -5,21 +5,24 @@ import { fileURLToPath } from "node:url";
 const root = './'
 
 import * as echo from './src/plugins/echo'
+import splashPagePlugin from '@commoners/splash-screen'
+import customProtocolPlugin from '@commoners/custom-protocol'
 
 export const name = 'Test App'
 
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
+const splashSrc = join(root, 'splash.html')
 
 const config = {
 
     name,
-
-    electron: {
-        splash: join(root, 'splash.html'),
+    
+    plugins: { 
+        echo, 
+        splash: splashPagePlugin(splashSrc),
+        protocol: customProtocolPlugin('app', { supportFetchAPI: true })
     },
-
-    plugins: { echo },
 
     services: {
 

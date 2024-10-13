@@ -1,18 +1,14 @@
-import { expect, test, describe, beforeAll, afterAll } from 'vitest'
+import { expect, test, describe } from 'vitest'
 
 import {
     loadConfigFromFile,
     resolveConfigPath,
 } from '@commoners/solidarity'
 
-import { resolve, join } from 'node:path'
-
-import { execSync } from 'node:child_process'
+import { resolve } from 'node:path'
 
 import { name } from './demo/commoners.config'
 import { projectBase, registerBuildTest, registerStartTest } from './utils'
-import { existsSync, rmSync, mkdirSync } from 'node:fs'
-import isOnGithubActions from './github'
 
 describe('Custom project base is loaded', () => {
 
@@ -47,60 +43,8 @@ describe('Build and Launch', () => {
 
   registerBuildTest(
     'Desktop', 
-    { 
-      target: 'electron', 
-      // publish: isOnGithubActions
-    }
+    { target: 'electron' }
   )
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)
 })
-
-
-// const VITE_TEMPLATES_DIR = join(projectBase, '.vite-templates')
-
-// const viteTemplates = [
-//   "vanilla", 
-//   "vanilla-ts",
-//   // "vue",
-//   // "vue-ts",
-//   // "react",
-//   // "react-ts",
-//   // "react-swc",
-//   // "react-swc-ts",
-//   // "preact",
-//   // "preact-ts",
-//   // "lit",
-//   // "lit-ts",
-//   // "svelte",
-//   // "svelte-ts",
-//   // "solid",
-//   // "solid-ts",
-//   // "qwik",
-//   // "qwik-ts"
-// ]
-
-// const getViteCommand = (name, template) => `npx --yes create-vite@latest ${name} --template ${template}`
-
-// describe('Vite Templates', () => {
-
-//   beforeAll(() => {
-//     mkdirSync(VITE_TEMPLATES_DIR, { recursive: true })
-//   })
-
-//   afterAll(() => {
-//     rmSync(VITE_TEMPLATES_DIR, { recursive: true, force: true })
-//   })
-
-//   viteTemplates.forEach(template => {
-//     test(`Create ${template} project`, async () => {
-//       const name = `vite-${template}`
-//       const command = getViteCommand(name, template)
-//       execSync(`cd ${VITE_TEMPLATES_DIR} && ${command}`)
-//       const root = resolve(VITE_TEMPLATES_DIR, name)
-//       const config = await loadConfigFromFile(root)
-//       expect(existsSync(config.root)).toBe(true)
-//       rmSync(config.root, { recursive: true, force: true })
-//     })
-//   })
-// })

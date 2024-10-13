@@ -211,10 +211,6 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
       checkAssets(projectBase, baseDir, { build: true, target })
     })
 
-    test.skip('All assets have been included in the build', async () => {
-      // checkAssets(projectBase, scopedBuildOutDir, { build: true, target })
-    })
-
     describeFn('Launched application tests', async () => {
 
       const output = {}
@@ -224,7 +220,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
         Object.assign(output, _output)
       })
 
-      afterAll(() => output.cleanup())
+      afterAll(() => output?.cleanup())
 
       e2eTests.basic(output, { target }, 'local')
     })

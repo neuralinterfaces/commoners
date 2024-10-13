@@ -1,18 +1,14 @@
-// --------------------------------------------------------------------------------------------------------------
-// For a more basic Electron example, see: https://github.com/electron/electron-quick-start/blob/main/main.js
-// --------------------------------------------------------------------------------------------------------------
-
-import electron, { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import electron, { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join, basename } from 'node:path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
+
+type WindowOptions = Electron.BrowserWindowConstructorOptions
 
 const assetsPath = join(__dirname, 'assets')
 
 const chalk = import('chalk').then(m => m.default)
-
-let mainWindow;
 
 function send(this: BrowserWindow, channel: string, ...args: any[]) {
   try {
@@ -23,7 +19,7 @@ function send(this: BrowserWindow, channel: string, ...args: any[]) {
 type ReadyFunction = (win: BrowserWindow) => any
 let readyQueue: ReadyFunction[] = []
 
-const onWindowReady = (f: ReadyFunction) => mainWindow ? f(mainWindow) : readyQueue.push(f)
+const onWindowReady = (f: ReadyFunction) => globals.mainWindow ? f(globals.mainWindow) : readyQueue.push(f)
 
 const scopedOn = (type, id, channel, callback) => {
   const event = `${type}:${id}:${channel}`
@@ -45,14 +41,18 @@ const pluginSend = (pluginName, channel, ...args) => scopedSend('plugins', plugi
 const pluginOn = (pluginName, channel, callback) => scopedOn('plugins', pluginName, channel, callback)
 
 const globals: {
-  isFirstOpen: boolean,
   firstInitialized: boolean,
-  splash?: BrowserWindow
+  mainWindow: BrowserWindow | null,
+  plugins: {
+    preload?: any
+    load?: any,
+    unload?: any
+  }
 } = {
   firstInitialized: false,
-  isFirstOpen: true
+  mainWindow: null,
+  plugins: {}
 }
-
 
 // Transfer all the main console commands to the browser
 const ogConsoleMethods: any = {};
@@ -64,20 +64,6 @@ const ogConsoleMethods: any = {};
   }
 })
 
-// import chalk from 'chalk'
-// import util from 'node:util'
-
-// // --------------------- Simple Log Script ------------------------
-// import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
-// const homeDirectory = app.getPath("home");
-// const commonersDirectory = join(homeDirectory, 'commoners');
-// if (!existsSync(commonersDirectory)) mkdirSync(commonersDirectory)
-
-// const uniqueLogId = (new Date()).toUTCString()
-// const writeToDebugLog = (msg) => {
-//   appendFileSync(join(commonersDirectory, `${app.name}_${uniqueLogId}.log`), `${msg}\n`)
-// }
-
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
@@ -88,10 +74,6 @@ if (IS_TESTING) {
   app.commandLine.appendSwitch('remote-allow-origins', '*') // Allow all remote origins
 }
 
-const showWindow = (win) => {
-  if (!IS_TESTING) win.show()
-}
-
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
@@ -100,6 +82,7 @@ const configPath = join(assetsPath, 'commoners.config.cjs') // Load the .cjs con
 
 // --------------- App Window Management ---------------
 function restoreWindow() {
+  const { mainWindow } = globals
   if (mainWindow) mainWindow.isMinimized() ? mainWindow.restore() : mainWindow.focus();
   return mainWindow
 }
@@ -126,13 +109,24 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
 
   const { assets = {} } = plugin
 
+  const __listeners: any[] = []
+
   acc[id] = { 
     id,
+
+    // Packaged Electron Utilities
     electron,
-    createWindow,
-    open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow(config))),
+    utils,
+
+    // Helper Functions
+    createWindow: (page: string, opts: WindowOptions) => createWindow(page, opts, [ id ]),
+    open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
     send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
-    on: function (channel, callback) { return pluginOn(this.id, channel, callback) },
+    on: function (channel, callback) { {
+      const listener = pluginOn(this.id, channel, callback)
+      __listeners.push(listener)
+      return listener
+    } },
 
     // Provide specific variables from the plugin
     plugin: {
@@ -143,15 +137,62 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
         return acc
       }, {})
     },
+    __listeners
   }
   return acc
 }, {})
 
-const runPlugins = async (win: BrowserWindow | null = null, type = 'load') => {
-  return await Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => plugin.desktop?.[type] && plugin.desktop[type].call(contexts[id], win)))
+const runAppPlugins = async (args: any[] = [], type = 'start') => {
+  return await Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => {
+    const desktopState = plugin.desktop ?? {}
+
+    const types = {
+      start: type === "start",
+      ready: type === "ready",
+      quit: type === "quit"
+    }
+
+    // Coordinate the state transitions for the plugins
+    const { __state } = desktopState
+    if (types.start && __state) return
+    if (types.ready && __state !== "start") return
+    desktopState.__state = type
+
+    const thisPlugin = desktopState[type]
+    if (!thisPlugin) return
+    
+    return thisPlugin.call(contexts[id], ...args)
+
+  }))
+
 }
 
 
+const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
+  return await Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => {
+    if (toIgnore.includes(id)) return
+    const desktopState = plugin.desktop ?? {}
+
+    const types = {
+      load: type === "load",
+      unload: type === "unload"
+    }
+
+    // Coordinate the state transitions for the plugins
+    const { __state } = desktopState
+    if (types.load &&(__state && __state === 'load')) return
+    if (types.unload && __state !== "load") return 
+    desktopState.__state = type
+
+    if (types.unload) contexts[id].__listeners.forEach((l) => l.remove()) // Auto-close all listeners created using the ipcMain.on() proxy method
+
+    const thisPlugin = desktopState[type]
+    if (!thisPlugin) return
+    
+    return thisPlugin.call(contexts[id], win)
+
+  }))
+}
 
   // ------------------- Configure the main window properties -------------------  
   const preload = join(__dirname, 'preload.js')
@@ -162,146 +203,92 @@ const runPlugins = async (win: BrowserWindow | null = null, type = 'load') => {
 
   const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
 
-  const mainWindowOpts = config.electron ?? {}
+  const electronOptions = config.electron ?? {}
+  const windowOptions = electronOptions.window ?? {}
+  const noWindowCreation = windowOptions === false
 
   const defaultWindowConfig = {
     autoHideMenuBar: true,
     webPreferences: { sandbox: false },
-  }
-
-  const mainWindowConfig = {
-    show: false,
     ...platformDependentWindowConfig,
-    ...mainWindowOpts.window ?? {} // Merge User-Defined Window Variables
   }
 
-  function createWindow (options = {}) {
+  async function createWindow (page, options: WindowOptions = {}, toIgnore?: string[], isMainWindow: boolean = true) {
     const copy = structuredClone({...defaultWindowConfig, ...options})
     
     // Ensure web preferences exist
     if (!copy.webPreferences) copy.webPreferences = {}
     if (!('preload' in copy.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
-    copy.webPreferences.enableRemoteModule = true // Always enable remote module
 
-    // Hide the window if testing
-    if (IS_TESTING) copy.show = false
+    const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
+    if (isMainWindow) win.__main = true
 
-    const win = new BrowserWindow(copy)
+    const ogShow = win.show
+    win.show = function (){
+      if (win.__show === false) return
+      if (IS_TESTING) return
+      return ogShow.call(this) // Keep the window hidden if testing
+    }
+
+    // ------------------------ Main Window Default Behaviors ------------------------
+    if (isMainWindow) {
+      ipcMain.once('commoners:ready', () => {
+        globals.mainWindow = win
+        globals.firstInitialized = true
+        readyQueue.forEach(f => f(win))
+        readyQueue = []
+      })
+
+        // De-register the main window
+      win.once('close', () => {
+        globals.mainWindow = null
+      })
+    }
+
+    // ------------------------ Default Quit Behavior ------------------------
+    ipcMain.once('commoners:quit', () => app.quit())
+
+    win.webContents.setWindowOpenHandler(({ url }) => {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    });
+
+    // ------------------------ Window Shutdown Behavior ------------------------
+    win.once("close", async () => await runWindowPlugins(win, 'unload', toIgnore))
+
+    // ------------------------ Window Load Behavior ------------------------
+    await runWindowPlugins(win, 'load', toIgnore) 
+
+    // ------------------------ Window Page Load Behavior ------------------------
+    try {
+      new URL(page)
+      win.loadURL(page)
+    }
+
+    catch {
+      win.loadFile(page)
+    }
+
+    await new Promise(resolve => win.once('ready-to-show', resolve)) // Show after plugin loading
+
+    win.show() // Allow annotating to skip show
 
     return win
   }
 
 
-function createMainWindow(config) {
-  
-  // ------------------- Force only one main window -------------------
-  if (BrowserWindow.getAllWindows().length !== 0) return
-
-  // ------------------- Avoid window creation if the user has specified not to -------------------
-  const windowOpts = mainWindowOpts.window
-  const noWindowCreation = windowOpts === false || windowOpts === null
-  if (noWindowCreation) return runPlugins() // Just create the backend plugins
-
-  const splashURL = mainWindowOpts.splash
-
-  if (splashURL) {
-    const splash = new BrowserWindow({
-      width: 340,
-      height: 340,
-      frame: false,
-      ...platformDependentWindowConfig,
-      alwaysOnTop: true,
-      transparent: true,
-      show: !IS_TESTING // Hide the window if testing
-    });
-
-    const completeSplashPath = join(assetsPath, splashURL)
-
-    splash.loadFile(completeSplashPath)
-
-
-    globals.splash = splash // Replace splash entry with the active window
-  }
-
-  // Create the browser window.
-  const win = createWindow(mainWindowConfig)
-
-  // Activate specified plugins from the configuration file
-  runPlugins(win)
-
-
-  // Is ready to receive IPC messages
-  ipcMain.on('commoners:ready', () => {
-    mainWindow = win
-    globals.firstInitialized = true
-    readyQueue.forEach(f => f(win))
-    readyQueue = []
-  })
-
-  ipcMain.on('commoners:quit', () => app.quit())
-
-
-  win.on('ready-to-show', () => {
-
-    if (globals.splash) {
-      setTimeout(() => {
-        if (globals.splash) {
-          globals.splash.close();
-          delete globals.splash
-        }
-
-        showWindow(win)
-
-        globals.isFirstOpen = false
-      }, globals.isFirstOpen ? 1000 : 200);
-    }
-
-    else showWindow(win)
-
-  })
-
-  // De-register the main window
-  win.once('close', () => {
-    mainWindow = undefined
-  })
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  // HMR for renderer base on commoners cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && devServerURL) win.loadURL(devServerURL)
-  else win.loadFile(join(__dirname, 'index.html'))
-
-  return win
+async function createMainWindow() {
+    if (BrowserWindow.getAllWindows().length !== 0) return // Force only one main window
+  const pageToRender = utils.is.dev && devServerURL ? devServerURL : join(__dirname, 'index.html')
+  return await createWindow(pageToRender, windowOptions, [], true)
 }
 
-// Custom Protocol Support (https://www.electronjs.org/docs/latest/api/protocol#protocolregisterschemesasprivilegedcustomschemes)
-const customProtocolScheme = app.name.toLowerCase().split(' ').join('-')
-protocol.registerSchemesAsPrivileged([{
-  scheme: customProtocolScheme,
-  privileges: { supportFetchAPI: true }
-}])
-
-// This method will be called when Electron has initialized
-runPlugins(null, 'preload').then(() => {
+// ------------------------ App Start Behavior ------------------------
+runAppPlugins().then(() => {
 
   app.whenReady().then(async () => {
 
-    // Set app user model id for windows
-    electronApp.setAppUserModelId(`com.${customProtocolScheme}`)
-
-    // Default open or close DevTools by F12 in development
-    // and ignore CommandOrControl + R in production.
-    // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-    app.on('browser-window-created', (_, window) => {
-      optimizer.watchWindowShortcuts(window)
-    })
-
-    // Create all services as configured by the user / main build
-    // NOTE: Services cannot be filtered in desktop mode   
+    // ------------------------ Service Creation ------------------------
     const { active } = await services.createAll(config.services, {
       target: 'desktop', 
       build: isProduction,
@@ -310,46 +297,30 @@ runPlugins(null, 'preload').then(() => {
       onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
     })
 
+    // ------------------------Track Service Status in Windows ------------------------
     if (active) {
       for (let id in active) serviceOn(id, 'status', (event) => event.returnValue = active[id].status)
       ipcMain.on('commoners:services', (event) => event.returnValue = services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
     }
 
-    // Proxy the services through the custom protocol
-    protocol.handle(customProtocolScheme, (req) => {
+    // ------------------------ App Ready Behavior ------------------------
+    await runAppPlugins([ active ], 'ready') // Non-Window Load Behavior
 
-      const pathname = req.url.slice(`${customProtocolScheme}://`.length)
-
-      if (active) {
-        for (let service in active) {
-          if (pathname.slice(0, service.length) === service) {
-            const newPathname = pathname.slice(service.length)
-            return net.fetch((new URL(newPathname, active[service].url)).href)
-          }
-        }
-      }
-
-      return new Response(`${pathname} is not a valid request`, {
-        status: 404
-      })
-    })
-
-    // Start the application from scratch
-    createMainWindow(config)
-    app.on('activate', () => createMainWindow(config)) // Handle dock interactions
+    // --------------------- Main Window Creation ---------------------
+    if (noWindowCreation) return // Avoid window creation if the user has specified not to
+    createMainWindow()
+    app.on('activate', () => createMainWindow())
   })
-
 })
 
+// ------------------------ Default Close Behavior ------------------------
+app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit()) // Quit when all windows are closed, except on macOS.
 
-// Quit when all windows are closed, except on macOS.
-app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit())
-
+// ------------------------ App Shutdown Behavior ------------------------
 app.on('before-quit', async (ev) => {
   ev.preventDefault()
-
-  const result = await runPlugins(null, 'unload')
-  if (result.includes(false)) return
-
-  try { services.close() } catch (err) { console.error(err); } finally { app.exit() } // Exit gracefully
+  try { 
+    await runAppPlugins([], 'quit')
+    services.close()
+   } catch (err) { console.error(err); } finally { app.exit() } // Exit gracefully
 });

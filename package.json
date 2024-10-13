@@ -16,7 +16,9 @@
     "demo:launch": "commoners launch tests/demo"
   },
   "devDependencies": {
+    "@commoners/custom-protocol": "0.0.49",
     "@commoners/solidarity": "0.0.49",
+    "@commoners/splash-screen": "0.0.49",
     "@commoners/testing": "0.0.49",
     "@vitest/coverage-v8": "^2.0.3",
     "search-insights": "^2.15.0",
