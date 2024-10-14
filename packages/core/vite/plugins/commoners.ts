@@ -78,8 +78,6 @@ export default ({
     const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
     const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
 
-    console.log('IS DEV', target, dev)
-
     const globalObject = {
 
         NAME: config.name,

@@ -31,15 +31,6 @@ const getServices = async (output) => {
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-export const spyOnAll = (output) => {
-  const { toSpyOn = [] } = output
-  toSpyOn.forEach(({ object, method }) => {  
-    const mockExit = vi.spyOn(object, method).mockImplementation(() => {
-      mockExit.mockRestore()
-    });
-  })
-}
-
 const e2eTests = {
     basic: (output, { target }, isDev = true) => {
 
@@ -144,7 +135,6 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
     const output = {}
     beforeAll(async () => {
       const _output = await open(projectBase, { target })
-      spyOnAll(_output)
       Object.assign(output, _output)
 
     })
@@ -228,7 +218,6 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
       const output = {}
       beforeAll(async () => {
         const _output = await open(projectBase, opts, true)
-        spyOnAll(_output)
         Object.assign(output, _output)
       })
 

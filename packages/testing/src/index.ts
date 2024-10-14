@@ -65,9 +65,6 @@ type BrowserTestOutput = {
 
   page: Page,
   browser: Browser,
-
-  toSpyOn: { object: any, method: string }[],
-
   url: string,
   server?: any
 
@@ -131,16 +128,13 @@ export const open = async (
 
   return {
     ...states,
-    toSpyOn: [
-      { object: process, method: 'exit' } // Ensure Electron will exit gracefully
-    ],
 
     // Override cleanup function
     cleanup: async () => {
       
       cleanup() // Cleanup the command
 
-      // Close launched Electron build
+      // Close Electron instances
       if (isElectron) {
         await states.page.evaluate(() => {
           const { commoners } = globalThis
@@ -148,8 +142,10 @@ export const open = async (
         })
       }
 
-      // Close all active windows
+      // Close Playwright browsers
       if (states.browser) await states.browser.close()
+
+      // Close active servers
       if (states.server) states.server.close()
     }
 
