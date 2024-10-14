@@ -3,7 +3,7 @@ import { existsSync, readdirSync} from 'node:fs';
 import { extname, join } from 'node:path';
 import { cpus } from 'node:os';
 
-import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, electronDebugPort, chalk } from './globals.js';
+import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, chalk } from './globals.js';
 import { getFreePorts } from './templates/services/utils/network.js'
 import { LaunchOptions } from './types.js';
 import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
@@ -100,8 +100,6 @@ export default async function (options: LaunchOptions) {
         
         const args = [
             `"${fullPath}"`,  // The executable or path to open
-            `--remote-debugging-port=${electronDebugPort}`,
-            '--remote-allow-origins=*'
         ];
 
         // Set the appropriate command based on the platform
@@ -111,10 +109,8 @@ export default async function (options: LaunchOptions) {
         printSubtle([runExecutableCommand, ...args].join(' '))
 
         await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
-
-        return {
-            url: `http://localhost:${electronDebugPort}`
-        }
+        
+        return
     } 
 
     else {

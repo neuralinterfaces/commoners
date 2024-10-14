@@ -243,7 +243,7 @@ export default {
             load: () => console.log(commoners.target + ' build (load)'),
             desktop: {
                 load: () => console.log('desktop build (load)'),
-                preload: () => console.log('desktop build (load)')
+                unload: () => console.log('desktop build (unload)')
             }
         }
     }

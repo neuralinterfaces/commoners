@@ -24,8 +24,6 @@ export { electronVersion }
 
 export const globalWorkspacePath = '.commoners'
 
-export const electronDebugPort = 8315
-
 export const globalTempDir = join(globalWorkspacePath, '.temp')
 
 const callbacks = []

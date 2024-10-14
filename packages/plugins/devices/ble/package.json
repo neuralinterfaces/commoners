@@ -12,7 +12,8 @@
         "vite": "^5.3.4"
     },
     "peerDependencies": {
-        "@capacitor-community/bluetooth-le": "^6.0.0"
+        "@capacitor-community/bluetooth-le": "^6.0.0",
+        "@commoners/solidarity": "^0.0.48"
     },
     "peerDependenciesMeta": {
         "@capacitor-community/bluetooth-le": {

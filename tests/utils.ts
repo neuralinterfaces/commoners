@@ -72,6 +72,7 @@ const e2eTests = {
                   PROD
 
                 } = COMMONERS
+                console.log('COMMONERS', COMMONERS)
 
                 const isDesktop = normalizedTarget === 'desktop'
                 const hasPublishedServices = isDev || isDesktop
@@ -85,14 +86,11 @@ const e2eTests = {
                 expect(DEV).toBe(isDev);
                 expect(PROD).toBe(!isDev);
 
-                if (isDesktop) {
-                  expect(DESKTOP).instanceOf(Object)
-                  expect(DESKTOP.quit).instanceOf(Object)
-                } 
-                
-                else expect(DESKTOP).toBe(false);
+                expect('echo' in PLUGINS).toBe(true); // Test echo
+                expect('splash' in PLUGINS).toBe(true); // Test splash page
+                expect('protocol' in PLUGINS).toBe(true); // Test custom protocol
+                expect('__testing' in PLUGINS).toBe(true); // Test custom protocol
 
-                expect('echo' in PLUGINS).toBe(true);
                 expect(SERVICES).instanceOf(Object)
                 expect(READY).instanceOf(Object) // Resolved Promise
 
@@ -102,16 +100,26 @@ const e2eTests = {
                     expect(name in SERVICES).toBe(hasPublishedServices);
 
                     if (hasPublishedServices) {
-                      expect(typeof SERVICES[name].url).toBe('string');
-                      if ('port' in service) expect(parseInt(new URL(SERVICES[name].url).port)).toBe(service.port)
-                    }
-
-                    if (isDesktop) {
-                      expect(typeof SERVICES[name].filepath).toBe('string');
-                      expect(SERVICES[name].onActive).instanceOf(Object) // Function
-                      expect(SERVICES[name].onClosed).instanceOf(Object)  // Function
+                      expect(typeof service.url).toBe('string');
+                      if ('port' in service) expect(parseInt(new URL(service.url).port)).toBe(service.port)
                     }
               })
+
+
+              // Desktop-Related Tests
+              if (isDesktop) {
+                expect(DESKTOP).instanceOf(Object)
+                expect("quit" in DESKTOP).toBe(true)
+
+                Object.values(SERVICES).forEach(service => {
+                    expect(typeof service.filepath).toBe('string');
+                    expect("onActive" in service).toBe(true) // Function
+                    expect("onClosed" in service).toBe(true)  // Function
+                })
+              } 
+              
+              else expect(DESKTOP).toBe(false);
+
 
               // // Environment Variables
               // expect(import.meta.env.VITE_ENV_VARIABLE).toBe('test')

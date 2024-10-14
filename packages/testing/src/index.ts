@@ -16,10 +16,7 @@ import { rmSync, existsSync } from 'node:fs'
 
 import { chromium, Page, Browser } from 'playwright'
 
-import merge from '../core/utils/merge'
-
-import testingPlugin from "./src/plugin.ts"
-export { testingPlugin }
+import merge from '@commoners/solidarity/utils/merge.ts'
 
 const getOutDir = (config) => config.launch?.outDir || config.build?.outDir || config.outDir
 
@@ -84,8 +81,6 @@ export const open = async (
 
   const isElectron = updatedConfig.target === 'electron'
 
-  const testingPlugin = config.plugins.__testing
-
   // Launch build of the project
   if (useBuild) {
     
@@ -108,8 +103,12 @@ export const open = async (
   
   // Launched Electron Instance
   if (isElectron) {
+
+    const testingPlugin = Object.values(config.plugins).find(p => p.options && "remoteDebuggingPort" in p.options)
+    if (!testingPlugin) throw Error("Must use the @commoners/testing/plugin to enable remote debugging of the Electron application")
+
     await sleep(5 * 1000) // Wait for five seconds for Electron to open
-    const browser = states.browser = await chromium.connectOverCDP(`http://localhost:${testingPlugin.options["remote-debugging-port"]}`);
+    const browser = states.browser = await chromium.connectOverCDP(`http://localhost:${testingPlugin.options.remoteDebuggingPort}`);
     const defaultContext = browser.contexts()[0];
     states.page = defaultContext.pages()[0];
   }

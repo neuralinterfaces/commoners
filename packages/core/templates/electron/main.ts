@@ -4,6 +4,10 @@ import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
 
+// Custom Window Flags
+// __main: Is Main Window
+// __show: Used to block show behavior
+
 type WindowOptions = Electron.BrowserWindowConstructorOptions
 
 const assetsPath = join(__dirname, 'assets')
@@ -67,12 +71,6 @@ const ogConsoleMethods: any = {};
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
 
-// Enable remote debugging port for Vitest
-const IS_TESTING = process.env.VITEST
-if (IS_TESTING) {
-  app.commandLine.appendSwitch('remote-debugging-port', `${8315}`) // Mirrors the global electronDebugPort variable
-  app.commandLine.appendSwitch('remote-allow-origins', '*') // Allow all remote origins
-}
 
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
@@ -226,7 +224,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     const ogShow = win.show
     win.show = function (){
       if (win.__show === false) return
-      if (IS_TESTING) return
       return ogShow.call(this) // Keep the window hidden if testing
     }
 

@@ -25,6 +25,7 @@ export default (page: string, options: SplashScreenOption = {}) => {
         load: async function (loadingWindow) {
 
             if (!loadingWindow.__main) return
+            if (!loadingWindow.__show) return 
 
 
             const { 
@@ -40,7 +41,6 @@ export default (page: string, options: SplashScreenOption = {}) => {
             const { assets } = this.plugin;
 
             const win = await this.createWindow(assets.page,  Object.assign(DEFAULT_OPTIONS, window))
-            win.__show = false
 
             const start = performance.now()
             loadingWindow.once('ready-to-show', () => {

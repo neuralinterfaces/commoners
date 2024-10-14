@@ -1,16 +1,28 @@
 {
     "name": "@commoners/testing",
-    "version": "0.0.49",
+    "version": "0.1.0-alpha.0",
     "license": "MIT",
     "type": "module",
-    "main": "./dist/index.cjs",
-    "module": "./dist/index.mjs",
+    "main": "./dist/main.cjs",
+    "module": "./dist/main.mjs",
+    "exports": {
+    ".": {
+      "import": "./dist/main.mjs",
+      "require": "./dist/main.cjs"
+    },
+    "./plugin": {
+      "import": "./dist/plugin.mjs",
+      "require": "./dist/plugin.cjs"
+    }
+  },
+    
     "scripts": {
-        "build": "vite build"
+        "build": "vite build",
+        "postinstall": "pnpm exec playwright install chromium"
     },
     "dependencies": {
-        "@commoners/solidarity": "0.0.49",
-        "puppeteer": "^22.12.1",
+        "@commoners/solidarity": "0.1.0-alpha.0",
+        "playwright": "^1.48.0",
         "vite": "^5.4.2",
         "vitest": "^2.0.3"
     }

@@ -7,12 +7,18 @@ const root = './'
 import * as echo from './src/plugins/echo'
 import splashPagePlugin from '@commoners/splash-screen'
 import customProtocolPlugin from '@commoners/custom-protocol'
+import testingPlugin from "@commoners/testing/plugin"
 
 export const name = 'Test App'
 
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
 const splashSrc = join(root, 'splash.html')
+
+const TEST_OPTIONS = {
+    remoteDebuggingPort: 8315,
+    remoteAllowOrigins: '*' // Allow all remote origins
+  }
 
 const config = {
 
@@ -21,7 +27,8 @@ const config = {
     plugins: { 
         echo, 
         splash: splashPagePlugin(splashSrc),
-        protocol: customProtocolPlugin('app', { supportFetchAPI: true })
+        protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
+        __testing: testingPlugin(TEST_OPTIONS),
     },
 
     services: {

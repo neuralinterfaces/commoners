@@ -1,6 +1,6 @@
 {
     "name": "@commoners/custom-protocol",
-    "version": "0.0.49",
+    "version": "0.1.0-alpha.0",
     "main": "./dist/index.cjs",
     "module": "./dist/index.mjs",
     "license": "MIT",
@@ -10,5 +10,8 @@
     },
     "devDependencies": {
         "vite": "^5.3.4"
+    },
+    "peerDependencies": {
+        "@commoners/solidarity": "^0.1.0-alpha.0"
     }
 }
