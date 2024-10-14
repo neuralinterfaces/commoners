@@ -4,7 +4,7 @@ import { extname, join } from 'node:path';
 import { cpus } from 'node:os';
 
 import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, chalk } from './globals.js';
-import { getFreePorts } from './templates/services/utils/network.js'
+import { getFreePorts } from './assets/services/network.js'
 import { LaunchOptions } from './types.js';
 import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
 import { spawnProcess } from './utils/processes.js'

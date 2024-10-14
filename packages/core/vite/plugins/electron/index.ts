@@ -71,7 +71,7 @@ export const buildWithVite = async (options: ElectronOptions) => {
     let userConfig: UserConfig
     let configEnv: ConfigEnv
 
-    const electronTemplateBase = join(rootDir, 'templates', 'electron')
+    const electronTemplateBase = join(rootDir, 'assets', 'electron')
     const mainLocation = join(electronTemplateBase, 'main.ts')
     const preloadLocation = join(electronTemplateBase, 'preload.ts')
 

@@ -18,7 +18,7 @@ const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json')).toString())
 
 const toCopy = [
-  join('templates'),
+  join('assets'),
 ]
 
 const dts: Plugin = {

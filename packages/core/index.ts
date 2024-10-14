@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 // Internal Imports
 import { globalWorkspacePath, getDefaultMainLocation, templateDir, onCleanup, ensureTargetConsistent, isMobile } from './globals.js'
 import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
-import { resolveAll, createAll } from './templates/services/index.js'
+import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'

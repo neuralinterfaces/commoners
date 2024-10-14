@@ -1,5 +1,5 @@
 import { basename, isAbsolute, dirname, extname, join, resolve, sep } from "node:path"
-import { getFreePorts } from './utils/network.js';
+import { getFreePorts } from './network.js';
 
 import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';

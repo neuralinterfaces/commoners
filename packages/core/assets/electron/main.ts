@@ -35,8 +35,8 @@ const scopedOn = (type, id, channel, callback) => {
 }
 
 const scopedSend = (type, id, channel, ...args) => onWindowReady(() => {
-  const allWindows = BrowserWindow.getAllWindows()
-  allWindows.forEach(win => send.call(win, `${type}:${id}:${channel}`, ...args)) // Send to all windows
+  const windows = BrowserWindow.getAllWindows()
+  windows.forEach(win => send.call(win, `${type}:${id}:${channel}`, ...args)) // Send to all windows
 })
 const serviceSend = (id, channel, ...args) => scopedSend('services', id, channel, ...args)
 const serviceOn = (id, channel, callback) => scopedOn('services', id, channel, callback)
@@ -203,7 +203,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
   const electronOptions = config.electron ?? {}
   const windowOptions = electronOptions.window ?? {}
-  const noWindowCreation = windowOptions === false
 
   const defaultWindowConfig = {
     autoHideMenuBar: true,
@@ -275,7 +274,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
 
 async function createMainWindow() {
-    if (BrowserWindow.getAllWindows().length !== 0) return // Force only one main window
+  const windows = BrowserWindow.getAllWindows()
+  if (windows.find(o => o.__main)) return // Force only one main window
   const pageToRender = utils.is.dev && devServerURL ? devServerURL : join(__dirname, 'index.html')
   return await createWindow(pageToRender, windowOptions, [], true)
 }
@@ -304,7 +304,6 @@ runAppPlugins().then(() => {
     await runAppPlugins([ active ], 'ready') // Non-Window Load Behavior
 
     // --------------------- Main Window Creation ---------------------
-    if (noWindowCreation) return // Avoid window creation if the user has specified not to
     createMainWindow()
     app.on('activate', () => createMainWindow())
   })

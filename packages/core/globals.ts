@@ -114,7 +114,7 @@ const __dirname = resolve(dirname(fileURLToPath(import.meta.url)))
 const inKnownPath = __dirname.slice(-knownPath.length) === knownPath
 export const rootDir = inKnownPath ? __dirname : dirname(require.resolve('@commoners/solidarity'))
 
-export const templateDir = join(rootDir, 'templates')
+export const templateDir = join(rootDir, 'assets')
 export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(join(templateDir, 'electron', 'electron-builder.yml')).toString())
 
 // const resolveKey = (key) => {
