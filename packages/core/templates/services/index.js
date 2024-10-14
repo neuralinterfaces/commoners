@@ -329,8 +329,8 @@ const isValidService = (info) => info.src || info.url
 export const sanitize = (services) => {
   return Object.entries(services).reduce((acc, [id, info]) => {
     if (!isValidService(info)) return
-    const { url, filepath } = info
-    const service = acc[id] = { filepath }
+    const { url } = info
+    const service = acc[id] = { }
     if (url) service.url = url.replace('0.0.0.0', 'localhost')
     return acc
   }, {})

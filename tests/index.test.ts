@@ -23,19 +23,19 @@ import { projectBase, registerBuildTest, registerStartTest } from './utils'
 //   })
 // })
 
-// describe('Start', () => {
+describe('Start', () => {
 
-//   registerStartTest('Web')
+  // registerStartTest('Web')
 
-//   registerStartTest(
-//     'Desktop', 
-//     { target: 'electron'}
-//   )
+  registerStartTest(
+    'Desktop', 
+    { target: 'electron'}
+  )
 
-//   // NOTE: Skipped because Ruby Gems needs to be updated
-//   registerStartTest('Mobile', { target: 'mobile' }, false)
+  // // NOTE: Skipped because Ruby Gems needs to be updated
+  // registerStartTest('Mobile', { target: 'mobile' }, false)
 
-// })
+})
 
 describe('Build and Launch', () => {
   // registerBuildTest('Web', { target: 'web' })
@@ -46,5 +46,5 @@ describe('Build and Launch', () => {
     { target: 'electron' }
   )
 
-  registerBuildTest('Mobile', { target: 'mobile' }, false)
+  // registerBuildTest('Mobile', { target: 'mobile' }, false)
 })

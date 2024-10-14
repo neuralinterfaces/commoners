@@ -4,6 +4,7 @@ channels:
 dependencies:
   - pip=23.2.1
   - python=3.10.13
+  - numpy
   - pip:
     - pyinstaller==6.0.0
 prefix: /opt/anaconda3/envs/commoners-test-app

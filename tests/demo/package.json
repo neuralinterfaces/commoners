@@ -1,6 +1,6 @@
 {
   "name": "@commoners/test-app",
-  "version": "0.0.49",
+  "version": "0.1.0-alpha.0",
   "private": true,
   "description": "A test app for the commoners library",
   "repository": {
@@ -14,5 +14,6 @@
   },
   "workspaces": [
     "src/services/*"
-  ]
+  ],
+  "main": ".commoners/.temp/main.js"
 }

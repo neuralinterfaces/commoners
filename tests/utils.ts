@@ -32,7 +32,8 @@ const getServices = async (output) => {
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 export const spyOnAll = (output) => {
-  output.toSpyOn.forEach(({ object, method }) => {  
+  const { toSpyOn = [] } = output
+  toSpyOn.forEach(({ object, method }) => {  
     const mockExit = vi.spyOn(object, method).mockImplementation(() => {
       mockExit.mockRestore()
     });
@@ -40,12 +41,10 @@ export const spyOnAll = (output) => {
 }
 
 const e2eTests = {
-    basic: (output, { target }, mode = 'dev') => {
+    basic: (output, { target }, isDev = true) => {
 
         const normalizedTarget = normalizeTarget(target)
         
-        const isDev = mode === 'dev' 
-
         describe('Basic E2E Test', () => {
     
             test("Global variables are valid", async () => {
@@ -72,7 +71,6 @@ const e2eTests = {
                   PROD
 
                 } = COMMONERS
-                console.log('COMMONERS', COMMONERS)
 
                 const isDesktop = normalizedTarget === 'desktop'
                 const hasPublishedServices = isDev || isDesktop
@@ -83,13 +81,10 @@ const e2eTests = {
                 expect(WEB).toBe(normalizedTarget === 'web');
                 expect(MOBILE).toBe(normalizedTarget === 'mobile');
 
-                expect(DEV).toBe(isDev);
-                expect(PROD).toBe(!isDev);
+                expect(DEV, "DEV").toBe(isDev);
+                expect(PROD, "PROD").toBe(!isDev);
 
                 expect('echo' in PLUGINS).toBe(true); // Test echo
-                expect('splash' in PLUGINS).toBe(true); // Test splash page
-                expect('protocol' in PLUGINS).toBe(true); // Test custom protocol
-                expect('__testing' in PLUGINS).toBe(true); // Test custom protocol
 
                 expect(SERVICES).instanceOf(Object)
                 expect(READY).instanceOf(Object) // Resolved Promise
@@ -108,11 +103,19 @@ const e2eTests = {
 
               // Desktop-Related Tests
               if (isDesktop) {
+
+                // Desktop-specific plugins
+                expect('splash' in PLUGINS).toBe(true); 
+                expect('protocol' in PLUGINS).toBe(true);
+                expect('__testing' in PLUGINS).toBe(true);
+
+                // Desktop controls
                 expect(DESKTOP).instanceOf(Object)
                 expect("quit" in DESKTOP).toBe(true)
 
+
+                // Desktop service controls
                 Object.values(SERVICES).forEach(service => {
-                    expect(typeof service.filepath).toBe('string');
                     expect("onActive" in service).toBe(true) // Function
                     expect("onClosed" in service).toBe(true)  // Function
                 })
@@ -155,7 +158,8 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
     serviceTests.echo('http', output)
     serviceTests.echo('express', output)
     serviceTests.echo('manual', output)
-    serviceTests.echo('python', output)
+    serviceTests.echo('flask', output)
+    serviceTests.echo('numpy', output)
     serviceTests.echo('cpp', output)
 
     e2eTests.basic(output, { target })
@@ -230,7 +234,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
 
       afterAll(() => output?.cleanup())
 
-      e2eTests.basic(output, { target }, 'local')
+      e2eTests.basic(output, { target }, false)
     })
 
   })

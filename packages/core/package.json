@@ -5,8 +5,18 @@
   "type": "module",
   "license": "MIT",
   "types": "./dist/types/index.d.ts",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
+  "main": "./dist/main.cjs",
+  "module": "./dist/main.mjs",
+  "exports": {
+      ".": {
+        "import": "./dist/main.mjs",
+        "require": "./dist/main.cjs"
+      },
+      "./services": {
+        "import": "./dist/services.mjs",
+        "require": "./dist/services.cjs"
+      }
+  },
   "engines": {
     "node": ">=20.0.0"
   },

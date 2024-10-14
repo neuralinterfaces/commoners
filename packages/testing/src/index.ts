@@ -7,7 +7,8 @@ import {
   globalWorkspacePath,
   UserConfig,
   BuildHooks,
-  cleanup
+  cleanup,
+  merge
 } from '@commoners/solidarity'
 // } from '../core/index'
 
@@ -15,8 +16,6 @@ import { join } from 'node:path'
 import { rmSync, existsSync } from 'node:fs'
 
 import { chromium, Page, Browser } from 'playwright'
-
-import merge from '@commoners/solidarity/utils/merge.ts'
 
 const getOutDir = (config) => config.launch?.outDir || config.build?.outDir || config.outDir
 
@@ -26,12 +25,19 @@ type Output = {
   cleanup: Function
 }
 
+const onTestFunction = () => {
+  process.env["COMMONERS_TESTING"] = true
+}
+
 // NOTE: You'll likely have to wait longer for Electron to build
 export const build = async (
   root, 
   overrides: Partial<UserConfig> = {},
   hooks: BuildHooks = {}
 ) => {
+
+  onTestFunction()
+
 
   const config = await loadConfigFromFile(root)
   const updatedConfig = merge(config, overrides)
@@ -72,6 +78,8 @@ export const open = async (
   overrides: Partial<UserConfig> = {}, 
   useBuild = false
 ) => {
+
+  onTestFunction()
 
   const states: Partial<BrowserTestOutput> = {}
 
@@ -132,15 +140,19 @@ export const open = async (
       
       cleanup() // Cleanup the command
 
-      if (states.browser) await states.browser.close() // Will also exit the Electron instance
+      // Close launched Electron build
+      if (isElectron) {
+        await states.page.evaluate(() => {
+          const { commoners } = globalThis
+          return commoners.READY.then(() => commoners.DESKTOP.quit())
+        })
+      }
+
+      // Close all active windows
+      if (states.browser) await states.browser.close()
       if (states.server) states.server.close()
     }
 
   } as BrowserTestOutput
 
-  // output.toSpyOn.forEach(({ object, method }) => {  
-  //   const mockExit = vi.spyOn(object, method).mockImplementation(() => {
-  //     mockExit.mockRestore()
-  //   });
-  // })
 }

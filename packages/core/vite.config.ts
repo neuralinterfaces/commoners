@@ -62,11 +62,13 @@ export default defineConfig({
     emptyOutDir: false,
     target: 'node16',
     lib: {
-      // Could also be a dictionary or array of multiple entry points
-      entry: resolve(__dirname, 'index'),
-      name: 'index',
+      entry: {
+        main: resolve(__dirname, 'index'),
+        services: resolve(__dirname, 'services/index'),
+      },
+      name: 'solidarity',
       formats: ['es', 'cjs'],
-      fileName: (format) => `index.${format == 'es' ? 'mjs' : 'cjs'}`,
+      fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'mjs' : 'cjs'}`
     },
     rollupOptions: {
       external: Array.from(new Set([

@@ -16,6 +16,7 @@ import { printFailure, printSubtle } from './utils/formatting.js'
 export * from './types.js'
 export * from './globals.js'
 export * as format from './utils/formatting.js'
+export { merge }
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as start } from './start.js'
