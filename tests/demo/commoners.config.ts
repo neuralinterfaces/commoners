@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 // const root/ = resolve(dirname(fileURLToPath(import.meta.url)))
 const root = './'
 
-import * as echo from './src/plugins/echo'
+import * as checksPlugin from './src/plugins/checks'
+
 import splashPagePlugin from '@commoners/splash-screen'
 import customProtocolPlugin from '@commoners/custom-protocol'
 import testingPlugin from "@commoners/testing/plugin"
@@ -26,7 +27,7 @@ const config = {
     name,
     
     plugins: {
-        echo, 
+        checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),
         protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
         __testing: testingPlugin(TEST_OPTIONS)

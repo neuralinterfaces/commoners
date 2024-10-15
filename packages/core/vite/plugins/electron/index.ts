@@ -66,8 +66,6 @@ export const buildWithVite = async (options: ElectronOptions) => {
 
     const _vite = await vite
 
-    // const commonersOutputLocation  = join(root, globalWorkspacePath)
-
     let userConfig: UserConfig
     let configEnv: ConfigEnv
 

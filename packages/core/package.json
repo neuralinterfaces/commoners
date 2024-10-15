@@ -8,14 +8,14 @@
   "main": "./dist/main.cjs",
   "module": "./dist/main.mjs",
   "exports": {
-      ".": {
-        "import": "./dist/main.mjs",
-        "require": "./dist/main.cjs"
-      },
-      "./services": {
-        "import": "./dist/services.mjs",
-        "require": "./dist/services.cjs"
-      }
+    ".": {
+      "import": "./dist/main.mjs",
+      "require": "./dist/main.cjs"
+    },
+    "./services": {
+      "import": "./dist/services.mjs",
+      "require": "./dist/services.cjs"
+    }
   },
   "engines": {
     "node": ">=20.0.0"

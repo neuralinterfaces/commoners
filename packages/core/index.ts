@@ -80,8 +80,6 @@ export async function loadConfigFromFile(
     let config = {} as UserConfig // No user-defined configuration found
 
     if (configPath) {
-
-
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
         const fileUrl = `${pathToFileURL(configOutputPath)}`
@@ -91,7 +89,6 @@ export async function loadConfigFromFile(
         } finally {
             onCleanup(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }
-
     }
 
     // Set the root of the project

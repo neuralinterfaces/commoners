@@ -1,11 +1,10 @@
 
-import { extname, join, resolve } from 'node:path'
+import { extname, resolve } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 import { isDesktop, isMobile } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
-import { UserConfig } from 'vite'
 
 const virtualModuleId = 'commoners:env'
 
@@ -39,7 +38,8 @@ type CommonersPluginOptions = {
     build: boolean
     outDir: string
     target: string
-    dev: boolean
+    dev: boolean,
+    env: Record<string, string>
 }
 
 export default ({ 
@@ -47,7 +47,8 @@ export default ({
     build, 
     outDir,
     target,
-    dev
+    dev,
+    env
 }: CommonersPluginOptions) => {
 
     const actualOutDir = outDir
@@ -93,6 +94,8 @@ export default ({
         // Production vs Development
         DEV: dev,
         PROD: !dev,
+
+        ENV: env
     }
     
     const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
@@ -106,7 +109,12 @@ export default ({
         },
         load(id) {
             if (id === resolvedVirtualModuleId) {
-                return `const ENV = globalThis.commoners;\n${ENV_VAR_NAMES.map(name => `export const ${name} = ENV.${name}`).join('\n')}\nexport default ENV`
+                const lines = [
+                    "const ENV = globalThis.commoners",
+                    ...ENV_VAR_NAMES.map(name => `export const ${name} = ENV.${name}`),
+                    "export default ENV"
+                ]
+                return lines.join("\n")
             }
         },
         transformIndexHtml(html) {
@@ -126,8 +134,8 @@ export default ({
                 <script type="module">
 
                 // Directly import the plugins from the transpiled configuration object
-                import COMMONERS_CONFIG from "${updatedConfigURL}"
-                const { plugins } = COMMONERS_CONFIG
+                import CONFIG from "${updatedConfigURL}"
+                const { plugins } = CONFIG
                 
                 // Set global variable
                 const { 
@@ -138,29 +146,29 @@ export default ({
                 } = globalThis.__commoners ?? {} // Grab temporary variables
 
 
-                const commonersGlobalVariable = globalThis.commoners = {}
+                const GLOBAL = globalThis.commoners = {}
 
                 const globalObject = JSON.parse(\`${JSON.stringify(globalObject)}\`)
-                Object.keys(globalObject).forEach(key => commonersGlobalVariable[key] = globalObject[key])
+                Object.keys(globalObject).forEach(key => GLOBAL[key] = globalObject[key])
 
-                if (commonersGlobalVariable.DESKTOP) {
-                    commonersGlobalVariable.DESKTOP = {}
-                    if (quit)  commonersGlobalVariable.DESKTOP.quit = quit
-                    if (electron) commonersGlobalVariable.DESKTOP.electron = electron
+                if (GLOBAL.DESKTOP) {
+                    GLOBAL.DESKTOP = {}
+                    if (quit)  GLOBAL.DESKTOP.quit = quit
+                    if (electron) GLOBAL.DESKTOP.electron = electron
                 }
 
-                if (plugins) commonersGlobalVariable.__PLUGINS = plugins
-                if (services) commonersGlobalVariable.SERVICES = services // Replace with sanitized services from Electron if available
+                if (plugins) GLOBAL.__PLUGINS = plugins
+                if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
 
-                commonersGlobalVariable.READY = new Promise(res => {
+                GLOBAL.READY = new Promise(res => {
                     const ogRes = res
                     res = (...args) => {
                         ogRes(...args)
-                        delete commonersGlobalVariable.__READY
+                        delete GLOBAL.__READY
                         if (send) send('commoners:ready')
                     }
                     
-                    commonersGlobalVariable.__READY = res
+                    GLOBAL.__READY = res
                 })    
 
                 import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")

@@ -226,7 +226,7 @@ Plugins are collections of JavaScript functions that run at different points dur
 3. `desktop.ready` - Run after the application is ready (`--desktop` builds only)
 4. `desktop.load` - Run after each window is created in the application (`--desktop` builds only)
 5. `desktop.unload` - Run after each window is closed (`--desktop` builds only)
-6. `desktop.quit` - Run before the app quits (`--desktop` builds only)
+6. `desktop.end` - Run before the app exits (`--desktop` builds only)
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](../plugins/index.md#official-plugins) section.
 

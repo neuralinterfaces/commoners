@@ -147,7 +147,7 @@ const runAppPlugins = async (args: any[] = [], type = 'start') => {
     const types = {
       start: type === "start",
       ready: type === "ready",
-      quit: type === "quit"
+      end: type === "end"
     }
 
     // Coordinate the state transitions for the plugins

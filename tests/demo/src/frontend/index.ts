@@ -1,12 +1,9 @@
 import { NAME, ICON, SERVICES, READY } from 'commoners:env'
+// const { NAME, ICON, SERVICES, READY } = commoners
+
 import './style.css'
 
 const test = Math.random().toString(36).substring(7)
-
-READY.then(({ echo }) => {
-    const echoed = echo(test)
-    console.log('Echo Confirmed', test === echoed)
-})
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div>

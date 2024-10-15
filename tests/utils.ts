@@ -32,6 +32,47 @@ const getServices = async (output) => {
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const e2eTests = {
+    plugins: (output, { target }, isDev = true) => {
+
+      describe("Plugin features are working as expected", () => {
+
+        test("Message passing is functional based on echo test", async () => {
+
+          const randomId = getRandomNumber()
+
+          const echo = await output.page.evaluate((input) => {
+            const { commoners } = globalThis
+            return commoners.READY.then(({ checks }) => checks.echo(input))
+          }, randomId)
+
+          expect(echo).toEqual(randomId)
+        })
+
+        test("Correct env is accessed by the plugins", async () => {
+
+            const env = await output.page.evaluate(() => {
+              const { commoners } = globalThis
+              return commoners.READY.then(({ checks }) => checks.env)
+            })
+
+            if (isDev) expect(env.COMMONERS_MODE).toStrictEqual('development')
+            else expect(env.COMMONERS_MODE).toStrictEqual('production')
+        })
+
+        test("Plugin source file is properly resolved", async () => {
+
+          const src = await output.page.evaluate(() => {
+            const { commoners } = globalThis
+            return commoners.READY.then(({ checks }) => checks.src)
+          })
+
+          expect(src).toBeTypeOf("string")
+          expect(src.endsWith("checks.ts")).toBe(true)
+        })
+
+      })
+
+    },
     basic: (output, { target }, isDev = true) => {
 
         const normalizedTarget = normalizeTarget(target)
@@ -59,7 +100,9 @@ const e2eTests = {
                   WEB,
 
                   DEV,
-                  PROD
+                  PROD,
+
+                  ENV
 
                 } = COMMONERS
 
@@ -72,13 +115,20 @@ const e2eTests = {
                 expect(WEB).toBe(normalizedTarget === 'web');
                 expect(MOBILE).toBe(normalizedTarget === 'mobile');
 
+                expect(READY).instanceOf(Object) // Resolved Promise
+
+                // Build Mode Changes
                 expect(DEV, "DEV").toBe(isDev);
                 expect(PROD, "PROD").toBe(!isDev);
 
-                expect('echo' in PLUGINS).toBe(true); // Test echo
+                if (isDev) expect(ENV.COMMONERS_MODE).toStrictEqual('development')
+                else expect(ENV.COMMONERS_MODE).toStrictEqual('production')
 
+                // Plugin Checks
+                expect('checks' in PLUGINS).toBe(true); // Test checks existence
+
+                // Service Checks
                 expect(SERVICES).instanceOf(Object)
-                expect(READY).instanceOf(Object) // Resolved Promise
 
                 Object.entries(SERVICES).forEach(([name, service]) => {
 
@@ -116,7 +166,7 @@ const e2eTests = {
 
 
               // // Environment Variables
-              // expect(import.meta.env.VITE_ENV_VARIABLE).toBe('test')
+              // expect(ENV.VITE_ENV_VARIABLE).toBe('test')
 
 
 
@@ -153,6 +203,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
     serviceTests.echo('cpp', output)
 
     e2eTests.basic(output, { target })
+    e2eTests.plugins(output, { target })
 
   })
 }
@@ -224,6 +275,8 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
       afterAll(() => output?.cleanup())
 
       e2eTests.basic(output, { target }, false)
+      e2eTests.plugins(output, { target }, false)
+
     })
 
   })

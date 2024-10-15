@@ -19,8 +19,6 @@ type VitePWAOptions = import ('vite-plugin-pwa').VitePWAOptions
 
 type Plugin = import('vite').Plugin
 
-// import { nodeBuiltIns } from "../utils/config.js";
-
 const defaultOutDir = join(rootDir, 'dist')
 
 // Run a development server
@@ -142,6 +140,7 @@ export const resolveViteConfig = async (
         // @ts-ignore
         plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
+    
 
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
@@ -154,11 +153,15 @@ export const resolveViteConfig = async (
         },
         plugins,
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
-        clearScreen: false
+        clearScreen: false,
+        envPrefix: ["VITE_", "COMMONERS_"]
     })
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
-    
+
+    const mode = dev ? "development" : "production"
+    const env = _vite.loadEnv(mode, root, mergedConfig.envPrefix)
+
     mergedConfig.plugins = [
         ...mergedConfig.plugins,
         commonersPlugin({ 
@@ -169,7 +172,8 @@ export const resolveViteConfig = async (
             build,
             outDir,
             target,
-            dev
+            dev,
+            env
         })
     ]
     
