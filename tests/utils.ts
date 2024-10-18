@@ -36,7 +36,7 @@ const e2eTests = {
 
       describe("Plugin features are working as expected", () => {
 
-        test("Message passing is functional based on echo test", async () => {
+        test("Will pass messages between contexts", async () => {
 
           const randomId = getRandomNumber()
 
@@ -48,7 +48,7 @@ const e2eTests = {
           expect(echo).toEqual(randomId)
         })
 
-        test("Correct env is accessed by the plugins", async () => {
+        test("Correct env is accessed", async () => {
 
             const env = await output.page.evaluate(() => {
               const { commoners } = globalThis
@@ -59,7 +59,7 @@ const e2eTests = {
             else expect(env.COMMONERS_MODE).toStrictEqual('production')
         })
 
-        test("Plugin source file is properly resolved", async () => {
+        test("Source file is resolved", async () => {
 
           const src = await output.page.evaluate(() => {
             const { commoners } = globalThis

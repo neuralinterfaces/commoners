@@ -1,0 +1,17 @@
+{
+    "name": "@commoners/windows",
+    "version": "0.1.0-alpha.0",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
+    "license": "MIT",
+    "type": "module",
+    "scripts": {
+        "build": "vite build"
+    },
+    "devDependencies": {
+        "vite": "^5.3.4"
+    },
+    "peerDependencies": {
+        "@commoners/solidarity": "^0.1.0-alpha.0"
+    }
+}

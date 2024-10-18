@@ -61,21 +61,27 @@ type States = {
 export const desktop = {
   load: function ( win ) {
 
-    const states: States = { select: null, match: null }
+      const id = win.__id
+      const WIN_STATES: {
+        select?: Function,
+        match?: DeviceInformation
+      } = {}
 
-      const match = (value: DeviceInformation) => states.match = value
+      const match = (value: DeviceInformation) => WIN_STATES.match = value
 
-      const select = (value: MACAddress | '') => {
-          if (typeof states.select === 'function') {
-            states.select(value) // Select the device by MAC Address, or cancel device selection
-            this.send(`selected`, value) // Notify the renderer that a device was selected
+      const selectDevice = (value: MACAddress | '') => {
+          const { select } = WIN_STATES
+          if (typeof select === 'function') {
+            select(value) // Select the device by MAC Address, or cancel device selection
+            this.send(`${id}:selected`, value) // Notify the renderer that a device was selected
           }
-          states.select = null
-          states.match = null
-      }
 
-      this.on(`match`, (_evt, value: DeviceInformation) => match(value))
-      this.on(`select`, ( _evt, value: MACAddress) => select(value));
+          delete WIN_STATES.select
+          delete WIN_STATES.match
+      }
+  
+      this.on(`${id}:match`, (_evt, value: DeviceInformation) => match(value))
+      this.on(`${id}:select`, ( _evt, value: MACAddress) => selectDevice(value));
 
       // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
       win.webContents.session.setBluetoothPairingHandler((details, callback) => {
@@ -88,12 +94,12 @@ export const desktop = {
 
         event.preventDefault()
 
-        const newRequest = !states.select
-        states.select = callback
+        const newRequest = !WIN_STATES.select
+        WIN_STATES.select = callback
 
         // If a device was saved to select later, select it now
 
-        const { match } = states
+        const { match } = WIN_STATES
 
         if (match) {
 
@@ -103,34 +109,35 @@ export const desktop = {
             return true
           })
 
-          if (hasMatch) select(hasMatch.deviceId)
+          if (hasMatch) selectDevice(hasMatch.deviceId)
           return
         } 
         
         // Open the device modal and update it with the available devices
-        if (newRequest) this.send(`open`, devices); // Initial request always starts at zero
-        this.send(`update`, devices);
+        if (newRequest) this.send(`${id}:open`, devices); // Initial request always starts at zero
+        this.send(`${id}:update`, devices);
       })
-
   }
 }
 
 export function load() {
 
-  const onOpen = (callback) => this.on(`open`, () => callback())
+  const { __id } = commoners.DESKTOP
 
-  const onUpdate = (callback) => this.on(`update`, (_, devices) => callback(devices))
+  const onOpen = (callback) => this.on(`${__id}:open`, () => callback())
 
-  this.on(`selected`, () => {
+  const onUpdate = (callback) => this.on(`${__id}:update`, (_, devices) => callback(devices))
+
+  this.on(`${__id}:selected`, () => {
     if (matchTimeout) clearTimeout(matchTimeout)
       matchTimeout = null
   })
 
-  const onSelect = (callback) => this.on(`selected`, (_, id) => callback(id))
+  const onSelect = (callback) => this.on(`${__id}:selected`, (_, id) => callback(id))
 
   let matchTimeout;
 
-  const select = (deviceID: MACAddress) => this.send(`select`, deviceID)
+  const select = (deviceID: MACAddress) => this.send(`${__id}:select`, deviceID)
 
   const match = (
     device: DeviceInformation,
@@ -139,18 +146,17 @@ export function load() {
 
     if (!device) return
     
-    this.send(`match`, device)
+    this.send(`${__id}:match`, device)
 
     if (!timeout) return
     
     matchTimeout = setTimeout(
-      () => commoners.plugins.bluetooth.cancel(),
+      () => cancel(),
       timeout
     )
-
   }
 
-  const cancel = () => this.send(`select`, '')
+  const cancel = () => this.send(`${__id}:select`, '')
 
   const modal = createModal({
     headerText: 'Available BLE Devices',

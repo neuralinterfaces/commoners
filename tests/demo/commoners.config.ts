@@ -4,18 +4,23 @@ import { fileURLToPath } from "node:url";
 // const root/ = resolve(dirname(fileURLToPath(import.meta.url)))
 const root = './'
 
-import * as checksPlugin from './src/plugins/checks'
+import * as checksPlugin from './src/plugins/checks.ts'
 
 import splashPagePlugin from '@commoners/splash-screen'
 import customProtocolPlugin from '@commoners/custom-protocol'
 import testingPlugin from "@commoners/testing/plugin"
 import * as services from '@commoners/solidarity/services'
+import windowsPlugin from '@commoners/windows'
+// import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
 export const name = 'Test App'
 
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
 const splashSrc = join(root, 'splash.html')
+
+const mainSrc = join(root, 'index.html')
+const popupSrc = join(root, "windows", "popup", 'popup.html')
 
 const TEST_OPTIONS = {
     remoteDebuggingPort: 8315,
@@ -30,6 +35,19 @@ const config = {
         checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),
         protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
+        windows: windowsPlugin({
+            main: mainSrc,
+            popup: {
+                src: popupSrc,
+                window: {
+                    height: 200,
+                    width: 400
+                },
+                overrides: {
+                    name: "Popup Window"
+                }
+            }
+        }),
         __testing: testingPlugin(TEST_OPTIONS)
     },
 

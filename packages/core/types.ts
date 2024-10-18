@@ -175,7 +175,7 @@ type ElectronOptions = {
 type RawPlugins = {[id: string]: Plugin}
 
 // ------------------- Configuration Object Declaration -------------------
-type BaseConfig = {
+export type BaseConfig = {
     
     root: string // Root of the project (will resolve config file there)
 

@@ -151,12 +151,8 @@ export default ({
                 const globalObject = JSON.parse(\`${JSON.stringify(globalObject)}\`)
                 Object.keys(globalObject).forEach(key => GLOBAL[key] = globalObject[key])
 
-                if (GLOBAL.DESKTOP) {
-                    GLOBAL.DESKTOP = {}
-                    if (quit)  GLOBAL.DESKTOP.quit = quit
-                    if (electron) GLOBAL.DESKTOP.electron = electron
-                }
-
+                if (GLOBAL.DESKTOP) GLOBAL.DESKTOP = {}
+    
                 if (plugins) GLOBAL.__PLUGINS = plugins
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
 

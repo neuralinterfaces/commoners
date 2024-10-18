@@ -8,6 +8,13 @@ delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
+if (DESKTOP) {
+    Object.assign(DESKTOP, {
+        quit: TEMP_COMMONERS.quit,
+        ...TEMP_COMMONERS.args
+    })
+}
+
 if ( __PLUGINS ) {
 
     const loaded = {}
@@ -34,13 +41,14 @@ if ( __PLUGINS ) {
 
         try {
             if (load) {
-                loaded[id] = ENV.DESKTOP ? load.call({
-                    quit: TEMP_COMMONERS.quit,
+                loaded[id] = DESKTOP ? load.call({
+                    ...DESKTOP,
                     send: (channel, ...args) => TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
                     sendSync: (channel, ...args) => TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),
                     on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
-                    removeAllListeners: (channel) => TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`),
-                }) : load({})
+                    once: (channel, listener) => TEMP_COMMONERS.once(`plugins:${id}:${channel}`, listener),
+                    removeAllListeners: (channel) => TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`)
+                }) : load()
             }
         } catch (e) {
             pluginErrorMessage(id, "load", e)

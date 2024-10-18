@@ -5,12 +5,24 @@ import { contextBridge } from 'electron'
 const globalVariableName = '__commoners'
 const services = ipcRenderer.sendSync('commoners:services')
 
+const args = process.argv.slice(1).reduce((acc, arg) => {
+  const match = arg.match(/^--(__.+)=(.+)$/);
+  if (match)  {
+    acc[match[1]] = match[2]
+    try { acc[match[1]] = JSON.parse(acc[match[1]]) } catch {}
+  }
+  return acc;
+}, {});
+
 const TEMP_COMMONERS = { 
     quit: () => ipcRenderer.send('commoners:quit'),
+    args,
+    
     services, // Ensure correct ports
 
     // Will be scoped by plugin in onload.ts
     on: (channel, listener) => ipcRenderer.on(channel, listener),
+    once: (channel, listener) => ipcRenderer.once(channel, listener),
     send: (channel, ...args) => ipcRenderer.send(channel, ...args),
     sendSync: (channel, ...args) => ipcRenderer.sendSync(channel, ...args),
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),

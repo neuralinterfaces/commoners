@@ -25,8 +25,10 @@ let readyQueue: ReadyFunction[] = []
 
 const onWindowReady = (f: ReadyFunction) => globals.mainWindow ? f(globals.mainWindow) : readyQueue.push(f)
 
+const getScopedIdentifier = (type, source, attr) => `${type}:${source}:${attr}`
+
 const scopedOn = (type, id, channel, callback) => {
-  const event = `${type}:${id}:${channel}`
+  const event = getScopedIdentifier(type, id, channel)
   ipcMain.on(event, callback)
   const remove = () => ipcMain.removeListener(event, callback)
   return { 
@@ -36,7 +38,7 @@ const scopedOn = (type, id, channel, callback) => {
 
 const scopedSend = (type, id, channel, ...args) => onWindowReady(() => {
   const windows = BrowserWindow.getAllWindows()
-  windows.forEach(win => send.call(win, `${type}:${id}:${channel}`, ...args)) // Send to all windows
+  windows.forEach(win => send.call(win, getScopedIdentifier(type, id, channel), ...args)) // Send to all windows
 })
 const serviceSend = (id, channel, ...args) => scopedSend('services', id, channel, ...args)
 const serviceOn = (id, channel, callback) => scopedOn('services', id, channel, callback)
@@ -107,8 +109,6 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
 
   const { assets = {} } = plugin
 
-  const __listeners: any[] = []
-
   acc[id] = { 
     id,
 
@@ -117,14 +117,17 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
     utils,
 
     // Helper Functions
-    createWindow: (page: string, opts: WindowOptions) => createWindow(page, opts, [ id ]),
+    createWindow: (page: string, opts: WindowOptions) => createWindow(page, opts),
     open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
     send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
-    on: function (channel, callback) { {
+    on: function (channel, callback, win?: BrowserWindow ) { 
       const listener = pluginOn(this.id, channel, callback)
-      __listeners.push(listener)
+      if (win) win.__listeners.push(listener)
       return listener
-    } },
+     },
+
+    setAttribute: function (win, attr, value) { win[getScopedIdentifier("window", this.id, attr)] = value },
+    getAttribute: function (win, attr) { return win[getScopedIdentifier("window", this.id, attr)] },
 
     // Provide specific variables from the plugin
     plugin: {
@@ -134,8 +137,7 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
         acc[key] = join(assetsPath, 'plugins', id, key, filename)
         return acc
       }, {})
-    },
-    __listeners
+    }
   }
   return acc
 }, {})
@@ -167,7 +169,8 @@ const runAppPlugins = async (args: any[] = [], type = 'start') => {
 
 
 const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
-  return await Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => {
+  return await Promise.all(Object.entries(plugins).map(async ([id, plugin]: [string, any]) => {
+
     if (toIgnore.includes(id)) return
     const desktopState = plugin.desktop ?? {}
 
@@ -177,17 +180,25 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     }
 
     // Coordinate the state transitions for the plugins
-    const { __state } = desktopState
-    if (types.load &&(__state && __state === 'load')) return
-    if (types.unload && __state !== "load") return 
-    desktopState.__state = type
-
-    if (types.unload) contexts[id].__listeners.forEach((l) => l.remove()) // Auto-close all listeners created using the ipcMain.on() proxy method
-
     const thisPlugin = desktopState[type]
     if (!thisPlugin) return
+
+    const context = contexts[id]
     
-    return thisPlugin.call(contexts[id], win)
+    const { on, createWindow } = context
+
+    if (types.load) {
+      context.createWindow = (page, opts) => createWindow(page, opts, [ id ]) // Do not recursively call window creation in load function
+    }
+    
+    const result = await thisPlugin.call(context, win)
+
+    if (types.load) {
+      context.on = on
+      context.createWindow = createWindow
+    }
+
+    return result
 
   }))
 }
@@ -210,15 +221,32 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     ...platformDependentWindowConfig,
   }
 
-  async function createWindow (page, options: WindowOptions = {}, toIgnore?: string[], isMainWindow: boolean = true) {
+
+  let windowCount = 0
+
+  async function createWindow (page, options: WindowOptions = {}, toIgnore?: string[], isMainWindow: boolean = false) {
+
     const copy = structuredClone({...defaultWindowConfig, ...options})
     
     // Ensure web preferences exist
     if (!copy.webPreferences) copy.webPreferences = {}
     if (!('preload' in copy.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
+    if (!('additionalArguments' in copy.webPreferences)) copy.webPreferences.additionalArguments = []
+
+
+    const __listeners = []
+    const flags = {
+      __id: windowCount,
+      __main: isMainWindow,
+      __listeners
+    }
+
+    windowCount++
+
+    copy.webPreferences.additionalArguments.push(...Object.entries(flags).map(([key, value]) => `--${key}=${value}`))
 
     const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
-    if (isMainWindow) win.__main = true
+    Object.assign(win, flags)
 
     const ogShow = win.show
     win.show = function (){
@@ -250,7 +278,10 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     });
 
     // ------------------------ Window Shutdown Behavior ------------------------
-    win.once("close", async () => await runWindowPlugins(win, 'unload', toIgnore))
+    win.once("close", async () => {
+      await runWindowPlugins(win, 'unload', toIgnore)
+      __listeners.forEach((l) => l.remove()) // Clear listeners attached to the window. These are created using the ipcMain.on proxy
+    })
 
     // ------------------------ Window Load Behavior ------------------------
     await runWindowPlugins(win, 'load', toIgnore) 

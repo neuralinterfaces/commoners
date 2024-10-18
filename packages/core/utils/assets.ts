@@ -267,7 +267,7 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         const assetsCopy = structuredClone(plugin.assets ?? {})
         Object.entries(assetsCopy).map(([ key, fileInfo ]) => {
             const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src,  overrides }  = fileInfoDictionary
+            const { src,  overrides = {} }  = fileInfoDictionary
             const absPath = getAbsolutePath(root, src)
 
             // const dir = dirname(src) // NOTE: This may overwrite files that are named the same

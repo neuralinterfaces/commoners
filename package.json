@@ -20,6 +20,7 @@
     "@commoners/solidarity": "0.1.0-alpha.0",
     "@commoners/splash-screen": "0.1.0-alpha.0",
     "@commoners/testing": "0.1.0-alpha.0",
+    "@commoners/windows": "0.1.0-alpha.0",
     "@vitest/coverage-v8": "^2.0.3",
     "search-insights": "^2.15.0",
     "commoners": "0.1.0-alpha.0",

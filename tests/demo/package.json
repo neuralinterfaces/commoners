@@ -15,5 +15,9 @@
   "workspaces": [
     "src/services/*"
   ],
-  "main": ".commoners/.temp/main.js"
+  "dependecies": {
+    "@commoners/custom-protocol": "0.1.0-alpha.0",
+    "@commoners/splash-screen": "0.1.0-alpha.0",
+    "@commoners/windows": "0.1.0-alpha.0"
+  }
 }

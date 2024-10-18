@@ -12,34 +12,29 @@ export const isSupported = {
 }
 
 export const desktop = {
+  ready: function () {
+      this.CALLBACKS = {}
+  },
   load: function ( win ) {
 
-    let selectPortCallback;
+    const id = win.__id
   
     win.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
+
       // Add listeners to handle ports being added or removed before the callback for `select-serial-port` is called.
-      win.webContents.session.on('serial-port-added', (event, port) => {
-        this.send(`added`, port);
-      })
+      win.webContents.session.on('serial-port-added', (event, port) =>  this.send(`${id}:added`, port))
   
-      win.webContents.session.on('serial-port-removed', (event, port) => {
-        this.send(`removed`, port);
-      })
+      win.webContents.session.on('serial-port-removed', (event, port) => this.send(`${id}:removed`, port))
   
-      this.send(`request`, portList);
-  
+      this.send(`${id}:request`, portList);
+      this.on(`${id}:select`, (_evt, port) =>  this.CALLBACKS[id]?.(port));
+
       event.preventDefault()
-      selectPortCallback = callback
-  
-      // NOTE: Ensure this is only called once
-      this.on(`select`, (
-        _evt, //: IpcMainEvent, 
-        port //: string
-      ) => {
-        if (typeof selectPortCallback === 'function') selectPortCallback(port)
-        selectPortCallback = null
-      });
-  
+      this.CALLBACKS[id] = (port) => {
+        this.CALLBACKS[id] = null // Ensures this is only called once
+        callback(port)
+      }
+
     })
   
     win.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
@@ -48,11 +43,13 @@ export const desktop = {
 }
 
 export function load() {
-  const added = (callback) => this.on(`added`, (_, port) => callback(port))
-  const removed = (callback) => this.on(`removed`, (_, port) => callback(port))
-  const select = (port) => this.send(`select`, port)
-  const onRequest =(callback) => this.on(`request`, (_, value) => callback(value))
 
+  const { __id } = commoners.DESKTOP
+  
+  const added = (callback) => this.on(`${__id}:added`, (_, port) => callback(port))
+  const removed = (callback) => this.on(`${__id}:removed`, (_, port) => callback(port))
+  const select = (port) => this.send(`${__id}:select`, port)
+  const onRequest =(callback) => this.on(`${__id}:request`, (_, value) => callback(value))
 
   const modal = createModal({
     headerText: 'Available Serial Ports',
