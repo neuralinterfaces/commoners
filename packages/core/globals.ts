@@ -11,7 +11,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 // Internal Imports
-import { printFailure } from "./utils/formatting.js";
+import { printFailure, printSubtle } from "./utils/formatting.js";
 import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validDesktopTargets, validMobileTargets } from "./types.js";
 
 // Dynamic Imports
@@ -46,7 +46,9 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     
     // NOTE: Ensure that the single temporary directory is not overwritten for different targets
     if (existsSync(tempDir)) {
-        await printFailure('Only one commoners command can be run at a time in the same repo.')
+        await printFailure('An active development build was detected for this project.')
+        await printSubtle('Shut down the active build and try again.')
+        await printSubtle(`To reset this error, you may also delete the ${resolve(tempDir)} directory.`)
         process.exit(1)
     }
     
