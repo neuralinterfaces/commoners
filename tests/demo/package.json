@@ -19,5 +19,6 @@
     "@commoners/custom-protocol": "0.1.0-alpha.0",
     "@commoners/splash-screen": "0.1.0-alpha.0",
     "@commoners/windows": "0.1.0-alpha.0"
-  }
+  },
+  "main": ".commoners/.temp/electron/main.js"
 }

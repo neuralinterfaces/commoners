@@ -107,7 +107,7 @@ const e2eTests = {
                 } = COMMONERS
 
                 const isDesktop = normalizedTarget === 'desktop'
-                const hasPublishedServices = isDev || isDesktop
+                const availableByDefault = isDev || isDesktop
 
                 expect(NAME).toBe(config.name);
                 expect(VERSION).toBe(userPkg.version);
@@ -130,12 +130,14 @@ const e2eTests = {
                 // Service Checks
                 expect(SERVICES).instanceOf(Object)
 
-                Object.entries(SERVICES).forEach(([name, service]) => {
+                Object.entries(SERVICES).forEach(([ name, service ]) => {
+
+                    const shouldBePublished = availableByDefault || !!service.url
 
                     // Web / PWA / Mobile builds will have cleared services (that are not remote)
-                    expect(name in SERVICES).toBe(hasPublishedServices);
+                    expect(name in SERVICES, `${name} is not published correctly`).toBe(shouldBePublished);
 
-                    if (hasPublishedServices) {
+                    if (shouldBePublished) {
                       expect(typeof service.url).toBe('string');
                       if ('port' in service) expect(parseInt(new URL(service.url).port)).toBe(service.port)
                     }
@@ -195,13 +197,9 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
     test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
 
-    serviceTests.echo('http', output)
-    serviceTests.echo('express', output)
-    serviceTests.echo('manual', output)
-    serviceTests.echo('flask', output)
-    serviceTests.echo('numpy', output)
-    serviceTests.echo('cpp', output)
-
+    const services = [ 'http', 'express', 'manual', 'flask', 'numpy', 'cpp' ] 
+    services.forEach(name => serviceTests.echo(name, output))
+    
     e2eTests.basic(output, { target })
     e2eTests.plugins(output, { target })
 

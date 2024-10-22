@@ -22,6 +22,8 @@ const splashSrc = join(root, 'splash.html')
 const mainSrc = join(root, 'index.html')
 const popupSrc = join(root, "windows", "popup", 'popup.html')
 
+const remoteURL = 'https://jsonplaceholder.typicode.com/todos/1'
+
 const TEST_OPTIONS = {
     remoteDebuggingPort: 8315,
     remoteAllowOrigins: '*' // Allow all remote origins
@@ -115,27 +117,45 @@ const config = {
             publish: './build/cpp/server.exe', // Specified output folder
         },
 
-        // // NOTE: Must adjust testing code to ignore services when not present
-        // dynamicNode: {
+        dynamicNode: {
+            description: 'A simple Node.js server',
+            src: expressSrc
+        },
+
+        remote: remoteURL,
+
+        publishedToRemoteLocation: {
+            src: expressSrc, // Call the Node server in development
+            url: remoteURL
+        },
+
+
+        // NOTE: Should be completely removed
+        devOnly: {
+            description: 'A local Node.js server',
+            src: expressSrc,
+            publish: false // Explicitly block this service from publishing
+        },
+
+        // // OLD FEATURES
+        // remoteOnAllBuilds: {
         //     description: 'A simple Node.js server',
-        //     src: './src/services/node/index.js',
-        //     // url: 'https://node.example.com', // Remote for all builds (web, mobile, desktop)
-        //     // url: { remote: 'https://node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
-        //     // url: { local: 'https://node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
+        //     src: expressSrc, // Runs on Dev Mode
+        //     url: remoteURL, // Remote for all builds (web, mobile, desktop)
         // },
 
-        // devNode: {
-        //     description: 'A local Node.js server',
-        //     src: './src/services/node/index.js',
-        //     publish: false // Do not publish this service
+        // localForDesktop: {
+        //     description: 'A simple Node.js server',
+        //     src: expressSrc, 
+        //     url: { remote: remoteURL }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
         // },
 
-        // remote: 'https://jsonplaceholder.typicode.com',
+        // remoteOnDesktop_removedOtherwise: {
+        //     description: 'A simple Node.js server',
+        //     src: expressSrc,
+        //     url: { local: remoteURL }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
+        // },
 
-        // dynamic: {
-        //     src: 'http://localhost:1111', // Call the python server in development
-        //     url: 'https://jsonplaceholder.typicode.com'
-        // }
 
     }
 }

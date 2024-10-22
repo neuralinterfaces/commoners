@@ -48,7 +48,7 @@ export default async function build (
 
     let { services: userRebuildServices } = buildOpts
 
-    const {  publish, sign } = buildOpts
+    const { publish, sign } = buildOpts
 
     const servicesToUse = !buildTarget ? userRebuildServices : undefined
 
@@ -65,6 +65,7 @@ export default async function build (
         target,
         build: true
     })
+
 
     const { root } = resolvedConfig
 
@@ -93,6 +94,7 @@ export default async function build (
         assets: !buildOnlyServices,
         services: buildOnlyServices
     } 
+
 
     // ---------------- Clear Previous Builds ----------------
     if (isDesktopBuild)  await clear(join(globalWorkspacePath, 'services')) // Clear default service directory

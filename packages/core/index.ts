@@ -16,10 +16,11 @@ import { printFailure, printSubtle } from './utils/formatting.js'
 export * from './types.js'
 export * from './globals.js'
 export * as format from './utils/formatting.js'
-export { merge }
 export { default as launch } from './launch.js'
 export { default as build } from './build.js'
 export { default as start } from './start.js'
+export { merge } // Other Helpers
+
 
 // ------------------ Configuration File Handling ------------------
 export const defineConfig = (o: UserConfig): UserConfig => o
@@ -98,7 +99,7 @@ export async function loadConfigFromFile(
 }
 
 type ResolveOptions = {
-    services?: string | string[],
+    services?: string | string[]
     target?: TargetType,
     build?: boolean
 }
@@ -145,7 +146,7 @@ export async function resolveConfig(
     copy.vite = vite ?? {} // Transfer the original Vite config
 
     copy.target = await ensureTargetConsistent(copy.target, ['services'])
-    
+
     if (!copy.electron) copy.electron = {}
 
     // Set default values for certain properties shared across config and package.json
@@ -158,19 +159,16 @@ export async function resolveConfig(
     // Always have a build options object
     if (!copy.build) copy.build = {}
 
+
     copy.services = await resolveAll(copy.services, { target, build, services: !!services, root: copy.root }) // Always resolve all backend services before going forward
 
     // Build a subset of services if specified
     if (build && services) {
         const selected = typeof services === 'string' ? [ services ] : services
-        const isSingleService = selected.length === 1
-
-
         const allServices = Object.keys(copy.services)
         if (!selected.every(name => allServices.includes(name))) {
             await printFailure(`Invalid service selection`)
-            // Print actual services as a nice list
-            await printSubtle(`Available services: ${allServices.join(', ')}`)
+            await printSubtle(`Available services: ${allServices.join(', ')}`) // Print actual services as a nice list
             process.exit(1)
         }
 

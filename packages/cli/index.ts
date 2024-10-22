@@ -62,7 +62,7 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
 cli.command('build [root]', 'Build the application in the specified directory', { ignoreOptionDefaultValue: true })
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
-.option('--service <name>', 'Build service(s)', { default: 'all' })
+.option('--service <name>', 'Build service(s)')
 .option('--publish [type]', 'Publish the application', { default: 'always'})
 .option('--sign', 'Enable code signing (desktop target on Mac only)')
 .option('--config <path>', 'Specify a configuration file')
@@ -80,6 +80,7 @@ cli.command('build [root]', 'Build the application in the specified directory', 
     // Ensure services are built only
     if (buildOnlyServices) {
         delete config.target
+        delete config.build?.target
         options.services = options.service
     }
 

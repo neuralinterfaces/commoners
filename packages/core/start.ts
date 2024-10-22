@@ -30,7 +30,7 @@ export default async function (
 
         const { services: resolvedServices } = resolvedConfig
         
-        const createAllServices = () => createServices(resolvedServices, { root }) // Run services in parallel
+        const createAllServices = () => createServices(resolvedServices, { root, target, services: true, build: false }) // Run services in parallel
 
         const outDir = join(root, globalTempDir)
 
@@ -43,7 +43,7 @@ export default async function (
         else {
             const copy = { ...resolvedConfig }
             copy.build = { ...copy.build, outDir }
-            await buildAssets(copy)
+            await buildAssets(copy, undefined, true)
         }
 
         const activeInstances: {

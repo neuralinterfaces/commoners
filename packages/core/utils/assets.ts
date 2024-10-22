@@ -1,23 +1,28 @@
 // Built-In Modules
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, rmSync, truncate, writeFileSync } from "node:fs"
 import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 import { pathToFileURL } from "node:url"
 
 
 
 // Internal Imports
-import { resolveConfig, resolveConfigPath } from "../index.js"
+import { resolveConfigPath } from "../index.js"
 import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from "./encode.js"
 import { chalk, isDesktop, rootDir, vite } from "../globals.js"
 import { spawnProcess } from './processes.js'
-import { ResolvedConfig, ResolvedService, UserConfig } from "../types.js"
-import { isValidURL } from './url.js'
+import { ResolvedConfig, ResolvedService } from "../types.js"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
 
 import { resolveViteConfig } from "../vite/index.js"
 import { mergeConfig } from "vite"
+
+const CONFIG_EXTENSION_TARGETS = [
+    '.cjs', 
+    '.mjs' // Fails for Node.js dependencies (e.g. @commoners/solidarity)
+]
+
 
 type ESBuildBuildOptions = import('esbuild').BuildOptions
 
@@ -31,13 +36,14 @@ type BuildInfo = {
     out: string,
 }
 
-type BuildFunction = (info: BuildInfo) => string
+type BuildOutput = string | undefined
+type BuildFunction = (info: BuildInfo) => Promise<BuildOutput> | BuildOutput
 
 type CoreAssetInfo = string | {
     input: string,
     output?: string
     force?: boolean,
-    compile?: BuildFunction | boolean // Function to compile the asset
+    compile?: BuildFunction // Function to compile the asset
 } & AssetMetadata
 
 type AssetInfo = CoreAssetInfo | { text: string, output: string }
@@ -49,12 +55,7 @@ type AssetsCollection = {
     bundle: AssetInfo[]
 }
 
-const bundleExtensions = [ '.ts' ]
-const jsExtensions = ['.js', '.mjs', '.cjs', ...bundleExtensions]
-
-
 const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
-
 
 // Intelligently build service only if it hasn't been built yet (unless forced)
 const mustBuild = ({ outDir, force }) => {
@@ -93,7 +94,6 @@ export const getAssetLinkPath = (
     if (!(outPath[0] === '.')) outPath = '.' + outPath
     const result = outPath.replaceAll(sep, posix.sep)
     return result
-
 }
 
 
@@ -171,23 +171,15 @@ async function buildService(
     force = false
 ){
 
-    const _chalk = await chalk
-
     out = resolve(out)
-    
-    console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
-
     const buildInfo = { name, src, out, force }
     
     // Dynamic Configuration
     if (typeof build === 'function') {
-
         const ctx = { package: packageFile }
-
         build = await build.call(ctx, buildInfo)
-
-    }
-    
+        if (!build) return // No file emitted
+    }    
 
     // Handle string build commands
     if (typeof build === 'string') {
@@ -201,31 +193,19 @@ async function buildService(
     }
 
     // Auto Build Configuration
-    else return packageFile(buildInfo)
+    else return await packageFile(buildInfo)
 
 }
 
 // Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
-
-export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {} ) => {
-
-    const _chalk = await chalk
+export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false ) => {
     
-    const resolvedConfig = await resolveConfig(config)
-
     const { root, target } = resolvedConfig
     const { outDir } = resolvedConfig.build
 
     const configPath = resolveConfigPath(root)
-
-    const configExtensionTargets = [
-        'cjs', 
-        'mjs' // Fails for Node.js dependencies (e.g. @commoners/solidarity)
-    ]
-
-    const isElectronTarget = target === 'electron'
 
     // Transfer configuration file and related services
     const assets: AssetsCollection = {
@@ -236,9 +216,9 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     if (toBuild.assets !== false) {
 
         // Create Config
-        assets.bundle.push(...configExtensionTargets.map(ext => { 
-            const output = `commoners.config.${ext}`
-            return configPath ? { input: configPath, output } : { text: ext === 'cjs' ? "module.exports = {default: {}}" : "export default {}", output }
+        assets.bundle.push(...CONFIG_EXTENSION_TARGETS.map(ext => { 
+            const output = `commoners.config${ext}`
+            return configPath ? { input: configPath, output } : { text: ext === '.cjs' ? "module.exports = {default: {}}" : "export default {}", output }
         }))
 
         // Bundle onload script for the browser
@@ -255,11 +235,6 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
         }
 
 
-    }
-
-    if (isElectronTarget) {
-        const splashPath = resolvedConfig.electron.splash
-        if (splashPath) assets.bundle.push({ input: getAbsolutePath(root, splashPath), output: splashPath })
     }
 
     // Handle Provided Plugins
@@ -294,61 +269,51 @@ export const getAssets = async ( config: UserConfig, toBuild: AssetsToBuild = {}
     
     for (const [ name, resolvedService ] of Object.entries(resolvedServices)) {
 
+        const skipCompilation = (!dev && !toBuild.services) && !isDesktop(target)
+        if (skipCompilation) continue // Skip builds for non-desktop unless otherwise specified
+        
+
         // @ts-ignore
-        const { __src, src, base, build, publish, filepath, __compile } = resolvedService
+        const { build, base, filepath, __src, __compile, __autobuild } = resolvedService
 
-        const isDesktopBuild = isDesktop(target)
-        if (isDesktopBuild && isValidURL(src)) continue // Skip remote services for desktop builds
+        // if (!dev && !publish) continue // Avoid building unpublished services
 
-        const toPublish = base ? resolve(root, base) : filepath
+        if (dev && !__compile && !__autobuild) continue // Skip services that don't have an original source or final filepath
+        if (!__src) continue // Skip if source is undefined
 
-        // Build for production
-        if ( publish ){
+        assets.bundle.push({ 
+            input: __src,
+            output: filepath, 
+            force: true, 
+            compile: async function ({ src, out }) {
 
-            if (
-                __src 
-                && ( isDesktopBuild || toBuild.services )
-            ) {
-
+                const _chalk = await chalk
+                
+                if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
+                    
+                if (dev && __autobuild) return // Dev Mode: Skip building services unless compilation required
+            
+                 // Detect when to package into an executable source
                 const output = await buildService(
                     { 
-                        src: __src, 
-                        build, 
-                        out: filepath,
+                        src, 
+                        build,
+                        out,
                         root
                     }, 
                     name, 
                     true // Always rebuild services
                 )
 
-                const willCopy = output === null ? null : output ?? toPublish
-                        
-                // Only auto-sign JavaScript files
-                if (typeof willCopy === 'string') {
+                const toCopy = output === null ? null : output ?? ( base ?? filepath )
 
-                    if (existsSync(willCopy)) assets.copy.push({ 
-                        input: willCopy, 
-                        extraResource: true, 
-                        sign: true // jsExtensions.includes(extname(__src)) 
-                    })
-                    
-                    else console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${willCopy}`)
-                    
+                if (!existsSync(toCopy)) console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
+
+                return toCopy
+
                 }
-
-            } 
-            
-        }
-
-        // Compile for development use
-        else if (__compile) assets.bundle.push({ 
-            input: __src,
-            output: filepath, 
-            force: true, 
-            compile: __compile 
-        })
-
-        
+            }) 
+    
     }
 
     return assets
@@ -360,6 +325,23 @@ export const clear = (outDir: string) => {
 }
 
 type AssetsToBuild = { assets?: boolean, services?: boolean }
+
+const resolveAssetInfo = (info, outDir, root) => {
+    const isString = typeof info === 'string'
+    const output = isString ? null : info.output
+    const input = isString ? info : info.input
+    const force = isString ? false : info.force
+    const compile = isString ? false : info.compile
+
+    const hasExplicitInput = typeof input === 'string'
+
+    return { 
+        input, 
+        output: hasExplicitInput ? (typeof output === 'string' ? (force ? output : getAssetBuildPath(output, outDir)) : getAssetBuildPath(getAbsolutePath(root, input), outDir)) : output,
+        force, 
+        compile 
+    }
+}
 
 export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false) => {
 
@@ -382,14 +364,36 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     }
 
     // Get other assets to be copied / bundled
-    const assets = await getAssets(config, toBuild)
+    const assets = await getAssets(config, toBuild, dev)
 
     const outputs: AssetOutput[] = []
 
     const { root } = config
 
+    const toCompile = assets.bundle.filter(o => o.compile)
+    const toBundle = assets.bundle.filter(o => !o.compile)
+
+
+    // Serially resolve services
+    for (const info of toCompile) {
+        const resolvedInfo = resolveAssetInfo(info, outDir, root)
+        const { input, output, compile } = resolvedInfo
+        const result = await compile({ src: input, out: output })
+
+        // Copy results
+        if (result && existsSync(result)) assets.copy.push({ input: result, extraResource: true,  sign: true })
+        
+        // Or attempt auto-bundle
+        else toBundle.push({
+            ...resolvedInfo,
+            extraResource: true,  
+            sign: true 
+        })
+        
+    }
+
     // Create an assets folder with copied assets (ESM)
-    await Promise.all(assets.bundle.map(async info => {
+    await Promise.all(toBundle.map(async info => {
 
         // Just copy text to the output file
         if (typeof info !== 'string' && 'text' in info) {
@@ -402,40 +406,22 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
             else return // Nowhere to write the text
         }
 
-        // Proceed with bundling
-        const isString = typeof info === 'string'
-        const output = isString ? null : info.output
+        const { input, output } = resolveAssetInfo(info, outDir, root)
 
-        
+        // ----------- Proceed with bundling ----------
+
         // Transform an input file in some way
-        const input = isString ? info : info.input
-        const hasExplicitInput = typeof input === 'string'
-        const force = isString ? false : info.force
-        const compile = isString ? false : info.compile
-
-        if (hasExplicitInput) {
+        if (input) {
     
-            const ext = extname(input)
-    
-            const absPath = getAbsolutePath(root, input)
-
-            // NOTE: Output is always taken literally
-            const outPath = typeof output === 'string' ? (force ? output : getAssetBuildPath(output, outDir)) : getAssetBuildPath(absPath, outDir)
-    
+            const inputExt = extname(input)
             const fileRoot =  dirname(input)
 
-            // Handle custom compilation commands
-            if (typeof compile === 'function') {
-                const result = await compile({ src: input, out: outPath })
-                if (typeof result === 'string') await spawnProcess(result, [], { cwd: root }) // Execute returned commands
-            }
-
             // Bundle HTML Files using Vite
-            else if (ext === '.html') {
+            if (inputExt === '.html') {
                 const { target } = config
                 const { config: commonersConfig } = info
 
-                const outDir = dirname(outPath)
+                const outDir = dirname(output)
 
                 // Default Build Configuration
                 const buildConfig = {
@@ -467,47 +453,43 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
                 else await _vite.build(buildConfig)
 
-            } else {
+            } 
 
-                const extension = typeof output === 'string' ? extname(output).slice(1) : ext.slice(1)
-                const resolvedExtension = bundleExtensions.includes(`.${extension}`) ? 'js' : extension
+            // Use ESBuild for specific files only
+            else {
 
-                // Correct for invalid extensions
-                const _outfile = join(dirname(outPath), `${parse(input).name}.${resolvedExtension}`)
+                const outputExtension = extname(output)
 
-
-                const outfile = outPath.endsWith(resolvedExtension) ? outPath : _outfile
-
-                if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, outfile) // Bundle config file differently using Rollup
+                if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output) // Bundle config file differently using Rollup
                 else {
 
                     const baseConfig: ESBuildBuildOptions = {
                         entryPoints: [ input ],
                         bundle: true,
                         logLevel: 'silent',
-                        outfile
+                        outfile: output
                     }
 
                     // Force a build format if the proper extension is specified
-                    const format = resolvedExtension === 'mjs' ? 'esm' : resolvedExtension === 'cjs' ? 'cjs' : undefined
+                    const format = outputExtension === '.mjs' ? 'esm' : outputExtension === '.cjs' ? 'cjs' : undefined
 
                     const esbuild = await import('esbuild')
 
                     const buildForNode = () => buildForBrowser({ 
-                        outfile,
+                        outfile: output,
                         platform: 'node', 
                         external: [ "*.node" ] 
                     })
                     
                     const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
                     
-                    if (ext === 'cjs') await buildForNode()
+                    if (outputExtension === 'cjs') await buildForNode()
                     else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
                 }
 
 
                 // Handle extra resources
-                const assetOutputInfo: AssetOutput = { file: outfile }
+                const assetOutputInfo: AssetOutput = { file: output }
                 if (typeof info === 'object')  {
                     assetOutputInfo.extraResource = info.extraResource
                     assetOutputInfo.sign = info.sign

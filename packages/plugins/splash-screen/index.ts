@@ -24,6 +24,7 @@ export default (page: string, options: SplashScreenOption = {}) => {
       desktop: {
         load: async function (loadingWindow) {
 
+          console.log('TRYING', loadingWindow.__main, loadingWindow.__show)
             if (!loadingWindow.__main) return
             if (!loadingWindow.__show) return 
 

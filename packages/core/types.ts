@@ -19,6 +19,9 @@ export type ServiceOptions = string | string[]
 
 export type ServiceCreationOptions = {
     root?: string, 
+    target?: string
+    services, 
+    build?: boolean,
     onLog?: Function
     onClosed?: Function
 }
@@ -64,8 +67,9 @@ export type TargetType = typeof valid.target[number]
 type URLConfiguration = string | { local: string } | { remote: string }
 
 // ------------------- Services -------------------
-type BaseServiceMetadata = ({ src: string, base?: string } | { url: URLConfiguration })
+type BaseServiceMetadata = ({ src: string } | { url: URLConfiguration })
 
+type ServicePublishInfo = string | { src: string,  base: string }
 
 type UserBuildCommand = string | ((info: { 
     name: string, 
@@ -75,32 +79,26 @@ type UserBuildCommand = string | ((info: {
 } ) => string) // e.g. could respond to platform or manually build the executable
 
 type ExtraServiceMetadata = {
+    host?: string,
     port?: number,
-    build?: UserBuildCommand
+    build?: UserBuildCommand,
+    publish?: ServicePublishInfo
 }
 
-type ExtraResolvedServiceMetadata = ExtraServiceMetadata & {
-    build: ExtraServiceMetadata['build'] | {
-        src: string,
-        base: string,
-    },
-    __src?: string
-}
+export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) // Can nest build by platform type
 
-type PublishedServiceMetadata = { 
-    publish?: any // Partial<UserService>
-}
-
-type GeneratedServiceMetadata = {
+export type ResolvedService = {
     filepath: string,
+    base: string | null,
     url: string
+    build: ExtraServiceMetadata['build'],
+    publish: ServicePublishInfo,
     host: string,
-    compile?: true
+    port: string,
+    __src: string
+    __compile: boolean,
+    __autobuild: boolean
 }
-
-export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata & PublishedServiceMetadata) // Can nest build by platform type
-
-export type ResolvedService = BaseServiceMetadata & ExtraResolvedServiceMetadata & GeneratedServiceMetadata
 
 // ------------------- Plugins -------------------
 type LoadedPlugin = { [x:string]: any } | Function | any

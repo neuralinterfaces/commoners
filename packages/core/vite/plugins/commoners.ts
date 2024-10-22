@@ -6,6 +6,8 @@ import { isDesktop, isMobile } from '../../globals.js'
 import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
+import { sanitize } from "../../assets/services/index.js"
+
 const virtualModuleId = 'commoners:env'
 
 const ENV_VAR_NAMES = [ 
@@ -64,16 +66,7 @@ export default ({
 
     const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
 
-    const services = Object.entries(config.services).reduce((acc, [ 
-        id, 
-        { url } 
-    ]) => {
-
-        acc[id] = {}
-        if (url) acc[id].url = url.replace('0.0.0.0', 'localhost')// Replace public with local IP
-
-        return acc
-    }, {})
+    const services = sanitize(config.services)
 
     const rawIconSrc = getIcon(config.icon)
     const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
