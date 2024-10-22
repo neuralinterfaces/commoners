@@ -238,6 +238,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     const flags = {
       __id: windowCount,
       __main: isMainWindow,
+      __show: true,
       __listeners
     }
 

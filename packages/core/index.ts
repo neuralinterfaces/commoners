@@ -117,7 +117,7 @@ export async function resolveConfig(
     } : ResolveOptions = {}
 ) {
 
-    const initialTarget = target ?? await ensureTargetConsistent(o.target, ['services'])
+    const initialTarget = target ?? await ensureTargetConsistent(o.target, [ 'services' ])
 
     // Mobile commands must always run from the root of the specified project
     if (isMobile(initialTarget) && o.root) {
@@ -145,7 +145,7 @@ export async function resolveConfig(
     copy.services = ogServices as any ?? {} // Transfer original functions on publish
     copy.vite = vite ?? {} // Transfer the original Vite config
 
-    copy.target = await ensureTargetConsistent(copy.target, ['services'])
+    copy.target = await ensureTargetConsistent(copy.target, [ 'services' ])
 
     if (!copy.electron) copy.electron = {}
 

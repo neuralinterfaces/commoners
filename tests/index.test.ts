@@ -2,7 +2,6 @@ import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import {
     loadConfigFromFile,
-    resolveConfig,
     resolveConfigPath,
 } from '@commoners/solidarity'
 
@@ -13,6 +12,7 @@ import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { resolveServicePublishInfo } from '../packages/core/assets/services'
 import { build } from '@commoners/testing'
+
 
 describe('Custom project base is loaded', () => {
 
@@ -64,9 +64,7 @@ describe('All services with sources can be built individually', async () => {
 
     for (const name of serviceNames) {
 
-      const describeFn = describe
-
-      describeFn(`Check resolved service filepath for ${name}`, () => {
+      describe(`Check resolved service filepath for ${name}`, () => {
 
         const service = config.services[name]
         const info = resolveServicePublishInfo(service, name, projectBase, true)

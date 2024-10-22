@@ -326,16 +326,17 @@ export async function resolveAll(servicesToResolve = {}, opts) {
 
   const allServices = Object.keys(servicesToResolve)
   const { services } = opts
-  let selectedServices = services
 
-  const typeOf = typeof selectedServices
+  let selectedServices;
+
+  const typeOf = typeof services
   if (typeOf === 'string') selectedServices = [ services ]
   else if (typeOf === 'boolean') {
     if (services) selectedServices = allServices
     else selectedServices = []
   } 
   
-  else selectedServices = allServices
+  else selectedServices = services || allServices
 
 
   await Promise.all(selectedServices.map(async (name) => {

@@ -8,7 +8,7 @@ type Window = {
 
 type Windows = Record<string, Window>
 
-const linkToMainWindow = async (id, context) => {
+const linkToMainWindow = (id, context) => {
 
   context.on(`link:${id}`, () => context.send(`${id}:link`)) // Start linking
   const readyPromise = new Promise(resolve => context.on(`ready:${id}`, resolve))

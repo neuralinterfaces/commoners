@@ -1,9 +1,6 @@
-import { NAME, ICON, SERVICES, READY } from 'commoners:env'
-// const { NAME, ICON, SERVICES, READY } = commoners
+import { NAME, ICON, SERVICES, READY, DESKTOP } from 'commoners:env'
 
 import './style.css'
-
-const test = Math.random().toString(36).substring(7)
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div>
@@ -27,8 +24,6 @@ const duplicateButton = document.getElementById('duplicate')!
 const outputs = document.getElementById('outputs')!
 
 
-const readyPromise = commoners.READY
-
 
 const onWindowReady = (win) => {
   win.addEventListener("message", async (ev) => {
@@ -49,8 +44,8 @@ const openWindow = async (type, windows) => {
   await window.open()
 }
 
-readyPromise.then(({ windows }) => {
-  if (!windows) {
+READY.then(({ windows }) => {
+  if (!windows || !DESKTOP.__main) {
     popupButton.disabled = true
     duplicateButton.disabled = true
     return

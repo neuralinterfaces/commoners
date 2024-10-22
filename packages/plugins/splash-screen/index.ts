@@ -24,10 +24,7 @@ export default (page: string, options: SplashScreenOption = {}) => {
       desktop: {
         load: async function (loadingWindow) {
 
-          console.log('TRYING', loadingWindow.__main, loadingWindow.__show)
-            if (!loadingWindow.__main) return
-            if (!loadingWindow.__show) return 
-
+            if (!loadingWindow.__main || !loadingWindow.__show) return // Only run when the main window has been spawned and will show soon
 
             const { 
                 duration = 1000, // This defines a minimum wait time
@@ -35,12 +32,15 @@ export default (page: string, options: SplashScreenOption = {}) => {
             } =  options
 
             const firstLoad = !this.LOADED
+            console.log('PASSED!')
+
             if (!firstLoad) return
             this.LOADED = true
             loadingWindow.__show = false
 
             const { assets } = this.plugin;
 
+            console.log('GO!')
             const win = await this.createWindow(assets.page,  Object.assign(DEFAULT_OPTIONS, window))
 
             const start = performance.now()
