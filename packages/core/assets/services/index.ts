@@ -141,6 +141,8 @@ export function resolveServicePublishInfo(
 
   export async function resolveService(config, name, opts = {}) {
 
+    if (config.__src) return config // Ensures that references are maintained throughout the application
+
   const { root, target, services, build: isBuildProcess } = opts
 
   const isServicesOnlyBuild = services
@@ -184,6 +186,7 @@ export function resolveServicePublishInfo(
     build,
     host,
     port,
+    states: null,
     __src,
     __compile,
     __autobuild
