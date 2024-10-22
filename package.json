@@ -11,7 +11,7 @@
     "cleanup": "pnpm run clean:modules && pnpm run clean:dist",
     "clean:modules": "rm -rf node_modules && pnpm -r exec rm -rf node_modules",
     "clean:dist": "rm -rf dist && pnpm -r exec rm -rf dist",
-    "publish": "pnpm -r run publish",
+    "publish": "pnpm -r run publish -F --filter \"./packages/**\"",
     "demo": "commoners tests/demo",
     "demo:build": "commoners build tests/demo",
     "demo:launch": "commoners launch tests/demo"
