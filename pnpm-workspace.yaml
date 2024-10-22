@@ -3,3 +3,4 @@ packages:
   - 'tests/**'
   - '!**/dist/**'
   - '!packages/plugins/local-services'
+  - '!packages/plugins/autoupdate'
