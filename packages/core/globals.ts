@@ -1,7 +1,6 @@
 // Built-In Modules
 import { join, resolve } from "node:path";
 import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from 'node:module';
 
@@ -108,13 +107,7 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
 }
 
 // Get Configuration File and Path
-const knownPath = join('packages', 'core', 'dist')
-
-const __dirname = resolve(dirname(fileURLToPath(import.meta.url)))
-
-// Swap resolved root directories when the library is imported (e.g. from the distributed cli)
-const inKnownPath = __dirname.slice(-knownPath.length) === knownPath
-export const rootDir = inKnownPath ? __dirname : dirname(require.resolve('@commoners/solidarity'))
+export const rootDir = dirname(require.resolve(__filename))
 
 export const templateDir = join(rootDir, 'assets')
 export const getBuildConfig = (): WritableElectronBuilderConfig => yaml.load(readFileSync(join(templateDir, 'electron', 'electron-builder.yml')).toString())
