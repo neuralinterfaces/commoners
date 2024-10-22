@@ -48,7 +48,7 @@ export default (page: string, options: SplashScreenOption = {}) => {
                 const durationLeft = duration ? duration - elapsed : 0  // Wait for rest of time if duration is specified
                 setTimeout(() => {
                     win.close()
-                    delete loadingWindow.__show
+                    loadingWindow.__show = true // Respect locks applied from other plugins
                     loadingWindow.show()
                 }, durationLeft);
             })

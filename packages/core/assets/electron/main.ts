@@ -233,25 +233,40 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     if (!('preload' in copy.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
     if (!('additionalArguments' in copy.webPreferences)) copy.webPreferences.additionalArguments = []
 
-
     const __listeners = []
-    const flags = {
+
+    const transferredFlags = {
       __id: windowCount,
-      __main: isMainWindow,
-      __show: true,
-      __listeners
+      __main: isMainWindow
     }
 
     windowCount++
 
-    copy.webPreferences.additionalArguments.push(...Object.entries(flags).map(([key, value]) => `--${key}=${value}`))
+    copy.webPreferences.additionalArguments.push(...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`))
+
+
+    const flags = {
+      ...transferredFlags,
+      __show: true,
+      __listeners
+    }
 
     const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
     Object.assign(win, flags)
+
+    Object.defineProperty(win, "__show", {
+      get: () => flags.__show,
+      set: (v) => {
+        if (flags.__show === null) return // Lock set behavior
+        flags.__show = v
+      },
+      configurable: false
+    })
     
+
     const ogShow = win.show
     win.show = function (){
-      if (win.__show === false) return
+      if (!win.__show) return
       return ogShow.call(this) // Keep the window hidden if testing
     }
 

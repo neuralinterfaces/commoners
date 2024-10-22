@@ -25,14 +25,16 @@ export default (options: TestOptions) => {
         desktop: {
             start: function() {
                 const { process } = globalThis
-                if (!process.env.COMMONERS_TESTING) return
+                const { COMMONERS_TESTING } = process.env
+                if (!COMMONERS_TESTING) return
                 if (remoteDebuggingPort) this.electron.app.commandLine.appendSwitch("remote-debugging-port", `${remoteDebuggingPort}`)
                 if (remoteAllowOrigins) this.electron.app.commandLine.appendSwitch("remote-allow-origins", `${remoteAllowOrigins}`)
             },
             load: function (win) {
                 const { process } = globalThis
-                if (!process.env.COMMONERS_TESTING) return
-                win.__show = false // Do not show windows while testing
+                const { COMMONERS_TESTING } = process.env
+                if (!COMMONERS_TESTING) return
+                win.__show = null // Do not show windows while testing
             }
         }
     }
