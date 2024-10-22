@@ -1,6 +1,6 @@
 {
     "name": "@commoners/serial",
-    "version": "0.0.50",
+    "version": "0.0.51-alpha.0",
     "license": "MIT",
     "type": "module",
     "main": "./dist/index.cjs",
@@ -12,6 +12,6 @@
         "vite": "^5.3.4"
     },
     "peerDependencies": {
-        "@commoners/solidarity": "^0.0.50"
+        "@commoners/solidarity": "^0.0.51-alpha.0"
     }
 }
