@@ -36,7 +36,6 @@ for (let id in TEMP_COMMONERS.services) {
     }
 
     const listeners = {
-        active: [],
         closed: []
     } as {
       [key: string]: Function[]
@@ -45,7 +44,6 @@ for (let id in TEMP_COMMONERS.services) {
     ipcRenderer.on(`services:${id}:log`, (_) => {
       if (serviceStates.status) return
       serviceStates.status = true
-      listeners.active.forEach(f => f())
     })
 
     ipcRenderer.on(`services:${id}:closed`, (_, code) => {
@@ -55,26 +53,6 @@ for (let id in TEMP_COMMONERS.services) {
     })
 
     // ---------------- Assign Functions ----------------
-    service.onActive = async (listener = () => {}) => {
-
-      return new Promise((promiseResolver, reject) => {
-        
-        const updatedCallback = async () => {
-          try {
-            promiseResolver(await listener())
-          } catch (e) {
-            reject(e)
-          }
-        }
-          
-        listeners.active.push(updatedCallback)
-        
-        if (serviceStates.status) updatedCallback()
-
-      })
-      
-    }
-
     service.onClosed = (listener) => {
       if (serviceStates.status === false) listener()
       listeners.closed.push(listener)

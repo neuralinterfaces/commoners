@@ -266,10 +266,7 @@ type ExposedServices = {
 }
 
 type ExposedDesktopServices = {
-    [x:string]: ExposedService & {
-        onActive: () => void,
-        onClosed: () => void,
-    }
+    [x:string]: ExposedService & { onClosed: () => void }
 }
 
 type ExposedPlugins = {
