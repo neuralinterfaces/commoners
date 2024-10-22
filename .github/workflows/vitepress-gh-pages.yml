@@ -29,6 +29,14 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install and build dependencies
+        run: corepack enable pnpm && pnpm install && pnpm build
+
       - name: Install Packages
         run: pnpm install
 
