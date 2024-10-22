@@ -29,8 +29,11 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Install Packages
+        run: pnpm install
+
       - name: Build with Vitepress
-        run: npx vitepress build docs --outDir ./_site
+        run: npm run docs:build -- --outDir ./_site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
