@@ -10,6 +10,8 @@ import config from './demo/commoners.config'
 
 import { join } from 'node:path'
 
+export const EXTRA_OUTPUT_LOCATIONS = [ "build" ]
+
 export const scopedBuildOutDir = join('.commoners', 'custom_output_dir')
 
 const getRandomNumber = () => Math.random().toString(36).substring(7)
@@ -255,7 +257,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
     }, buildWaitTime)
 
     // Cleanup build outputs
-    afterAll(() =>  output.cleanup([ 'build' ]))
+    afterAll(() =>  output.cleanup(EXTRA_OUTPUT_LOCATIONS))
 
     test('All build assets have been created', async () => {
       const baseDir = (await assetsBuilt) as string

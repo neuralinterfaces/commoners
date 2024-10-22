@@ -160,22 +160,19 @@ export async function resolveConfig(
     if (!copy.build) copy.build = {}
 
 
-    copy.services = await resolveAll(copy.services, { target, build, services: !!services, root: copy.root }) // Always resolve all backend services before going forward
-
-    // Build a subset of services if specified
     if (build && services) {
-        const selected = typeof services === 'string' ? [ services ] : services
+        const selectedServices = typeof services === "string" ? [ services ] : services
         const allServices = Object.keys(copy.services)
-        if (!selected.every(name => allServices.includes(name))) {
-            await printFailure(`Invalid service selection`)
-            await printSubtle(`Available services: ${allServices.join(', ')}`) // Print actual services as a nice list
-            process.exit(1)
-        }
-
-        for (let name in copy.services) {
-            if (!selected.includes(name)) delete copy.services[name]
+        if (selectedServices) {
+            if (!selectedServices.every(name => allServices.includes(name))) {
+                await printFailure(`Invalid service selection`)
+                await printSubtle(`Available services: ${allServices.join(', ')}`) // Print actual services as a nice list
+                process.exit(1)
+            }
         }
     }
+
+    copy.services = await resolveAll(copy.services, { target, build, services, root: copy.root }) // Resolve selected services
 
 
     return copy as ResolvedConfig

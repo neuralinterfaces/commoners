@@ -10,12 +10,9 @@ import { resolve } from 'node:path'
 import { existsSync }  from 'node:fs'
 
 import { name } from './demo/commoners.config'
-import { projectBase, registerBuildTest, registerStartTest } from './utils'
+import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { resolveServicePublishInfo } from '../packages/core/assets/services'
 import { build } from '@commoners/testing'
-
-const EXTRA_OUTPUT_LOCATIONS = [ "build" ]
-const SERVICE_BUILDS_SKIPPED = ["publishedToRemoteLocation", "devOnly"]
 
 describe('Custom project base is loaded', () => {
 
@@ -59,7 +56,7 @@ describe('Build and Launch', () => {
 })
 
 
-describe('Build services individually', async () => {
+describe('All services with sources can be built individually', async () => {
 
     const config = await loadConfigFromFile(projectBase)
 
@@ -67,8 +64,8 @@ describe('Build services individually', async () => {
 
     for (const name of serviceNames) {
 
-      const describeFn = SERVICE_BUILDS_SKIPPED.includes(name) ? describe.skip : describe
-      
+      const describeFn = describe
+
       describeFn(`Check resolved service filepath for ${name}`, () => {
 
         const service = config.services[name]

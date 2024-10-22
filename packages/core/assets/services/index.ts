@@ -143,12 +143,19 @@ export function resolveServicePublishInfo(
 
   const { root, target, services, build: isBuildProcess } = opts
 
+  const isServicesOnlyBuild = services
   const isDesktopTarget =  isDesktop(target)
 
   // Use the URL to determine the appropriate build strategy
   const isLocalMode = (isDesktopTarget || services)
 
   const resolved = resolveServiceConfiguration(config)
+
+  // Force build of services that are manually specified
+  if (isServicesOnlyBuild) {
+    if (resolved.publish === false) delete resolved.publish // Do not block publish step
+    if (resolved.url && resolved.src) delete resolved.url // Ensure building source file
+  }
 
   // const publishMode = isLocalMode ? 'local' : 'remote'    
   // const usingRemoteURL = !isLocal && resolved.url?.[publishMode]
@@ -313,14 +320,30 @@ export const sanitize = (services) => {
   }, {})
 }
 
-export async function resolveAll(services = {}, opts) {
+export async function resolveAll(servicesToResolve = {}, opts) {
 
   const serviceInfo = {}
 
-  await Promise.all(Object.entries(services).map(async ([id, config]) => {
-    const service = await resolveService(config, id, opts)
+  const allServices = Object.keys(servicesToResolve)
+  const { services } = opts
+  let selectedServices = services
+
+  const typeOf = typeof selectedServices
+  if (typeOf === 'string') selectedServices = [ services ]
+  else if (typeOf === 'boolean') {
+    if (services) selectedServices = allServices
+    else selectedServices = []
+  } 
+  
+  else selectedServices = allServices
+
+
+  await Promise.all(selectedServices.map(async (name) => {
+    if (!selectedServices.includes(name)) return
+    const config = servicesToResolve[name]
+    const service = await resolveService(config, name, opts)
     if (!service) return
-    serviceInfo[id] = service
+    serviceInfo[name] = service
   })) // Run sidecars automatically based on the configuration file
 
   return serviceInfo
