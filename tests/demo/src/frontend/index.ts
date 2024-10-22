@@ -2,6 +2,9 @@ import { NAME, ICON, SERVICES, READY, DESKTOP } from 'commoners:env'
 
 import './style.css'
 
+import * as bleAPI from './bluetooth'
+import * as serialAPI from './serial'
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div>
     <img src="${ICON}" class="logo" alt="My app logo" />
@@ -12,6 +15,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <button id="requests" type="button">Send Requests</button>
       <button id="popup" type="button">Open Popup</button>
       <button id="duplicate" type="button">Open Duplicate Window</button>
+      <button id="ble" type="button">Connect to BLE Device</button>
+      <button id="serial" type="button">Connect to Serial Device</button>
 
     </div>
   </div>
@@ -20,10 +25,31 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 const requestButton = document.getElementById('requests')!
 const popupButton = document.getElementById('popup')!
 const duplicateButton = document.getElementById('duplicate')!
+const serialButton = document.getElementById('serial')!
+const bleButton = document.getElementById('ble')!
 
 const outputs = document.getElementById('outputs')!
 
 
+// ---------------------- Serial Button ----------------------
+READY.then((PLUGINS) => {
+  const hasSerial = "serial" in PLUGINS
+  if (!hasSerial) return serialButton.disabled = true
+  serialButton.onclick = () => {
+    serialAPI.connect()
+  }
+})
+
+// ---------------------- Bluetooth Button ----------------------
+READY.then((PLUGINS) => {
+  const hasBluetooth = "bluetooth" in PLUGINS
+  if (!hasBluetooth) return bleButton.disabled = true
+  bleButton.onclick = () => {
+    bleAPI.connect()
+  }
+})
+
+// ---------------------- Window Buttons ----------------------
 
 const onWindowReady = (win) => {
   win.addEventListener("message", async (ev) => {
@@ -57,6 +83,8 @@ READY.then(({ windows }) => {
   duplicateButton.onclick = () => openWindow('main', windows)
 
 })
+
+// ---------------------- Service Button ----------------------
 
 const keys = Object.keys(SERVICES)
 const values = Object.values(SERVICES)

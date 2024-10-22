@@ -17,28 +17,32 @@ export const desktop = {
   },
   load: function ( win ) {
 
-    const id = win.__id
+    const { __id } = win
+    const { session } = win.webContents
   
-    win.webContents.session.on('select-serial-port', (event, portList, webContents, callback) => {
 
-      // Add listeners to handle ports being added or removed before the callback for `select-serial-port` is called.
-      win.webContents.session.on('serial-port-added', (event, port) =>  this.send(`${id}:added`, port))
-  
-      win.webContents.session.on('serial-port-removed', (event, port) => this.send(`${id}:removed`, port))
-  
-      this.send(`${id}:request`, portList);
-      this.on(`${id}:select`, (_evt, port) =>  this.CALLBACKS[id]?.(port));
+    this.on(`${__id}:select`, (_, port) =>  this.CALLBACKS[__id]?.(port));
+    session.on('serial-port-added', (_, port) =>  this.send(`${__id}:added`, port))
+    session.on('serial-port-removed', (_, port) => this.send(`${__id}:removed`, port))
+
+    session.on('select-serial-port', (event, portList, webContents, callback) => {
+
+      const window = this.electron.BrowserWindow.fromWebContents(webContents);
+      if (__id !== window.__id) return // Skip if the attached window did not trigger the request
+
+
+      this.send(`${__id}:request`, portList);
 
       event.preventDefault()
-      this.CALLBACKS[id] = (port) => {
-        this.CALLBACKS[id] = null // Ensures this is only called once
+      this.CALLBACKS[__id] = (port) => {
+        this.CALLBACKS[__id] = null // Ensures this is only called once
         callback(port)
       }
 
     })
   
-    win.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
-    win.webContents.session.setDevicePermissionHandler((details) => true)
+    session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
+    session.setDevicePermissionHandler((details) => true)
   }
 }
 

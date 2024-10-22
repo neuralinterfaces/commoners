@@ -16,7 +16,9 @@
     "demo:launch": "commoners launch tests/demo"
   },
   "devDependencies": {
+    "@commoners/bluetooth": "0.1.0-alpha.0",
     "@commoners/custom-protocol": "0.1.0-alpha.0",
+    "@commoners/serial": "0.1.0-alpha.0",
     "@commoners/solidarity": "0.1.0-alpha.0",
     "@commoners/splash-screen": "0.1.0-alpha.0",
     "@commoners/testing": "0.1.0-alpha.0",

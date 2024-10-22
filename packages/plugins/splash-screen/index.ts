@@ -32,7 +32,6 @@ export default (page: string, options: SplashScreenOption = {}) => {
             } =  options
 
             const firstLoad = !this.LOADED
-            console.log('PASSED!')
 
             if (!firstLoad) return
             this.LOADED = true
@@ -40,7 +39,6 @@ export default (page: string, options: SplashScreenOption = {}) => {
 
             const { assets } = this.plugin;
 
-            console.log('GO!')
             const win = await this.createWindow(assets.page,  Object.assign(DEFAULT_OPTIONS, window))
 
             const start = performance.now()

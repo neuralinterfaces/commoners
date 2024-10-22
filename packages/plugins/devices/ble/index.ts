@@ -61,7 +61,9 @@ type States = {
 export const desktop = {
   load: function ( win ) {
 
-      const id = win.__id
+    const { webContents, __id } = win
+    const { session } = webContents
+
       const WIN_STATES: {
         select?: Function,
         match?: DeviceInformation
@@ -73,24 +75,24 @@ export const desktop = {
           const { select } = WIN_STATES
           if (typeof select === 'function') {
             select(value) // Select the device by MAC Address, or cancel device selection
-            this.send(`${id}:selected`, value) // Notify the renderer that a device was selected
+            this.send(`${__id}:selected`, value) // Notify the renderer that a device was selected
           }
 
           delete WIN_STATES.select
           delete WIN_STATES.match
       }
   
-      this.on(`${id}:match`, (_evt, value: DeviceInformation) => match(value))
-      this.on(`${id}:select`, ( _evt, value: MACAddress) => selectDevice(value));
+      this.on(`${__id}:match`, (_evt, value: DeviceInformation) => match(value))
+      this.on(`${__id}:select`, ( _evt, value: MACAddress) => selectDevice(value));
 
       // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
-      win.webContents.session.setBluetoothPairingHandler((details, callback) => {
+      session.setBluetoothPairingHandler((details, callback) => {
         if (details.pairingKind === 'confirm') callback({ confirmed: true })
         else console.error(`Commoners Bluetooth Plugin does not support devices that need ${details.pairingKind} permissions.`)
       })
       
 
-      win.webContents.on('select-bluetooth-device', (event, devices, callback) => {
+      webContents.on('select-bluetooth-device', (event, devices, callback) => {
 
         event.preventDefault()
 
@@ -114,8 +116,8 @@ export const desktop = {
         } 
         
         // Open the device modal and update it with the available devices
-        if (newRequest) this.send(`${id}:open`, devices); // Initial request always starts at zero
-        this.send(`${id}:update`, devices);
+        if (newRequest) this.send(`${__id}:open`, devices); // Initial request always starts at zero
+        this.send(`${__id}:update`, devices);
       })
   }
 }

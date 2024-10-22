@@ -103,12 +103,21 @@ export default (windows: Windows) => {
     assets,
     load() {
       const isMain = this.__main
-      if (!isMain) return linkToMainWindow(this.__id, this)
+      if (!isMain) return {
+        main: linkToMainWindow(this.__id, this)
+      }
 
       const manager = windowTypes.reduce((acc, type) => {
+
+        const windows = {}
+
         acc[type] = { 
-          create: () => new BrowserWindow(type, this),
-          windows: {}
+          create: () => {
+            const win = new BrowserWindow(type, this)
+            win.addEventListener('ready', (ev) => windows[ev.detail] = win)
+            return win
+          },
+          windows
         }
         return acc
       }, {})
@@ -140,9 +149,9 @@ export default (windows: Windows) => {
 
         this.on("exists", (ev, id) => ev.returnValue = !!this.WINDOWS[id])
 
-        // Close all windows when the main window has closed
-        this.on(`close`, (_, id) => this.WINDOWS[id]?.close());
 
+        this.on(`close`, (_, id) => this.WINDOWS[id]?.close()); // Close specific window if requested by the plugin
+        
         this.on("open", async (_, type, requestId) => {
 
           // Create the Window
@@ -169,7 +178,16 @@ export default (windows: Windows) => {
       },
 
       load: function (win) {
-        this.WINDOWS[win.__id] = win
+
+        const { __id,  __main} = win
+
+        this.WINDOWS[__id] = win
+
+        if (__main) {
+          win.on("closed", () => Object.values(this.WINDOWS).forEach(_win => _win !== win && _win.close())); // Close all windows when the main window has closed
+        }
+
+
       },
       unload: function (win) {
         delete this.WINDOWS[win.__id]

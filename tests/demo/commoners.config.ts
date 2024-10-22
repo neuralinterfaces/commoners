@@ -11,6 +11,9 @@ import customProtocolPlugin from '@commoners/custom-protocol'
 import testingPlugin from "@commoners/testing/plugin"
 import * as services from '@commoners/solidarity/services'
 import windowsPlugin from '@commoners/windows'
+import * as bluetoothPlugin from '@commoners/bluetooth'
+import * as serialPlugin from '@commoners/serial'
+
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
 export const name = 'Test App'
@@ -50,6 +53,8 @@ const config = {
                 }
             }
         }),
+        bluetooth: bluetoothPlugin, 
+        serial: serialPlugin,
         __testing: testingPlugin(TEST_OPTIONS)
     },
 

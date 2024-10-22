@@ -16,7 +16,9 @@
     "src/services/*"
   ],
   "dependecies": {
+    "@commoners/bluetooth": "0.1.0-alpha.0",
     "@commoners/custom-protocol": "0.1.0-alpha.0",
+    "@commoners/serial": "0.1.0-alpha.0",
     "@commoners/splash-screen": "0.1.0-alpha.0",
     "@commoners/windows": "0.1.0-alpha.0"
   },

@@ -248,7 +248,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
     Object.assign(win, flags)
-
+    
     const ogShow = win.show
     win.show = function (){
       if (win.__show === false) return
