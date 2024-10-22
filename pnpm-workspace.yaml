@@ -2,3 +2,4 @@ packages:
   - 'packages/**'
   - 'tests/**'
   - '!**/dist/**'
+  - '!packages/plugins/local-services'
