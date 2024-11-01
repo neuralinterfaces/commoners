@@ -1,6 +1,6 @@
 {
   "name": "@commoners/test-app",
-  "version": "0.0.51-alpha.0",
+  "version": "0.0.52",
   "private": true,
   "description": "A test app for the commoners library",
   "repository": {
@@ -16,10 +16,10 @@
     "src/services/*"
   ],
   "dependecies": {
-    "@commoners/bluetooth": "0.0.51-alpha.0",
-    "@commoners/custom-protocol": "0.0.51-alpha.0",
-    "@commoners/serial": "0.0.51-alpha.0",
-    "@commoners/splash-screen": "0.0.51-alpha.0",
-    "@commoners/windows": "0.0.51-alpha.0"
+    "@commoners/bluetooth": "0.0.52",
+    "@commoners/custom-protocol": "0.0.52",
+    "@commoners/serial": "0.0.52",
+    "@commoners/splash-screen": "0.0.52",
+    "@commoners/windows": "0.0.52"
   }
 }
