@@ -46,7 +46,7 @@ const config = {
                 src: popupSrc,
                 window: {
                     height: 200,
-                    width: 400
+                    width: 500
                 },
                 overrides: {
                     name: "Popup Window"

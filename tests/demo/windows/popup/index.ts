@@ -1,4 +1,14 @@
-const { READY } = commoners
+const { READY, ICON } = commoners
+
+// Display the icon
+document.body.innerHTML = `
+  <div style="display:flex; justify-content:center; align-items:center; height:100vh; width: 100vw; gap: 10px;">
+    <img src="${ICON}" class="logo" alt="My logo" width="100" height="100" />
+    <h1>Popup is displayed</h1>
+  </div>
+`
+
+
 
 READY.then(async ({ windows }) => {
 

@@ -562,7 +562,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
         base: "./",
         root,
 
-        plugins: plugins,
+        plugins,
 
         build: {
             lib: {
@@ -576,7 +576,7 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
             rollupOptions: { 
                 plugins: [ 
                     importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
-                ] 
+                ]
             }
         }
 
