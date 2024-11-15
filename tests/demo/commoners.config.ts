@@ -35,6 +35,11 @@ const TEST_OPTIONS = {
 const config = {
 
     name,
+
+    pages: {
+        main: './index.html',
+        nested: './pages/nested.html'
+    },
     
     plugins: {
         checks: checksPlugin,

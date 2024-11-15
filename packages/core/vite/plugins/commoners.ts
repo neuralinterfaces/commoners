@@ -1,5 +1,5 @@
 
-import { extname, resolve } from 'node:path'
+import { extname, resolve, dirname, join } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 import { isDesktop, isMobile } from '../../globals.js'
 
@@ -60,39 +60,6 @@ export default ({
     const desktop = isDesktop(target)
     const mobile = isMobile(target)
     
-    const configRoot = config.root
-    const root = _assetOutDir ? actualOutDir : configRoot
-    const relTo = build ? assetOutDir : root
-
-    const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
-
-    const services = sanitize(config.services)
-
-    const rawIconSrc = getIcon(config.icon)
-    const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
-    const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
-
-    const globalObject = {
-
-        NAME: config.name,
-        VERSION: config.version,
-        ICON: iconPath,
-        SERVICES: services,
-
-        // Target Shortcuts
-        DESKTOP: desktop,
-        MOBILE: mobile,
-        WEB: !desktop && !mobile,
-
-        // Production vs Development
-        DEV: dev,
-        PROD: !dev,
-
-        ENV: env
-    }
-    
-    const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
-    
     const resolvedVirtualModuleId = '\0' + virtualModuleId
 
     return {
@@ -110,8 +77,48 @@ export default ({
                 return lines.join("\n")
             }
         },
-        transformIndexHtml(html) {
+        transformIndexHtml(html, ctx) {
 
+            const { path: htmlPath } = ctx
+
+            const parent = dirname(htmlPath)
+
+            // Resolve paths per HTML file built
+            const configRoot = config.root
+
+            const root = _assetOutDir ? actualOutDir : configRoot
+            const relTo = join(build ? assetOutDir : root, parent) // Resolve actual path in the assets
+            
+            const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
+        
+            const services = sanitize(config.services)
+        
+            const rawIconSrc = getIcon(config.icon)
+            const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
+            const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
+        
+            const globalObject = {
+        
+                NAME: config.name,
+                VERSION: config.version,
+                ICON: iconPath,
+                SERVICES: services,
+        
+                // Target Shortcuts
+                DESKTOP: desktop,
+                MOBILE: mobile,
+                WEB: !desktop && !mobile,
+        
+                // Production vs Development
+                DEV: dev,
+                PROD: !dev,
+        
+                ENV: env
+            }
+            
+            const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
+            
+            // Inject required items into the HTML head
             const headStart = html.indexOf(TAGS.head.start)
             const headEnd = html.indexOf(TAGS.head.end)
             const headContent = headStart && headEnd ? html.slice(headStart + TAGS.head.start.length, headEnd) : ''

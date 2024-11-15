@@ -17,7 +17,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <button id="duplicate" type="button">Open Duplicate Window</button>
       <button id="ble" type="button">Connect to BLE Device</button>
       <button id="serial" type="button">Connect to Serial Device</button>
-
+      <button 
+        id="navigate" 
+        type="button"
+        onclick="window.location.href = '/pages/nested'"
+      >Navigate to Other Page</button>
     </div>
   </div>
 `
@@ -27,9 +31,9 @@ const popupButton = document.getElementById('popup')!
 const duplicateButton = document.getElementById('duplicate')!
 const serialButton = document.getElementById('serial')!
 const bleButton = document.getElementById('ble')!
+const navigateButton = document.getElementById('navigate')!
 
 const outputs = document.getElementById('outputs')!
-
 
 // ---------------------- Serial Button ----------------------
 READY.then((PLUGINS) => {

@@ -1,6 +1,5 @@
 // Build-In Modules
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { lstatSync } from "node:fs"
 
 // General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
@@ -8,6 +7,7 @@ import { BuildOptions, BuildHooks, WritableElectronBuilderConfig } from "./types
 
 // Internal Utilities
 import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
+import { lstatSync } from './utils/lstat.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { getIcon } from "./utils/index.js"
 import merge from './utils/merge.js'

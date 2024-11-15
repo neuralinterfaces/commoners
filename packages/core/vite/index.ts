@@ -116,7 +116,7 @@ export const resolveViteConfig = async (
     
     const plugins: Plugin[] = [ ]
 
-    const { name, appId, root, icon, description } = commonersConfig
+    const { name, appId, root, icon, description, pages } = commonersConfig
     
     // Desktop Build
     if (isDesktopTarget) {
@@ -140,7 +140,12 @@ export const resolveViteConfig = async (
         // @ts-ignore
         plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
-    
+
+    // Resolve pages if they exist
+    const rollupOptions = pages ? { input: Object.entries(pages).reduce((acc, [name, filepath]) => {
+        acc[name] = join(root, filepath)
+        return acc
+    }, {}) } : {}    
 
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
@@ -149,7 +154,8 @@ export const resolveViteConfig = async (
         root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
-            outDir
+            outDir,
+            rollupOptions
         },
         plugins,
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop

@@ -1,8 +1,14 @@
 import electron, { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join, basename } from 'node:path'
+import { join, basename, extname } from 'node:path'
 import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
+import { existsSync } from 'node:fs';
+
+function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
+  const decodePath = (path) => decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
+  return comparison(decodePath(path1), decodePath(path2))
+}
 
 // Custom Window Flags
 // __main: Is Main Window
@@ -224,6 +230,22 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
   let windowCount = 0
 
+  // ------------------------ Window Page Load Behavior ------------------------
+  const loadPage = (win, page) => {
+
+      const location = getPageLocation(page)
+
+      try {
+        new URL(location)
+        win.loadURL(location)
+      }
+  
+      // NOTE: Catching the alternative location results in a delay depending on load time
+      catch {
+        win.loadFile(location).catch(() => win.loadFile(getPageLocation(page, true)))
+      }
+  }
+
   async function createWindow (page, options: WindowOptions = {}, toIgnore?: string[], isMainWindow: boolean = false) {
 
     const copy = structuredClone({...defaultWindowConfig, ...options})
@@ -253,6 +275,16 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
     Object.assign(win, flags)
+
+    // CAtch all navigation events
+    win.webContents.on('will-navigate', (event, url) => {
+
+      event.preventDefault()
+      const urlObj = new URL(url)
+      const file = urlObj.pathname
+      loadPage(win, file)
+    })
+
 
     Object.defineProperty(win, "__show", {
       get: () => flags.__show,
@@ -303,15 +335,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     await runWindowPlugins(win, 'load', toIgnore) 
 
     // ------------------------ Window Page Load Behavior ------------------------
-    try {
-      new URL(page)
-      win.loadURL(page)
-    }
-
-    catch {
-      win.loadFile(page)
-    }
-
+    loadPage(win, page)
     await new Promise(resolve => win.once('ready-to-show', resolve)) // Show after plugin loading
 
     win.show() // Allow annotating to skip show
@@ -319,12 +343,34 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     return win
   }
 
+function getPageLocation(pathname: string = 'index.html', alt = false) {
+
+  const isDevServer = utils.is.dev && devServerURL
+  if (isDevServer) return join(devServerURL, pathname)
+
+    const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))
+
+    // Check if dirname in the path
+    const location = isContained ? pathname : join(__dirname, pathname)
+
+    // Assume a file
+    if (extname(location)) return location // Return if file extension is present
+
+    const html = location + '.html' // Add .html extension if not present
+    const index = join(location, 'index.html')
+
+    if (existsSync(html)) return html // Return if .html file exists
+    if (existsSync(index)) return index // Return if index.html file exists
+
+    return alt ? html : index // NOTE: This is because we cannot check for existence in the .asar archive
+}
+
 
 async function createMainWindow() {
   const windows = BrowserWindow.getAllWindows()
   if (windows.find(o => o.__main)) return // Force only one main window
-  const pageToRender = utils.is.dev && devServerURL ? devServerURL : join(__dirname, 'index.html')
-  return await createWindow(pageToRender, windowOptions, [], true)
+
+  return await createWindow(undefined, windowOptions, [], true)
 }
 
 // ------------------------ App Start Behavior ------------------------

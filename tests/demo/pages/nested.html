@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nested Page</title>
+    <script type="module">
+        import '../src/frontend/style.css'
+
+        const { ICON } = commoners
+
+        document.querySelector('.logo').src = ICON
+
+    </script>
+</head>
+<body>
+    <div id="app">
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <div>
+                <img class="logo" alt="My app logo" />
+            </div>
+            <div>
+                <h2>This is a nested page</h2>
+                <button onclick="window.location.href='../'">Back to Main Page</button>
+            </div>
+    </div>
+</body>
+</html>

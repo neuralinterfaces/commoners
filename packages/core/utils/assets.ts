@@ -307,7 +307,10 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
 
                 const toCopy = output === null ? null : output ?? ( base ?? filepath )
 
-                if (!existsSync(toCopy)) console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
+                if (!existsSync(toCopy)) {
+                    console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
+                    return null // Do not try to copy or bundle the missing file
+                }
 
                 return toCopy
 
@@ -380,8 +383,10 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         const { input, output, compile } = resolvedInfo
         const result = await compile({ src: input, out: output })
 
+        if (!result) continue // Skip if no result
+
         // Copy results
-        if (result && existsSync(result)) assets.copy.push({ input: result, extraResource: true,  sign: true })
+        else if (existsSync(result)) assets.copy.push({ input: result, extraResource: true,  sign: true })
         
         // Or attempt auto-bundle
         else toBundle.push({

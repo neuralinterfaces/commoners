@@ -1,6 +1,6 @@
 // Built-In Modules
 import { dirname, join, relative, normalize, resolve } from 'node:path'
-import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
+import { existsSync, unlink, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 // Internal Imports
@@ -11,6 +11,7 @@ import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
 import { printFailure, printSubtle } from './utils/formatting.js'
+import { lstatSync } from './utils/lstat.js'
 
 // Top-Level Package Exports
 export * from './types.js'
