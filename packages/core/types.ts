@@ -63,13 +63,12 @@ export type ServerOptions = { printUrls?: boolean } & BaseViteOptions
 export type TargetType = typeof valid.target[number]
 // export type PlatformType = typeof validDesktopTargets[number]
 
-
-type URLConfiguration = string | { local: string } | { remote: string }
+// type ResolvedServicePublishInfo = { src: string } | { url: string }
+type ServicePublishInfo = string | { src: string,  base: string } // NOTE: Should actually allow any options
+type ServicePublishFormat = ServicePublishInfo | { local: ServicePublishInfo } | { remote: ServicePublishInfo }
 
 // ------------------- Services -------------------
-type BaseServiceMetadata = ({ src: string } | { url: URLConfiguration })
-
-type ServicePublishInfo = string | { src: string,  base: string }
+type BaseServiceMetadata = ({ src: string })
 
 type UserBuildCommand = string | ((info: { 
     name: string, 
@@ -82,22 +81,23 @@ type ExtraServiceMetadata = {
     host?: string,
     port?: number,
     build?: UserBuildCommand,
-    publish?: ServicePublishInfo
+    publish?: ServicePublishFormat
 }
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) // Can nest build by platform type
 
 export type ResolvedService = {
+
+    // For Service Build
     filepath: string,
     base: string | null,
-    url: string
     build: ExtraServiceMetadata['build'],
-    publish: ServicePublishInfo,
-    host: string,
-    port: string,
     __src: string
     __compile: boolean,
     __autobuild: boolean
+
+    // For Client
+    url: string // What URL to use for service requests
 }
 
 // ------------------- Plugins -------------------
@@ -206,7 +206,7 @@ export type BaseConfig = {
     pwa: PWAOptions
 
     // Service Options
-    services?: { [x: string]: UserService } | false,
+    services?: { [x: string]: UserService },
     port?: PortType, // Default Port (single service)
 
 }

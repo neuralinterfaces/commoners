@@ -27,10 +27,11 @@ export class PyInstallerService {
 
         this.description = description
         this.src = src
-        this.build = build
+
         this.publish = publish ?? {
             src: name,
             base: `${out}/${name}`, // The whole folder will be copied
+            build // Only run build command when publishing
         }
 
         Object.entries(service).forEach(([key, value]) => {

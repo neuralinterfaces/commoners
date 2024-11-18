@@ -216,10 +216,11 @@ export default {
         // Advanced configuration
         tsNode: {
             src: './src/services/node.ts',
-            // url: undefined, // Removed on remote builds (web, mobile)
-            // url: 'https://ts-node.example.com', // Remote for all builds (web, mobile, desktop)
-            // url: { remote: 'https://ts-node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
-            url: { local: 'https://ts-node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
+            // publish: false, // Removed on all builds
+            // publish: 'https://ts-node.example.com', // Remote for all builds
+            publish: { local: 'https://ts-node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
+            // publish: { remote: 'https://ts-node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
+            // publish: { url: 'https://ts-node.example.com', local: false }, // Remote for remote builds (web, mobile). Removed on local builds (desktop)
         }
     }
 }
@@ -235,7 +236,7 @@ export default {
 
         python: {
             src: './src/services/python.py',
-            url: { remote: 'https://python.example.com' },
+            publish: { remote: 'https://python.example.com' },
 
             // The build command
             build: 'python -m PyInstaller --name python-service --onedir --clean ./src/services/python.py --distpath ./build/python',

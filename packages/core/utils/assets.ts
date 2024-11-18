@@ -1,6 +1,6 @@
 // Built-In Modules
-import { existsSync, mkdirSync, rmSync, truncate, writeFileSync } from "node:fs"
-import { dirname, extname, join, parse, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { dirname, extname, join, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
 import { pathToFileURL } from "node:url"
 
 
@@ -281,18 +281,22 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
         if (dev && !__compile && !__autobuild) continue // Skip services that don't have an original source or final filepath
         if (!__src) continue // Skip if source is undefined
 
-        assets.bundle.push({ 
+        const allowCompilation = !(dev && __autobuild)
+
+        const bundleConfig = {
             input: __src,
             output: filepath, 
             force: true, 
-            compile: async function ({ src, out }) {
+        } as any
+
+        // Compile service when not in development mode or when the service is not autobuilt
+        if (allowCompilation) {
+            bundleConfig.compile = async function ({ src, out }) {
 
                 const _chalk = await chalk
                 
                 if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
-                    
-                if (dev && __autobuild) return // Dev Mode: Skip building services unless compilation required
-            
+                                
                  // Detect when to package into an executable source
                 const output = await buildService(
                     { 
@@ -313,10 +317,10 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
                 }
 
                 return toCopy
+            }
+        }
 
-                }
-            }) 
-    
+        assets.bundle.push(bundleConfig)
     }
 
     return assets
@@ -375,7 +379,6 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
     const toCompile = assets.bundle.filter(o => o.compile)
     const toBundle = assets.bundle.filter(o => !o.compile)
-
 
     // Serially resolve services
     for (const info of toCompile) {
