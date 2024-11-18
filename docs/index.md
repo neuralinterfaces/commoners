@@ -10,11 +10,11 @@ hero:
     alt: Commoners
   actions:
     - theme: brand
-      text: Getting Started
-      link: /guide/getting-started
+      text: Get Started
+      link: /getting-started
     - theme: alt
       text: Why Commoners?
-      link: /guide/why
+      link: /why
 features:
   - icon: 🌐
     title: One Codebase. All Platforms.
