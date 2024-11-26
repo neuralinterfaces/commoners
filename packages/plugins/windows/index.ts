@@ -280,8 +280,8 @@ export default (windows: Windows) => {
 
         this.on("exists", (ev, id) => ev.returnValue = !!this.WINDOWS[id])
 
-
-        this.on(`close`, (_, id) => this.WINDOWS[id]?.close()); // Close specific window if requested by the plugin
+        // Close specific window if requested by the plugin
+        this.on(`close`, (_, id) => this.WINDOWS[id]?.close()); 
         
         this.on("open", async (_, type, requestId) => {
 

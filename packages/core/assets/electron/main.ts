@@ -59,11 +59,14 @@ const globals: {
     preload?: any
     load?: any,
     unload?: any
-  }
+  },
+  isShuttingDown: boolean
 } = {
   firstInitialized: false,
+  isShuttingDown: false,
   mainWindow: null,
   plugins: {}
+
 }
 
 // Transfer all the main console commands to the browser
@@ -278,6 +281,22 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
     Object.assign(win, flags)
 
+
+    // Safe window management behaviors
+    const originalManagers = {
+      close: win.close,
+      show: win.show
+    }
+
+    Object.entries(originalManagers).forEach(([key, value]) => {
+      win[key] = function (...args) {
+        if (key === 'show' && !win.__show) return // Skip show behavior. Do not show for testing
+        if (globals.isShuttingDown) return // Skip if process is shutting down
+        return value.call(this, ...args)
+      }
+    })
+
+
     // CAtch all navigation events
     win.webContents.on('will-navigate', (event, url) => {
 
@@ -296,13 +315,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       },
       configurable: false
     })
-    
-
-    const ogShow = win.show
-    win.show = function (){
-      if (!win.__show) return
-      return ogShow.call(this) // Keep the window hidden if testing
-    }
 
     // ------------------------ Main Window Default Behaviors ------------------------
     if (isMainWindow) {
@@ -313,7 +325,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         readyQueue = []
       })
 
-        // De-register the main window
+      // De-register the main window
       win.once('close', () => {
         globals.mainWindow = null
       })
@@ -401,6 +413,18 @@ runAppPlugins().then(() => {
     createMainWindow()
     app.on('activate', () => createMainWindow())
   })
+})
+
+
+app.on('ready', async () => {
+
+  const _chalk = await chalk
+
+  process.on("SIGINT", () => {
+    console.log(_chalk.yellow('SIGINT received. Exiting...'))
+    globals.isShuttingDown = true
+    process.exit(0)
+  });
 })
 
 // ------------------------ Default Close Behavior ------------------------
