@@ -57,14 +57,14 @@ const config = {
         windows: windowsPlugin({
             main: mainSrc,
             popup: {
+                name: "Popup Window",
                 src: popupSrc,
-                window: {
-                    height: 200,
-                    width: 500
+                electron: {
+                    window: {
+                        height: 200,
+                        width: 500
+                    }
                 },
-                overrides: {
-                    name: "Popup Window"
-                }
             }
         }),
         bluetooth: bluetoothPlugin, 

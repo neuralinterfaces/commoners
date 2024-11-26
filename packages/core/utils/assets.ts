@@ -239,10 +239,14 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
 
     // Handle Provided Plugins
     for (const [ id, plugin ] of Object.entries(resolvedConfig.plugins)) {
-        const assetsCopy = structuredClone(plugin.assets ?? {})
-        Object.entries(assetsCopy).map(([ key, fileInfo ]) => {
+
+        const pluginAssets = { ...(plugin.assets ?? {})}
+
+        // Only bundle assets in production mode
+        if (!dev) Object.entries( pluginAssets ).map(([ key, fileInfo ]) => {
+        
             const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src,  overrides = {} }  = fileInfoDictionary
+            const { src,  ...overrides }  = fileInfoDictionary
             const absPath = getAbsolutePath(root, src)
 
             // const dir = dirname(src) // NOTE: This may overwrite files that are named the same
@@ -258,10 +262,10 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
                 config: overrides,
             })
             
-            assetsCopy[key] = outPath
+            pluginAssets[key] = outPath
         })
 
-        if (plugin.assets) plugin.assets = assetsCopy
+        if (plugin.assets) plugin.assets = pluginAssets
     }
     
     // Handle Provided Services
@@ -447,8 +451,9 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                 // Treat as Commoners Frontend with Configuration Specified 
                 if (commonersConfig) {
 
-                    const mergedConfig = {...config, ...commonersConfig, root: fileRoot }
-                    
+                    const mergedConfig = mergeConfig(config, commonersConfig) as ResolvedConfig
+                    mergedConfig.root = fileRoot
+                                        
                     const viteConfig = await resolveViteConfig(mergedConfig, { 
                         target, 
                         outDir, // Provide a new outDir to link to the original (provided by the mergedConfig above)

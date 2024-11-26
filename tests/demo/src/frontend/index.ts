@@ -75,7 +75,7 @@ const openWindow = async (type, windows) => {
 }
 
 READY.then(({ windows }) => {
-  if (!windows || !DESKTOP.__main) {
+  if (!windows || (Object.keys(windows).length === 1 && windows.main)) {
     popupButton.disabled = true
     duplicateButton.disabled = true
     return

@@ -78,6 +78,7 @@ const ogConsoleMethods: any = {};
 
 const devServerURL = process.env.VITE_DEV_SERVER_URL
 const isProduction = !devServerURL
+const isDevServer = utils.is.dev && devServerURL
 
 
 // Populate platform variable if it doesn't exist
@@ -137,10 +138,11 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
 
     // Provide specific variables from the plugin
     plugin: {
-      assets: Object.entries(assets).reduce((acc, [key, value]) => {
+      assets: Object.entries(assets).reduce((acc, [ key, value ]) => {
         const filepath = typeof value === 'string' ? value : value.src
         const filename = basename(filepath)
-        acc[key] = join(assetsPath, 'plugins', id, key, filename)
+        if (isDevServer) acc[key] = filepath
+        else acc[key] = join(assetsPath, 'plugins', id, key, filename)
         return acc
       }, {})
     }
@@ -345,7 +347,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
 
-  const isDevServer = utils.is.dev && devServerURL
   if (isDevServer) return join(devServerURL, pathname)
 
     const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))

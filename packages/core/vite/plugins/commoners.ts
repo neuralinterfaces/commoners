@@ -7,6 +7,7 @@ import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from "../../assets/services/index.js"
+import { mergeConfig } from 'vite'
 
 const virtualModuleId = 'commoners:env'
 
@@ -53,14 +54,26 @@ export default ({
     env
 }: CommonersPluginOptions) => {
 
+    // Variables only resolved once for the main configuration
     const actualOutDir = outDir
-    const _assetOutDir = config.build?.outDir
-    const assetOutDir = _assetOutDir ?? actualOutDir
-
     const desktop = isDesktop(target)
     const mobile = isMobile(target)
     
     const resolvedVirtualModuleId = '\0' + virtualModuleId
+
+    const { plugins } = config
+    const pluginAssetInfo = Object.values(plugins).reduce((acc, plugin) => {
+
+        const { assets = {} } = plugin
+
+        Object.values(assets).map((value) => {
+            const config = typeof value === 'string' ? { src: value } : value
+            const { src, ...overrides } = config
+            if (Object.keys(overrides).length) acc[`/${src}`] = overrides
+        })
+
+        return acc
+    }, {})
 
     return {
         name: 'commoners',
@@ -80,27 +93,35 @@ export default ({
         transformIndexHtml(html, ctx) {
 
             const { path: htmlPath } = ctx
-
             const parent = dirname(htmlPath)
 
+            const overrides = pluginAssetInfo[htmlPath] ?? {}
+
+            const resolvedConfig = mergeConfig(config, overrides)
+            // resolvedConfig.root = parent
+
+            const _assetOutDir = resolvedConfig.build?.outDir
+            const assetOutDir = _assetOutDir ?? actualOutDir
+
+            
             // Resolve paths per HTML file built
-            const configRoot = config.root
+            const configRoot = resolvedConfig.root
 
             const root = _assetOutDir ? actualOutDir : configRoot
             const relTo = join(build ? assetOutDir : root, parent) // Resolve actual path in the assets
             
             const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
         
-            const services = sanitize(config.services)
+            const services = sanitize(resolvedConfig.services)
         
-            const rawIconSrc = getIcon(config.icon)
+            const rawIconSrc = getIcon(resolvedConfig.icon)
             const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
             const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
         
             const globalObject = {
         
-                NAME: config.name,
-                VERSION: config.version,
+                NAME: resolvedConfig.name,
+                VERSION: resolvedConfig.version,
                 ICON: iconPath,
                 SERVICES: services,
         
@@ -113,6 +134,7 @@ export default ({
                 DEV: dev,
                 PROD: !dev,
         
+                // Environment Variables
                 ENV: env
             }
             
@@ -126,7 +148,7 @@ export default ({
             const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
 
             const lowPriority = `
-                <title>${config.name}</title>
+                <title>${resolvedConfig.name}</title>
                 ${faviconLink}
             `
 
@@ -144,7 +166,6 @@ export default ({
                     quit,
                     electron
                 } = globalThis.__commoners ?? {} // Grab temporary variables
-
 
                 const GLOBAL = globalThis.commoners = {}
 

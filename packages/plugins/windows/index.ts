@@ -2,13 +2,39 @@ import { BaseConfig } from '@commoners/solidarity'
 
 type Window = {
   src: string,
-  window?: Electron.BrowserWindowConstructorOptions
-  overrides?: BaseConfig
-}
+} & Partial<BaseConfig>
 
 type Windows = Record<string, Window>
 
-const linkToMainWindow = (id, context) => {
+const linkToMainWindow = (eventTarget) => {
+
+  // All messages
+  globalThis.addEventListener(
+    "message",
+    (event) => {
+      if (event.origin !== globalThis.origin) return; // Must be the same origin
+      const { command, payload } = event.data;
+      eventTarget.dispatchEvent(new CustomEvent("message", { detail: { command, payload } }));
+    },
+    false,
+  );
+
+  const context = {
+    send: (command, payload = {}) => globalThis.parent.postMessage({ command, payload }),
+    on: (command, callback) => eventTarget.addEventListener("message", (ev) => ev.detail.command === command && callback(ev.detail.payload)),
+  }
+
+  context.on(`link`, () => context.send(`link`)) // Start linking
+  const readyPromise = new Promise(resolve => context.on(`ready`, resolve))
+
+  return {
+    close: () => globalThis.close(),
+    send: (command, payload) => readyPromise.then(() => context.send(command, payload)), // Send message back to the main window
+    on: (command, callback) => context.on(`${command}`, callback), // Listen for message to window
+  }
+}
+
+const linkToMainElectronWindow = (id, context) => {
 
   context.on(`link:${id}`, () => context.send(`${id}:link`)) // Start linking
   const readyPromise = new Promise(resolve => context.on(`ready:${id}`, resolve))
@@ -20,7 +46,7 @@ const linkToMainWindow = (id, context) => {
   }
 }
 
-class BrowserWindow extends EventTarget {
+class ElectronWindow extends EventTarget {
 
   id: string | null
   type: string
@@ -84,27 +110,132 @@ class BrowserWindow extends EventTarget {
   };
 }
 
+class BrowserWindow extends EventTarget {
+   
+  #ref: WindowProxy | null
+
+  config: Window
+
+  #id = crypto.randomUUID()
+
+  constructor(config) {
+    super();
+    this.config = config
+  }
+
+  open = () => {
+
+    const { src, ...overrides } = this.config
+
+    const { electron = {} } = overrides
+
+    const windowConfig = Object.assign({
+      status: true,
+      toolbar: false,
+      menubar: false,
+      location: false
+    }, electron.window)
+
+    // Generate window features from Electron BrowserWindow options
+    const features = Object.entries(windowConfig).reduce((acc, [key, value]) => {
+      if (typeof value === 'boolean') acc.push(`${key}=${value ? 'yes' : 'no'}`)
+      else if (value) acc.push(`${key}=${value}`)
+      return acc
+    }, []).join(",")
+
+    const ref = globalThis.open(
+      src, 
+      this.#id, 
+      features
+    )
+
+    if (!ref) return
+
+    this.#ref = ref
+    ref.COMMONERS_WINDOW_POPUP = true
+    ref.addEventListener("load", () => {
+      this.dispatchEvent(new CustomEvent("ready", { detail: ref }))
+
+      ref.addEventListener("message", (event) => {
+        this.dispatchEvent(new CustomEvent("message", { detail: event.data }))
+      })
+
+      ref.addEventListener("beforeunload", () => {
+        this.#ref = null
+        this.dispatchEvent(new CustomEvent("closed"))
+      })
+    })
+
+    return ref
+  }
+
+  send = (command, payload) => {
+    if (this.#ref) this.#ref.postMessage({ command, payload })
+  }
+
+  close = () => {
+    if (this.#ref) this.#ref.close()
+  }
+
+
+}
+
 export default (windows: Windows) => {
 
   const windowTypes = Object.keys(windows)
 
   const assets = windowTypes.reduce((acc, id) => {
     const info = typeof windows[id] === 'string' ? { src: windows[id] } : windows[id]
-    const { src, overrides } = info
-    acc[id] = { src, overrides }
+    acc[id] = info
     return acc
   }, {})
 
   return {
     isSupported: {
       mobile: false,
-      web: false,
+      web: true
     },
     assets,
-    load() {
+    load({ WEB }) {
+
+      if (WEB) {
+
+        if (globalThis.COMMONERS_WINDOW_POPUP) {
+          const eventTarget = new EventTarget()
+
+          return {
+            main: linkToMainWindow(eventTarget)
+          }
+        }
+
+        const manager = windowTypes.reduce((acc, type) => {
+
+          const windows = {}
+
+          // Close window before unloading
+          window.addEventListener('beforeunload', () => Object.values(windows).forEach(win => win.close()))
+  
+          acc[type] = { 
+            create: () => {
+              const win = new BrowserWindow(assets[type])
+              win.addEventListener('ready', (ev) => windows[ev.detail] = win)
+              return win
+            },
+            windows
+          }
+          return acc
+        }, {})
+
+        return manager
+      }
+
+
+      // ---------------------- Electron ----------------------
+
       const isMain = this.__main
+
       if (!isMain) return {
-        main: linkToMainWindow(this.__id, this)
+        main: linkToMainElectronWindow(this.__id, this)
       }
 
       const manager = windowTypes.reduce((acc, type) => {
@@ -113,7 +244,7 @@ export default (windows: Windows) => {
 
         acc[type] = { 
           create: () => {
-            const win = new BrowserWindow(type, this)
+            const win = new ElectronWindow(type, this)
             win.addEventListener('ready', (ev) => windows[ev.detail] = win)
             return win
           },
@@ -124,7 +255,7 @@ export default (windows: Windows) => {
 
       const existingWindows = this.sendSync("windows")
       Object.entries(existingWindows).forEach(( [id, type] ) => {
-        const win = new BrowserWindow(type, this)
+        const win = new ElectronWindow(type, this)
         const exists = win.connect(id)
         if (exists) manager[type].windows[id] = win
       })
@@ -154,9 +285,9 @@ export default (windows: Windows) => {
         
         this.on("open", async (_, type, requestId) => {
 
-          // Create the Window
-          const windowTypeInfo = windows[type].window
-          const win = await createWindow(assets[type], windowTypeInfo);
+          const { electron = {} } = windows[type]
+
+          const win = await createWindow(assets[type], electron.window);
           this.setAttribute(win, "type", type) // Assign type attribute to window
           const id = win.__id
 
@@ -179,7 +310,7 @@ export default (windows: Windows) => {
 
       load: function (win) {
 
-        const { __id,  __main} = win
+        const { __id,  __main } = win
 
         this.WINDOWS[__id] = win
 

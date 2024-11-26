@@ -13,9 +13,9 @@ export const sanitizePluginProperties = (plugin, target) => {
 
     // Remove electron plugins if not the correct target
     const assumeRemoval = 'desktop' in copy && target !== 'desktop'
-    if (assumeRemoval) delete copy.desktop 
+    if (assumeRemoval) delete copy.desktop
 
-    // Assume true if no main; assume false if main
+    // Assume true if no desktop configuration; assume false if desktop configuration
     const willRemove = (v) => assumeRemoval ? !v : v === false
 
     // Remove any top-level properties that are flagged as unsupported
