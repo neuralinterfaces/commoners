@@ -111,13 +111,13 @@ const config = {
         // Python
         ...services.python.services([
             {
-                name: "flask",
-                description: 'A simple Flask server',
-                src:  join(root, './src/services/python/flask/main.py')
+                name: "basic-python",
+                description: 'A simple server',
+                src:  join(root, './src/services/python/basic/main.py')
             },
             {
                 name: "numpy",
-                description: 'A simple Flask server with Numpy operations',
+                description: 'A simple server with Numpy operations',
                 src:  join(root, './src/services/python/numpy/main.py')
             }
         ]),

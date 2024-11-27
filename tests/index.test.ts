@@ -10,7 +10,7 @@ import { existsSync }  from 'node:fs'
 
 import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
-import { resolveServicePublishInfo } from '../packages/core/assets/services'
+import { resolveServiceBuildInfo } from '../packages/core/assets/services'
 import { build } from '@commoners/testing'
 
 
@@ -67,7 +67,13 @@ describe('All services with sources can be built individually', async () => {
       describe(`Check resolved service filepath for ${name}`, () => {
 
         const service = config.services[name]
-        const info = resolveServicePublishInfo(service, name, projectBase, true)
+        const info = resolveServiceBuildInfo(
+          service, 
+          name, 
+          projectBase, 
+          true,
+          true
+        )
 
         // Setup build for testing
         const output = {}

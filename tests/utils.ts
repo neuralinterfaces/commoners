@@ -198,8 +198,29 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
     test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
 
-    const services = [ 'http', 'express', 'manual', 'flask', 'numpy', 'cpp' ] 
-    services.forEach(name => serviceTests.echo(name, output))
+    const echoServices = [
+      'http', 
+      'express', 
+      // 'manual', 
+      'manualAutobuild',
+      // 'manualCustomLocation',
+      'basic-python', 
+      'numpy', 
+      'cpp',
+      'dynamicNode',
+    ]
+
+    // const services = [ 
+    //   ...echoServices,
+    //   'remote',
+    //   // 'publishedToRemoteLocation',
+    //   // 'localForDesktop',
+    //   // 'remoteOnDesktop_removedOtherwise',
+    //   // 'removedOnDesktop'
+    // ] 
+
+
+    echoServices.forEach(name => serviceTests.echo(name, output))
     
     e2eTests.basic(output, { target })
     e2eTests.plugins(output, { target })

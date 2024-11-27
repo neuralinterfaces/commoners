@@ -64,7 +64,7 @@ const publishKeys = {
   remote: 'remote'
 }
 
-function resolveServiceBuildInfo(
+export function resolveServiceBuildInfo(
   service, 
   name, 
   root, 

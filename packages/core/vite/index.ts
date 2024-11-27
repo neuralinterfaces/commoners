@@ -36,7 +36,7 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
         const { port, host } = server.config.server;
         const protocol = server.config.server.https ? 'https' : 'http';
         const url = `${protocol}://${host || 'localhost'}:${port}`;
-        await printServiceMessage('commoners-dev-server', _chalk.cyanBright(url))
+        await printServiceMessage('Commoners Development Server', _chalk.cyanBright(url))
     }
 
     return server
