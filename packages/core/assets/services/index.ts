@@ -26,6 +26,12 @@ const autobuildExtensions = {
   node: [...jsExtensions, ...precompileExtensions.node.map(({ from }) => from)],
 }
 
+const LOCAL_HOSTS = [
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0'
+] 
+
 const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root,path))
 
 const isDesktop = (target) => target === 'desktop' || target === 'electron'
@@ -169,13 +175,16 @@ async function getServiceUrl(
   const resolved = resolveServiceConfiguration(service)
   const { url, host, port, src } = resolved
 
-  if (!src) return url
+  if (!src) return url // Cannot generate URL without source file
 
   // Only modify URL if a source file is provided
   const _url = new URL(url || `http://localhost`)
-  const resolvedPort = port || (await getFreePorts(1))[0]
-  if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
-  if (host) _url.hostname = host // Use the specified hostname
+  if (LOCAL_HOSTS.includes(_url.hostname)) {
+    const resolvedPort = port || (await getFreePorts(1))[0]
+    if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
+    if (host) _url.hostname = host // Use the specified hostname
+  }
+
   return _url.href
 
 }
@@ -355,7 +364,6 @@ export function close(id) {
     processes = {}
   }
 }
-
 
 export const sanitize = (
   services: Record<string, ResolvedService> // NOTE: May not have URL...
