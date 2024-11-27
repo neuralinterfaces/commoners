@@ -19,7 +19,7 @@ import { resolveViteConfig } from "../vite/index.js"
 import { mergeConfig } from "vite"
 
 const CONFIG_EXTENSION_TARGETS = [
-    '.cjs', 
+    '.cjs',
     '.mjs' // Fails for Node.js dependencies (e.g. @commoners/solidarity)
 ]
 
@@ -66,10 +66,10 @@ const mustBuild = ({ outDir, force }) => {
 
 const getBuildDir = (outDir: string) => join(resolve(outDir), 'assets')
 
-const sharedWithElectron = [ 'commoners.config.cjs' ]
+const sharedWithElectron = ['commoners.config.cjs']
 
 export const getAssetBuildPath = (assetPath: string, outDir: string, isSharedWithElectron?: boolean) => {
-    const inputToCompare = assetPath.replaceAll(sep, posix.sep)  
+    const inputToCompare = assetPath.replaceAll(sep, posix.sep)
     if (isSharedWithElectron === undefined) isSharedWithElectron = sharedWithElectron.includes(inputToCompare)
     if (isSharedWithElectron) return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
     const buildDir = getBuildDir(outDir)
@@ -78,8 +78,8 @@ export const getAssetBuildPath = (assetPath: string, outDir: string, isSharedWit
 }
 
 export const getAssetLinkPath = (
-    path, 
-    outDir, 
+    path,
+    outDir,
     root = outDir
 ) => {
 
@@ -109,9 +109,9 @@ export const packageFile = async (info: PackageInfo) => {
 
     const _chalk = await chalk
 
-    const { 
-        name, 
-        src, 
+    const {
+        name,
+        src,
         out,
         force
     } = info
@@ -131,21 +131,21 @@ export const packageFile = async (info: PackageInfo) => {
     const esbuild = await import('esbuild')
     const pkg = await import('pkg')
 
-    await esbuild.build({ 
-        entryPoints: [ src ],
+    await esbuild.build({
+        entryPoints: [src],
         bundle: true,
         logLevel: 'silent',
         outfile: tempOut,
-        format: 'cjs', 
-        platform: 'node', 
-        external: [ "*.node" ]
+        format: 'cjs',
+        platform: 'node',
+        external: ["*.node"]
     })
 
     await pkg.exec([
-        tempOut, 
-        '--target', 
-        'node16', 
-        '--out-path', 
+        tempOut,
+        '--target',
+        'node16',
+        '--out-path',
         outDir
     ]);
 
@@ -156,40 +156,40 @@ export const packageFile = async (info: PackageInfo) => {
 
 
 async function buildService(
-    { 
+    {
         build,
         out,
         src,
         root
-    }: { 
+    }: {
         src: string,
         out: string,
         build: ResolvedService['build'],
         root: ResolvedConfig['root']
-    }, 
-    name, 
+    },
+    name,
     force = false
-){
+) {
 
     out = resolve(out)
     const buildInfo = { name, src, out, force }
-    
+
     // Dynamic Configuration
     if (typeof build === 'function') {
         const ctx = { package: packageFile }
         build = await build.call(ctx, buildInfo)
         if (!build) return // No file emitted
-    }    
+    }
 
     // Handle string build commands
     if (typeof build === 'string') {
 
         // Output path
-        if (existsSync(build)) return build 
+        if (existsSync(build)) return build
 
         // Terminal Command
         await spawnProcess(build, [], { cwd: root })
-        
+
     }
 
     // Auto Build Configuration
@@ -200,8 +200,8 @@ async function buildService(
 // Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
-export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false ) => {
-    
+export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false) => {
+
     const { root, target } = resolvedConfig
     const { outDir } = resolvedConfig.build
 
@@ -216,7 +216,7 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
     if (toBuild.assets !== false) {
 
         // Create Config
-        assets.bundle.push(...CONFIG_EXTENSION_TARGETS.map(ext => { 
+        assets.bundle.push(...CONFIG_EXTENSION_TARGETS.map(ext => {
             const output = `commoners.config${ext}`
             return configPath ? { input: configPath, output } : { text: ext === '.cjs' ? "module.exports = {default: {}}" : "export default {}", output }
         }))
@@ -230,7 +230,7 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
 
         // Copy Icons
         if (resolvedConfig.icon) {
-            const icons = (typeof resolvedConfig.icon === 'string') ? [ resolvedConfig.icon ] : Object.values(resolvedConfig.icon)
+            const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
             assets.copy.push(...icons.map(icon => getAbsolutePath(root, icon)) as string[])
         }
 
@@ -238,15 +238,15 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
     }
 
     // Handle Provided Plugins
-    for (const [ id, plugin ] of Object.entries(resolvedConfig.plugins)) {
+    for (const [id, plugin] of Object.entries(resolvedConfig.plugins)) {
 
-        const pluginAssets = { ...(plugin.assets ?? {})}
+        const pluginAssets = { ...(plugin.assets ?? {}) }
 
         // Only bundle assets in production mode
-        if (!dev) Object.entries( pluginAssets ).map(([ key, fileInfo ]) => {
-        
+        if (!dev) Object.entries(pluginAssets).map(([key, fileInfo]) => {
+
             const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src,  ...overrides }  = fileInfoDictionary
+            const { src, ...overrides } = fileInfoDictionary
             const absPath = getAbsolutePath(root, src)
 
             // const dir = dirname(src) // NOTE: This may overwrite files that are named the same
@@ -255,27 +255,27 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
             const assetPath = join('plugins', id, key, filename)
             const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
 
-            assets.bundle.push({ 
-                input: absPath, 
-                output: outPath, 
+            assets.bundle.push({
+                input: absPath,
+                output: outPath,
                 force: true, // Ensure strict output location
                 config: overrides,
             })
-            
+
             pluginAssets[key] = outPath
         })
 
         if (plugin.assets) plugin.assets = pluginAssets
     }
-    
+
     // Handle Provided Services
     const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
-    
-    for (const [ name, resolvedService ] of Object.entries(resolvedServices)) {
+
+    for (const [name, resolvedService] of Object.entries(resolvedServices)) {
 
         const skipCompilation = (!dev && !toBuild.services) && !isDesktop(target)
         if (skipCompilation) continue // Skip builds for non-desktop unless otherwise specified
-        
+
 
         // @ts-ignore
         const { build, base, filepath, __src, __compile, __autobuild } = resolvedService
@@ -289,8 +289,8 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
 
         const bundleConfig = {
             input: __src,
-            output: filepath, 
-            force: true, 
+            output: filepath,
+            force: true,
         } as any
 
         // Compile service when not in development mode or when the service is not autobuilt
@@ -298,25 +298,25 @@ export const getAssets = async ( resolvedConfig: ResolvedConfig, toBuild: Assets
             bundleConfig.compile = async function ({ src, out }) {
 
                 const _chalk = await chalk
-                
+
                 if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
-                                
-                 // Detect when to package into an executable source
+
+                // Detect when to package into an executable source
                 const output = await buildService(
-                    { 
-                        src, 
+                    {
+                        src,
                         build,
                         out,
                         root
-                    }, 
-                    name, 
+                    },
+                    name,
                     true // Always rebuild services
                 )
 
-                const toCopy = output === null ? null : output ?? ( base ?? filepath )
+                const toCopy = output === null ? null : output ?? (base ?? filepath)
 
                 if (!existsSync(toCopy)) {
-                    console.log(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
+                    console.warn(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
                     return null // Do not try to copy or bundle the missing file
                 }
 
@@ -346,11 +346,11 @@ const resolveAssetInfo = (info, outDir, root) => {
 
     const hasExplicitInput = typeof input === 'string'
 
-    return { 
-        input, 
+    return {
+        input,
         output: hasExplicitInput ? (typeof output === 'string' ? (force ? output : getAssetBuildPath(output, outDir)) : getAssetBuildPath(getAbsolutePath(root, input), outDir)) : output,
-        force, 
-        compile 
+        force,
+        compile
     }
 }
 
@@ -364,11 +364,11 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     if (toBuild.assets !== false) {
 
         mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
- 
+
         // Write a package.json file to ensure these files are treated properly
         const randomId = Math.random().toString(36).substring(7)
-        writeFileSync(join(outDir, 'package.json'), JSON.stringify({ 
-            name: `commoners-build-${randomId}`, 
+        writeFileSync(join(outDir, 'package.json'), JSON.stringify({
+            name: `commoners-build-${randomId}`,
             version: config.version,
             // type: 'module'
         }, null, 2)) // Write package.json to ensure these files are treated as commonjs
@@ -393,15 +393,15 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         if (!result) continue // Skip if no result
 
         // Copy results
-        else if (existsSync(result)) assets.copy.push({ input: result, extraResource: true,  sign: true })
-        
+        else if (existsSync(result)) assets.copy.push({ input: result, extraResource: true, sign: true })
+
         // Or attempt auto-bundle
         else toBundle.push({
             ...resolvedInfo,
-            extraResource: true,  
-            sign: true 
+            extraResource: true,
+            sign: true
         })
-        
+
     }
 
     // Create an assets folder with copied assets (ESM)
@@ -420,100 +420,92 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
         const { input, output } = resolveAssetInfo(info, outDir, root)
 
-        // ----------- Proceed with bundling ----------
+        // Transform an input file in some way    
+        const inputExt = extname(input)
+        const fileRoot = dirname(input)
 
-        // Transform an input file in some way
-        if (input) {
-    
-            const inputExt = extname(input)
-            const fileRoot =  dirname(input)
+        // Bundle HTML Files using Vite
+        if (inputExt === '.html') {
+            const { target } = config
+            const { config: commonersConfig } = info
 
-            // Bundle HTML Files using Vite
-            if (inputExt === '.html') {
-                const { target } = config
-                const { config: commonersConfig } = info
+            const outDir = dirname(output)
 
-                const outDir = dirname(output)
-
-                // Default Build Configuration
-                const buildConfig = {
-                    logLevel: 'silent',
-                    base: "./",
-                    root: fileRoot,
-                    build: {
-                        emptyOutDir: false, // Ensure assets already built are maintained
-                        outDir, // Configure the output directory of the linked build assets
-                        rollupOptions: { input } 
-                    },
-                }
-
-
-                // Treat as Commoners Frontend with Configuration Specified 
-                if (commonersConfig) {
-
-                    const mergedConfig = mergeConfig(config, commonersConfig) as ResolvedConfig
-                    mergedConfig.root = fileRoot
-                                        
-                    const viteConfig = await resolveViteConfig(mergedConfig, { 
-                        target, 
-                        outDir, // Provide a new outDir to link to the original (provided by the mergedConfig above)
-                        dev 
-                    }, false)
-                    
-                    const mergedViteConfig = mergeConfig(viteConfig, buildConfig)
-                    await _vite.build(mergedViteConfig)
-                }
-
-                else await _vite.build(buildConfig)
-
-            } 
-
-            // Use ESBuild for specific files only
-            else {
-
-                const outputExtension = extname(output)
-
-                if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output) // Bundle config file differently using Rollup
-                else {
-
-                    const baseConfig: ESBuildBuildOptions = {
-                        entryPoints: [ input ],
-                        bundle: true,
-                        logLevel: 'silent',
-                        outfile: output
-                    }
-
-                    // Force a build format if the proper extension is specified
-                    const format = outputExtension === '.mjs' ? 'esm' : outputExtension === '.cjs' ? 'cjs' : undefined
-
-                    const esbuild = await import('esbuild')
-
-                    const buildForNode = () => buildForBrowser({ 
-                        outfile: output,
-                        platform: 'node', 
-                        external: [ "*.node" ] 
-                    })
-                    
-                    const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts})
-                    
-                    if (outputExtension === 'cjs') await buildForNode()
-                    else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
-                }
-
-
-                // Handle extra resources
-                const assetOutputInfo: AssetOutput = { file: output }
-                if (typeof info === 'object')  {
-                    assetOutputInfo.extraResource = info.extraResource
-                    assetOutputInfo.sign = info.sign
-                }
-
-                outputs.push(assetOutputInfo)
+            // Default Build Configuration
+            const buildConfig = {
+                logLevel: 'silent',
+                base: "./",
+                root: fileRoot,
+                build: {
+                    emptyOutDir: false, // Ensure assets already built are maintained
+                    outDir, // Configure the output directory of the linked build assets
+                    rollupOptions: { input }
+                },
             }
+
+
+            // Treat as Commoners Frontend with Configuration Specified 
+            if (commonersConfig) {
+
+                const mergedConfig = mergeConfig(config, commonersConfig) as ResolvedConfig
+                mergedConfig.root = fileRoot
+
+                const viteConfig = await resolveViteConfig(mergedConfig, {
+                    target,
+                    outDir, // Provide a new outDir to link to the original (provided by the mergedConfig above)
+                    dev
+                }, false)
+
+                const mergedViteConfig = mergeConfig(viteConfig, buildConfig)
+                await _vite.build(mergedViteConfig)
+            }
+
+            else await _vite.build(buildConfig)
+
         }
 
-        else console.error(`Could not resolve ${_chalk.red(input)} asset file`)
+        // Use ESBuild for specific files only
+        else {
 
+            const outputExtension = extname(output)
+
+            if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output) // Bundle config file differently using Rollup
+            else {
+
+                const baseConfig: ESBuildBuildOptions = {
+                    entryPoints: [input],
+                    bundle: true,
+                    logLevel: 'silent',
+                    outfile: output
+                }
+
+                // Force a build format if the proper extension is specified
+                const format = outputExtension === '.mjs' ? 'esm' : outputExtension === '.cjs' ? 'cjs' : undefined
+
+                const esbuild = await import('esbuild')
+
+                const buildForNode = () => buildForBrowser({
+                    outfile: output,
+                    platform: 'node',
+                    external: ["*.node"]
+                })
+
+                const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts })
+
+                if (outputExtension === 'cjs') await buildForNode()
+                else await buildForBrowser().catch(buildForNode) // Externalize all node dependencies
+            }
+
+
+            // Handle extra resources
+            const assetOutputInfo: AssetOutput = { file: output }
+            if (typeof info === 'object') {
+                assetOutputInfo.extraResource = info.extraResource
+                assetOutputInfo.sign = info.sign
+            }
+
+            outputs.push(assetOutputInfo)
+        }
     }))
 
 
@@ -527,14 +519,14 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
         const extraResource = isObject ? info.extraResource : false
 
         // Ensure extra resources are copied to the output directory
-        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, getAssetBuildPath(locationToEncode, outDir)) } 
+        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, getAssetBuildPath(locationToEncode, outDir)) }
 
         // Handle extra resources
         if (isObject) {
             output.extraResource = extraResource
             output.sign = info.sign
         }
-        
+
         outputs.push(output)
     })
 
@@ -549,7 +541,7 @@ const importMetaResolvePlugin = () => {
     }
 }
 
-export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
+export const bundleConfig = async (input, outFile, { node = false } = {}) => {
 
     const _vite = await vite
 
@@ -559,11 +551,11 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
     const extension = extname(outFile)
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
-    
+
 
     const plugins = []
 
-    const root =  dirname(input)
+    const root = dirname(input)
 
     if (!node) {
         const nodePolyfills = await import('vite-plugin-node-polyfills').then(({ nodePolyfills }) => nodePolyfills)
@@ -580,21 +572,21 @@ export const bundleConfig = async ( input, outFile, { node = false } = {} ) => {
         build: {
             lib: {
                 entry: input,
-                formats: [ format ],
+                formats: [format],
                 fileName: () => outFileName,
             },
             emptyOutDir: false,
             outDir,
 
-            rollupOptions: { 
-                plugins: [ 
+            rollupOptions: {
+                plugins: [
                     importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
                 ]
             }
         }
 
     })
-    
+
     const resolvedConfig = node ? withExternalBuiltins(config) : config
 
     const results = await _vite.build(resolvedConfig) as any[] // RollupOutput[]

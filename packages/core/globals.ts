@@ -94,7 +94,7 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
 
     // Provide a custom warning message for tauri
     if (target === 'tauri') {
-        console.log(_chalk.yellow(`Tauri is not yet supported.`))
+        console.error(_chalk.yellow(`Tauri is not yet supported.`))
         process.exit(1)
     }
 
@@ -102,7 +102,7 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
     if (isDesktop(target)) return target
     else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android')) return target // Linux and Windows can build for android
 
-    console.log(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
+    console.error(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
     process.exit(1)
 }
 

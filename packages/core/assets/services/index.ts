@@ -345,7 +345,6 @@ export function close(id) {
       killProcess(processes[id])
       delete processes[id]
     } else {
-      // console.warn(chalk.yellow(`No process exists with id ${id}`))
       console.warn(`No process exists with id ${id}`)
     }
   }

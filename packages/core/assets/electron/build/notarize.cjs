@@ -7,7 +7,7 @@ module.exports = async (context) => {
   const envVariables = ['APPLE_TEAM_ID', 'APPLE_ID', 'APPLE_ID_PASSWORD']
 
   if (!envVariables.every((key) => !!process.env[key])) {
-    console.log(`\nSkipping notarization: ${envVariables.join(' + ')} env variables must be set.\n`)
+    console.warn(`\nSkipping notarization: ${envVariables.join(' + ')} env variables must be set.\n`)
     return
   }
 
@@ -30,5 +30,6 @@ module.exports = async (context) => {
     appleId: process.env.APPLE_ID,
     appleIdPassword: process.env.APPLE_ID_PASSWORD
   })
+
   .catch(e => console.error(`\nFailed to notarize: ${e}`))
 }

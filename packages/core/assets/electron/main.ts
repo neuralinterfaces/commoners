@@ -101,7 +101,7 @@ async function makeSingleInstance() {
   if (process.mas) return;
   if (!app.requestSingleInstanceLock()) {  
     const _chalk = await chalk
-    console.log(_chalk.yellow('Another instance of this application is already running.'))
+    console.error(_chalk.yellow('Another instance of this application is already running.'))
     app.exit(); // Skip quit callbacks
   }
   else app.on("second-instance", () => restoreWindow());
@@ -417,11 +417,7 @@ runAppPlugins().then(() => {
 
 
 app.on('ready', async () => {
-
-  const _chalk = await chalk
-
   process.on("SIGINT", () => {
-    console.log(_chalk.yellow('SIGINT received. Exiting...'))
     globals.isShuttingDown = true
     process.exit(0)
   });

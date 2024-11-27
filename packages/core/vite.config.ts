@@ -29,7 +29,7 @@ const dts: Plugin = {
         exec(`tsc --emitDeclarationOnly --outDir ./dist/types`,{
           cwd: __dirname
         }, async (err, stdout, stderr) => {
-          console.log((await chalk).yellow(stdout))
+          console.warn((await chalk).yellow(stdout))
           res()
         });
       });
