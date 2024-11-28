@@ -1,3 +1,8 @@
+import { 
+  type Plugin 
+} from '@commoners/solidarity';
+
+
 type Window = {
   src: string,
   window?: Electron.BrowserWindowConstructorOptions
@@ -181,7 +186,7 @@ class BrowserWindow extends EventTarget {
 
 }
 
-export default (windows: Windows) => {
+export default (windows: Windows): Plugin => {
 
   const windowTypes = Object.keys(windows)
 
