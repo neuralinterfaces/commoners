@@ -10,7 +10,7 @@ Plugins are collections of JavaScript functions that run at different points dur
 
 > **Note:** Official plugins can be found in the `@commoners` namespace on NPM, and are listed in the [official plugins](../packages/plugins.md#official-plugins) section.
 
-To add a new plugin, simply provide a named `Plugin` on the `plugins` registry of your [Configuration File](./config/index.md):
+To add a new plugin, simply provide a named `Plugin` on the `plugins` registry of your [Configuration File](./config.md):
 ```js
 export default {
     plugins: {
