@@ -33,5 +33,5 @@ Specify the target platform for the command.
     - `desktop` - For your current desktop platform (`boolean`/ `string`)
         - `electron` - Build with Electron
     - `mobile` - For the mobile platform corresponding to your build enviroment 
-        - `ios` - For iOS (`ios` only)
+        - `ios` - For iOS (only available on macOS)
         - `android` - For Android
