@@ -2,7 +2,7 @@ import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import {
     loadConfigFromFile,
-    resolveConfigPath,
+    resolveConfigPath
 } from '@commoners/solidarity'
 
 import { resolve } from 'node:path'

@@ -44,7 +44,7 @@ jobs:
         run: pnpm docs:build --outDir ./_site
 
       - name: Build Demo
-        run: pnpm demo:build --outDir ./_site/demo
+        run: pnpm demo:build --target pwa --outDir ./_site/demo 
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

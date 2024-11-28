@@ -65,6 +65,7 @@ export default defineConfig({
       entry: {
         main: resolve(__dirname, 'index'),
         services: resolve(__dirname, 'services/index'),
+        config: resolve(__dirname, 'config')
       },
       name: 'solidarity',
       formats: ['es', 'cjs'],

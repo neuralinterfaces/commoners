@@ -14,6 +14,8 @@ import windowsPlugin from '@commoners/windows'
 import * as bluetoothPlugin from '@commoners/bluetooth'
 import * as serialPlugin from '@commoners/serial'
 
+import { defineConfig } from '@commoners/solidarity/config';
+
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
 export const name = 'Test App'
@@ -21,8 +23,6 @@ export const name = 'Test App'
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
 const splashSrc = join(root, 'splash.html')
-
-const mainSrc = join(root, 'index.html')
 
 const remoteURL = 'https://jsonplaceholder.typicode.com/todos/1'
 
@@ -40,7 +40,7 @@ const TEST_OPTIONS = {
     return filename
 }
 
-const config = {
+const config = defineConfig({
 
     name,
 
@@ -179,7 +179,7 @@ const config = {
 
 
     }
-}
+})
 
 // NOTE: Remove the manual services to speed compilation
 delete config.services.manual

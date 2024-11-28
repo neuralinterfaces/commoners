@@ -13,6 +13,7 @@ import { bundleConfig } from './utils/assets.js'
 import { printFailure, printSubtle } from './utils/formatting.js'
 import { lstatSync } from './utils/lstat.js'
 
+
 // Top-Level Package Exports
 export * from './types.js'
 export * from './globals.js'
@@ -22,10 +23,7 @@ export { default as build } from './build.js'
 export { default as start } from './start.js'
 export { merge } // Other Helpers
 
-
 // ------------------ Configuration File Handling ------------------
-export const defineConfig = (o: UserConfig): UserConfig => o
-
 export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
 
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
