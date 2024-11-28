@@ -1,5 +1,5 @@
 
-import { extname, resolve, dirname, join } from 'node:path'
+import { extname, resolve, dirname, join, relative } from 'node:path'
 import { getIcon } from '../../utils/index.js'
 import { isDesktop, isMobile } from '../../globals.js'
 
@@ -135,7 +135,9 @@ export default ({
                 PROD: !dev,
         
                 // Environment Variables
-                ENV: env
+                ENV: env,
+
+                ROOT: relative(relTo, root)
             }
             
             const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''

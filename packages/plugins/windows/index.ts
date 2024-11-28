@@ -1,8 +1,7 @@
-import { BaseConfig } from '@commoners/solidarity'
-
 type Window = {
   src: string,
-} & Partial<BaseConfig>
+  window?: Electron.BrowserWindowConstructorOptions
+}
 
 type Windows = Record<string, Window>
 
@@ -125,28 +124,30 @@ class BrowserWindow extends EventTarget {
 
   open = () => {
 
-    const { src, ...overrides } = this.config
-
-    const { electron = {} } = overrides
+    const { src, window: windowFeatures } = this.config
 
     const windowConfig = Object.assign({
       status: true,
       toolbar: false,
       menubar: false,
       location: false
-    }, electron.window)
+    }, windowFeatures)
 
-    // Generate window features from Electron BrowserWindow options
+    // Generate window features from specified options
     const features = Object.entries(windowConfig).reduce((acc, [key, value]) => {
       if (typeof value === 'boolean') acc.push(`${key}=${value ? 'yes' : 'no'}`)
       else if (value) acc.push(`${key}=${value}`)
       return acc
     }, []).join(",")
 
+
+    const rootUrl = new URL(commoners.ROOT, globalThis.location.href)
+    const pageUrl = new URL(src, rootUrl) 
+
     const ref = globalThis.open(
-      src, 
-      this.#id, 
-      features
+        pageUrl, 
+        this.#id, 
+        features
     )
 
     if (!ref) return
@@ -285,9 +286,9 @@ export default (windows: Windows) => {
         
         this.on("open", async (_, type, requestId) => {
 
-          const { electron = {} } = windows[type]
+          const { window } = windows[type]
 
-          const win = await createWindow(assets[type], electron.window);
+          const win = await createWindow(assets[type], window);
           this.setAttribute(win, "type", type) // Assign type attribute to window
           const id = win.__id
 

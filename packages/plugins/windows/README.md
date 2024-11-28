@@ -9,11 +9,8 @@ export default {
     plugins: {
         windows: windowsPlugin({
             popup: { 
-                name: "Popup Window",
                 src: "popup.html"
-                electron: {
-                    window: { width: 500, height: 500 }
-                } 
+                window: { width: 500, height: 500 }
             }
         })
     }

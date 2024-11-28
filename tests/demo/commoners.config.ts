@@ -23,7 +23,6 @@ const expressSrc = join(root, 'src/services/express/index.js')
 const splashSrc = join(root, 'splash.html')
 
 const mainSrc = join(root, 'index.html')
-const popupSrc = join(root, "windows", "popup", 'popup.html')
 
 const remoteURL = 'https://jsonplaceholder.typicode.com/todos/1'
 
@@ -47,7 +46,10 @@ const config = {
 
     pages: {
         main: './index.html',
-        nested: './pages/nested.html'
+        services: join(root, "pages", "services", 'index.html'),
+        windows: join(root, "pages", "windows", 'index.html') ,
+        serial: join(root, "pages", "serial", 'index.html'),
+        bluetooth: join(root, "pages", "bluetooth", 'index.html'),
     },
     
     plugins: {
@@ -55,16 +57,12 @@ const config = {
         splash: splashPagePlugin(splashSrc),
         protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
         windows: windowsPlugin({
-            main: mainSrc,
             popup: {
-                name: "Popup Window",
-                src: popupSrc,
-                electron: {
-                    window: {
-                        height: 200,
-                        width: 500
-                    }
-                },
+                src: join(root, "pages", "windows", 'popup.html'),
+                window: {
+                    height: 200,
+                    width: 500
+                }
             }
         }),
         bluetooth: bluetoothPlugin, 
