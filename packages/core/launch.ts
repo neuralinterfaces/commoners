@@ -106,6 +106,11 @@ export default async function (options: LaunchOptions) {
         if (PLATFORM === 'windows'|| PLATFORM === 'linux') runExecutableCommand = args.shift() // Run executable directly on Linux
         else if (PLATFORM === 'mac') args.splice(1, 0, "--args") // macOS-specific flag to pass additional arguments
 
+
+        // Ensure No Sandbox
+        if (PLATFORM === 'linux') args.push('--no-sandbox')
+
+
         printSubtle([runExecutableCommand, ...args].join(' '))
 
         await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
