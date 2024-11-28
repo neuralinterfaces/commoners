@@ -11,7 +11,7 @@ import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from "./encode.js"
 import { chalk, isDesktop, rootDir, vite } from "../globals.js"
 import { spawnProcess } from './processes.js'
-import { ResolvedConfig, ResolvedService } from "../types.js"
+import { ResolvedConfig, ResolvedService, PackageBuildInfo } from "../types.js"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
 
@@ -93,16 +93,7 @@ export const getAssetLinkPath = (
     return result
 }
 
-
-
-type PackageInfo = {
-    name: string,
-    force?: boolean,
-    src: string, // Absolute Source File
-    out: string, // Absolute Output File
-}
-
-export const packageFile = async (info: PackageInfo) => {
+export const packageFile = async (info: PackageBuildInfo) => {
 
     const _chalk = await chalk
 

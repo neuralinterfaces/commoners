@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [
-          # ubuntu-latest, # NOTE: Ignoring because I can't test locally
+          ubuntu-latest,
           macos-latest, 
           windows-latest
         ]

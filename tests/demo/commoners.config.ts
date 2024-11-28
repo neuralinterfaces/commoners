@@ -122,7 +122,7 @@ const config = defineConfig({
 
         // C++
         cpp: {
-            description: 'A local C++ server',
+
             src:  join(root, './src/services/cpp/server.cpp'),
 
             // Compilation + build step
