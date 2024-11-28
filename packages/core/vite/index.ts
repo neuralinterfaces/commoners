@@ -21,6 +21,8 @@ type Plugin = import('vite').Plugin
 
 const defaultOutDir = join(rootDir, 'dist')
 
+const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
+
 // Run a development server
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
 
@@ -62,7 +64,7 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon, root }: 
     const icons = []
     const rawIconSrc = getIcon(icon)
     if (rawIconSrc) {
-        const defaultIcon = isAbsolute(rawIconSrc) ? rawIconSrc : join(root, rawIconSrc)
+        const defaultIcon = getAbsolutePath(root, rawIconSrc)
         const iconBuildPath = getAssetBuildPath(defaultIcon, outDir)
         icons.push(relative(outDir, iconBuildPath)) // Use the relative path for builds
     }
@@ -116,7 +118,7 @@ export const resolveViteConfig = async (
     
     const plugins: Plugin[] = [ ]
 
-    const { name, appId, root, icon, description, pages } = commonersConfig
+    const { name, appId, root, icon, description, pages = {}, plugins: commonersPlugins } = commonersConfig
     
     // Desktop Build
     if (isDesktopTarget) {
@@ -141,9 +143,19 @@ export const resolveViteConfig = async (
         plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
 
+
+    // Get html files from plugins
+    for (const [id, plugin] of Object.entries(commonersPlugins)) {
+        Object.entries(plugin.assets ?? {}).map(([key, fileInfo]) => {
+            const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
+            const { src } = fileInfoDictionary
+            if (extname(src) === '.html') pages[`_plugins/${id}/${key}`] = src
+        })
+    }
+
     // Resolve pages if they exist
-    const rollupOptions = pages ? { input: Object.entries(pages).reduce((acc, [name, filepath]) => {
-        acc[name] = join(root, filepath)
+    const rollupOptions = Object.keys(pages).length ? { input: Object.entries(pages).reduce((acc, [name, filepath]) => {
+        acc[name] = getAbsolutePath(root, filepath)
         return acc
     }, {}) } : {}    
 

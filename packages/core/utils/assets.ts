@@ -15,9 +15,6 @@ import { ResolvedConfig, ResolvedService } from "../types.js"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
 
-import { resolveViteConfig } from "../vite/index.js"
-import { mergeConfig } from "vite"
-
 const CONFIG_EXTENSION_TARGETS = [
     '.cjs',
     '.mjs' // Fails for Node.js dependencies (e.g. @commoners/solidarity)
@@ -246,20 +243,25 @@ export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsT
         if (!dev) Object.entries(pluginAssets).map(([key, fileInfo]) => {
 
             const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src, ...overrides } = fileInfoDictionary
+            const { src } = fileInfoDictionary
+
+            // Skip HTML files for bundling or copying
+            // Handle in the main Vite build process instead
+            if (extname(src) === '.html') {
+                pluginAssets[key] = src
+                return 
+            }
+            
             const absPath = getAbsolutePath(root, src)
 
-            // const dir = dirname(src) // NOTE: This may overwrite files that are named the same
             const filename = basename(src)
-
             const assetPath = join('plugins', id, key, filename)
             const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
 
             assets.bundle.push({
                 input: absPath,
-                output: outPath,
-                force: true, // Ensure strict output location
-                config: overrides,
+                output: outPath, // Uses Vite to handle the asset
+                force: true // Ensure strict output location
             })
 
             pluginAssets[key] = outPath
@@ -426,13 +428,10 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
 
         // Bundle HTML Files using Vite
         if (inputExt === '.html') {
-            const { target } = config
-            const { config: commonersConfig } = info
-
+        
             const outDir = dirname(output)
 
-            // Default Build Configuration
-            const buildConfig = {
+            await _vite.build({
                 logLevel: 'silent',
                 base: "./",
                 root: fileRoot,
@@ -441,26 +440,7 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
                     outDir, // Configure the output directory of the linked build assets
                     rollupOptions: { input }
                 },
-            }
-
-
-            // Treat as Commoners Frontend with Configuration Specified 
-            if (commonersConfig) {
-
-                const mergedConfig = mergeConfig(config, commonersConfig) as ResolvedConfig
-                mergedConfig.root = fileRoot
-
-                const viteConfig = await resolveViteConfig(mergedConfig, {
-                    target,
-                    outDir, // Provide a new outDir to link to the original (provided by the mergedConfig above)
-                    dev
-                }, false)
-
-                const mergedViteConfig = mergeConfig(viteConfig, buildConfig)
-                await _vite.build(mergedViteConfig)
-            }
-
-            else await _vite.build(buildConfig)
+            })
 
         }
 

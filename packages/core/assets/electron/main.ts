@@ -144,7 +144,8 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
       assets: Object.entries(assets).reduce((acc, [ key, value ]) => {
         const filepath = typeof value === 'string' ? value : value.src
         const filename = basename(filepath)
-        if (isDevServer) acc[key] = filepath
+        const isHTML = extname(filename) === '.html'
+        if ( isDevServer || isHTML ) acc[key] = filepath
         else acc[key] = join(assetsPath, 'plugins', id, key, filename)
         return acc
       }, {})

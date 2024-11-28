@@ -194,6 +194,7 @@ export type BaseConfig = {
     dependencies?: {[x:string]: string}
     devDependencies?: {[x:string]: string}
 
+    pages: Record<string, string>, // Shorthand for vite.build.rollupOptions.input
 
     // Plugin Options
     plugins: RawPlugins,
@@ -281,6 +282,8 @@ type BaseCommonersGlobalObject = {
 
     DEV: boolean,
     PROD: boolean,
+
+    ROOT: string,
 
 
     __READY: Function, // Resolve Function

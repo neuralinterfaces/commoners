@@ -4,17 +4,20 @@
   "version": "0.0.52",
   "type": "module",
   "license": "MIT",
-  "types": "./dist/types/index.d.ts",
-  "main": "./dist/main.cjs",
-  "module": "./dist/main.mjs",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/main.mjs",
       "require": "./dist/main.cjs"
     },
     "./services": {
       "import": "./dist/services.mjs",
       "require": "./dist/services.cjs"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.mjs",
+      "require": "./dist/config.cjs"
     }
   },
   "engines": {

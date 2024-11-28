@@ -14,6 +14,8 @@ import windowsPlugin from '@commoners/windows'
 import * as bluetoothPlugin from '@commoners/bluetooth'
 import * as serialPlugin from '@commoners/serial'
 
+import { defineConfig } from '@commoners/solidarity/config';
+
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
 export const name = 'Test App'
@@ -21,9 +23,6 @@ export const name = 'Test App'
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
 const splashSrc = join(root, 'splash.html')
-
-const mainSrc = join(root, 'index.html')
-const popupSrc = join(root, "windows", "popup", 'popup.html')
 
 const remoteURL = 'https://jsonplaceholder.typicode.com/todos/1'
 
@@ -41,13 +40,16 @@ const TEST_OPTIONS = {
     return filename
 }
 
-const config = {
+const config = defineConfig({
 
     name,
 
     pages: {
         main: './index.html',
-        nested: './pages/nested.html'
+        services: join(root, "pages", "services", 'index.html'),
+        windows: join(root, "pages", "windows", 'index.html') ,
+        serial: join(root, "pages", "serial", 'index.html'),
+        bluetooth: join(root, "pages", "bluetooth", 'index.html'),
     },
     
     plugins: {
@@ -55,16 +57,12 @@ const config = {
         splash: splashPagePlugin(splashSrc),
         protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
         windows: windowsPlugin({
-            main: mainSrc,
             popup: {
-                name: "Popup Window",
-                src: popupSrc,
-                electron: {
-                    window: {
-                        height: 200,
-                        width: 500
-                    }
-                },
+                src: join(root, "pages", "windows", 'popup.html'),
+                window: {
+                    height: 200,
+                    width: 500
+                }
             }
         }),
         bluetooth: bluetoothPlugin, 
@@ -181,7 +179,7 @@ const config = {
 
 
     }
-}
+})
 
 // NOTE: Remove the manual services to speed compilation
 delete config.services.manual
