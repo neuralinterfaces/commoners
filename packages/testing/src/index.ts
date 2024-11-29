@@ -55,7 +55,7 @@ export const build = async (
   return {
     cleanup: async (relativePathsToRemove = []) => {
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
-      toRemove.forEach(path => existsSync(path) ? rmSync(path, { recursive: true }) : '')
+      toRemove.forEach(path => existsSync(path) ? rmSync(path, { recursive: true, force: true }) : '')
       cleanup() // Cleanup after the build process
     }
   }

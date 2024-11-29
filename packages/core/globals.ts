@@ -64,7 +64,14 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     }
 }
 
-export const removeDirectory = (path) => rmSync(path, { recursive: true, force: true })
+
+// Run rmSync twice in case of failure on Windows
+export const removeDirectory = (path) => {
+    if (existsSync(path)) {
+        const rm = (path) => rmSync(path, { recursive: true, force: true })
+        try { rm(path) } catch { rm(path) }
+    }
+}
 
 export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.js')
 
