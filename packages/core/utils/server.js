@@ -2,7 +2,7 @@ import http from 'node:http'
 import path from 'node:path';
 import url from 'node:url';
 
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 
 
 export const createServer = ({ root = process.cwd(), handler }) => {
@@ -36,6 +36,12 @@ export const createServer = ({ root = process.cwd(), handler }) => {
         '.pdf': 'application/pdf',
         '.doc': 'application/msword'
         };
+
+        if (!existsSync(pathname)) {
+            res.statusCode = 404;
+            res.end(`File ${pathname} not found!`);
+            return;
+        }
     
         if (statSync(pathname).isDirectory()) pathname = path.join(pathname, 'index' + ext);
     

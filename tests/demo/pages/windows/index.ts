@@ -3,7 +3,6 @@ import { READY } from 'commoners:env'
 import '../../style.css'
 
 const app = document.getElementById('app')!
-const popupButton = document.getElementById('popup')!
 
 // ---------------------- Window Buttons ----------------------
 
@@ -29,7 +28,8 @@ const openWindow = async (type, windows) => {
 
 const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1)
 READY.then(({ windows }) => {
-  if (!windows || (Object.keys(windows).length === 1 && windows.main)) popupButton.disabled = true
+  if (!windows) return app.innerHTML = '<p>Windows plugin is not available.</p>'
+  if (Object.keys(windows).length === 1 && windows.main) return `<p>Cannot open windows from a secondary window.</p>`
 
   
   Object.entries(windows).forEach(([ name, manager ]) => {
