@@ -11,7 +11,6 @@ import { spawnProcess } from './utils/processes.js'
 import { createServer } from './utils/server.js'
 
 import * as mobile from './mobile/index.js'
-import { run } from 'node:test';
 
 const open = import('open').then(m => m.default)
 
