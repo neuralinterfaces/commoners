@@ -13,7 +13,7 @@ Follow the prompts to select your favorite framework and features.
 After running `npm install`, add Commoners as a dependency:
 
 ```bash
-npm install commoners
+npm install -D commoners@0.0.52
 ```
 
 ## Configuring the `package.json` File
@@ -24,13 +24,12 @@ Then, modify `scripts` in your `package.json` to include the following:
     "scripts": {
         "start": "commoners --target desktop",
         "dev": "commoners",
-        "build": "commoners build",
-        "build:desktop": "commoners build --target desktop"
+        "build": "commoners build"
     }
 }
 ```
 
-Now you can run `npm start` to start your application as an Electron desktop application, `npm run dev` to start your application as a web application, and the `npm run build` commands to create different distributions of your application.
+Now you have simple commands to start your application as an Electron desktop application (`npm start`), start as a web application (`npm run dev`), and build different distributions of your application (`npm run build`).
 
 
 ## Creating a Configuration File

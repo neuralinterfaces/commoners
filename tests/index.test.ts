@@ -13,6 +13,11 @@ import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTe
 import { resolveServiceBuildInfo } from '../packages/core/assets/services'
 import { build } from '@commoners/testing'
 
+const platforms = {
+  windows: process.platform === 'win32',
+  mac: process.platform === 'darwin',
+  linux: process.platform === 'linux'
+}
 
 describe('Custom project base is loaded', () => {
 
@@ -49,7 +54,8 @@ describe('Build and Launch', () => {
 
   registerBuildTest(
     'Desktop', 
-    { target: 'electron' }
+    { target: 'electron' },
+    platforms.mac // Skip on non-Mac platforms
   )
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)
