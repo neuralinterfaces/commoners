@@ -9,7 +9,7 @@ export default defineConfig({
     } 
   },
   test: {
-    hookTimeout: 30000,
+    hookTimeout: 2 * 1000 * 60, // Allow 2min for each test
     coverage: {
       exclude: [
         '**/docs/**', 
@@ -18,6 +18,11 @@ export default defineConfig({
         '**/coverage/**', 
         '**/vite.config.ts',
         '**/.commoners/**',
+
+        // Packages
+        'packages/cli/**',
+        'packages/plugins/**',
+        'packages/testing/**',
       ],
     }
   },

@@ -44,6 +44,11 @@ Install all packages by running the following command:
 pnpm install
 ```
 
+Finally, build all packages by running:
+```bash
+pnpm build
+```
+
 ### Testing
 #### Initial Setup
 ```bash
@@ -57,10 +62,19 @@ Always run tests with the `commoners-test-app` environment activated.
 conda activate commoners-test-app
 ```
 
+You must also ensure that `g++` is available to build the C++ server.
+
 Then, simply run the following command:
 ```bash
 pnpm test
 ```
+
+##### Linux
+When running tests on Linux, you'll need to install FUSE for AppImage support: 
+```
+sudo apt-get update && sudo apt-get install -y fuse
+```
+
 
 ## Acknowledgements
 This project is part of [Neural Interfaces](https://github.com/neuralinterfaces).

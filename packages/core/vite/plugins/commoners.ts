@@ -1,5 +1,6 @@
 
-import { extname, resolve } from 'node:path'
+import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
+
 import { getIcon } from '../../utils/index.js'
 import { isDesktop, isMobile } from '../../globals.js'
 
@@ -7,6 +8,7 @@ import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from "../../assets/services/index.js"
+import { mergeConfig } from 'vite'
 
 const virtualModuleId = 'commoners:env'
 
@@ -53,47 +55,26 @@ export default ({
     env
 }: CommonersPluginOptions) => {
 
+    // Variables only resolved once for the main configuration
     const actualOutDir = outDir
-    const _assetOutDir = config.build?.outDir
-    const assetOutDir = _assetOutDir ?? actualOutDir
-
     const desktop = isDesktop(target)
     const mobile = isMobile(target)
     
-    const configRoot = config.root
-    const root = _assetOutDir ? actualOutDir : configRoot
-    const relTo = build ? assetOutDir : root
-
-    const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
-
-    const services = sanitize(config.services)
-
-    const rawIconSrc = getIcon(config.icon)
-    const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
-    const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
-
-    const globalObject = {
-
-        NAME: config.name,
-        VERSION: config.version,
-        ICON: iconPath,
-        SERVICES: services,
-
-        // Target Shortcuts
-        DESKTOP: desktop,
-        MOBILE: mobile,
-        WEB: !desktop && !mobile,
-
-        // Production vs Development
-        DEV: dev,
-        PROD: !dev,
-
-        ENV: env
-    }
-    
-    const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
-    
     const resolvedVirtualModuleId = '\0' + virtualModuleId
+
+    const { plugins } = config
+    const pluginAssetInfo = Object.values(plugins).reduce((acc, plugin) => {
+
+        const { assets = {} } = plugin
+
+        Object.values(assets).map((value) => {
+            const config = typeof value === 'string' ? { src: value } : value
+            const { src, ...overrides } = config
+            if (Object.keys(overrides).length) acc[`/${src}`] = overrides
+        })
+
+        return acc
+    }, {})
 
     return {
         name: 'commoners',
@@ -110,8 +91,59 @@ export default ({
                 return lines.join("\n")
             }
         },
-        transformIndexHtml(html) {
+        transformIndexHtml(html, ctx) {
 
+            const { path: htmlPath } = ctx
+            const parent = dirname(htmlPath)
+
+            const overrides = pluginAssetInfo[htmlPath] ?? {}
+
+            const resolvedConfig = mergeConfig(config, overrides)
+            // resolvedConfig.root = parent
+
+            const _assetOutDir = resolvedConfig.build?.outDir
+            const assetOutDir = _assetOutDir ?? actualOutDir
+
+            
+            // Resolve paths per HTML file built
+            const configRoot = resolvedConfig.root
+
+            const root = _assetOutDir ? actualOutDir : configRoot
+            const relTo = join(build ? assetOutDir : root, parent) // Resolve actual path in the assets
+            
+            const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
+        
+            const services = sanitize(resolvedConfig.services)
+        
+            const rawIconSrc = getIcon(resolvedConfig.icon)
+            const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
+            const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
+        
+            const globalObject = {
+        
+                NAME: resolvedConfig.name,
+                VERSION: resolvedConfig.version,
+                ICON: iconPath,
+                SERVICES: services,
+        
+                // Target Shortcuts
+                DESKTOP: desktop,
+                MOBILE: mobile,
+                WEB: !desktop && !mobile,
+        
+                // Production vs Development
+                DEV: dev,
+                PROD: !dev,
+        
+                // Environment Variables
+                ENV: env,
+
+                ROOT: relative(relTo, root).replaceAll(sep, posix.sep)
+            }
+            
+            const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
+            
+            // Inject required items into the HTML head
             const headStart = html.indexOf(TAGS.head.start)
             const headEnd = html.indexOf(TAGS.head.end)
             const headContent = headStart && headEnd ? html.slice(headStart + TAGS.head.start.length, headEnd) : ''
@@ -119,7 +151,7 @@ export default ({
             const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
 
             const lowPriority = `
-                <title>${config.name}</title>
+                <title>${resolvedConfig.name}</title>
                 ${faviconLink}
             `
 
@@ -137,7 +169,6 @@ export default ({
                     quit,
                     electron
                 } = globalThis.__commoners ?? {} // Grab temporary variables
-
 
                 const GLOBAL = globalThis.commoners = {}
 

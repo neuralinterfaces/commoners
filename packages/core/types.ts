@@ -1,4 +1,5 @@
-import { App, BrowserWindow, BrowserWindowConstructorOptions, IpcMain, IpcRenderer } from 'electron'
+import electron, { BrowserWindow, BrowserWindowConstructorOptions, IpcMainEvent, IpcRenderer } from 'electron'
+import * as utils from '@electron-toolkit/utils'
 
 type ViteUserConfig = import('vite').UserConfig
 type ElectronBuilderConfiguration = import('electron-builder').Configuration
@@ -63,41 +64,50 @@ export type ServerOptions = { printUrls?: boolean } & BaseViteOptions
 export type TargetType = typeof valid.target[number]
 // export type PlatformType = typeof validDesktopTargets[number]
 
-
-type URLConfiguration = string | { local: string } | { remote: string }
-
 // ------------------- Services -------------------
-type BaseServiceMetadata = ({ src: string } | { url: URLConfiguration })
+type BaseServiceMetadata = { src: string } | { url: string } 
 
-type ServicePublishInfo = string | { src: string,  base: string }
+export type PackageBuildInfo = {
+    name: string,
+    force?: boolean,
+    src: string, // Absolute Source File
+    out: string, // Absolute Output File
+}
 
-type UserBuildCommand = string | ((info: { 
-    name: string, 
-    force: boolean,
-    src: string,
-    base: string
-} ) => string) // e.g. could respond to platform or manually build the executable
+type UserBuildCommand = string | ((info: PackageBuildInfo) => string | Promise<string>) // e.g. could respond to platform or manually build the executable
 
-type ExtraServiceMetadata = {
+
+type _ExtraServiceMetadata = {
     host?: string,
     port?: number,
-    build?: UserBuildCommand,
-    publish?: ServicePublishInfo
+    build?: UserBuildCommand
+}
+
+type _ServiceMetadata = string | false | (BaseServiceMetadata & _ExtraServiceMetadata)
+
+type PublishSelectiveOptions = {
+    local?: Partial<_ServiceMetadata>,
+    remote?: Partial<_ServiceMetadata>
+}
+
+type ExtraServiceMetadata = _ExtraServiceMetadata & {
+    publish?: (Partial<_ServiceMetadata> & { base?: string } & PublishSelectiveOptions)
 }
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) // Can nest build by platform type
 
 export type ResolvedService = {
+
+    // For Service Build
     filepath: string,
     base: string | null,
-    url: string
     build: ExtraServiceMetadata['build'],
-    publish: ServicePublishInfo,
-    host: string,
-    port: string,
     __src: string
     __compile: boolean,
     __autobuild: boolean
+
+    // For Client
+    url: string // What URL to use for service requests
 }
 
 // ------------------- Plugins -------------------
@@ -120,8 +130,29 @@ export type CapacitorConfig = {
 export type SupportConfigurationObject = {
     [x in TargetType]?: UserSupportType
 } & {
-    mobile?: boolean | {
-        capacitor?: CapacitorConfig // Capacitor Plugin Configuration Object
+    mobile?: 
+        UserSupportType // Uses standard mobile features
+        | { capacitor?: CapacitorConfig } // Capacitor Plugin Configuration Object
+    }
+
+
+type DesktopPluginContext = {
+    id: string,
+    electron: typeof electron,
+    utils: typeof utils,
+    createWindow: (page: string, opts: BrowserWindowConstructorOptions) => BrowserWindow
+    // open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
+    send: (channel: string, ...args: any[]) => void,
+    on: (channel: string, callback: (event: IpcMainEvent, ...args: any[]) => void, win: BrowserWindow) => ({
+        remove: () => void
+    }),
+
+    setAttribute: (win, attr, value) => void,
+    getAttribute: (win, attr) => any,
+
+    // Provide specific variables from the plugin
+    plugin: {
+      assets: Record<string, string>
     }
 }
 
@@ -130,16 +161,17 @@ export type Plugin = {
     isSupported?: SupportConfigurationObject
     
     desktop?: {
-        load?: (this: {
-            on: IpcMain['on'],
-            send: (channel: string, ...args: any[]) => void,
-            open: () => {}
-        }, win: BrowserWindow) => void, // TO PASS TO RENDER
+
+        // App Controls
+        start?: (this: DesktopPluginContext) => void,
+        ready?: (this: DesktopPluginContext) => void,
+        quit?: (this: DesktopPluginContext) => void,
+
         
-        preload?: (this: {
-            app: App,
-            open: () => {}
-        }) => void, // TO PASS TO MAIN
+        // Window Controls
+        load?: (this: DesktopPluginContext, win: BrowserWindow) => void,
+        unload?: (this: DesktopPluginContext, win: BrowserWindow) => void,
+
     }
 
     load?: (this: IpcRenderer) => LoadedPlugin
@@ -194,6 +226,7 @@ export type BaseConfig = {
     dependencies?: {[x:string]: string}
     devDependencies?: {[x:string]: string}
 
+    pages: Record<string, string>, // Shorthand for vite.build.rollupOptions.input
 
     // Plugin Options
     plugins: RawPlugins,
@@ -206,7 +239,7 @@ export type BaseConfig = {
     pwa: PWAOptions
 
     // Service Options
-    services?: { [x: string]: UserService } | false,
+    services?: { [x: string]: UserService },
     port?: PortType, // Default Port (single service)
 
 }
@@ -281,6 +314,8 @@ type BaseCommonersGlobalObject = {
 
     DEV: boolean,
     PROD: boolean,
+
+    ROOT: string,
 
 
     __READY: Function, // Resolve Function

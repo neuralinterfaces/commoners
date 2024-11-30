@@ -1,14 +1,15 @@
 // Build-In Modules
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { lstatSync } from "node:fs"
 
 // General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
 import { BuildOptions, BuildHooks, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
-import { clear, buildAssets, getAssetBuildPath } from "./utils/assets.js"
+import { buildAssets, getAssetBuildPath } from "./utils/assets.js"
+import { lstatSync } from './utils/lstat.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
+import { removeDirectory } from './utils/files.js'
 import { getIcon } from "./utils/index.js"
 import merge from './utils/merge.js'
 
@@ -97,8 +98,8 @@ export default async function build (
 
 
     // ---------------- Clear Previous Builds ----------------
-    if (isDesktopBuild)  await clear(join(globalWorkspacePath, 'services')) // Clear default service directory
-    if (toRebuild.assets) await clear(outDir)
+    if (isDesktopBuild)  await removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
+    if (toRebuild.assets) await removeDirectory(outDir)
 
     // ---------------- Build Assets ----------------
     if (toRebuild.assets) {

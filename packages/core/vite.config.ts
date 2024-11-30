@@ -29,7 +29,7 @@ const dts: Plugin = {
         exec(`tsc --emitDeclarationOnly --outDir ./dist/types`,{
           cwd: __dirname
         }, async (err, stdout, stderr) => {
-          console.log((await chalk).yellow(stdout))
+          console.warn((await chalk).yellow(stdout))
           res()
         });
       });
@@ -65,6 +65,7 @@ export default defineConfig({
       entry: {
         main: resolve(__dirname, 'index'),
         services: resolve(__dirname, 'services/index'),
+        config: resolve(__dirname, 'config')
       },
       name: 'solidarity',
       formats: ['es', 'cjs'],

@@ -1,7 +1,6 @@
 // Built-In Modules
 import { dirname, join, relative, normalize, resolve } from 'node:path'
-import { existsSync, lstatSync, unlink, writeFileSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
+import { existsSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
 import { globalWorkspacePath, getDefaultMainLocation, templateDir, onCleanup, ensureTargetConsistent, isMobile } from './globals.js'
@@ -11,6 +10,8 @@ import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
 import { printFailure, printSubtle } from './utils/formatting.js'
+import { lstatSync } from './utils/lstat.js'
+
 
 // Top-Level Package Exports
 export * from './types.js'
@@ -21,10 +22,7 @@ export { default as build } from './build.js'
 export { default as start } from './start.js'
 export { merge } // Other Helpers
 
-
 // ------------------ Configuration File Handling ------------------
-export const defineConfig = (o: UserConfig): UserConfig => o
-
 export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
 
 const isDirectory = (root: string) => lstatSync(root).isDirectory()
@@ -83,10 +81,9 @@ export async function loadConfigFromFile(
     if (configPath) {
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
-        const fileUrl = `${pathToFileURL(configOutputPath)}`
 
         try {
-            config = (await import(fileUrl)).default as UserConfig
+            config = (await import(configOutputPath)).default as UserConfig
         } finally {
             onCleanup(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }
@@ -186,13 +183,22 @@ const writePackageJSON = (o, root = '') => {
 export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
 
     const userPkg = getJSON(join(root, 'package.json'))
-    const pkg = { ...defaults, ...userPkg }
+    const pkg = { 
+        ...defaults, 
+        ...userPkg 
+    }
 
     const resolvedOutDir = root ? relative(root, outDir) : outDir
     const defaultMainLocation = getDefaultMainLocation(resolvedOutDir)
     if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
-        onCleanup(() =>  writePackageJSON(pkg, root)) // Write back the original package.json on exit
-        writePackageJSON({...pkg, main: defaultMainLocation}, root)
+
+        // Write back the original package.json on exit
+        onCleanup(() => writePackageJSON(pkg, root))
+
+        writePackageJSON({
+            ...pkg, 
+            main: defaultMainLocation 
+        }, root)
     }
 
 }

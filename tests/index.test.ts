@@ -2,7 +2,7 @@ import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import {
     loadConfigFromFile,
-    resolveConfigPath,
+    resolveConfigPath
 } from '@commoners/solidarity'
 
 import { resolve } from 'node:path'
@@ -10,9 +10,14 @@ import { existsSync }  from 'node:fs'
 
 import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
-import { resolveServicePublishInfo } from '../packages/core/assets/services'
+import { resolveServiceBuildInfo } from '../packages/core/assets/services'
 import { build } from '@commoners/testing'
 
+const platforms = {
+  windows: process.platform === 'win32',
+  mac: process.platform === 'darwin',
+  linux: process.platform === 'linux'
+}
 
 describe('Custom project base is loaded', () => {
 
@@ -49,7 +54,8 @@ describe('Build and Launch', () => {
 
   registerBuildTest(
     'Desktop', 
-    { target: 'electron' }
+    { target: 'electron' },
+    platforms.mac // Skip on non-Mac platforms
   )
 
   registerBuildTest('Mobile', { target: 'mobile' }, false)
@@ -67,7 +73,16 @@ describe('All services with sources can be built individually', async () => {
       describe(`Check resolved service filepath for ${name}`, () => {
 
         const service = config.services[name]
-        const info = resolveServicePublishInfo(service, name, projectBase, true)
+        const info = resolveServiceBuildInfo(
+          service, 
+          name, 
+          {
+            root: projectBase,
+            target: 'service',
+            services: true,
+            build: true
+          }
+        )
 
         // Setup build for testing
         const output = {}

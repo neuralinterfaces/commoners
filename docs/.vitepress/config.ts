@@ -12,10 +12,8 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Guide', link: '/guide/getting-started' },
-      { text: 'Config', link: '/config/index' },
-      { text: 'Plugins', link: '/plugins/index' },
-      { text: 'Roadmap', link: '/roadmap/features' },
+      { text: 'Guide', link: '/getting-started' },
+      { text: 'Plugins', link: '/packages/plugins' }
     ],
 
     footer: {
@@ -23,19 +21,40 @@ export default defineConfig({
       copyright: 'Copyright © 2024 Garrett Flynn & Commoners Contributors',
     },
 
-    sidebar: {
-      '/guide/': [
+    sidebar: [
+        { text: 'Getting Started', link: '/getting-started' },
+        { text: 'Why Commoners', link: '/why/' },
         {
           text: 'Guide',
           items: [
-            { text: 'Why Commoners', link: '/guide/why' },
-            { text: 'Getting Started', link: '/guide/getting-started' },
-            { text: 'Features', link: '/guide/features' },
-            { text: 'CLI', link: '/guide/cli' },
+            { text: 'Configuration', link: '/guide/config' },
+            {
+              text: 'Targets',
+              items: [
+                { text: 'Web', link: '/guide/targets/web' },
+                { text: 'Desktop', link: '/guide/targets/desktop' },
+                { text: 'Mobile', link: '/guide/targets/mobile' }
+              ]
+            },
+            { text: 'Services', link: '/guide/services' },
+            { text: 'Plugins', link: '/guide/plugins' },
+            { text: 'Testing', link: '/guide/testing' },
+            { text: 'Release', link: '/guide/release' }
+          ]
+        },
+        {
+          text: "Packages",
+          items: [
+            { text: "Plugins", link: "/packages/plugins" },
+          ]
+        },
+        {
+          text: "Reference",
+          items: [
+            { text: 'CLI', link: '/reference/cli' },
           ]
         }
-      ]
-    },
+    ],
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/neuralinterfaces/commoners' }

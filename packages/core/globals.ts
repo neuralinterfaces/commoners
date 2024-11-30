@@ -1,8 +1,10 @@
 // Built-In Modules
 import { join, resolve } from "node:path";
 import { dirname } from 'node:path';
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from 'node:module';
+
+import { removeDirectory } from './utils/files.js'
 
 // External Packages
 import * as yaml from 'js-yaml'
@@ -64,8 +66,6 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     }
 }
 
-export const removeDirectory = (path) => rmSync(path, { recursive: true, force: true })
-
 export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.js')
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
@@ -94,7 +94,7 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
 
     // Provide a custom warning message for tauri
     if (target === 'tauri') {
-        console.log(_chalk.yellow(`Tauri is not yet supported.`))
+        console.error(_chalk.yellow(`Tauri is not yet supported.`))
         process.exit(1)
     }
 
@@ -102,7 +102,7 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
     if (isDesktop(target)) return target
     else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android')) return target // Linux and Windows can build for android
 
-    console.log(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
+    console.error(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
     process.exit(1)
 }
 

@@ -1,7 +1,8 @@
-import { copyFileSync, mkdirSync, lstatSync, cpSync } from "node:fs"
+import { copyFileSync, mkdirSync, cpSync } from "node:fs"
 import { dirname, relative, sep } from "node:path"
 
 import { safeJoin } from './index'
+import { lstatSync } from './lstat'
 
 export const copyAsset = (input, output) => {
 

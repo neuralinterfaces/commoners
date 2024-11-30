@@ -21,6 +21,8 @@ type Plugin = import('vite').Plugin
 
 const defaultOutDir = join(rootDir, 'dist')
 
+const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
+
 // Run a development server
 export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
 
@@ -36,7 +38,7 @@ export const createServer = async (config: ResolvedConfig, opts: ServerOptions =
         const { port, host } = server.config.server;
         const protocol = server.config.server.https ? 'https' : 'http';
         const url = `${protocol}://${host || 'localhost'}:${port}`;
-        await printServiceMessage('commoners-dev-server', _chalk.cyanBright(url))
+        await printServiceMessage('Commoners Development Server', _chalk.cyanBright(url))
     }
 
     return server
@@ -62,7 +64,7 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon, root }: 
     const icons = []
     const rawIconSrc = getIcon(icon)
     if (rawIconSrc) {
-        const defaultIcon = isAbsolute(rawIconSrc) ? rawIconSrc : join(root, rawIconSrc)
+        const defaultIcon = getAbsolutePath(root, rawIconSrc)
         const iconBuildPath = getAssetBuildPath(defaultIcon, outDir)
         icons.push(relative(outDir, iconBuildPath)) // Use the relative path for builds
     }
@@ -116,7 +118,7 @@ export const resolveViteConfig = async (
     
     const plugins: Plugin[] = [ ]
 
-    const { name, appId, root, icon, description } = commonersConfig
+    const { name, appId, root, icon, description, pages = {}, plugins: commonersPlugins } = commonersConfig
     
     // Desktop Build
     if (isDesktopTarget) {
@@ -140,7 +142,22 @@ export const resolveViteConfig = async (
         // @ts-ignore
         plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate',  ...opts }))
     }
-    
+
+
+    // Get html files from plugins
+    for (const [id, plugin] of Object.entries(commonersPlugins)) {
+        Object.entries(plugin.assets ?? {}).map(([key, fileInfo]) => {
+            const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
+            const { src } = fileInfoDictionary
+            if (extname(src) === '.html') pages[`_plugins/${id}/${key}`] = src
+        })
+    }
+
+    // Resolve pages if they exist
+    const rollupOptions = Object.keys(pages).length ? { input: Object.entries(pages).reduce((acc, [name, filepath]) => {
+        acc[name] = getAbsolutePath(root, filepath)
+        return acc
+    }, {}) } : {}    
 
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
@@ -149,7 +166,8 @@ export const resolveViteConfig = async (
         root, // Resolve index.html from the root directory
         build: {
             emptyOutDir: false,
-            outDir
+            outDir,
+            rollupOptions
         },
         plugins,
         server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop

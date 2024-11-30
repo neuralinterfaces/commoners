@@ -1,4 +1,4 @@
-name: Back-end Tests
+name: Comprehensive Test Suite
 on:
   schedule:
     - cron: "0 16 * * *"  # Daily at noon EST
@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   testing:
-    name: Back-end tests on ${{ matrix.os }}
+    name: Run test suite on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [
-          # ubuntu-latest, # NOTE: Ignoring because I can't test locally
+          ubuntu-latest,
           macos-latest, 
           windows-latest
         ]

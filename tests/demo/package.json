@@ -1,6 +1,6 @@
 {
   "name": "@commoners/test-app",
-  "version": "0.0.52",
+  "version": "0.0.53",
   "private": true,
   "description": "A test app for the commoners library",
   "repository": {
@@ -20,6 +20,6 @@
     "@commoners/custom-protocol": "0.0.52",
     "@commoners/serial": "0.0.52",
     "@commoners/splash-screen": "0.0.52",
-    "@commoners/windows": "0.0.52"
+    "@commoners/windows": "0.0.53"
   }
 }

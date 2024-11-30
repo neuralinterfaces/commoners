@@ -1,11 +1,13 @@
 # CLI Commands
 
 ## Main Commands
-### commoners
+### commoners [root]
 Run your project in development mode. 
+- `[root]` - The root directory of the project (`string`)
 
-### commoners build
+### commoners build [root]
 Build the project assets.
+- `[root]` - The root directory of the project (`string`)
 - `--outDir [path]` - The output directory for the build (`string`)
 
 #### Desktop Builds
@@ -18,7 +20,7 @@ Build the project assets.
 #### Service Selection
 - `--service [name]` - Build a specific service. Can use multiple times. (`string`)
 
-### commoners launch
+### commoners launch [path]
 Launch your built application.
 - `[path]` - The output directory of the build to launch (`string`)
 
@@ -30,7 +32,6 @@ Specify the target platform for the command.
         - `pwa` - As a Progressive Web App (`build` only)
     - `desktop` - For your current desktop platform (`boolean`/ `string`)
         - `electron` - Build with Electron
-        - `tauri` - Build with Tauri (TBD)
     - `mobile` - For the mobile platform corresponding to your build enviroment 
-        - `ios` - For iOS (`ios` only)
+        - `ios` - For iOS (only available on macOS)
         - `android` - For Android

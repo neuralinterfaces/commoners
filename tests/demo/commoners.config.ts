@@ -14,6 +14,8 @@ import windowsPlugin from '@commoners/windows'
 import * as bluetoothPlugin from '@commoners/bluetooth'
 import * as serialPlugin from '@commoners/serial'
 
+import { defineConfig } from '@commoners/solidarity/config';
+
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
 export const name = 'Test App'
@@ -22,9 +24,6 @@ const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
 const splashSrc = join(root, 'splash.html')
 
-const mainSrc = join(root, 'index.html')
-const popupSrc = join(root, "windows", "popup", 'popup.html')
-
 const remoteURL = 'https://jsonplaceholder.typicode.com/todos/1'
 
 const TEST_OPTIONS = {
@@ -32,24 +31,37 @@ const TEST_OPTIONS = {
     remoteAllowOrigins: '*' // Allow all remote origins
 }
 
-const config = {
+ async function manualBuildCommand (info) {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const filename = await this.package(info) 
+    const outDir = path.dirname(info.out)
+    fs.appendFileSync(path.join(outDir, 'test.txt'), 'Hello world!')
+    return filename
+}
+
+const config = defineConfig({
 
     name,
+
+    pages: {
+        main: './index.html',
+        services: join(root, "pages", "services", 'index.html'),
+        windows: join(root, "pages", "windows", 'index.html') ,
+        serial: join(root, "pages", "serial", 'index.html'),
+        bluetooth: join(root, "pages", "bluetooth", 'index.html'),
+    },
     
     plugins: {
         checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),
         protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
         windows: windowsPlugin({
-            main: mainSrc,
             popup: {
-                src: popupSrc,
+                src: join(root, "pages", "windows", 'popup.html'),
                 window: {
                     height: 200,
                     width: 500
-                },
-                overrides: {
-                    name: "Popup Window"
                 }
             }
         }),
@@ -67,44 +79,50 @@ const config = {
         },
 
         // JavaScript
-        express: { src: expressSrc },
+        express: expressSrc,
 
-        // Manual JavaScript Compilation
+        // --------------- Manual JavaScript Compilation ---------------
         manual: {
             src: expressSrc,
-            
-            build: async function (info) { 
-                const fs = await import('node:fs')
-                const path = await import('node:path')
-                const filename = await this.package(info) 
-                const outDir = path.dirname(info.out)
-                fs.appendFileSync(path.join(outDir, 'test.txt'), 'Hello world!')
-                return filename
-            },
+            build: manualBuildCommand // Build in production directory
+        },
 
+        manualAutobuild: {
+            src: expressSrc,
+            publish: { build: manualBuildCommand } // Build in production directory only for build
+        },
+
+        manualCustomLocation: {
+            src: expressSrc,
+
+            build: manualBuildCommand,
+            
+            // Build in custom directory only for build
             publish: {
                 src: 'manual',
-                base: './.commoners/custom_services_dir/manual'
+                base: './.commoners/custom_services_dir/manual',
+                build: manualBuildCommand // Resolved independently
             }
         },
+        
 
         // Python
         ...services.python.services([
             {
-                name: "flask",
-                description: 'A simple Flask server',
-                src:  join(root, './src/services/python/flask/main.py')
+                name: "basic-python",
+                description: 'A simple server',
+                src:  join(root, './src/services/python/basic/main.py')
             },
             {
                 name: "numpy",
-                description: 'A simple Flask server with Numpy operations',
+                description: 'A simple server with Numpy operations',
                 src:  join(root, './src/services/python/numpy/main.py')
             }
         ]),
 
         // C++
         cpp: {
-            description: 'A local C++ server',
+
             src:  join(root, './src/services/cpp/server.cpp'),
 
             // Compilation + build step
@@ -122,47 +140,49 @@ const config = {
             publish: './build/cpp/server.exe', // Specified output folder
         },
 
-        dynamicNode: {
-            description: 'A simple Node.js server',
-            src: expressSrc
+        dynamicNode: expressSrc, // Will auto-publish on desktop builds
+
+        devOnly: {
+            src: expressSrc,
+            publish: false // Explicitly block this service from publishing
         },
+
+        // ------------------ Local + Remote ------------------
 
         remote: remoteURL,
 
         publishedToRemoteLocation: {
             src: expressSrc, // Call the Node server in development
-            url: remoteURL
+            publish: remoteURL // Remote for all builds
         },
 
+        // Bundled with the desktop app
+        localForDesktop: {
+            src: expressSrc, 
+            publish: { remote: remoteURL }
+        },
 
-        // NOTE: Should be completely removed
-        devOnly: {
-            description: 'A local Node.js server',
+         // ------------------ Desktop Only ------------------
+        remoteOnDesktop_removedOtherwise: {
             src: expressSrc,
-            publish: false // Explicitly block this service from publishing
+            publish: { local: remoteURL },
         },
 
-        // // OLD FEATURES
-        // remoteOnAllBuilds: {
-        //     description: 'A simple Node.js server',
-        //     src: expressSrc, // Runs on Dev Mode
-        //     url: remoteURL, // Remote for all builds (web, mobile, desktop)
-        // },
-
-        // localForDesktop: {
-        //     description: 'A simple Node.js server',
-        //     src: expressSrc, 
-        //     url: { remote: remoteURL }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
-        // },
-
-        // remoteOnDesktop_removedOtherwise: {
-        //     description: 'A simple Node.js server',
-        //     src: expressSrc,
-        //     url: { local: remoteURL }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
-        // },
+        // ------------------ Remote Only ------------------
+        removedOnDesktop: {
+            src: expressSrc,
+            publish: { 
+                url: remoteURL,
+                local: false
+            },
+        },
 
 
     }
-}
+})
+
+// NOTE: Remove the manual services to speed compilation
+delete config.services.manual
+delete config.services.manualCustomLocation
 
 export default config

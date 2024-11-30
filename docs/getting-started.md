@@ -13,7 +13,7 @@ Follow the prompts to select your favorite framework and features.
 After running `npm install`, add Commoners as a dependency:
 
 ```bash
-npm install commoners
+npm install -D commoners@0.0.53
 ```
 
 ## Configuring the `package.json` File
@@ -24,16 +24,15 @@ Then, modify `scripts` in your `package.json` to include the following:
     "scripts": {
         "start": "commoners --target desktop",
         "dev": "commoners",
-        "build": "commoners build",
-        "build:desktop": "commoners build --target desktop"
+        "build": "commoners build"
     }
 }
 ```
 
-Now you can run `npm start` to start your application as an Electron desktop application, `npm run dev` to start your application as a web application, and the `npm run build` commands to create different distributions of your application.
+Now you have simple commands to start your application as an Electron desktop application (`npm start`), start as a web application (`npm run dev`), and build different distributions of your application (`npm run build`).
 
 
-## Getting Started
+## Creating a Configuration File
 `commoners` allows you to customize your application by adding a `commoners.config.js` file to the root of your project. This file can be used to configure your application's services, plugins, and more.
 
 For example, you can add the following to your `commoners.config.js` file to customize your application's name and icon:
@@ -45,7 +44,7 @@ export default {
 }
 ```
 
-All of the available configuration options are documented in the [Configuration](../config/index.md) documentation.
+All of the available configuration options are documented in the [Configuration](./guide/config.md) documentation.
 
 In your built application, you can access Commoners configuration values using the `commoners` object:
 
@@ -216,10 +215,11 @@ export default {
         // Advanced configuration
         tsNode: {
             src: './src/services/node.ts',
-            // url: undefined, // Removed on remote builds (web, mobile)
-            // url: 'https://ts-node.example.com', // Remote for all builds (web, mobile, desktop)
-            // url: { remote: 'https://ts-node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
-            url: { local: 'https://ts-node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
+            // publish: false, // Removed on all builds
+            // publish: 'https://ts-node.example.com', // Remote for all builds
+            publish: { local: 'https://ts-node.example.com' }, // Remote for local builds (desktop). Removed on remote builds (web, mobile)
+            // publish: { remote: 'https://ts-node.example.com' }, // Remote for remote builds (web, mobile). Local for local builds (desktop)
+            // publish: { url: 'https://ts-node.example.com', local: false }, // Remote for remote builds (web, mobile). Removed on local builds (desktop)
         }
     }
 }
@@ -235,97 +235,20 @@ export default {
 
         python: {
             src: './src/services/python.py',
-            url: { remote: 'https://python.example.com' },
+            publish: { remote: 'https://python.example.com' },
 
             // The build command
             build: 'python -m PyInstaller --name python-service --onedir --clean ./src/services/python.py --distpath ./build/python',
 
             // What to include from the build
             publish: {
-                base: './build/python/python-service', // The base directory to copy
-                src: 'python-service', // The relative source location in the base directory
+                remote: 'https://python.example.com',
+                local: {
+                    base: './build/python/python-service', // The base directory to copy
+                    src: 'python-service', // The relative source location in the base directory
+                }
             }
         }
     }
 }
 ```
-
-## Testing
-Using the `@commoners/testing` package, you can easily write end-to-end tests for your application.
-
-```bash
-npm install @commoners/testing
-```
-
-Then, add the following to your `package.json`:
-
-```json
-{
-    "scripts": {
-        "test": "commoners test"
-    }
-}
-```
-
-We use `vitest` to run tests—but you can use any testing framework you like.
-
-Here's an example test for a Web + Desktop application:
-
-```js
-
-import { expect, test, describe, beforeAll, afterAll } from 'vitest'
-import { open, build } from '../../testing/index'
-
-const ROOT = '../my/app'
-const OUTDIR = 'dist'
-
-const registerTests = (prod = false) => {
-
-    const OUTPUTS = {}
-    const opts = { build: { outDir: OUTDIR } }
-
-    beforeAll(async () => {
-        if (prod) OUTPUTS.build = await build(ROOT, opts)
-        OUTPUTS.app = await open(ROOT, opts, prod)
-    })
-
-    afterAll(async () => Object.values(OUTPUTS).forEach(o => o.cleanup()))
-
-    test('should load the app', async () => {
-        expect(await OUTPUTS.app.page.title()).toBe('Test App')
-    })
-
-    test('should have global variable', async () => {
-        expect(await OUTPUTS.app.page.evaluate(() => commoners.NAME)).toBe('Test App')
-    })
-
-}
-
-describe('App runs in development mode', () => registerTests(false))
-
-describe('App runs in production mode', () => registerTests(true))
-
-```
-
-## Release Management
-Using GitHub Actions, you can automate the release of your application to GitHub Pages, GitHub Releases, and mobile app stores.
-
-*Demo coming soon...*
-
-
-## Monorepo Development
-Commoners supports monorepo development using [PNPM](https://pnpm.io). To get started, run the following commands:
-
-```bash
-corepack enable pnpm && pnpm install
-```
-
-This will install all dependencies for the monorepo.
-
-Each application can be managed with the following command syntax:
-
-```bash
-commoners ./apps/my-app # Run the application in the specified directory
-```
-
-This allows you to manage multiple applications in a single repository, such as separate desktop and mobile applications that share a common core (e.g. services, plugins, frontend components, etc.).
