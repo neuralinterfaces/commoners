@@ -3,12 +3,13 @@ import { join } from "node:path";
 
 // Internal Imports
 import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
-import { removeDirectory, globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
+import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
 import { UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
 
 // Internal Utilities
 import { buildAssets } from "./utils/assets.js";
+import { removeDirectory } from './utils/files.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 
@@ -52,9 +53,9 @@ export default async function (
         } = {}
 
         const closeFunction = (o) => {
-            removeDirectory(outDir) // Ensure the temporary directory is cleared
-            if (o.frontend) activeInstances.frontend?.close()
-            if (o.services) activeInstances.services?.close()
+            if (o.frontend) activeInstances.frontend?.close() // Close server first
+            if (o.services) activeInstances.services?.close() // Close custom services next
+            removeDirectory(outDir) // Then clear the temporary directory
         }
 
         const manager: {

@@ -323,14 +323,6 @@ export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsT
     return assets
 }
 
-
-export const clear = (outDir: string) => {
-    if (existsSync(outDir)) {
-        const rm = (path) => rmSync(path, { recursive: true, force: true }) // Clear output directory (similar to Vite)
-        try { rm(outDir) } catch { rm(outDir) }
-    }
-}
-
 type AssetsToBuild = { assets?: boolean, services?: boolean }
 
 const resolveAssetInfo = (info, outDir, root) => {

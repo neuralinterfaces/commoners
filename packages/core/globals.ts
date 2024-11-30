@@ -1,8 +1,10 @@
 // Built-In Modules
 import { join, resolve } from "node:path";
 import { dirname } from 'node:path';
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from 'node:module';
+
+import { removeDirectory } from './utils/files.js'
 
 // External Packages
 import * as yaml from 'js-yaml'
@@ -61,15 +63,6 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
 
     return {
         close: onClose
-    }
-}
-
-
-// Run rmSync twice in case of failure on Windows
-export const removeDirectory = (path) => {
-    if (existsSync(path)) {
-        const rm = (path) => rmSync(path, { recursive: true, force: true })
-        try { rm(path) } catch { rm(path) }
     }
 }
 
