@@ -211,10 +211,6 @@ export type BaseConfig = {
 
     target: TargetType,
 
-    builds?: {
-        [x: string]: string // Path to root
-    }
-
     // Common Options
     appId: string,
     icon: IconType,
@@ -239,9 +235,7 @@ export type BaseConfig = {
     pwa: PWAOptions
 
     // Service Options
-    services?: { [x: string]: UserService },
-    port?: PortType, // Default Port (single service)
-
+    services?: { [x: string]: UserService }
 }
 
 export type UserConfig = Partial<BaseConfig> & {

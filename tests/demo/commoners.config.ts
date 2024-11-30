@@ -110,12 +110,10 @@ const config = defineConfig({
         ...services.python.services([
             {
                 name: "basic-python",
-                description: 'A simple server',
                 src:  join(root, './src/services/python/basic/main.py')
             },
             {
                 name: "numpy",
-                description: 'A simple server with Numpy operations',
                 src:  join(root, './src/services/python/numpy/main.py')
             }
         ]),
