@@ -70,9 +70,12 @@ describe('All services with sources can be built individually', async () => {
         const info = resolveServiceBuildInfo(
           service, 
           name, 
-          projectBase, 
-          true,
-          true
+          {
+            root: projectBase,
+            target: 'service',
+            services: true,
+            build: true
+          }
         )
 
         // Setup build for testing

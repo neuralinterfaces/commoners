@@ -5,8 +5,14 @@ import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { ResolvedService } from "../../types.js";
 
-const chalk = import('chalk').then(m => m.default)
+type ServiceOptions = {
+  root: string,
+  target?: string, // For desktop check
+  services?: any, // Truthy
+  build?: boolean  // Default: true
+}
 
+const chalk = import('chalk').then(m => m.default)
 
 const WINDOWS = process.platform === 'win32'
 
@@ -73,14 +79,24 @@ const publishKeys = {
 export function resolveServiceBuildInfo(
   service, 
   name, 
-  root, 
-  isLocal = true, 
-  isBuildProcess = true
+  opts: ServiceOptions
 ) {
+
+  // MOVED HERE
+  const { 
+    root, 
+    target, 
+    services, 
+    build: isBuildProcess = true 
+  } = opts
+
+  const isServicesOnlyBuild = !!services
+  const isDesktopTarget =  isDesktop(target)
+  const isLocalMode = !!(isDesktopTarget || isServicesOnlyBuild)
 
   if (service.__src) return service // Pre-resolved service
 
-  const publishMode = isLocal ? 'local' : 'remote'
+  const publishMode = isLocalMode ? 'local' : 'remote'
 
   const resolved = resolveServiceConfiguration(service)
   const { src: originalSource, ...resolvedWithoutSource } = resolved // Use OG source
@@ -95,7 +111,7 @@ export function resolveServiceBuildInfo(
   const blockBuild = hasModeSpecificConfig ? modePublish === false : basePublish === false
 
   // Reject services that are not published
-  if (isBuildProcess && blockBuild) return
+  if (isBuildProcess && blockBuild && !isServicesOnlyBuild) return // Do not block if only a service
   
   const resolvedPublishConfig = { ...publishConfig }
   Object.assign(resolvedPublishConfig, modePublish) // Overwrite generic features with mode-specific config  
@@ -146,30 +162,37 @@ export function resolveServiceBuildInfo(
     else if (!WINDOWS && fileExtension === '.exe') resolvedWithoutSource.filepath = resolvedWithoutSource.filepath.slice(0, -4) // Remove .exe (Unix)
   }
 
+  // For non-service builds, skip builds for non-URLS or if not local mode
+  if (!isServicesOnlyBuild) {
 
-  // Ensure remote URLs are treated as such
-  const isRemoteUrl = !getLocalUrl(resolvedWithoutSource.url)
-  if (isRemoteUrl) {
-    return { url: resolvedWithoutSource.url }
+    // Ensure remote URLs are treated as such
+    const isRemoteUrl = !getLocalUrl(resolvedWithoutSource.url)
+    if (isRemoteUrl) return { url: resolvedWithoutSource.url }
+
+    // Only URLs should pass in remote mode
+    if (isBuildProcess && !isLocalMode) {
+      const { url } = resolvedWithoutSource
+      if (!url) return // Reject services that do not have a URL
+      return { url }
+    }  
   }
 
-  // Only URLs should pass in remote mode
-  if (isBuildProcess && !isLocal) {
-    const { url } = resolvedWithoutSource
-    if (!url) return // Reject services that do not have a URL
-    return { url }
-  }  
 
 
   const { src, url, base, filepath, __autobuild, __compile } = resolvedWithoutSource
-
+  
+  // Resolve filepath
+  const fullFile = filepath && resolvePath(root, filepath)
+  const willBeBuilt = isBuildProcess || __compile || __autobuild
+  const file = fullFile && willBeBuilt ? (isDesktopTarget ? fullFile.replace(`app.asar${sep}`, '') : fullFile) : null // Reference correctly from build Electron application
+  
   return {
     
     src,
     url,
     build,
     base: base && resolvePath(root, base),
-    filepath: filepath && resolvePath(root, filepath),
+    filepath: file,
 
     __autobuild,
     __compile
@@ -204,34 +227,23 @@ async function getServiceUrl(
   return url
 }
 
-  export async function resolveService(config, name, opts = {}) {
+  export async function resolveService(config, name, opts: ServiceOptions) {
 
     if (config.__src) return config // Ensures that references are maintained throughout the application
 
-  const { root, target, services, build: isBuildProcess } = opts
-
-  const isServicesOnlyBuild = services
-  const isDesktopTarget =  isDesktop(target)
+  const { root } = opts
 
   // Use the URL to determine the appropriate build strategy
-  const isLocalMode = !!(isDesktopTarget || services)
   const resolved = resolveServiceConfiguration(config)
 
   const { src } = resolved
 
-  // Force build of services that are manually specified
-  if (isServicesOnlyBuild) {
-    if (resolved.publish === false) delete resolved.publish // Do not block publish step when explicitly building the service
-    if (resolved.url && resolved.src) delete resolved.url // Ensure building source file
-  }
 
   // Resolve service publish info
   const resolvedForBuild = resolveServiceBuildInfo(
     resolved, 
     name, 
-    root, 
-    isLocalMode, 
-    isBuildProcess
+    opts
   )
 
   if (!resolvedForBuild) return // Reject flagged service
@@ -248,26 +260,20 @@ async function getServiceUrl(
     filepath, 
     base, 
     build, 
-    url: resolvedUrl,
+    url,
     __src = src && resolve(root, src),
     __compile, 
     __autobuild
   } = resolvedForBuild
 
-  const url = await getServiceUrl({ src, url: resolvedUrl, host,  port })
-
-  // Provide the file to run
-  const willBeBuilt = isBuildProcess || __compile || __autobuild
-  const file = filepath && willBeBuilt ? (isDesktopTarget ? filepath.replace(`app.asar${sep}`, '') : filepath) : __src // Reference correctly from build Electron application
-  
   return {
 
     // For Build Configuration
-    filepath: file, base, build, // Build Info
+    filepath: filepath || __src, base, build, // Build Info
     __src,  __compile, __autobuild, // Flags
 
     // For Client
-    url,
+    url: await getServiceUrl({ src, url, host,  port }),
 
     // NOTE: Not in types...
     states: null,
