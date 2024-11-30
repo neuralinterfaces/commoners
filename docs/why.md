@@ -8,7 +8,9 @@ The story only gets more complicated when you consider the need for advanced fea
 In particular, Commoners was developed for an impossible task in modern web development: The distribution of a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux) and mobile (iOS/Android) platforms. And [it works](https://github.com/neuralinterfaces/brainsatplay)!
 
 ## The Solution
-Commoners allows anyone to write cross-platform applications using only HTML, CSS, and JavaScript.
+With a basic knowledge of HTML, CSS, and JavaScript, **anyone can write cross-platform applications** with Commoners.
+
+ Commoners serves as a **fully-stocked laboratory for application development**. It provides a consistent development workflow across all platforms, allowing you to focus on what matters: your application.
 
 ## The Alternatives
 Sometimes Commoners will not be the best solution for your project. Here are some alternatives to consider:
