@@ -146,14 +146,22 @@ export function resolveServiceBuildInfo(
     else if (!WINDOWS && fileExtension === '.exe') resolvedWithoutSource.filepath = resolvedWithoutSource.filepath.slice(0, -4) // Remove .exe (Unix)
   }
 
-  const { src, url, base, filepath, __autobuild, __compile } = resolvedWithoutSource
+
+  // Ensure remote URLs are treated as such
+  const isRemoteUrl = !getLocalUrl(resolvedWithoutSource.url)
+  if (isRemoteUrl) {
+    return { url: resolvedWithoutSource.url }
+  }
 
   // Only URLs should pass in remote mode
   if (isBuildProcess && !isLocal) {
+    const { url } = resolvedWithoutSource
     if (!url) return // Reject services that do not have a URL
     return { url }
   }  
 
+
+  const { src, url, base, filepath, __autobuild, __compile } = resolvedWithoutSource
 
   return {
     
@@ -169,6 +177,11 @@ export function resolveServiceBuildInfo(
 
 }
 
+function getLocalUrl(url) {
+  const _url = new URL(url || `http://localhost`)
+  return LOCAL_HOSTS.includes(_url.hostname) ? _url : null
+}
+
 async function getServiceUrl(
   service,
 ) {
@@ -179,15 +192,16 @@ async function getServiceUrl(
   if (!src) return url // Cannot generate URL without source file
 
   // Only modify URL if a source file is provided
-  const _url = new URL(url || `http://localhost`)
-  if (LOCAL_HOSTS.includes(_url.hostname)) {
+  const _url = getLocalUrl(url)
+
+  if (_url) {
     const resolvedPort = port || (await getFreePorts(1))[0]
     if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
     if (host) _url.hostname = host // Use the specified hostname
+    return _url.href
   }
 
-  return _url.href
-
+  return url
 }
 
   export async function resolveService(config, name, opts = {}) {
@@ -220,8 +234,14 @@ async function getServiceUrl(
     isBuildProcess
   )
 
-  if (!resolvedForBuild) return // Reject flagged services
+  if (!resolvedForBuild) return // Reject flagged service
+  
+  // Return URL only
+  const keys = Object.keys(resolvedForBuild)
+  const onlyURL = keys.length === 1 && keys[0] === 'url'
+  if (onlyURL) return resolvedForBuild
 
+  // Return buildable service
   const { 
     host, 
     port, 

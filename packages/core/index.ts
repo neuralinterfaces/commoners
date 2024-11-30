@@ -1,7 +1,6 @@
 // Built-In Modules
 import { dirname, join, relative, normalize, resolve } from 'node:path'
 import { existsSync, unlink, writeFileSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
 
 // Internal Imports
 import { globalWorkspacePath, getDefaultMainLocation, templateDir, onCleanup, ensureTargetConsistent, isMobile } from './globals.js'
@@ -82,7 +81,7 @@ export async function loadConfigFromFile(
     if (configPath) {
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
-        // const fileUrl = pathToFileURL(configOutputPath) // NOTE: Not needed on Windows
+
         try {
             config = (await import(configOutputPath)).default as UserConfig
         } finally {
