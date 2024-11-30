@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 
 import { extname, join, resolve } from "node:path"
 import { getIcon } from "../utils/index.js"
+import { removeDirectory } from '../utils/files.js'
 import { valid, ResolvedConfig } from "../types.js"
 
 export const has = (config: ResolvedConfig) => !!config.icon
@@ -50,5 +51,5 @@ export const cleanup = (info) => {
     const { light, dark, parent } = info
     rmSync(light.to)
     rmSync(dark.to)
-    if (!parent.existed) rmSync(parent.path, { recursive: true, force: true })
+    if (!parent.existed) removeDirectory(parent.path)
 }

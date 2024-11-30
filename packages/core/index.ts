@@ -82,10 +82,9 @@ export async function loadConfigFromFile(
     if (configPath) {
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
-        const fileUrl = `${pathToFileURL(configOutputPath)}`
-
+        // const fileUrl = pathToFileURL(configOutputPath) // NOTE: Not needed on Windows
         try {
-            config = (await import(fileUrl)).default as UserConfig
+            config = (await import(configOutputPath)).default as UserConfig
         } finally {
             onCleanup(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }

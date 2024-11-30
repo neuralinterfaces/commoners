@@ -12,8 +12,9 @@ import {
 } from '@commoners/solidarity'
 // } from '../core/index'
 
+import { removeDirectory } from '../../core/utils/files.js'
+
 import { join } from 'node:path'
-import { rmSync, existsSync } from 'node:fs'
 
 import { chromium, Page, Browser } from 'playwright'
 
@@ -55,7 +56,7 @@ export const build = async (
   return {
     cleanup: async (relativePathsToRemove = []) => {
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
-      toRemove.forEach(path => existsSync(path) ? rmSync(path, { recursive: true, force: true }) : '')
+      toRemove.forEach(path => removeDirectory(path))
       cleanup() // Cleanup after the build process
     }
   }
