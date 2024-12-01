@@ -44,7 +44,10 @@ const config = defineConfig({
 
     host: '0.0.0.0', // Public Vite server host
     port: 3000, // Hardcoded Vite server port
-    outDir: join(root, '_site'), // Custom output directory
+
+    // // NOTE: Attempt to enable these for Commoners package testing
+    // target: 'desktop' // Default target  
+    // outDir: join(root, '_site'), // Custom output directory for all targets
 
     // ------------------ Common Configuration Options ------------------
     name,
