@@ -58,28 +58,17 @@ const getDesktopPath = (outDir) => {
 }
 
 export default async function (
-    config: LaunchConfig
+    config: LaunchConfig,
+    isOnlyServices = false
 ) {
 
     const _chalk = await chalk
 
     let target = config.target;
 
-    if (config.outDir) {
-        const desktopPath = getDesktopPath(config.outDir)
-
-        // Autodetect target build type from path
-        if (config.outDir){
-            if (desktopPath) target = 'electron'
-        }
-    }
-
-
-    const { root, services = {}, port, host = 'localhost' } = config
+    const { root, services, port, host = 'localhost' } = config
 
     // ---------------- Service-Only Launch ----------------
-    const isOnlyServices = !!(services && !target)
-
     if (isOnlyServices) {
 
         const serviceNames = Object.keys(services)
@@ -104,8 +93,20 @@ export default async function (
         return { services: active } // Ensure users can access the createdservices
     }
 
+    // ---------------------- Auto-Detect Target ----------------------
+    if (config.outDir) {
+        const desktopPath = getDesktopPath(config.outDir)
+
+        // Autodetect target build type from path
+        if (config.outDir){
+            if (desktopPath) target = 'electron'
+        }
+    }
+
     target = await ensureTargetConsistent(target)
     
+    // ---------------------- Launch based on Target ----------------------
+
     const { 
         outDir = join((root ?? ''), globalWorkspacePath, target) // Default location
     } = config

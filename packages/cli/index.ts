@@ -58,15 +58,19 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
 .action(async (root, options) => {
 
     const { config: configPath, service, ...overrides } = options
+
     const services = service
-    const onlyService = !!(!overrides.target && service)
+    const isOnlyServices = (!overrides.target && services)
 
     await preprocessTarget(overrides.target)
+
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
     
     if (!config) return
 
-    if (onlyService) {
+
+    // Services take priority if specified
+    if (isOnlyServices) {
 
         delete config.target
 
@@ -74,10 +78,12 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
         delete config.port 
         delete config.host
 
+        // NOTE: If passed, this simply wouldn't take effect
         if (options.outDir) return await failed(`Cannot specify an output directory when launching services`)
 
         const resolvedServices = typeof services === 'string' ? [services] : services
 
+        // If specified, this simply wouldn't take effect
         if (Object.keys(resolvedServices).length > 1 && (options.port || options.host)) return await failed(`Cannot specify port or host when launching multiple services`)
         
         // Flag invalid services
@@ -91,9 +97,11 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
         })
     }
 
+    // Ensure services are not specified with a target
+    else if (services) return await failed(`Cannot specify services without a target`)
 
     const launchConfig = reconcile(config, overrides) as LaunchConfig
-    launch(launchConfig)
+    launch(launchConfig, isOnlyServices)
 })
 
 // Build the application using the specified settings
@@ -120,8 +128,7 @@ cli.command('build [root]', 'Build the application in the specified directory', 
     if (!config) return
 
 
-    // Ensure services are built only
-    if (buildOnlyServices) delete config.target
+    if (buildOnlyServices) delete config.target // Ensure services are built only
 
     build(reconcile(config, overrides), { servicesToBuild: service })
 })
