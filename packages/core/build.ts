@@ -3,7 +3,7 @@ import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 // General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
-import { BuildOptions, BuildHooks, WritableElectronBuilderConfig } from "./types.js"
+import { BuildConfig, BuildHooks, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
 import { buildAssets, getAssetBuildPath } from "./utils/assets.js"
@@ -26,11 +26,12 @@ const convertToBaseRegexString = (str: string) => new RegExp(str).toString().spl
 
 // Types
 export default async function build (
-    opts: BuildOptions = {},
+    opts: BuildConfig = {},
 
     // Hooks
     {
         services: devServices,
+        servicesToBuild,
         onBuildAssets,
         dev = false // Default to a production build
     }: BuildHooks = {},
@@ -42,16 +43,9 @@ export default async function build (
     const _chalk = await chalk
 
     // ---------------- Custom Service Resolution ----------------
-    const buildTarget = opts.build?.target ?? opts.target
-    const target = await ensureTargetConsistent(buildTarget)
+    const target = await ensureTargetConsistent(opts.target)
 
-    const buildOpts = opts.build ?? {}
-
-    let { services: userRebuildServices } = buildOpts
-
-    const { publish, sign } = buildOpts
-
-    const servicesToUse = !buildTarget ? userRebuildServices : undefined
+    const { publish, sign } = opts.build ?? {}
 
     // Setup cleanup commands for after desktop build
     const isElectronBuild = target === 'electron'
@@ -59,10 +53,10 @@ export default async function build (
     const isMobileBuild = isMobile(target)
 
     // ---------------- Proper Configuration Resolution ----------------
-    const buildOnlyServices = !!servicesToUse
+    const buildOnlyServices = !!servicesToBuild
 
     const resolvedConfig = await resolveConfig(opts, { 
-        services: servicesToUse, // Always maintain services for desktop builds
+        services: servicesToBuild, // Always maintain services for desktop builds
         target,
         build: true
     })
@@ -71,10 +65,16 @@ export default async function build (
     const { root } = resolvedConfig
 
     // ---------------- Output Directory Resolution ----------------
-    const customOutDir = opts?.build?.outDir
+    const defaultOutDir = join(root, globalWorkspacePath, target)
+    let { 
+        outDir = defaultOutDir // From explicit path
+    } = opts
 
-    const selectedOutDir = customOutDir ?? join(root, globalWorkspacePath, target) // From explicit path
-    let outDir = selectedOutDir  // From project base
+
+    // Services must be built in the default directory
+    if (buildOnlyServices) outDir = defaultOutDir
+
+    const selectedOutDir = outDir // This is used for the actual build output
 
     const customTempDir = isDesktopBuild || isMobileBuild
     if (customTempDir) {
@@ -88,7 +88,8 @@ export default async function build (
 
     if (!dev) await printHeader(`${name} — ${buildOnlyServices ? 'Building Selected Services' : `${printTarget(target)} Build`}`)
 
-    if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
+    // Ensure local services are resolved with the same information
+    if (devServices) resolvedConfig.services = devServices 
 
     // Rebuild frontend unless services are explicitly requested
     const toRebuild = { 
@@ -101,21 +102,21 @@ export default async function build (
     if (isDesktopBuild)  await removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
     if (toRebuild.assets) await removeDirectory(outDir)
 
+    // ------------------ Set Resolved Configuration ------------------
+    const configCopy = { ...resolvedConfig, target, outDir } // Replace with internal target representation
+
     // ---------------- Build Assets ----------------
     if (toRebuild.assets) {
-        if (isMobileBuild) await mobile.prebuild(resolvedConfig) // Run mobile prebuild command
+        if (isMobileBuild) await mobile.prebuild(configCopy) // Run mobile prebuild command
 
         // Build the standard output files using Vite. Force recognition as build
-        await _vite.build(await resolveViteConfig(resolvedConfig, { target, outDir, dev }))
+        await _vite.build(await resolveViteConfig(configCopy, { dev }))
 
         // Log build success
         console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
     }
 
     // ---------------- Create Standard Output Files ----------------
-    const configCopy = { ...resolvedConfig, target } // Replace with internal target representation
-    configCopy.build = { ...buildOpts, outDir }  
-
     const assets = await buildAssets( configCopy, toRebuild, dev)
 
     if (onBuildAssets) {
@@ -138,10 +139,12 @@ export default async function build (
             version: '0.0.0'
         })
 
-        const buildConfig = merge((resolvedConfig.electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
+        const { electron, appId, icon } = configCopy
+
+        const buildConfig = merge((electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
         buildConfig.productName = name
-        buildConfig.appId = resolvedConfig.appId
+        buildConfig.appId = appId
 
         const actualOutDir = isAbsolute(selectedOutDir) ? selectedOutDir : join(process.cwd(), selectedOutDir)
 
@@ -184,7 +187,7 @@ export default async function build (
         })
 
         // TODO: Get platform-specific icon
-        const rawIconSrc = getIcon(resolvedConfig.icon)
+        const rawIconSrc = getIcon(icon)
         if (rawIconSrc) {
             const defaultIcon = isAbsolute(rawIconSrc) ? rawIconSrc : join(root, rawIconSrc)
             const macIcon = defaultIcon ? getAssetBuildPath(defaultIcon, outDir) : defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon

@@ -138,6 +138,8 @@ export async function resolveConfig(
         name: userPkg.name ? userPkg.name.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') : 'Commoners App'
     }) as Partial<ResolvedConfig>
     
+    if (copy.outDir) copy.outDir = join(copy.root, copy.outDir)
+
     copy.plugins = plugins ?? {} // Transfer the original plugins
     copy.services = ogServices as any ?? {} // Transfer original functions on publish
     copy.vite = vite ?? {} // Transfer the original Vite config

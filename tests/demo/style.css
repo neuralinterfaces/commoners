@@ -11,6 +11,10 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  html, body {
+    overflow: hidden;
+  }
   
   body {
     margin: 0;
@@ -48,7 +52,8 @@
   }
 
   main {
-    margin: 25px;
+    padding: 25px;
+    overflow: auto;
   }
 
   main > section:first-child {

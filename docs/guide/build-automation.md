@@ -1,11 +1,13 @@
 # Build Automation
 Using GitHub Actions, you can automatically build and publish your application to web, desktop, and mobile platforms.
 
-## Desktop
-To allow `electron-builder` to publish to a private repository, add the following entry to the relevant `.github/workflows` files:
+## Web
+A template workflow for publishing your application to GitHub Pages is provided in the [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit/blob/main/.github/workflows/Build-and-deploy-pwa.yml) repository.
 
-```yaml
-permissions:
-  contents: write 
-  
-```
+## Desktop
+A set of template workflow for publishing your application to GitHub Releases is provided in the [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit/blob/main/.github/workflows) repository. 
+
+This includes separate workflows for Windows, macOS, and Linux.
+
+## Mobile
+Coming soon...

@@ -18,8 +18,6 @@ import { join } from 'node:path'
 
 import { chromium, Page, Browser } from 'playwright'
 
-const getOutDir = (config) => config.launch?.outDir || config.build?.outDir || config.outDir
-
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 type Output = {
@@ -43,7 +41,7 @@ export const build = async (
   const config = await loadConfigFromFile(root)
   const updatedConfig = merge(config, overrides)
 
-  const { outDir } = updatedConfig.build || {}
+  const { outDir } = updatedConfig || {}
 
 
   const AUTOCLEAR = [
@@ -85,16 +83,18 @@ export const open = async (
 
   const updatedConfig = merge(config, overrides)
 
-  const isElectron = updatedConfig.target === 'electron'
+  const { outDir, target, port } = updatedConfig
+
+  const isElectron = target === 'electron'
 
   // Launch build of the project
   if (useBuild) {
     
     const launchResults = await CommonersLaunch({
       root,
-      target: updatedConfig.target,
-      outDir: getOutDir(updatedConfig),
-      port: updatedConfig.port
+      target,
+      outDir,
+      port
     })
 
     Object.assign(states, launchResults)

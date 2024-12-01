@@ -5,12 +5,13 @@ import {
     launch, 
     start,
     loadConfigFromFile,
-    format
-} 
+    format,
 
-from "@commoners/solidarity";
+    // Types
+    LaunchConfig
+} from "@commoners/solidarity";
 
-import pkg from './package.json'
+import pkg from './package.json' assert { type: "json" }
 
 // Utilities
 import cac from 'cac'
@@ -23,13 +24,14 @@ const allTargets = [...serviceTargets, ...desktopTargets, ...mobileTargets, ...w
 
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) => Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
+const failed = async (message, submessage?: string) => {
+    await format.printFailure(message)
+    if (submessage) await format.printSubtle(submessage)
+    process.exit(1)
+}   
 async function preprocessTarget(target) {
     if (typeof target === 'string') {
-        if (!allTargets.includes(target)) {
-            await format.printFailure(`'${target}' is not a valid target.`)
-            await format.printSubtle(`Valid targets: ${allTargets.join(', ')}`)
-            process.exit(1)
-        }
+        if (!allTargets.includes(target)) await failed(`'${target}' is not a valid target.`, `Valid targets: ${allTargets.join(', ')}`)
     }
 }
 
@@ -42,20 +44,64 @@ const getConfigPathFromOpts = ({ root, config }: ConfigOpts) => root ? (config ?
 
 const cli = cac()
 
+
 // Launch the specified build
 cli.command('launch [root]', 'Launch your build application in the specified directory')
 .option('--target <target>', 'Choose a target build to launch')
 .option('--outDir <path>', 'Choose an output directory for your build files')
+.option('--service <name>', 'Launch service(s)')
+.option('--config <path>', 'Specify a configuration file')
+
+.option('--port <port>', 'Choose a port to launch on')
+.option('--host <host>', 'Choose a host to launch on (services only)')
+
 .action(async (root, options) => {
 
-    await preprocessTarget(options.target)
+    const { config: configPath, service, ...overrides } = options
 
-    const config = await loadConfigFromFile(getConfigPathFromOpts({ root }))
+    const services = service
+    const isOnlyServices = (!overrides.target && services)
 
-    launch({
-        ...config,
-        ...options,
-    })
+    await preprocessTarget(overrides.target)
+
+    const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
+    
+    if (!config) return
+
+
+    // Services take priority if specified
+    if (isOnlyServices) {
+
+        delete config.target
+
+        // Do not use configuration options for servers
+        delete config.port 
+        delete config.host
+
+        // NOTE: If passed, this simply wouldn't take effect
+        if (options.outDir) return await failed(`Cannot specify an output directory when launching services`)
+
+        const resolvedServices = typeof services === 'string' ? [services] : services
+
+        // If specified, this simply wouldn't take effect
+        if (Object.keys(resolvedServices).length > 1 && (options.port || options.host)) return await failed(`Cannot specify port or host when launching multiple services`)
+        
+        // Flag invalid services
+        for (const service of resolvedServices) {
+            if (!config.services[service]) await failed(`Service '${service}' not found in configuration`)
+        }
+        
+        // Clear unspecified services
+        Object.keys(config.services).forEach(service => {
+            if (!resolvedServices.includes(service)) delete config.services[service]
+        })
+    }
+
+    // Ensure services are not specified with a target
+    else if (services) return await failed(`Cannot specify services without a target`)
+
+    const launchConfig = reconcile(config, overrides) as LaunchConfig
+    launch(launchConfig, isOnlyServices)
 })
 
 // Build the application using the specified settings
@@ -68,30 +114,23 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
 
-    const buildOnlyServices = !options.target && options.service
+    const { config: configPath, service, ...overrides } = options
+    const { target } = overrides
 
-    await preprocessTarget(options.target)
+    const buildOnlyServices = !target && service
+    await preprocessTarget(target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
-        config: options.config
+        config: configPath
     }))
-
-    // Ensure services are built only
-    if (buildOnlyServices) {
-        delete config.target
-        delete config.build?.target
-        options.services = options.service
-    }
-
-    delete options.service
 
     if (!config) return
 
-    build({
-        ...config,
-        build: reconcile(config.build, options)
-    })
+
+    if (buildOnlyServices) delete config.target // Ensure services are built only
+
+    build(reconcile(config, overrides), { servicesToBuild: service })
 })
 
 // Start the application in development mode
@@ -104,17 +143,18 @@ cli.command('[root]', 'Start the application in the specified directory', { igno
 
 .action(async (root, options) => {
 
-    await preprocessTarget(options.target)
+    const { config: configPath, ...overrides } = options
+
+    await preprocessTarget(overrides.target)
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
-        config: options.config
+        config: configPath
     }))
 
     if (!config) return
 
-    const startOpts = reconcile(config, options, { port: process.env.PORT ? parseInt(process.env.PORT) : undefined })
-    start(startOpts)
+    start(reconcile(config, overrides))
 })
 
 cli.help()

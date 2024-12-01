@@ -5,12 +5,13 @@ import { cpus } from 'node:os';
 
 import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, chalk } from './globals.js';
 import { getFreePorts } from './assets/services/network.js'
-import { LaunchOptions } from './types.js';
+import { LaunchConfig } from './types.js';
 import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
 import { spawnProcess } from './utils/processes.js'
 import { createServer } from './utils/server.js'
 
 import * as mobile from './mobile/index.js'
+import { createAll, resolveServiceConfiguration } from './assets/services/index.js';
 
 const open = import('open').then(m => m.default)
 
@@ -54,30 +55,61 @@ const getDesktopPath = (outDir) => {
     const fullPath = filename && join(baseDir, filename)
     if (!fullPath || !existsSync(fullPath)) return null
     return fullPath
-
 }
 
-export default async function (options: LaunchOptions) {
+export default async function (
+    config: LaunchConfig,
+    isOnlyServices = false
+) {
 
     const _chalk = await chalk
 
-    let target = options.target;
+    let target = config.target;
 
-    if (options.outDir) {
-        const desktopPath = getDesktopPath(options.outDir)
+    const { root, services, port, host = 'localhost' } = config
 
-        // Autodetect target build type
-        if (options.outDir){
+    // ---------------- Service-Only Launch ----------------
+    if (isOnlyServices) {
+
+        const serviceNames = Object.keys(services)
+        if (!serviceNames.length) return await printFailure(`No services specified.`)
+
+        // Assign host and port only if there is a single service
+        if (serviceNames.length === 1) {
+            const firstServiceName = serviceNames[0]
+            const firstService = resolveServiceConfiguration(services[firstServiceName])
+            if (port) firstService.port = port
+            if (host) firstService.host = host
+            services[firstServiceName] = firstService
+        }
+
+        const { active } = await createAll(services, { 
+            root, 
+            target, 
+            services: true, 
+            build: true 
+        })
+
+        return { services: active } // Ensure users can access the createdservices
+    }
+
+    // ---------------------- Auto-Detect Target ----------------------
+    if (config.outDir) {
+        const desktopPath = getDesktopPath(config.outDir)
+
+        // Autodetect target build type from path
+        if (config.outDir){
             if (desktopPath) target = 'electron'
         }
     }
 
     target = await ensureTargetConsistent(target)
     
+    // ---------------------- Launch based on Target ----------------------
+
     const { 
-        outDir = join((options.root ?? ''), globalWorkspacePath, target),
-        port 
-    } = options
+        outDir = join((root ?? ''), globalWorkspacePath, target) // Default location
+    } = config
 
     await printHeader(`Launching ${printTarget(target)} Build (${outDir})`)
 
@@ -113,13 +145,9 @@ export default async function (options: LaunchOptions) {
         printSubtle([runExecutableCommand, ...args].join(' '))
 
         await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
-        
-        return
     } 
 
     else {
-
-        const host = 'localhost'
 
         const server = createServer({ root: outDir })
 
@@ -138,7 +166,6 @@ export default async function (options: LaunchOptions) {
             url, 
             server
         }
-        
     }
 
     return {}

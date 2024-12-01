@@ -53,12 +53,19 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
         process.exit(1)
     }
     
-    // Always clear the temp directories on exit
+    let removed = false
     const onClose = () => {
+
+        // Prevent double-calling
+        if (removed) return
+        removed = true
+
+        // Remove the temporary directories
         removeDirectory(tempDir)
         removeDirectory(`${tempDir}.services`)
     }
 
+    // Always clear the temp directories on exit
     onCleanup(onClose)
 
     return {

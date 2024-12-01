@@ -190,8 +190,7 @@ async function buildService(
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
 export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false) => {
 
-    const { root, target } = resolvedConfig
-    const { outDir } = resolvedConfig.build
+    const { root, target, outDir } = resolvedConfig
 
     const configPath = resolveConfigPath(root)
 
@@ -347,20 +346,9 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     const _chalk = await chalk
     const _vite = await vite
 
-    const { outDir } = config.build
+    const { outDir } = config
 
-    if (toBuild.assets !== false) {
-
-        mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
-
-        // Write a package.json file to ensure these files are treated properly
-        const randomId = Math.random().toString(36).substring(7)
-        writeFileSync(join(outDir, 'package.json'), JSON.stringify({
-            name: `commoners-build-${randomId}`,
-            version: config.version,
-            // type: 'module'
-        }, null, 2)) // Write package.json to ensure these files are treated as commonjs
-    }
+    if (toBuild.assets !== false)  mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
 
     // Get other assets to be copied / bundled
     const assets = await getAssets(config, toBuild, dev)

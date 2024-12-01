@@ -39,9 +39,7 @@ const TAGS = {
 
 type CommonersPluginOptions = {
     config: ResolvedConfig
-    build: boolean
-    outDir: string
-    target: string
+    build: boolean,
     dev: boolean,
     env: Record<string, string>
 }
@@ -49,11 +47,11 @@ type CommonersPluginOptions = {
 export default ({ 
     config, 
     build, 
-    outDir,
-    target,
     dev,
     env
 }: CommonersPluginOptions) => {
+
+    const { outDir, target } = config
 
     // Variables only resolved once for the main configuration
     const actualOutDir = outDir
@@ -101,7 +99,8 @@ export default ({
             const resolvedConfig = mergeConfig(config, overrides)
             // resolvedConfig.root = parent
 
-            const _assetOutDir = resolvedConfig.build?.outDir
+            // Only use custom outDir if not in development
+            const _assetOutDir = dev ? undefined : resolvedConfig?.outDir
             const assetOutDir = _assetOutDir ?? actualOutDir
 
             

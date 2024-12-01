@@ -18,7 +18,8 @@ import { defineConfig } from '@commoners/solidarity/config';
 
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
-export const name = 'Test App'
+const short_name = 'Test App'
+export const name = `Commoners ${short_name}`
 
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
@@ -42,6 +43,18 @@ const TEST_OPTIONS = {
 
 const config = defineConfig({
 
+    host: '0.0.0.0', // Public Vite server host
+    port: 3000, // Hardcoded Vite server port
+
+    // // NOTE: Attempt to enable these for Commoners package testing
+    // target: 'desktop' // Default target  
+    // outDir: join(root, '_site'), // Custom output directory for all targets
+
+    pwa: {
+        manifest: { short_name }
+    },
+
+    // ------------------ Common Configuration Options ------------------
     name,
 
     pages: {
@@ -51,7 +64,8 @@ const config = defineConfig({
         serial: join(root, "pages", "serial", 'index.html'),
         bluetooth: join(root, "pages", "bluetooth", 'index.html'),
     },
-    
+
+
     plugins: {
         checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),
@@ -110,12 +124,10 @@ const config = defineConfig({
         ...services.python.services([
             {
                 name: "basic-python",
-                description: 'A simple server',
                 src:  join(root, './src/services/python/basic/main.py')
             },
             {
                 name: "numpy",
-                description: 'A simple server with Numpy operations',
                 src:  join(root, './src/services/python/numpy/main.py')
             }
         ]),

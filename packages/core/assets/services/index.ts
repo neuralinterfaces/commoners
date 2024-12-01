@@ -66,7 +66,7 @@ export const isValidURL = (s) => {
 // ------------------------------------------------------------------------------------
 let processes = {}
 
-const resolveServiceConfiguration = (config) => {
+export const resolveServiceConfiguration = (config) => {
   if (typeof config === 'string') config = isValidURL(config) ? { url: config } : { src: config }
   return config
 }
@@ -141,7 +141,7 @@ export function resolveServiceBuildInfo(
 
     Object.assign(resolvedWithoutSource, {
       base: isConfigured ? publishBase : outLocation,
-      src: publishSrc ?? ( autoBuild ? (isBuildProcess ? name : `${name}.js` ) : ( toCompile ? `compiled${toCompile.to}` : name )), // Use default output name
+      src: publishSrc ?? ( autoBuild ? (isBuildProcess ? name : `${name}.cjs` ) : ( toCompile ? `compiled${toCompile.to}` : name )), // Use default output name
       __autobuild: autoBuild,
       __compile
     })
@@ -179,7 +179,7 @@ export function resolveServiceBuildInfo(
 
 
 
-  const { src, url, base, filepath, __autobuild, __compile } = resolvedWithoutSource
+  const { src, url, base, filepath, host, port, __autobuild, __compile } = resolvedWithoutSource
   
   // Resolve filepath
   const fullFile = filepath && resolvePath(root, filepath)
@@ -194,6 +194,9 @@ export function resolveServiceBuildInfo(
     base: base && resolvePath(root, base),
     filepath: file,
 
+    host, 
+    port,
+
     __autobuild,
     __compile
   }
@@ -205,9 +208,7 @@ function getLocalUrl(url) {
   return LOCAL_HOSTS.includes(_url.hostname) ? _url : null
 }
 
-async function getServiceUrl(
-  service,
-) {
+async function getServiceUrl(service) {
 
   const resolved = resolveServiceConfiguration(service)
   const { url, host, port, src } = resolved
@@ -217,10 +218,12 @@ async function getServiceUrl(
   // Only modify URL if a source file is provided
   const _url = getLocalUrl(url)
 
+
   if (_url) {
     const resolvedPort = port || (await getFreePorts(1))[0]
     if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
-    if (host) _url.hostname = host // Use the specified hostname
+    if (host && LOCAL_HOSTS.includes(host)) _url.hostname = host // Only use the specified host if it's local
+
     return _url.href
   }
 
@@ -273,7 +276,7 @@ async function getServiceUrl(
     __src,  __compile, __autobuild, // Flags
 
     // For Client
-    url: await getServiceUrl({ src, url, host,  port }),
+    url: await getServiceUrl({ src, url, host, port }),
 
     // NOTE: Not in types...
     states: null,

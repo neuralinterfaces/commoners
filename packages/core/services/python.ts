@@ -8,6 +8,9 @@ export type PyInstallerServiceProperties = Service & BuildConfiguration
 
 export class PyInstallerService {
 
+    src: string
+    publish: Service['publish']
+
     constructor(
         service: Service, 
         outDir: string = `./build` // Can't have the exact same name
@@ -15,7 +18,7 @@ export class PyInstallerService {
 
         const out = `${outDir}/_${service.name}`
 
-        const { name, description, src, publish } = service
+        const { name, src, publish } = service
 
         const sharedOptions = `-y --clean --distpath ${out}`;
 
@@ -25,7 +28,6 @@ export class PyInstallerService {
         ? `python -m PyInstaller ${buildSpec} ${sharedOptions}`
         : `python -m PyInstaller ${service.src} --name ${service.name} --onedir ${sharedOptions} ${defaultBuildArgs}  ${buildArgs}`
 
-        this.description = description
         this.src = src
 
         this.publish = publish ?? {
