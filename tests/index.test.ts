@@ -89,7 +89,7 @@ describe('All services with sources can be built individually', async () => {
 
 
         beforeAll(async () => {
-          const __output = await build(projectBase, { build: { services: [ name ] } })
+          const __output = await build(projectBase, {}, { servicesToBuild: name })
           Object.assign(output, __output)
         })
 

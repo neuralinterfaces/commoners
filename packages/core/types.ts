@@ -12,9 +12,8 @@ export function tuple<T extends string[]>(...o: T) {
 }
 
 
-type OutDirType = string
-
 export type PortType = number
+export type LocalHostType =  'localhost' | '0.0.0.0'
 
 export type ServiceOptions = string | string[]
 
@@ -51,15 +50,8 @@ export const valid = {
 
 }
 
-type BaseViteOptions = {
-    outDir: string,
-    target?: TargetType,
-}
-
-export type ViteOptions = BaseViteOptions & { dev?: boolean }
-
-export type ServerOptions = { printUrls?: boolean } & BaseViteOptions
-
+export type ViteOptions = { dev?: boolean }
+export type ServerOptions = { printUrls?: boolean }
 
 export type TargetType = typeof valid.target[number]
 // export type PlatformType = typeof validDesktopTargets[number]
@@ -209,7 +201,11 @@ export type BaseConfig = {
     
     root: string // Root of the project (will resolve config file there)
 
-    target: TargetType,
+    target: TargetType, // Specify the default target platform
+    outDir: string, // Specify the default output directory
+
+    host?: LocalHostType
+    port?: PortType, // Specify the port for Start and Launch commands
 
     // Common Options
     appId: string,
@@ -238,39 +234,42 @@ export type BaseConfig = {
     services?: { [x: string]: UserService }
 }
 
-export type UserConfig = Partial<BaseConfig> & {
-    launch?: LaunchOptions,
-    build?: BuildOptions['build']
+type BuildOptions = {
+    publish?: boolean | PublishOptions['publish'],
+    sign?: boolean
 }
+
+export type UserConfig = Partial<BaseConfig> & {
+    build?: BuildOptions
+}
+
 
 // NOTE: No need for configuration-related options
-export type LaunchOptions = {
-    root?: string,
-    target: TargetType,
-    port?: PortType,
-    outDir?: OutDirType
+export type LaunchConfig = {
+    root: BaseConfig["root"],
+    target: BaseConfig["target"],
+    outDir: BaseConfig["outDir"],
+    services: BaseConfig["services"],
+
+    // Server + Service Options
+    host: BaseConfig["host"],
+    port: BaseConfig["port"]
 }
 
-export type BuildOptions = Partial<BaseConfig> & {
-    build?: {
-        target?: TargetType,
-        publish?: boolean | PublishOptions['publish'],
-        services?: ServiceOptions
-        sign?: boolean
-        outDir?: OutDirType
-    }
-}
+export type BuildConfig = Partial<BaseConfig> & { build?: BuildOptions }
 
 export type BuildHooks = {
     services?: ResolvedConfig['services']
+    servicesToBuild?: string[] | string,
     onBuildAssets?: Function,
     dev?: boolean
 }
 
 
 export type ResolvedConfig = BaseConfig & {
-    build: BuildOptions['build'],
-    launch?: LaunchOptions,
+
+    build?: BuildOptions
+
     services: { [x: string]: ResolvedService }
 
     // package.json properties used in the library

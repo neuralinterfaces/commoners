@@ -1,4 +1,4 @@
-import { vi, expect, test, describe, beforeAll, afterAll } from 'vitest'
+import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import { normalizeTarget } from '@commoners/solidarity'
 
@@ -250,7 +250,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
     const buildWaitTime = (isElectron || isMobile) ? getMinutes(5) : undefined // Wait for five minutes (max) for Electron services to build
 
     // Define inputs
-    const opts = { target, build: { outDir: scopedBuildOutDir } }
+    const opts = { target, outDir: scopedBuildOutDir, build: {} }
 
     const hooks = {
       onBuildAssets: (assetDir) => {
@@ -272,7 +272,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
         Object.assign(opts.build, { publish })
       }
 
-      const _output = await build( projectBase,  opts, hooks )
+      const _output = await build( projectBase, opts, hooks )
       Object.assign(output, _output)
     }, buildWaitTime)
 

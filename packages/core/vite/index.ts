@@ -19,18 +19,17 @@ type VitePWAOptions = import ('vite-plugin-pwa').VitePWAOptions
 
 type Plugin = import('vite').Plugin
 
-const defaultOutDir = join(rootDir, 'dist')
-
 const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
 
 // Run a development server
-export const createServer = async (config: ResolvedConfig, opts: ServerOptions = { outDir: defaultOutDir })  => {
+export const createServer = async (config: ResolvedConfig, opts: ServerOptions)  => {
 
     const _vite = await vite
     const _chalk = await chalk
 
+    
     // Create the frontend server
-    const server = await _vite.createServer(await resolveViteConfig(config, opts, false))
+    const server = await _vite.createServer(await resolveViteConfig(config, {}, false))
     await server.listen()
 
     // Print out the URL if everything was initialized here (i.e. dev mode)
@@ -101,19 +100,15 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon, root }: 
 
 export const resolveViteConfig = async (
     commonersConfig: ResolvedConfig, 
-    { 
-        target, 
-        outDir,
-        dev = true
-    }: ViteOptions, 
+    { dev = true }: ViteOptions, 
     build = true
 ) => {
 
     const _vite = await vite
+    let { vite: viteUserConfig = {}, target, outDir, port, host } = commonersConfig
 
     const isDesktopTarget = isDesktop(target)
 
-    let { vite: viteUserConfig = {} } = commonersConfig
     if (typeof viteUserConfig === 'string') viteUserConfig = (await _vite.loadConfigFromFile({ command: build ? 'build' : 'serve', mode: build ? 'production' : 'development' }, viteUserConfig)).config
     
     const plugins: Plugin[] = [ ]
@@ -159,6 +154,7 @@ export const resolveViteConfig = async (
         return acc
     }, {}) } : {}    
 
+
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
         logLevel: dev ? 'silent' : 'info',
@@ -170,7 +166,7 @@ export const resolveViteConfig = async (
             rollupOptions
         },
         plugins,
-        server: { open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
+        server: { port, host, open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
         clearScreen: false,
         envPrefix: ["VITE_", "COMMONERS_"]
     })
@@ -188,8 +184,6 @@ export const resolveViteConfig = async (
                 vite: mergedConfig
             }, 
             build,
-            outDir,
-            target,
             dev,
             env
         })

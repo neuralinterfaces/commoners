@@ -77,6 +77,23 @@ export default {
 ```
 
 ## Additional Properties
+### Output Directory
+The `outDir` property defines the output directory of your application. This value is used as the immediate location for any build artifacts.
+
+> **Note:** Left unspecified, the application output directory is automatically defined as a `target`-specific subdirectory in the `.commoners` directory.
+
+```js
+export default {
+    outDir: 'dist',
+}
+```
+
+The `outDir` property can also be specified for each build using the `--outDir` flag in the `build` command.
+
+```sh
+commoners build --outDir dist
+```
+
 ### App ID
 The `appId` property defines the unique identifier of your application. This value is used as the default `appId` of your application and as the Electron application identifier.
 
@@ -88,16 +105,14 @@ export default {
 
 If not specified, the `appId` is generated from the `name` property.
 
-### Launch
-The `launch` property defines the launch options of your application that aren't covered by the standard configuration.
+### Port
+The `port` property defines the port of your application when using the `start` or `launch` command for the `web` target.
 
 ```js
 export default {
     target: 'desktop',
     outDir: 'dist',
-    launch: {
-        port: 3000,
-    },
+    port: 3000
 }
 ```
 
@@ -113,6 +128,12 @@ export default {
         sign: false
     },
 }
+```
+
+These can also be specified for each build using the `--publish` and `--sign` flags in the `build` command.
+
+```sh
+commoners build --publish --no-sign
 ```
 
 

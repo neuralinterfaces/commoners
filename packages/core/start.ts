@@ -33,19 +33,19 @@ export default async function (
         
         const createAllServices = () => createServices(resolvedServices, { root, target, services: true, build: false }) // Run services in parallel
 
+        // Temporary directory for the build
         const outDir = join(root, globalTempDir)
-
-       const tempDirManager = await handleTemporaryDirectories(outDir)
+        const tempDirManager = await handleTemporaryDirectories(outDir)
+        const configCopy = { ...resolvedConfig, outDir }
 
         // Build for mobile before moving forward
-        if (isMobileTarget) await build(resolvedConfig, { services: resolvedServices, dev: true })
+        if (isMobileTarget) await build(
+            configCopy, 
+            { services: resolvedServices, dev: true }
+        )
 
         // Manually clear and build the output assets
-        else {
-            const copy = { ...resolvedConfig }
-            copy.build = { ...copy.build, outDir }
-            await buildAssets(copy, undefined, true)
-        }
+        else await buildAssets(configCopy, undefined, true)
 
         const activeInstances: {
             frontend?: Awaited<ReturnType<typeof createServer>>,
@@ -74,14 +74,8 @@ export default async function (
 
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) {
-            const frontend = activeInstances.frontend = await createServer(resolvedConfig, { 
-                printUrls: !isDesktopTarget, 
-                outDir,
-                target
-            })
-
+            const frontend = activeInstances.frontend = await createServer(configCopy, {  printUrls: !isDesktopTarget })
             manager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
-
         }
 
         const closeAll = (o) => {

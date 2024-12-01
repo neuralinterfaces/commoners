@@ -42,6 +42,11 @@ const TEST_OPTIONS = {
 
 const config = defineConfig({
 
+    host: '0.0.0.0', // Public Vite server host
+    port: 3000, // Hardcoded Vite server port
+    outDir: join(root, '_site'), // Custom output directory
+
+    // ------------------ Common Configuration Options ------------------
     name,
 
     pages: {
@@ -51,7 +56,8 @@ const config = defineConfig({
         serial: join(root, "pages", "serial", 'index.html'),
         bluetooth: join(root, "pages", "bluetooth", 'index.html'),
     },
-    
+
+
     plugins: {
         checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),

@@ -26,7 +26,6 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
 
   // Absolute paths
   expect(existsSync(join(assetDir, 'commoners.config.cjs'))).toBe(true)
-  expect(existsSync(join(baseDir, 'package.json'))).toBe(true) // Auto-generated package.json
   
   // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'

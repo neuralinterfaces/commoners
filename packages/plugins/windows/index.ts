@@ -199,7 +199,12 @@ export default (windows: Windows): Plugin => {
   return {
     isSupported: {
       mobile: false,
-      web: true
+
+      // Do not allow popups on mobile browsers
+      web: () => {
+        const isMobileBrowser = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0
+        return !isMobileBrowser
+      }
     },
     assets,
     load({ WEB }) {
