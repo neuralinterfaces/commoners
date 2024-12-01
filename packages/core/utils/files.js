@@ -25,15 +25,16 @@ export const resolveFile = (name, extensions) => {
 }
 
 // NOTE: This is called multiple times for the same directory. Why?
-export const removeDirectory = (outDir) => {
-    if (existsSync(outDir)) {
+export const removeDirectory = (directory) => {
+
+    if (existsSync(directory)) {
         try { 
-            rmSync(outDir, { recursive: true, force: true }) // Clear output directory (similar to Vite)
+            rmSync(directory, { recursive: true, force: true }) // Clear output directory (similar to Vite)
         } 
         
         // Attempt a second time if failed. This will usually be sufficient for Windows.
         catch { 
-            try { rmSync(outDir, { recursive: true, force: true }) } catch {}
+            try { rmSync(directory, { recursive: true, force: true }) } catch {}
         }
     }
 }

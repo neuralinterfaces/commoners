@@ -81,6 +81,7 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon, root }: 
 
         // Dynamic
         name,
+        short_name: name,
         description,
 
         // Generated

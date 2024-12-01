@@ -9,7 +9,6 @@ import { createServer } from "./vite/index.js";
 
 // Internal Utilities
 import { buildAssets } from "./utils/assets.js";
-import { removeDirectory } from './utils/files.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 
@@ -35,7 +34,7 @@ export default async function (
 
         // Temporary directory for the build
         const outDir = join(root, globalTempDir)
-        const tempDirManager = await handleTemporaryDirectories(outDir)
+        const filesystemManager = await handleTemporaryDirectories(outDir)
         const configCopy = { ...resolvedConfig, outDir }
 
         // Build for mobile before moving forward
@@ -52,10 +51,16 @@ export default async function (
             services?: Awaited<ReturnType<typeof createAllServices>>
         } = {}
 
+        let closed = false
         const closeFunction = (o) => {
+
+            // If already closed, do nothing
+            if (closed) return
+            closed = true
+
+            // Close all dependent services
             if (o.frontend) activeInstances.frontend?.close() // Close server first
             if (o.services) activeInstances.services?.close() // Close custom services next
-            removeDirectory(outDir) // Then clear the temporary directory
         }
 
         const manager: {
@@ -79,7 +84,7 @@ export default async function (
         }
 
         const closeAll = (o) => {
-            tempDirManager.close()
+            filesystemManager.close()
             manager.close(o)
         }
 

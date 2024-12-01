@@ -58,24 +58,24 @@ const getDesktopPath = (outDir) => {
 }
 
 export default async function (
-    options: LaunchConfig
+    config: LaunchConfig
 ) {
 
     const _chalk = await chalk
 
-    let target = options.target;
+    let target = config.target;
 
-    if (options.outDir) {
-        const desktopPath = getDesktopPath(options.outDir)
+    if (config.outDir) {
+        const desktopPath = getDesktopPath(config.outDir)
 
         // Autodetect target build type from path
-        if (options.outDir){
+        if (config.outDir){
             if (desktopPath) target = 'electron'
         }
     }
 
 
-    const { root, services = {}, port, host = 'localhost' } = options
+    const { root, services = {}, port, host = 'localhost' } = config
 
     // ---------------- Service-Only Launch ----------------
     const isOnlyServices = !!(services && !target)
@@ -94,21 +94,21 @@ export default async function (
             services[firstServiceName] = firstService
         }
 
-        await createAll(services, { 
+        const { active } = await createAll(services, { 
             root, 
             target, 
             services: true, 
             build: true 
         })
 
-        return
+        return { services: active } // Ensure users can access the createdservices
     }
 
     target = await ensureTargetConsistent(target)
     
     const { 
-        outDir = join((options.root ?? ''), globalWorkspacePath, target) // Default location
-    } = options
+        outDir = join((root ?? ''), globalWorkspacePath, target) // Default location
+    } = config
 
     await printHeader(`Launching ${printTarget(target)} Build (${outDir})`)
 
@@ -144,8 +144,6 @@ export default async function (
         printSubtle([runExecutableCommand, ...args].join(' '))
 
         await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
-        
-        return
     } 
 
     else {
@@ -167,7 +165,6 @@ export default async function (
             url, 
             server
         }
-        
     }
 
     return {}

@@ -102,6 +102,7 @@ export default async function build (
     if (isDesktopBuild)  await removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
     if (toRebuild.assets) await removeDirectory(outDir)
 
+    // ------------------ Set Resolved Configuration ------------------
     const configCopy = { ...resolvedConfig, target, outDir } // Replace with internal target representation
 
     // ---------------- Build Assets ----------------

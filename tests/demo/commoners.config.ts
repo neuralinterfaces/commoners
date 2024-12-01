@@ -18,7 +18,8 @@ import { defineConfig } from '@commoners/solidarity/config';
 
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
-export const name = 'Test App'
+const short_name = 'Test App'
+export const name = `Commoners ${short_name}`
 
 const httpSrc = join(root, 'src/services/http/index.ts')
 const expressSrc = join(root, 'src/services/express/index.js')
@@ -48,6 +49,10 @@ const config = defineConfig({
     // // NOTE: Attempt to enable these for Commoners package testing
     // target: 'desktop' // Default target  
     // outDir: join(root, '_site'), // Custom output directory for all targets
+
+    pwa: {
+        manifest: { short_name }
+    },
 
     // ------------------ Common Configuration Options ------------------
     name,
