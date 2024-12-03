@@ -1,33 +1,22 @@
-import { asyncFilter, pluginErrorMessage, sanitizePluginProperties } from "./utils";
+import { asyncFilter, isPluginSupported, pluginErrorMessage, sanitizePluginProperties } from "./utils";
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
+// Set global variable
 const ENV = commoners
 const { __PLUGINS, DESKTOP, MOBILE, __READY } = ENV
 delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
-if (DESKTOP) {
-    Object.assign(DESKTOP, {
-        quit: TEMP_COMMONERS.quit,
-        ...TEMP_COMMONERS.args
-    })
-}
-
 if ( __PLUGINS ) {
 
     const loaded = {}
 
-    asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {
+    asyncFilter(Object.entries(__PLUGINS), async ([ id, plugin ]) => {
         try {
-            let { isSupported } = plugin
-
-            if (isSupported && typeof isSupported === 'object') isSupported = isSupported[TARGET]
-            if (typeof isSupported?.check === 'function') isSupported = isSupported.check
-
-            return (typeof isSupported === 'function') ? await isSupported.call(plugin, TARGET) : isSupported !== false
-        } catch {
+            return await isPluginSupported(plugin, TARGET)
+        } catch (e) {
             return false
         }
     }).then(supported => {
@@ -42,6 +31,7 @@ if ( __PLUGINS ) {
         loaded[id] = undefined // Register that all supported plugins are technically loaded
 
         try {
+
             if (load) {
                 const ctx = DESKTOP ? {
                     ...DESKTOP,
@@ -54,6 +44,7 @@ if ( __PLUGINS ) {
 
                 loaded[id] = load.call(ctx, ENV)
             }
+
         } catch (e) {
             pluginErrorMessage(id, "load", e)
         }

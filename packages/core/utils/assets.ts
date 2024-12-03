@@ -188,7 +188,7 @@ async function buildService(
 // Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
-export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false) => {
+export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) => {
 
     const { root, target, outDir } = resolvedConfig
 
@@ -200,28 +200,23 @@ export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsT
         bundle: []
     }
 
-    if (toBuild.assets !== false) {
+    // Create Config
+    assets.bundle.push(...CONFIG_EXTENSION_TARGETS.map(ext => {
+        const output = `commoners.config${ext}`
+        return configPath ? { input: configPath, output } : { text: ext === '.cjs' ? "module.exports = {default: {}}" : "export default {}", output }
+    }))
 
-        // Create Config
-        assets.bundle.push(...CONFIG_EXTENSION_TARGETS.map(ext => {
-            const output = `commoners.config${ext}`
-            return configPath ? { input: configPath, output } : { text: ext === '.cjs' ? "module.exports = {default: {}}" : "export default {}", output }
-        }))
-
-        // Bundle onload script for the browser
-        assets.bundle.push({
-            input: join(rootDir, 'assets', 'onload.ts'),
-            output: 'onload.mjs'
-        })
+    // Bundle onload script for the browser
+    assets.bundle.push({
+        input: join(rootDir, 'assets', 'onload.ts'),
+        output: 'onload.mjs'
+    })
 
 
-        // Copy Icons
-        if (resolvedConfig.icon) {
-            const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
-            assets.copy.push(...icons.map(icon => getAbsolutePath(root, icon)) as string[])
-        }
-
-
+    // Copy Icons
+    if (resolvedConfig.icon) {
+        const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
+        assets.copy.push(...icons.map(icon => getAbsolutePath(root, icon)) as string[])
     }
 
     // Handle Provided Plugins
@@ -260,64 +255,6 @@ export const getAssets = async (resolvedConfig: ResolvedConfig, toBuild: AssetsT
         if (plugin.assets) plugin.assets = pluginAssets
     }
 
-    // Handle Provided Services
-    const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
-
-    for (const [name, resolvedService] of Object.entries(resolvedServices)) {
-
-        const skipCompilation = (!dev && !toBuild.services) && !isDesktop(target)
-        if (skipCompilation) continue // Skip builds for non-desktop unless otherwise specified
-
-
-        // @ts-ignore
-        const { build, base, filepath, __src, __compile, __autobuild } = resolvedService
-
-        // if (!dev && !publish) continue // Avoid building unpublished services
-
-        if (dev && !__compile && !__autobuild) continue // Skip services that don't have an original source or final filepath
-        if (!__src) continue // Skip if source is undefined
-
-        const allowCompilation = !(dev && __autobuild)
-
-        const bundleConfig = {
-            input: __src,
-            output: filepath,
-            force: true,
-        } as any
-
-        // Compile service when not in development mode or when the service is not autobuilt
-        if (allowCompilation) {
-            bundleConfig.compile = async function ({ src, out }) {
-
-                const _chalk = await chalk
-
-                if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
-
-                // Detect when to package into an executable source
-                const output = await buildService(
-                    {
-                        src,
-                        build,
-                        out,
-                        root
-                    },
-                    name,
-                    true // Always rebuild services
-                )
-
-                const toCopy = output === null ? null : output ?? (base ?? filepath)
-
-                if (!existsSync(toCopy)) {
-                    console.warn(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
-                    return null // Do not try to copy or bundle the missing file
-                }
-
-                return toCopy
-            }
-        }
-
-        assets.bundle.push(bundleConfig)
-    }
 
     return assets
 }
@@ -341,21 +278,96 @@ const resolveAssetInfo = (info, outDir, root) => {
     }
 }
 
-export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild = {}, dev = false) => {
+export const getServiceAssets = (resolvedConfig: ResolvedConfig, dev = false) => {
+
+    const { root } = resolvedConfig
+
+    // Transfer configuration file and related services
+    const assets: AssetsCollection = {
+        copy: [],
+        bundle: []
+    }
+    
+     // Handle Provided Services
+     const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+
+     for (const [name, resolvedService] of Object.entries(resolvedServices)) {
+ 
+         // @ts-ignore
+         const { build, base, filepath, __src, __compile, __autobuild } = resolvedService
+ 
+         // if (!dev && !publish) continue // Avoid building unpublished services
+ 
+         if (dev && !__compile && !__autobuild) continue // Skip services that don't have an original source or final filepath
+         if (!__src) continue // Skip if source is undefined
+ 
+         const allowCompilation = !(dev && __autobuild)
+ 
+         const bundleConfig = {
+             input: __src,
+             output: filepath,
+             force: true,
+         } as any
+ 
+         // Compile service when not in development mode or when the service is not autobuilt
+         if (allowCompilation) {
+             bundleConfig.compile = async function ({ src, out }) {
+ 
+                 const _chalk = await chalk
+ 
+                 if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
+ 
+                 // Detect when to package into an executable source
+                 const output = await buildService(
+                     {
+                         src,
+                         build,
+                         out,
+                         root
+                     },
+                     name,
+                     true // Always rebuild services
+                 )
+ 
+                 const toCopy = output === null ? null : output ?? (base ?? filepath)
+ 
+                 if (!existsSync(toCopy)) {
+                     console.warn(`${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`)
+                     return null // Do not try to copy or bundle the missing file
+                 }
+ 
+                 return toCopy
+             }
+         }
+ 
+         assets.bundle.push(bundleConfig)
+     }
+
+     return assets
+}
+
+
+export const buildAssets = async (
+    assets: AssetsCollection, 
+    {
+        outDir,
+        root,
+        target
+    }: {
+        outDir: string,
+        root: string
+        target
+    }
+) => {
 
     const _chalk = await chalk
     const _vite = await vite
 
-    const { outDir } = config
+    const isDesktopTarget = isDesktop(target)
 
-    if (toBuild.assets !== false)  mkdirSync(outDir, { recursive: true }) // Ensure base and asset output directory exists
-
-    // Get other assets to be copied / bundled
-    const assets = await getAssets(config, toBuild, dev)
+    mkdirSync(outDir, { recursive: true }) // Ensure asset output directory exists
 
     const outputs: AssetOutput[] = []
-
-    const { root } = config
 
     const toCompile = assets.bundle.filter(o => o.compile)
     const toBundle = assets.bundle.filter(o => !o.compile)
@@ -364,12 +376,15 @@ export const buildAssets = async (config: ResolvedConfig, toBuild: AssetsToBuild
     for (const info of toCompile) {
         const resolvedInfo = resolveAssetInfo(info, outDir, root)
         const { input, output, compile } = resolvedInfo
+
         const result = await compile({ src: input, out: output })
 
         if (!result) continue // Skip if no result
 
-        // Copy results
-        else if (existsSync(result)) assets.copy.push({ input: result, extraResource: true, sign: true })
+        // Copy results. 
+        else if (existsSync(result)) {
+            if (isDesktopTarget) assets.copy.push({ input: result, extraResource: true, sign: true })
+        }
 
         // Or attempt auto-bundle
         else toBundle.push({

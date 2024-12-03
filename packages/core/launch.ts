@@ -5,13 +5,14 @@ import { cpus } from 'node:os';
 
 import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, chalk } from './globals.js';
 import { getFreePorts } from './assets/services/network.js'
-import { LaunchConfig } from './types.js';
+import { ConfigResolveOptions, LaunchConfig } from './types.js';
 import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
 import { spawnProcess } from './utils/processes.js'
 import { createServer } from './utils/server.js'
 
 import * as mobile from './mobile/index.js'
-import { createAll, resolveServiceConfiguration } from './assets/services/index.js';
+import { createAll } from './assets/services/index.js';
+import { resolveConfig } from './index.js';
 
 const open = import('open').then(m => m.default)
 
@@ -57,41 +58,35 @@ const getDesktopPath = (outDir) => {
     return fullPath
 }
 
-export default async function (
+export const launchServices = async (
     config: LaunchConfig,
-    isOnlyServices = false
-) {
+    opts?: { services: ConfigResolveOptions["services"] }
+) => {
+
+    const resolvedConfig = await resolveConfig(config, { ...opts, build: true })
+    const { target, root, services } = resolvedConfig
+
+    const serviceNames = Object.keys(services)
+    if (!serviceNames.length) return await printFailure(`No services specified.`)
+
+    // Ensure users can access the created services
+    return await createAll(services, { 
+        root, 
+        target, 
+        services: true, 
+        build: true 
+    })
+    
+}
+
+export const launchApp = async ( config: LaunchConfig ) => {
 
     const _chalk = await chalk
 
     let target = config.target;
 
-    const { root, services, port, host = 'localhost' } = config
+    const { root, port, host = 'localhost' } = config
 
-    // ---------------- Service-Only Launch ----------------
-    if (isOnlyServices) {
-
-        const serviceNames = Object.keys(services)
-        if (!serviceNames.length) return await printFailure(`No services specified.`)
-
-        // Assign host and port only if there is a single service
-        if (serviceNames.length === 1) {
-            const firstServiceName = serviceNames[0]
-            const firstService = resolveServiceConfiguration(services[firstServiceName])
-            if (port) firstService.port = port
-            if (host) firstService.host = host
-            services[firstServiceName] = firstService
-        }
-
-        const { active } = await createAll(services, { 
-            root, 
-            target, 
-            services: true, 
-            build: true 
-        })
-
-        return { services: active } // Ensure users can access the createdservices
-    }
 
     // ---------------------- Auto-Detect Target ----------------------
     if (config.outDir) {
@@ -113,7 +108,11 @@ export default async function (
 
     await printHeader(`Launching ${printTarget(target)} Build (${outDir})`)
 
-    if (!existsSync(outDir)) return await printFailure(`Directory does not exist.`)
+    if (!existsSync(outDir)) {
+        await printFailure(`The expected output directory was not found`)
+        await printSubtle(`Attempting to launch from ${outDir}`)
+        return
+    }
 
     if (isMobile(target)) {
         process.chdir(outDir)
@@ -153,9 +152,9 @@ export default async function (
 
         const resolvedPort = port || (await getFreePorts(1))[0]
 
-        const url = `http://${host}:${resolvedPort}`
+        const url = `http://localhost:${resolvedPort}`
         server.listen(parseInt(resolvedPort), host, async () => {
-            printSubtle(`Server is running on ${_chalk.cyan(url)}`)
+            printSubtle(`Server is running on ${_chalk.cyan(url)}${host !== 'localhost' ? ` (${host})` : ''}`)
             if (!process.env.VITEST) {
                 const _open = await open
                 _open(url)

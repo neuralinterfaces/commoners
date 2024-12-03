@@ -3,10 +3,15 @@ import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 // General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
-import { BuildConfig, BuildHooks, WritableElectronBuilderConfig } from "./types.js"
+import { BuildHooks, ServiceBuildOptions, UserConfig, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
-import { buildAssets, getAssetBuildPath } from "./utils/assets.js"
+import { 
+    getAppAssets,
+    getServiceAssets,
+    buildAssets, 
+    getAssetBuildPath 
+} from "./utils/assets.js"
 import { lstatSync } from './utils/lstat.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { removeDirectory } from './utils/files.js'
@@ -24,14 +29,61 @@ const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,
 
 const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
 
-// Types
-export default async function build (
-    opts: BuildConfig = {},
+
+export const buildAllAssets = async ( config, dev ) => {
+    const { outDir, root, target } = config
+    const appAssets = await getAppAssets(config, dev)
+    
+    const outputs = await buildAssets(appAssets, {
+        outDir,
+        root,
+        target
+    })
+
+    if (dev || isDesktop(target)) {
+        const _outputs = await buildServices(config, { dev, outDir }) // Only build when in development, or during desktop builds
+        outputs.push(..._outputs)
+    }
+
+    return outputs
+}
+
+// ------------------------ Main Exports ------------------------
+
+export const buildServices = async (
+    config: UserConfig = {},
+    options: ServiceBuildOptions = {}
+) => {
+
+    const { dev = false, services } = options
+
+    let { outDir } = options
+
+    // if (!dev) await printHeader(`${name} — ${buildOnlyServices ? 'Building Selected Services' : `${printTarget(target)} Build`}`)
+
+    const resolvedConfig = await resolveConfig(config, { services, build: true })
+
+    const { root, target } = resolvedConfig
+
+    const assets = await getServiceAssets(resolvedConfig, dev)
+    return await buildAssets(
+        assets, 
+        {
+            root,
+            outDir: outDir ?? resolve(join(root, globalWorkspacePath, 'services')), // Default service output directory
+            target
+        }
+    )
+
+    return []
+}
+
+export async function buildApp (
+    config: UserConfig = {},
 
     // Hooks
     {
         services: devServices,
-        servicesToBuild,
         onBuildAssets,
         dev = false // Default to a production build
     }: BuildHooks = {},
@@ -42,37 +94,20 @@ export default async function build (
 
     const _chalk = await chalk
 
-    // ---------------- Custom Service Resolution ----------------
-    const target = await ensureTargetConsistent(opts.target)
 
-    const { publish, sign } = opts.build ?? {}
+    // ---------------- Proper Configuration Resolution ----------------
+    const resolvedConfig = await resolveConfig(config, { build: true })
 
-    // Setup cleanup commands for after desktop build
+    const { root, target, build = {} } = resolvedConfig
+    const { publish, sign } = build
+
     const isElectronBuild = target === 'electron'
     const isDesktopBuild = isDesktop(target)
     const isMobileBuild = isMobile(target)
 
-    // ---------------- Proper Configuration Resolution ----------------
-    const buildOnlyServices = !!servicesToBuild
-
-    const resolvedConfig = await resolveConfig(opts, { 
-        services: servicesToBuild, // Always maintain services for desktop builds
-        target,
-        build: true
-    })
-
-
-    const { root } = resolvedConfig
-
     // ---------------- Output Directory Resolution ----------------
     const defaultOutDir = join(root, globalWorkspacePath, target)
-    let { 
-        outDir = defaultOutDir // From explicit path
-    } = opts
-
-
-    // Services must be built in the default directory
-    if (buildOnlyServices) outDir = defaultOutDir
+    let { outDir = defaultOutDir } = config
 
     const selectedOutDir = outDir // This is used for the actual build output
 
@@ -86,45 +121,35 @@ export default async function build (
 
     const name = resolvedConfig.name
 
-    if (!dev) await printHeader(`${name} — ${buildOnlyServices ? 'Building Selected Services' : `${printTarget(target)} Build`}`)
+    if (!dev) await printHeader(`${name} — ${printTarget(target)} Build`)
 
-    // Ensure local services are resolved with the same information
-    if (devServices) resolvedConfig.services = devServices 
-
-    // Rebuild frontend unless services are explicitly requested
-    const toRebuild = { 
-        assets: !buildOnlyServices,
-        services: buildOnlyServices
-    } 
+    if (devServices) resolvedConfig.services = devServices  // Ensure local services are resolved with the same information
 
 
     // ---------------- Clear Previous Builds ----------------
     if (isDesktopBuild)  await removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
-    if (toRebuild.assets) await removeDirectory(outDir)
+    await removeDirectory(outDir)
 
     // ------------------ Set Resolved Configuration ------------------
     const configCopy = { ...resolvedConfig, target, outDir } // Replace with internal target representation
 
-    // ---------------- Build Assets ----------------
-    if (toRebuild.assets) {
-        if (isMobileBuild) await mobile.prebuild(configCopy) // Run mobile prebuild command
+    // ---------------- Build App Assets ----------------
+    if (isMobileBuild) await mobile.prebuild(configCopy) // Run mobile prebuild command
 
-        // Build the standard output files using Vite. Force recognition as build
-        await _vite.build(await resolveViteConfig(configCopy, { dev }))
+    // Build the standard output files using Vite. Force recognition as build
+    await _vite.build(await resolveViteConfig(configCopy, { dev }))
 
-        // Log build success
-        console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
-    }
+    // Log build success
+    console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
 
     // ---------------- Create Standard Output Files ----------------
-    const assets = await buildAssets( configCopy, toRebuild, dev)
+    const assets = await buildAllAssets(configCopy, dev)
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)
         if (result === null) return // Skip packaging if requested
     }
 
-    
     // ------------------------- Target-Specific Build Steps -------------------------
     if (isElectronBuild) {
 

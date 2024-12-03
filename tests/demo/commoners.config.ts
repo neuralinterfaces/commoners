@@ -9,12 +9,15 @@ import * as checksPlugin from './src/plugins/checks.ts'
 import splashPagePlugin from '@commoners/splash-screen'
 import customProtocolPlugin from '@commoners/custom-protocol'
 import testingPlugin from "@commoners/testing/plugin"
-import * as services from '@commoners/solidarity/services'
 import windowsPlugin from '@commoners/windows'
 import * as bluetoothPlugin from '@commoners/bluetooth'
 import * as serialPlugin from '@commoners/serial'
 
+import * as services from '@commoners/solidarity/services'
 import { defineConfig } from '@commoners/solidarity/config';
+
+// WITH TREE SHAKING?
+// import { defineConfig, services } from '@commoners/solidarity';
 
 // import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
@@ -43,7 +46,7 @@ const TEST_OPTIONS = {
 
 const config = defineConfig({
 
-    host: '0.0.0.0', // Public Vite server host
+    host: '0.0.0.0', // Public Vite server host (NOTE: registered as insecure)
     port: 3000, // Hardcoded Vite server port
 
     // // NOTE: Attempt to enable these for Commoners package testing

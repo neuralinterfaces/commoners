@@ -2,8 +2,14 @@
 
 import { 
     build, 
+    buildServices,
+    
     launch, 
+    launchServices,
+    resolveServiceConfiguration,
+
     start,
+    
     loadConfigFromFile,
     format,
 
@@ -19,8 +25,7 @@ import { join } from "path";
 const desktopTargets = ['desktop','electron', 'tauri']
 const mobileTargets = ['mobile', 'android', 'ios']
 const webTargets = ['web', 'pwa']
-const serviceTargets = ['services']
-const allTargets = [...serviceTargets, ...desktopTargets, ...mobileTargets, ...webTargets]
+const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
 
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) => Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
@@ -57,10 +62,7 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
 
 .action(async (root, options) => {
 
-    const { config: configPath, service, ...overrides } = options
-
-    const services = service
-    const isOnlyServices = (!overrides.target && services)
+    const { config: configPath, service, host, port, ...overrides } = options
 
     await preprocessTarget(overrides.target)
 
@@ -68,37 +70,34 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
     
     if (!config) return
 
-
     // Services take priority if specified
+    const isOnlyServices = (!overrides.target && service)
     if (isOnlyServices) {
 
         delete config.target
 
-        // Do not use configuration options for servers
-        delete config.port 
-        delete config.host
-
         // NOTE: If passed, this simply wouldn't take effect
         if (options.outDir) return await failed(`Cannot specify an output directory when launching services`)
 
-        const resolvedServices = typeof services === 'string' ? [services] : services
-
-        // If specified, this simply wouldn't take effect
-        if (Object.keys(resolvedServices).length > 1 && (options.port || options.host)) return await failed(`Cannot specify port or host when launching multiple services`)
-        
-        // Flag invalid services
-        for (const service of resolvedServices) {
-            if (!config.services[service]) await failed(`Service '${service}' not found in configuration`)
+        const resolvedServices = typeof service === 'string' ? [ service ] : service
+        const nServices = Object.keys(resolvedServices).length
+        if (nServices > 1 && (port || host)) return await failed(`Cannot specify port or host when launching multiple services`)
+        if (nServices === 1) {
+            const serviceName = resolvedServices[0]
+            if (serviceName in config.services) {
+                const service = resolveServiceConfiguration(config.services[serviceName])
+                Object.assign(service, { host, port }) // Set host and port on single service
+                config.services[serviceName] = service
+            }
         }
         
-        // Clear unspecified services
-        Object.keys(config.services).forEach(service => {
-            if (!resolvedServices.includes(service)) delete config.services[service]
-        })
+
+        const launchConfig = reconcile(config, overrides) as LaunchConfig
+        return await launchServices(launchConfig, { services: service })
     }
 
     // Ensure services are not specified with a target
-    else if (services) return await failed(`Cannot specify services without a target`)
+    else if (service) return await failed(`Cannot specify both services and a launch target`)
 
     const launchConfig = reconcile(config, overrides) as LaunchConfig
     launch(launchConfig, isOnlyServices)
@@ -117,8 +116,8 @@ cli.command('build [root]', 'Build the application in the specified directory', 
     const { config: configPath, service, ...overrides } = options
     const { target } = overrides
 
-    const buildOnlyServices = !target && service
     await preprocessTarget(target)
+
 
     const config = await loadConfigFromFile(getConfigPathFromOpts({
         root,
@@ -127,10 +126,9 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 
     if (!config) return
 
+    if (!target && service) return await buildServices(config, { services: service }) // Only build services
 
-    if (buildOnlyServices) delete config.target // Ensure services are built only
-
-    build(reconcile(config, overrides), { servicesToBuild: service })
+    build(reconcile(config, overrides))
 })
 
 // Start the application in development mode

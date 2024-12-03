@@ -20,7 +20,7 @@ export type ServiceOptions = string | string[]
 export type ServiceCreationOptions = {
     root?: string, 
     target?: string
-    services, 
+    services?: string | string[],
     build?: boolean,
     onLog?: Function
     onClosed?: Function
@@ -105,8 +105,9 @@ export type ResolvedService = {
 // ------------------- Plugins -------------------
 type LoadedPlugin = { [x:string]: any } | Function | any
 
-type ResolvedSupportType = boolean | any // Evaluated as boolean
-type UserSupportType = ResolvedSupportType | (() => ResolvedSupportType)
+type SupportQuery = (() => boolean | Promise<boolean>)
+type SupportCheck = boolean | SupportQuery
+type FalseOrQuery = false | SupportQuery
 
 type TagName = string
 type TagAttribute = Record<string, string>
@@ -119,14 +120,7 @@ export type CapacitorConfig = {
     manifest?: Record<TagName, TagAttribute[]>
 }
 
-export type SupportConfigurationObject = {
-    [x in TargetType]?: UserSupportType
-} & {
-    mobile?: 
-        UserSupportType // Uses standard mobile features
-        | { capacitor?: CapacitorConfig } // Capacitor Plugin Configuration Object
-    }
-
+type MobileCapacitorCheck = { capacitor?: CapacitorConfig } 
 
 type DesktopPluginContext = {
     id: string,
@@ -148,26 +142,45 @@ type DesktopPluginContext = {
     }
 }
 
-export type Plugin = {
+type DesktopPluginOptions = {
 
-    isSupported?: SupportConfigurationObject
+    // App Controls
+    start?: (this: DesktopPluginContext) => void,
+    ready?: (this: DesktopPluginContext) => void,
+    quit?: (this: DesktopPluginContext) => void,
+
     
-    desktop?: {
-
-        // App Controls
-        start?: (this: DesktopPluginContext) => void,
-        ready?: (this: DesktopPluginContext) => void,
-        quit?: (this: DesktopPluginContext) => void,
-
-        
-        // Window Controls
-        load?: (this: DesktopPluginContext, win: BrowserWindow) => void,
-        unload?: (this: DesktopPluginContext, win: BrowserWindow) => void,
-
-    }
-
-    load?: (this: IpcRenderer) => LoadedPlugin
+    // Window Controls
+    load?: (this: DesktopPluginContext, win: BrowserWindow) => void,
+    unload?: (this: DesktopPluginContext, win: BrowserWindow) => void,
 }
+
+type PluginLoadCallback = (this: IpcRenderer) => LoadedPlugin // General load behavior
+
+// Runs with special behaviors on desktop
+type HybridPlugin = {
+    isSupported?: {
+        web?: true | SupportQuery, // Assumed to be false
+        desktop?: SupportQuery, // Cannot be false. Assumed to be true
+        mobile?: true | SupportQuery | MobileCapacitorCheck // Assumed to be false.
+    }
+    load?: PluginLoadCallback,
+    desktop: DesktopPluginOptions // Prioritizes desktop support
+}
+
+// Runs only on remote targets (web, mobile)
+type RemotePlugin = {
+    isSupported: { web?: SupportCheck, desktop: false, mobile?: SupportCheck | MobileCapacitorCheck },
+    load: (this: IpcRenderer) => LoadedPlugin
+}
+
+// Runs on all targets
+type BasicPlugin = { 
+    isSupported: { web?: FalseOrQuery, desktop?: FalseOrQuery, mobile?: FalseOrQuery | MobileCapacitorCheck },
+    load: (this: IpcRenderer) => LoadedPlugin 
+}
+
+export type Plugin = BasicPlugin | HybridPlugin | RemotePlugin
 
 // type ValidNestedProperty = TargetType | PlatformType | ModeType
 
@@ -183,8 +196,8 @@ export type IconType = BaseIconType | IconConfiguration
 // ------------------- PWA -------------------
 
 type PWAOptions = {
-    includeAssets: string[],
-    manifest: Partial<ManifestOptions>
+    includeAssets?: string[],
+    manifest?: Partial<ManifestOptions>
 }
 
 // ------------------- Electron -------------------
@@ -239,8 +252,13 @@ type BuildOptions = {
     sign?: boolean
 }
 
-export type UserConfig = Partial<BaseConfig> & {
-    build?: BuildOptions
+export type UserConfig = Partial<BaseConfig> & { build?: BuildOptions }
+
+type ServiceSelection = string | string[]
+
+export type ConfigResolveOptions = {
+    services?: ServiceSelection
+    build?: boolean
 }
 
 
@@ -256,15 +274,17 @@ export type LaunchConfig = {
     port: BaseConfig["port"]
 }
 
-export type BuildConfig = Partial<BaseConfig> & { build?: BuildOptions }
-
 export type BuildHooks = {
     services?: ResolvedConfig['services']
-    servicesToBuild?: string[] | string,
     onBuildAssets?: Function,
     dev?: boolean
 }
 
+export type ServiceBuildOptions = {
+    dev?: boolean,
+    outDir?: string,
+    services?: ServiceSelection
+}
 
 export type ResolvedConfig = BaseConfig & {
 

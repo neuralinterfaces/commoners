@@ -9,7 +9,7 @@ type DeviceInformation = {
 
 // @capacitor-community/bluetooth-le must be installed by the user
 export const isSupported = {
-  desktop: true,
+
   mobile: {
     capacitor: {
       name: 'BluetoothLe',
@@ -44,18 +44,10 @@ export const isSupported = {
           noDeviceFound: "No BLE devices found."
         }
       }
-    },
-    load: false
+    }
   },
-  web: {
-    check: async () => (await navigator.bluetooth?.getAvailability()) === true,
-    load: false
-  }
-}
 
-type States = {
-  select: ((id: MACAddress) => void) | null ,
-  match: DeviceInformation | null
+  web: async () => (await navigator.bluetooth?.getAvailability()) === true
 }
 
 export const desktop = {
@@ -124,7 +116,11 @@ export const desktop = {
 
 export function load() {
 
-  const { __id } = commoners.DESKTOP
+  const { DESKTOP } = commoners
+
+  if (!DESKTOP) return
+
+  const { __id } = DESKTOP
 
   const onOpen = (callback) => this.on(`${__id}:open`, () => callback())
 

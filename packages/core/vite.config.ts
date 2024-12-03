@@ -72,8 +72,15 @@ export default defineConfig({
       fileName: (format, entryName) => `${entryName}.${format === 'es' ? 'mjs' : 'cjs'}`
     },
     rollupOptions: {
+      // output: {
+      //   preserveModules: true,
+      // },
       external: Array.from(new Set([
-        '@commoners/solidarity', // Ensure self is handled externally
+
+        // Ensure self is handled externally
+        '@commoners/solidarity',
+
+        // User-defined external packages
         ...Object.keys(pkg.dependencies),
         ...nodeBuiltIns
       ])),

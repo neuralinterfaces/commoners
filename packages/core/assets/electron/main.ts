@@ -393,7 +393,7 @@ runAppPlugins().then(() => {
   app.whenReady().then(async () => {
 
     // ------------------------ Service Creation ------------------------
-    const { active } = await services.createAll(config.services, {
+    const { services: active } = await services.createAll(config.services, {
       target: 'desktop', 
       build: isProduction,
       root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir

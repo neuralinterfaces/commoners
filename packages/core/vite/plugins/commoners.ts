@@ -157,27 +157,11 @@ export default ({
             const highPriority = `
                 <script type="module">
 
-                // Directly import the plugins from the transpiled configuration object
-                import CONFIG from "${updatedConfigURL}"
-                const { plugins } = CONFIG
-                
-                // Set global variable
-                const { 
-                    services, 
-                    send,
-                    quit,
-                    electron
-                } = globalThis.__commoners ?? {} // Grab temporary variables
+                const { send, services, quit, args } = globalThis.__commoners ?? {} 
 
-                const GLOBAL = globalThis.commoners = {}
-
-                const globalObject = JSON.parse(\`${JSON.stringify(globalObject)}\`)
-                Object.keys(globalObject).forEach(key => GLOBAL[key] = globalObject[key])
-
-                if (GLOBAL.DESKTOP) GLOBAL.DESKTOP = {}
-    
-                if (plugins) GLOBAL.__PLUGINS = plugins
+                const GLOBAL = globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
+                if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, ...args } // Ensure desktop is configured properly at the start
 
                 GLOBAL.READY = new Promise(res => {
                     const ogRes = res
@@ -190,7 +174,13 @@ export default ({
                     GLOBAL.__READY = res
                 })    
 
-                import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
+                // Directly import the plugins from the transpiled configuration object
+                import("${updatedConfigURL}").then(o => {
+                    const { plugins } = o.default
+                    if (plugins) GLOBAL.__PLUGINS = plugins
+                    import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
+                 })
+
 
             </script>\n
             `

@@ -14,10 +14,6 @@ type SplashScreenOption = {
 
 export default (page: string, options: SplashScreenOption = {}) => {
     return {
-      isSupported: {
-        web: false,
-        mobile: false
-      },
       assets: {
         page: { src: page },
       },
