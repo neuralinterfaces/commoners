@@ -11,6 +11,7 @@ import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
 import { printFailure, printSubtle } from './utils/formatting.js'
 import { lstatSync } from './utils/lstat.js'
+import { pathToFileURL } from 'node:url'
 
 
 // Top-Level Package Exports
@@ -85,8 +86,10 @@ export async function loadConfigFromFile(
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
 
+        const fileURL = pathToFileURL(configOutputPath).href
+
         try {
-            config = (await import(configOutputPath)).default as UserConfig
+            config = (await import(fileURL)).default as UserConfig
         } finally {
             onCleanup(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }
