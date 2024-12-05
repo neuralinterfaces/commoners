@@ -113,8 +113,10 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
 
-    const { config: configPath, service, ...overrides } = options
+    const { config: configPath, service, sign, publish, ...overrides } = options
     const { target } = overrides
+
+    overrides.build = { sign, publish }
 
     await preprocessTarget(target)
 

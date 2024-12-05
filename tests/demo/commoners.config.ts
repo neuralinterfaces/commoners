@@ -53,6 +53,10 @@ const config = defineConfig({
     // target: 'desktop' // Default target  
     // outDir: join(root, '_site'), // Custom output directory for all targets
 
+    // build: {
+    //     sign: false, // Disable code signing
+    // },
+
     pwa: {
         manifest: { short_name }
     },

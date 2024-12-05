@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "Cross-Platform Development for the Rest of Us",
-  "version": "0.0.55",
+  "version": "0.0.56",
   "type": "module",
   "license": "MIT",
   "engines": {
