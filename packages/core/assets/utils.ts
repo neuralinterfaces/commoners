@@ -6,26 +6,29 @@ export const asyncFilter = async (arr, predicate) => Promise.all(arr.map(predica
 export const pluginErrorMessage = (name, type, e) => console.error(`[commoners] ${name} plugin (${type}) failed to execute:`, e)
 
 
-const removablePluginProperties = [ 'load' ]
+export const isPluginSupported = async (plugin, target) => {
+
+    const isDesktopBuild = target === 'desktop'
+
+    let { isSupported, desktop } = plugin
+    if (isSupported && typeof isSupported === 'object') isSupported = isSupported[target]
+    if (typeof isSupported === 'function') isSupported = await isSupported.call(plugin, target)
+    if (isSupported === false) return // Explicit removal
+
+    if (desktop) {
+        if (isDesktopBuild) return true
+        else return !!isSupported // Must be explicitly truthy
+    }
+    
+    return isSupported !== false // Should just not be false
+}
 
 export const sanitizePluginProperties = (plugin, target) => {
-    const copy = {...plugin}
+    const copy = { ...plugin }
 
     // Remove electron plugins if not the correct target
     const assumeRemoval = 'desktop' in copy && target !== 'desktop'
     if (assumeRemoval) delete copy.desktop
-
-    // Assume true if no desktop configuration; assume false if desktop configuration
-    const willRemove = (v) => assumeRemoval ? !v : v === false
-
-    // Remove any top-level properties that are flagged as unsupported
-    const isSupported = copy.isSupported?.[target] ?? copy.isSupported // Drill to the target
-
-    if (isSupported && typeof isSupported === 'object') {
-        removablePluginProperties.forEach(prop => {
-            if (willRemove(isSupported[prop])) delete copy[prop]
-        })
-    }
 
     return copy
 }

@@ -155,7 +155,6 @@ export const resolveViteConfig = async (
         return acc
     }, {}) } : {}    
 
-
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
         logLevel: dev ? 'silent' : 'info',

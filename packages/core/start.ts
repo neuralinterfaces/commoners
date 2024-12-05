@@ -3,39 +3,71 @@ import { join } from "node:path";
 
 // Internal Imports
 import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
-import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
-import { UserConfig } from "./types.js";
+import { ensureTargetConsistent, globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
+import { ResolvedConfig, ResolvedService, UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
 
 // Internal Utilities
-import { buildAssets } from "./utils/assets.js";
+import { buildAssets, getAppAssets } from "./utils/assets.js";
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
+import { buildAllAssets } from "./build.js";
 
-export default async function ( 
-    opts: UserConfig = {} 
+
+const createAllServices = (services, { root, target }) => createServices(services, { root, target, services: true, build: false }) // Run services in parallel
+
+type ResolvedServices = Record<string, ResolvedService>
+
+const resolveServices = (
+    config: ResolvedConfig
+): ResolvedServices => {
+    const { target } = config
+    const isMobileTarget = isMobile(target)
+    if (isMobileTarget) return updateServicesWithLocalIP(config.services) // Create URLs that will be shared with the frontend
+    return config.services
+}
+
+export const services = async (
+    config: UserConfig,
+    resolvedServices
+) => {
+
+    const resolvedConfig = await resolveConfig(config);
+    const { root, target } = resolvedConfig
+
+    // Build service outputs
+    await build(resolvedConfig, { services: resolvedServices, dev: true })
+
+    if (!resolvedServices) resolvedServices = resolveServices(resolvedConfig)
+
+    // Create services
+    return await createAllServices(resolvedServices, { root, target })
+
+}
+
+export const app = async function ( 
+    config: UserConfig
 ) {
         
-        const resolvedConfig = await resolveConfig(opts);
+        const resolvedConfig = await resolveConfig(config);
         
-        const { target, name, root } = resolvedConfig
+        const { name, root, target } = resolvedConfig
 
         const isDesktopTarget = isDesktop(target)
         const isMobileTarget = isMobile(target)
 
         await printHeader(`${name} — ${printTarget(target)} Development`)
 
-        // Create URLs that will be shared with the frontend
-        if (isMobileTarget) resolvedConfig.services = updateServicesWithLocalIP(resolvedConfig.services)
-
-        const { services: resolvedServices } = resolvedConfig
-        
-        const createAllServices = () => createServices(resolvedServices, { root, target, services: true, build: false }) // Run services in parallel
+        const resolvedServices = resolveServices(resolvedConfig)
 
         // Temporary directory for the build
         const outDir = join(root, globalTempDir)
         const filesystemManager = await handleTemporaryDirectories(outDir)
-        const configCopy = { ...resolvedConfig, outDir }
+
+        const configCopy = { 
+            ...resolvedConfig, 
+            outDir 
+        }
 
         // Build for mobile before moving forward
         if (isMobileTarget) await build(
@@ -44,7 +76,9 @@ export default async function (
         )
 
         // Manually clear and build the output assets
-        else await buildAssets(configCopy, undefined, true)
+        else {
+            await buildAllAssets(configCopy, true)
+        }
 
         const activeInstances: {
             frontend?: Awaited<ReturnType<typeof createServer>>,
@@ -75,7 +109,7 @@ export default async function (
         if (isDesktopTarget) await configureForDesktop(outDir, root)
 
         // Create all services
-        else activeInstances.services = await createAllServices()
+        else activeInstances.services = await services(configCopy, resolvedServices)
 
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) {

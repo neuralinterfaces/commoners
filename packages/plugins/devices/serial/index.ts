@@ -1,14 +1,10 @@
 import createModal from '../modal.js';
 
 export const isSupported = {
-  desktop: true,
-  mobile: () => {
-    return commoners.target === 'android'
-  },
-  web: {
-    check: async () => 'serial' in navigator,
-    load: false
-  }
+  // mobile: () => {
+  //   return commoners.target === 'android'
+  // },
+  web: async () => 'serial' in navigator // Ensure serial feature is available
 }
 
 export const desktop = {
@@ -48,7 +44,12 @@ export const desktop = {
 
 export function load() {
 
-  const { __id } = commoners.DESKTOP
+  const { DESKTOP } = commoners
+
+  if (!DESKTOP) return
+
+  const { __id } = DESKTOP
+  
   
   const added = (callback) => this.on(`${__id}:added`, (_, port) => callback(port))
   const removed = (callback) => this.on(`${__id}:removed`, (_, port) => callback(port))

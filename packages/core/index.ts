@@ -4,23 +4,27 @@ import { existsSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
 import { globalWorkspacePath, getDefaultMainLocation, templateDir, onCleanup, ensureTargetConsistent, isMobile } from './globals.js'
-import { ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
+import { ConfigResolveOptions, ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
 import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
 import { printFailure, printSubtle } from './utils/formatting.js'
 import { lstatSync } from './utils/lstat.js'
+import { pathToFileURL } from 'node:url'
 
 
 // Top-Level Package Exports
 export * from './types.js'
 export * from './globals.js'
+export * from './assets/services/index.js' // Service Helpers
+
 export * as format from './utils/formatting.js'
-export { default as launch } from './launch.js'
-export { default as build } from './build.js'
-export { default as start } from './start.js'
+export { launchApp as launch, launchServices } from './launch.js'
+export { buildApp as build, buildServices } from './build.js'
+export { app as start, services as startServices } from './start.js'
 export { merge } // Other Helpers
+
 
 // ------------------ Configuration File Handling ------------------
 export const resolveConfigPath = (base = '') => resolveFile(join(base, 'commoners.config'), ['.ts', '.js'])
@@ -82,8 +86,10 @@ export async function loadConfigFromFile(
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
 
+        const fileURL = pathToFileURL(configOutputPath).href
+
         try {
-            config = (await import(configOutputPath)).default as UserConfig
+            config = (await import(fileURL)).default as UserConfig
         } finally {
             onCleanup(() => outputFiles.forEach((file) => unlink(file, () => { })))
         }
@@ -95,40 +101,30 @@ export async function loadConfigFromFile(
     return config
 }
 
-type ResolveOptions = {
-    services?: string | string[]
-    target?: TargetType,
-    build?: boolean
-}
 
 export async function resolveConfig(
     o: UserConfig = {}, 
     { 
         // Service Auto-Configuration
-        target,
         build = false,
 
         // Advanced Service Configuration
         services
 
-    } : ResolveOptions = {}
+    } : ConfigResolveOptions = {}
 ) {
 
-    const initialTarget = target ?? await ensureTargetConsistent(o.target, [ 'services' ])
-
+    if (o.__resolved) return o
+    
     // Mobile commands must always run from the root of the specified project
-    if (isMobile(initialTarget) && o.root) {
+    if (isMobile(o.target) && o.root) {
         process.chdir(o.root)
         delete o.root
     }
 
     const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
 
-    const temp = { ...o }
-    const { services: ogServices, plugins, vite } = temp
-    delete temp.plugins
-    delete temp.services
-    delete temp.vite
+    const { services: ogServices, plugins, vite, ...temp } = o
 
     const userPkg = getJSON(join(root, 'package.json'))
 
@@ -144,7 +140,7 @@ export async function resolveConfig(
     copy.services = ogServices as any ?? {} // Transfer original functions on publish
     copy.vite = vite ?? {} // Transfer the original Vite config
 
-    copy.target = await ensureTargetConsistent(copy.target, [ 'services' ])
+    const target = copy.target = await ensureTargetConsistent(copy.target)
 
     if (!copy.electron) copy.electron = {}
 
@@ -159,7 +155,7 @@ export async function resolveConfig(
     if (!copy.build) copy.build = {}
 
 
-    if (build && services) {
+    if (services) {
         const selectedServices = typeof services === "string" ? [ services ] : services
         const allServices = Object.keys(copy.services)
         if (selectedServices) {
@@ -173,6 +169,15 @@ export async function resolveConfig(
 
     copy.services = await resolveAll(copy.services, { target, build, services, root: copy.root }) // Resolve selected services
 
+    // Resolution flag
+    Object.defineProperty(
+        copy,
+        '__resolved',
+        {
+            value: true,
+            writable: false
+        }
+    )
 
     return copy as ResolvedConfig
 }
@@ -206,7 +211,7 @@ export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
 }
 
 export const createServices = async (services: ResolvedConfig['services'], opts: ServiceCreationOptions = {}) => await createAll(services, opts) as {
-    active: {
+    services: {
         [name:string]: ResolvedService
     }
     close: (id?:string) => void

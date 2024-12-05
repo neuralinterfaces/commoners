@@ -4,6 +4,7 @@ import {
   start as CommonersStart,
   launch as CommonersLaunch,
   build as CommonersBuild,
+  buildServices as CommonersBuildServices,
   globalWorkspacePath,
   UserConfig,
   BuildHooks,
@@ -17,6 +18,7 @@ import { removeDirectory } from '../../core/utils/files.js'
 import { join } from 'node:path'
 
 import { chromium, Page, Browser } from 'playwright'
+import { ServiceBuildOptions } from '../../core/types.js'
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -37,12 +39,10 @@ export const build = async (
 
   onTestFunction()
 
-
   const config = await loadConfigFromFile(root)
   const updatedConfig = merge(config, overrides)
 
   const { outDir } = updatedConfig || {}
-
 
   const AUTOCLEAR = [
     outDir,
@@ -50,6 +50,33 @@ export const build = async (
   ]
   
   await CommonersBuild(updatedConfig, hooks)
+
+  return {
+    cleanup: async (relativePathsToRemove = []) => {
+      const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
+      toRemove.forEach(path => removeDirectory(path))
+      cleanup() // Cleanup after the build process
+    }
+  }
+}
+
+export const buildServices = async (
+  root, 
+  options: ServiceBuildOptions = {}
+) => {
+
+  onTestFunction()
+
+  const config = await loadConfigFromFile(root)
+
+  const { outDir } = config
+
+  const AUTOCLEAR = [
+    outDir,
+    join(root, globalWorkspacePath), // All default commoners outputs, including services and temporary files
+  ]
+  
+  await CommonersBuildServices(config, options)
 
   return {
     cleanup: async (relativePathsToRemove = []) => {

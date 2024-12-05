@@ -66,7 +66,7 @@ export default {
 You can also use the included helper function to declare Python services:
 
 ```js
-import { python } from '@commoners/solidarity/services'
+import { services } from '@commoners/solidarity'
 
 const pythonService = {
     name: 'python-service',
@@ -75,6 +75,6 @@ const pythonService = {
 
 export default {
     // ...
-    services: python.services([ pythonService ])
+    services: services.python.services([ pythonService ])
 }
 ```

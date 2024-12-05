@@ -1,10 +1,6 @@
 // Custom Protocol Support (https://www.electronjs.org/docs/latest/api/protocol#protocolregisterschemesasprivilegedcustomschemes)
 export default (scheme: string, privileges: Electron.CustomScheme["privileges"] = {}) => {
     return {
-        isSupported: {
-            web: false,
-            mobile: false
-        },
         load: () => scheme,
         desktop: {
             start: async function () {

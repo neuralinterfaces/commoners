@@ -2,7 +2,8 @@ import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
 import {
     loadConfigFromFile,
-    resolveConfigPath
+    resolveConfigPath,
+    resolveServiceBuildInfo
 } from '@commoners/solidarity'
 
 import { resolve } from 'node:path'
@@ -10,8 +11,7 @@ import { existsSync }  from 'node:fs'
 
 import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
-import { resolveServiceBuildInfo } from '../packages/core/assets/services'
-import { build } from '@commoners/testing'
+import { buildServices } from '@commoners/testing'
 
 const platforms = {
   windows: process.platform === 'win32',
@@ -89,7 +89,7 @@ describe('All services with sources can be built individually', async () => {
 
 
         beforeAll(async () => {
-          const __output = await build(projectBase, {}, { servicesToBuild: name })
+          const __output = await buildServices(projectBase, { services: name })
           Object.assign(output, __output)
         })
 

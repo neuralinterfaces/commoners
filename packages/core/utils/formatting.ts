@@ -9,7 +9,6 @@ export const printTarget = (target: TargetType) => {
     if (target === 'ios') return 'iOS'
     if (target === 'android') return 'Android'
     if (target === 'tauri') return 'Tauri'
-    if (target === 'services') return 'Services'
     return target
 }
 

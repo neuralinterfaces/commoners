@@ -6,7 +6,7 @@ hero:
   name: Commoners
   tagline: Cross-Platform Development for the Rest of Us
   image:
-    src: /logo.png
+    src: /logo-min.png
     alt: Commoners
   actions:
     - theme: brand

@@ -67,7 +67,7 @@ export const isValidURL = (s) => {
 let processes = {}
 
 export const resolveServiceConfiguration = (config) => {
-  if (typeof config === 'string') config = isValidURL(config) ? { url: config } : { src: config }
+  if (typeof config === 'string') return isValidURL(config) ? { url: config } : { src: config }
   return config
 }
 
@@ -319,7 +319,7 @@ export async function start(config, id, opts = {}) {
 
       const resolvedFilepath = resolve((isExecutable(ext) && !ext && existsSync(filepath + '.exe')) ? filepath + '.exe' : filepath)
 
-      if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `Source file does not exist at ${resolvedFilepath}`, 'warn')
+      if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `File does not exist at ${resolvedFilepath}`, 'warn')
 
       // Node Support
       if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [], { cwd, silent: true, env })
@@ -447,12 +447,12 @@ export async function resolveAll(servicesToResolve = {}, opts) {
 
 export async function createAll(services = {}, opts) {
 
-  const instances = await resolveAll(services, opts)
+  const resolved = await resolveAll(services, opts)
 
-  await Promise.all(Object.entries(instances).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file
+  await Promise.all(Object.entries(resolved).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file
 
   return {
-    active: instances,
+    services: resolved,
     close
   }
 }
