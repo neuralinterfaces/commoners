@@ -5,7 +5,7 @@ export default defineConfig({
   title: "Commoners",
   description: "Building Solidarity across Platforms",
 
-  head: [['link', { rel: 'icon', href: '/logo.png' }]],
+  head: [['link', { rel: 'icon', href: '/logo-min.png' }]],
 
   themeConfig: {
 
