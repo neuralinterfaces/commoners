@@ -1,6 +1,6 @@
 {
     "name": "@commoners/bluetooth",
-    "version": "0.0.52",
+    "version": "0.0.55",
     "main": "./dist/index.cjs",
     "module": "./dist/index.mjs",
     "license": "MIT",
@@ -13,7 +13,7 @@
     },
     "peerDependencies": {
         "@capacitor-community/bluetooth-le": "^6.0.0",
-        "@commoners/solidarity": "^0.0.52"
+        "@commoners/solidarity": "^0.0.55"
     },
     "peerDependenciesMeta": {
         "@capacitor-community/bluetooth-le": {
