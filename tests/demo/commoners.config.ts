@@ -65,7 +65,6 @@ const config = defineConfig({
     name,
 
     pages: {
-        main: './index.html',
         services: join(root, "pages", "services", 'index.html'),
         windows: join(root, "pages", "windows", 'index.html') ,
         serial: join(root, "pages", "serial", 'index.html'),
