@@ -263,10 +263,9 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     const __listeners = []
 
-    const transferredFlags = {
-      __id: windowCount,
-      __main: isMainWindow
-    }
+
+    const __id = windowCount
+    const transferredFlags = { __id, __main: isMainWindow }
 
     windowCount++
 
@@ -319,7 +318,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     // ------------------------ Main Window Default Behaviors ------------------------
     if (isMainWindow) {
-      ipcMain.once('commoners:ready', () => {
+      ipcMain.once(`commoners:ready:${__id}`, () => {
         globals.mainWindow = win
         globals.firstInitialized = true
         readyQueue.forEach(f => f(win))
@@ -354,6 +353,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     await new Promise(resolve => win.once('ready-to-show', resolve)) // Show after plugin loading
 
     win.show() // Allow annotating to skip show
+
+    win.__ready = new Promise(resolve => win.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
 
     return win
   }
@@ -393,17 +394,20 @@ runAppPlugins().then(() => {
   app.whenReady().then(async () => {
 
     // ------------------------ Service Creation ------------------------
-    const { services: active } = await services.createAll(config.services, {
+    const { services: active, close: closeService } = await services.createAll(config.services, {
       target: 'desktop', 
       build: isProduction,
       root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir
       onClosed: (id, code) => serviceSend(id, 'closed', code),
-      onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
+      onLog: (id, msg) => serviceSend(id, 'log', msg.toString())
     })
 
     // ------------------------Track Service Status in Windows ------------------------
     if (active) {
-      for (let id in active) serviceOn(id, 'status', (event) => event.returnValue = active[id].status)
+      for (let id in active) {
+        serviceOn(id, 'status', (event) => event.returnValue = active[id].status)
+        serviceOn(id, 'close', () => closeService(id))
+      }
       ipcMain.on('commoners:services', (event) => event.returnValue = services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
     }
 

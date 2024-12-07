@@ -159,19 +159,23 @@ export default ({
 
                 const { send, services, quit, args } = globalThis.__commoners ?? {} 
 
+                const { __id } = args ?? {}
+
                 const GLOBAL = globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
                 if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, ...args } // Ensure desktop is configured properly at the start
 
                 GLOBAL.READY = new Promise(res => {
-                    const ogRes = res
-                    res = (...args) => {
-                        ogRes(...args)
+                
+                    const resolve = (...args) => {
+                        res(...args) // Resolve the promise
                         delete GLOBAL.__READY
-                        if (send) send('commoners:ready')
+                        if (send) {
+                            send("commoners:ready:" + __id) // Notify the main process that everything is ready
+                        }
                     }
                     
-                    GLOBAL.__READY = res
+                    GLOBAL.__READY = resolve
                 })    
 
                 // Directly import the plugins from the transpiled configuration object

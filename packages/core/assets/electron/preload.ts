@@ -28,12 +28,11 @@ const TEMP_COMMONERS = {
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 }
 
+// Handle service interactions
 for (let id in TEMP_COMMONERS.services) {
     const service = TEMP_COMMONERS.services[id]
 
-    const serviceStates = {
-        status: ipcRenderer.sendSync(`services:${id}:status`)
-    }
+    service.status = ipcRenderer.sendSync(`services:${id}:status`)
 
     const listeners = {
         closed: []
@@ -42,22 +41,24 @@ for (let id in TEMP_COMMONERS.services) {
     }
 
     ipcRenderer.on(`services:${id}:log`, (_) => {
-      if (serviceStates.status) return
-      serviceStates.status = true
+      if (service.status) return
+      service.status = true
     })
 
     ipcRenderer.on(`services:${id}:closed`, (_, code) => {
-      if (serviceStates.status === false) return
-      serviceStates.status = false
+      if (service.status === false) return
+      service.status = false
       listeners.closed.forEach(f => f(code))
     })
 
     // ---------------- Assign Functions ----------------
     service.onClosed = (listener) => {
-      if (serviceStates.status === false) listener()
+      if (service.status === false) listener()
       listeners.closed.push(listener)
     }
 
+    service.close = () => ipcRenderer.send(`services:${id}:close`)
+    
 }
 
 // Expose ipcRenderer

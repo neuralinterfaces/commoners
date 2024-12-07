@@ -278,8 +278,7 @@ async function getServiceUrl(service) {
     // For Client
     url: await getServiceUrl({ src, url, host, port }),
 
-    // NOTE: Not in types...
-    states: null,
+    status: null,
 
   }
 
@@ -347,13 +346,12 @@ export async function start(config, id, opts = {}) {
 
       if (childProcess.stderr) childProcess.stderr.on('data', (data) => printServiceMessage(label, data, 'error'));
 
+      // Notify of process closure gracefully
       childProcess.on('close', (code) => {
-        if (code !== null) {
-          config.status = false
-          if (opts.onClosed) opts.onClosed(id, code)
-          delete processes[id]
-          printServiceMessage(label, `Exited with code ${code}`, 'error')
-        }
+        config.status = false
+        if (opts.onClosed) opts.onClosed(id, code)
+        delete processes[id]
+        if (code !== null) printServiceMessage(label, `Exited with code ${code}`, 'error')
       });
 
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`))); 
