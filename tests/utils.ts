@@ -162,6 +162,8 @@ const e2eTests = {
                 // Desktop service controls
                 Object.values(SERVICES).forEach(service => {
                     expect("onClosed" in service).toBe(true)  // Function
+                    expect("close" in service).toBe(true)  // Function
+                    expect("status" in service).toBe(true)  // Function
                 })
               } 
               

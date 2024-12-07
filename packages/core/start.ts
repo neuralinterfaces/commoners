@@ -3,12 +3,11 @@ import { join } from "node:path";
 
 // Internal Imports
 import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
-import { ensureTargetConsistent, globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
+import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
 import { ResolvedConfig, ResolvedService, UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
 
 // Internal Utilities
-import { buildAssets, getAppAssets } from "./utils/assets.js";
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAllAssets } from "./build.js";

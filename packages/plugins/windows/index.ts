@@ -40,7 +40,9 @@ const linkToMainWindow = (eventTarget) => {
 
 const linkToMainElectronWindow = (id, context) => {
 
-  context.on(`link:${id}`, () => context.send(`${id}:link`)) // Start linking
+  // Start linking
+  context.once(`link:${id}`, () => context.send(`${id}:link`))
+
   const readyPromise = new Promise(resolve => context.on(`ready:${id}`, resolve))
 
   return {
@@ -213,10 +215,7 @@ export default (windows: Windows): Plugin => {
 
         if (globalThis.COMMONERS_WINDOW_POPUP) {
           const eventTarget = new EventTarget()
-
-          return {
-            main: linkToMainWindow(eventTarget)
-          }
+          return { main: linkToMainWindow(eventTarget) }
         }
 
         const manager = windowTypes.reduce((acc, type) => {
@@ -238,6 +237,7 @@ export default (windows: Windows): Plugin => {
         }, {})
 
         return manager
+
       }
 
 
@@ -245,9 +245,7 @@ export default (windows: Windows): Plugin => {
 
       const isMain = this.__main
 
-      if (!isMain) return {
-        main: linkToMainElectronWindow(this.__id, this)
-      }
+      if (!isMain) return { main: linkToMainElectronWindow(this.__id, this) }
 
       const manager = windowTypes.reduce((acc, type) => {
 
@@ -297,16 +295,24 @@ export default (windows: Windows): Plugin => {
         this.on("open", async (_, type, requestId) => {
 
           const { window } = windows[type]
+          
 
-          const win = await createWindow(assets[type], window);
+          const win = await createWindow(
+            assets[type], 
+            window
+          );
+
           this.setAttribute(win, "type", type) // Assign type attribute to window
           const id = win.__id
 
           this.on(`${id}:message`, (_, value) => this.send(`${id}:message`, value), win); // Send from ID
           this.on(`message:${id}`, (_, value) => this.send(`message:${id}`, value), win); // Send to ID
 
+
+          let linkInterval;
           // Handle link request from ID
           this.on(`${id}:link`, () => {
+            clearInterval(linkInterval)
             this.send(`ready:${id}`); // Always send ready to dependent windows
             this.send(`${requestId}:ready`, id); // Send ready to main window
           }, win);
@@ -314,7 +320,17 @@ export default (windows: Windows): Plugin => {
           this.on(`${id}:close`, () => win.close(), win); // Trigger window closure
           win.on("closed", () => this.send(`${id}:closed`)); // Listen for window closure
 
-          this.send(`link:${id}`) // Request link to ID
+          // NOTE: This does not resolve when build...for some reason
+          // // Wait until the frontend plugins are ready
+          // win.__ready.then(() => {
+          //   this.send(`link:${id}`), // Request link to ID
+          //   console.log('Commoners ready on window', id, type)
+          // })
+
+          // Request to link until successful
+          const requestToLink = () => this.send(`link:${id}`) // Request link to ID
+          requestToLink()
+          linkInterval = setInterval(requestToLink, 100)
         });
 
       },
@@ -325,11 +341,8 @@ export default (windows: Windows): Plugin => {
 
         this.WINDOWS[__id] = win
 
-        if (__main) {
-          win.on("closed", () => Object.values(this.WINDOWS).forEach(_win => _win !== win && _win.close())); // Close all windows when the main window has closed
-        }
-
-
+        // Close all windows when the main window has closed
+        if (__main)  win.on("closed", () => Object.values(this.WINDOWS).forEach(_win => _win !== win && _win.close()));
       },
       unload: function (win) {
         delete this.WINDOWS[win.__id]

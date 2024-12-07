@@ -88,6 +88,8 @@ type ExtraServiceMetadata = _ExtraServiceMetadata & {
 
 export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) // Can nest build by platform type
 
+
+type ServiceStatus = null | boolean
 export type ResolvedService = {
 
     // For Service Build
@@ -100,6 +102,8 @@ export type ResolvedService = {
 
     // For Client
     url: string // What URL to use for service requests
+
+    status: ServiceStatus,
 }
 
 // ------------------- Plugins -------------------
@@ -312,7 +316,11 @@ type ExposedServices = {
 }
 
 type ExposedDesktopServices = {
-    [x:string]: ExposedService & { onClosed: () => void }
+    [x:string]: ExposedService & { 
+        onClosed: () => void, 
+        close: () => void,
+        status: ServiceStatus
+    }
 }
 
 type ExposedPlugins = {
@@ -328,8 +336,9 @@ type BaseCommonersGlobalObject = {
     DEV: boolean,
     PROD: boolean,
 
-    ROOT: string,
+    ENV: Record<string, any>, // Environment Variables loaded using Vite
 
+    ROOT: string,
 
     __READY: Function, // Resolve Function
     __PLUGINS?: RawPlugins // Raw Plugins
