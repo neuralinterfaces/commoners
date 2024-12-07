@@ -13,7 +13,7 @@ Follow the prompts to select your favorite framework and features.
 After running `npm install`, add Commoners as a dependency:
 
 ```bash
-npm install -D commoners@0.0.57
+npm install -D commoners@0.0.58
 ```
 
 ## Configuring the `package.json` File
