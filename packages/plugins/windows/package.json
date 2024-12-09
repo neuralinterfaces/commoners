@@ -12,6 +12,6 @@
         "vite": "^5.3.4"
     },
     "peerDependencies": {
-        "@commoners/solidarity": "^0.0.58"
+        "@commoners/solidarity": "^0.0.59"
     }
 }

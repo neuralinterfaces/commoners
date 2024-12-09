@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 // const root/ = resolve(dirname(fileURLToPath(import.meta.url)))
 const root = './'
 
-import * as checksPlugin from './src/plugins/checks.ts'
+import * as checksPlugin from './src/plugins/checks'
 
 import splashPagePlugin from '@commoners/splash-screen'
 import customProtocolPlugin from '@commoners/custom-protocol'
@@ -75,7 +75,7 @@ const config = defineConfig({
     plugins: {
         checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),
-        protocol: customProtocolPlugin('app', { supportFetchAPI: true }),
+        protocol: customProtocolPlugin('commoners', { supportFetchAPI: true }), // NOTE: Test this in detail with a build
         windows: windowsPlugin({
             popup: {
                 src: join(root, "pages", "windows", 'popup.html'),
