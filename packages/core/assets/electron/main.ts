@@ -10,6 +10,16 @@ function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
   return comparison(decodePath(path1), decodePath(path2))
 }
 
+async function checkLinkType(url) {
+  try {
+      const response = await fetch(url, { method: 'HEAD' });
+      const contentDisposition = response.headers.get('Content-Disposition');
+      if (contentDisposition && contentDisposition.includes('attachment')) return 'download'; // Download if attachment
+      if (!response.headers.get('Content-Type').startsWith('text/html')) return 'download'; // Download if not an HTML file
+      return 'webpage';
+  } catch (error) { return 'unknown' }
+}
+
 // Custom Window Flags
 // __main: Is Main Window
 // __show: Used to block show behavior
@@ -297,13 +307,21 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     })
 
 
-    // CAtch all navigation events
-    win.webContents.on('will-navigate', (event, url) => {
+    // Catch all navigation events
+    win.webContents.on('will-navigate', async (event, url) => {
 
       event.preventDefault()
+      
       const urlObj = new URL(url)
-      const file = urlObj.pathname
-      loadPage(win, file)
+      const isValid = (devServerURL && devServerURL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
+
+      if (!isValid) {
+        const type = await checkLinkType(url)
+        if (type === 'download') return win.webContents.downloadURL(url) // Download
+        return shell.openExternal(url) // Opened externally
+      }
+
+      loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..") 
     })
 
 
@@ -334,6 +352,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     // ------------------------ Default Quit Behavior ------------------------
     ipcMain.once('commoners:quit', () => app.quit())
 
+    // ------------------------ Open Windows Externally ------------------------
     win.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url);
       return { action: 'deny' };

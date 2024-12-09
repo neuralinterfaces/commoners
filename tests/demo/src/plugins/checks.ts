@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 let src: string | null = null
 try { src = resolve(fileURLToPath(import.meta.url)) } catch {}
 
-export const isSupported = {  mobile: true, web: true }
+export const isSupported = { 
+    mobile: true, 
+    web: true 
+}
 
 export function load () {
     const { commoners } = globalThis
