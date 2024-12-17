@@ -157,8 +157,8 @@ export const resolveViteConfig = async (
         const rootHTML = getAbsolutePath(root, 'index.html')
         const hasIndexPage = Object.values(pages).find(page => getAbsolutePath(root, page) === rootHTML)
 
-        rollupOptions.input = Object.entries(pages).reduce((acc, [name, filepath]) => {
-            acc[name] = getAbsolutePath(root, filepath)
+        rollupOptions.input = Object.values(pages).reduce((acc, filepath) => {
+            acc[crypto.randomUUID()] = getAbsolutePath(root, filepath)
             return acc
         }, {}) 
 

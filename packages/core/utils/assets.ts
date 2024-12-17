@@ -510,7 +510,11 @@ const importMetaResolvePlugin = () => {
     }
 }
 
-export const bundleConfig = async (input, outFile, { node = false } = {}) => {
+export const bundleConfig = async (
+    input, 
+    outFile, 
+    { node = false } = {}
+) => {
 
     const _vite = await vite
 
@@ -532,6 +536,9 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
     }
 
     const config = _vite.defineConfig({
+
+        configFile: false, // Block loading any user-defined vite.config.ts file
+
         logLevel,
         base: "./",
         root,
@@ -541,8 +548,8 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
         build: {
             lib: {
                 entry: input,
-                formats: [format],
-                fileName: () => outFileName,
+                formats: [ format ],
+                fileName: () => outFileName
             },
             emptyOutDir: false,
             outDir,
@@ -559,7 +566,7 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
     const resolvedConfig = node ? withExternalBuiltins(config) : config
 
     const results = await _vite.build(resolvedConfig) as any[] // RollupOutput[]
-
+        
     // Always return a flat list of the output file locations
     return results.map(({ output }) => output).flat().map(({ fileName }) => join(outDir, fileName))
 
