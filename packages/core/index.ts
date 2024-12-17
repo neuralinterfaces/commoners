@@ -1,5 +1,5 @@
 // Built-In Modules
-import { dirname, join, relative, normalize, resolve } from 'node:path'
+import { dirname, join, relative, normalize, resolve, isAbsolute } from 'node:path'
 import { existsSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
@@ -134,7 +134,7 @@ export async function resolveConfig(
         name: userPkg.name ? userPkg.name.split('-').map(str => str[0].toUpperCase() + str.slice(1)).join(' ') : 'Commoners App'
     }) as Partial<ResolvedConfig>
     
-    if (copy.outDir) copy.outDir = join(copy.root, copy.outDir)
+    if (copy.outDir && !isAbsolute(copy.outDir)) copy.outDir = join(copy.root, copy.outDir)
 
     copy.plugins = plugins ?? {} // Transfer the original plugins
     copy.services = ogServices as any ?? {} // Transfer original functions on publish
