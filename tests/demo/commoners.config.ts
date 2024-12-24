@@ -88,18 +88,17 @@ const config = defineConfig({
                 src: join(root, "pages", "windows", 'popup.html'),
                 window: function () {
 
-                    const baseOptions = { height: 200, width: 500 }
-                    if (!this) return baseOptions // Web environment
+                    if (!this) return { height: 200, width: 500 } // Web environment
 
                     // Desktop environment
                     const displays = this.screen.getAllDisplays()
                     const externalDisplay = displays.find((display) => display.bounds.x !== 0 || display.bounds.y !== 0)
-                    const chosenDisplay = externalDisplay || displays[0]
+
+                    if (!externalDisplay) return { fullscreen: true } // Default fullscreen behavior
 
                     return {
-                        ...baseOptions,
-                        x: chosenDisplay.bounds.x,
-                        y: chosenDisplay.bounds.y,
+                        x: externalDisplay.bounds.x,
+                        y: externalDisplay.bounds.y,
                         fullscreen: true
                     }
                 },
