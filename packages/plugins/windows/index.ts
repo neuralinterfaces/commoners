@@ -84,10 +84,7 @@ class ElectronWindow extends EventTarget {
         this.dispatchEvent(new ErrorEvent("error", { error: value }));
     });
 
-    this.context.once(`${id}:closed`, (_, value) => {
-      this.id = null
-      this.dispatchEvent(new CustomEvent("closed", { detail: value }))
-    });
+    this.context.once(`${id}:closed`, (_, value) => this.dispatchEvent(new CustomEvent("closed", { detail: value })));
 
     return id
   }
@@ -122,7 +119,7 @@ class BrowserWindow extends EventTarget {
 
   config: Window
 
-  #id = crypto.randomUUID()
+  id = crypto.randomUUID()
 
   constructor(config) {
     super();
@@ -153,7 +150,7 @@ class BrowserWindow extends EventTarget {
 
     const ref = globalThis.open(
         pageUrl, 
-        this.#id, 
+        this.id, 
         features
     )
 
@@ -228,7 +225,9 @@ export default (windows: Windows): Plugin => {
           acc[type] = { 
             create: () => {
               const win = new BrowserWindow(assets[type])
-              win.addEventListener('ready', (ev) => windows[ev.detail] = win)
+              win.addEventListener('ready', () => windows[win.id] = win)
+              win.addEventListener('closed', () => delete windows[win.id])
+              document.addEventListener("beforeunload", () => win.close())
               return win
             },
             windows
@@ -254,11 +253,13 @@ export default (windows: Windows): Plugin => {
         acc[type] = { 
           create: () => {
             const win = new ElectronWindow(type, this)
-            win.addEventListener('ready', (ev) => windows[ev.detail] = win)
+            win.addEventListener('ready', () => windows[win.id] = win)
+            win.addEventListener('closed', () => delete windows[win.id])
             return win
           },
           windows
         }
+
         return acc
       }, {})
 
@@ -266,7 +267,12 @@ export default (windows: Windows): Plugin => {
       Object.entries(existingWindows).forEach(( [id, type] ) => {
         const win = new ElectronWindow(type, this)
         const exists = win.connect(id)
-        if (exists) manager[type].windows[id] = win
+        const typeWindows = manager[type].windows
+        
+        if (exists) {
+          win.addEventListener("closed", () => delete typeWindows[id])
+          typeWindows[id] = win
+        }
       })
 
       return manager
