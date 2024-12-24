@@ -1,11 +1,12 @@
 import { 
-  type Plugin 
+  type Plugin,
+  type ElectronWindowOptions
 } from '@commoners/solidarity';
-
 
 type Window = {
   src: string,
-  window?: Electron.BrowserWindowConstructorOptions
+  window?: ElectronWindowOptions,
+  onWindowCreation?: (this: typeof Electron, win: Electron.BrowserWindow) => void
 }
 
 type Windows = Record<string, Window>
@@ -128,7 +129,9 @@ class BrowserWindow extends EventTarget {
 
   open = () => {
 
-    const { src, window: windowFeatures } = this.config
+    const { src } = this.config
+    let windowFeatures = this.config.window || {}
+  if (typeof windowFeatures === "function") windowFeatures = windowFeatures()
 
     const windowConfig = Object.assign({
       status: true,
@@ -300,12 +303,13 @@ export default (windows: Windows): Plugin => {
         
         this.on("open", async (_, type, requestId) => {
 
-          const { window } = windows[type]
+          const { window, onWindowCreation } = windows[type]
           
 
           const win = await createWindow(
             assets[type], 
-            window
+            window,
+            onWindowCreation
           );
 
           this.setAttribute(win, "type", type) // Assign type attribute to window

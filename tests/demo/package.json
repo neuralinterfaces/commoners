@@ -3,6 +3,7 @@
   "version": "0.0.59",
   "private": true,
   "description": "A test app for the commoners library",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/neuralinterfaces/commoners.git"

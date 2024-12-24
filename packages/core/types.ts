@@ -363,3 +363,18 @@ export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
 declare global {
     const commoners: CommonersGlobalObject
   }
+
+// ------------------- Electron -------------------
+type ElectronWindowCreationCallback = (this: typeof Electron, win: BrowserWindow) => any
+type BaseElectronWindowOptions = Electron.BrowserWindowConstructorOptions & { onInitialized?: ElectronWindowCreationCallback }
+export type ElectronWindowOptions = BaseElectronWindowOptions | (( this: typeof Electron | void ) => BaseElectronWindowOptions)
+
+type ElectronBrowserWindowFlags = {
+    __show: boolean;
+    __listeners: any[];
+    __loaded: {};
+    __id: number;
+    __main: boolean
+}
+
+export type ExtendedElectronBrowserWindow = BrowserWindow & ElectronBrowserWindowFlags

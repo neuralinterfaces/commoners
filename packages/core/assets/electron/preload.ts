@@ -72,10 +72,12 @@ if (process.contextIsolated) {
   globalThis[globalVariableName] = TEMP_COMMONERS
 }
 
-// Proxy console methods from the main process
-["log", "warn", "error"].forEach((method) => ipcRenderer.on(`commoners:console.${method}`, (_, ...args) => {
-  console.groupCollapsed('Commoners Electron Process')
-  console[method](...args)
-  console.groupEnd()
-}));
 
+// Proxy console methods from the main process
+if (args.__main) {
+  ["log", "warn", "error"].forEach((method) => ipcRenderer.on(`commoners:console.${method}`, (_, ...args) => {
+    console.groupCollapsed('Commoners Electron Process')
+    console[method](...args)
+    console.groupEnd()
+  }));
+}

@@ -4,6 +4,7 @@ import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
 import { existsSync } from 'node:fs';
+import { ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
 
 function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
   const decodePath = (path) => decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
@@ -23,8 +24,6 @@ async function checkLinkType(url) {
 // Custom Window Flags
 // __main: Is Main Window
 // __show: Used to block show behavior
-
-type WindowOptions = Electron.BrowserWindowConstructorOptions
 
 const assetsPath = join(__dirname, 'assets')
 
@@ -137,7 +136,7 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
     utils,
 
     // Helper Functions
-    createWindow: (page: string, opts: WindowOptions) => createWindow(page, opts),
+    createWindow: (page: string, opts: ElectronWindowOptions) => createWindow(page, opts),
     open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
     send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
     on: function (channel, callback, win?: BrowserWindow ) { 
@@ -256,9 +255,17 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       }
   }
 
-  async function createWindow (page, options: WindowOptions = {}, toIgnore?: string[], isMainWindow: boolean = false) {
+  async function createWindow (
+    page, 
+    options: ElectronWindowOptions = {}, 
+    toIgnore?: string[], 
+    isMainWindow: boolean = false,
+  ) {
 
-    const copy = structuredClone({...defaultWindowConfig, ...options})
+    if (typeof options === 'function') options = options.call(electron) // Resolve to base options
+    const { onInitialized, ...coreOptions } = options
+
+    const copy = structuredClone({...defaultWindowConfig, ...coreOptions})
     
     // Ensure web preferences exist
     if (!copy.webPreferences) copy.webPreferences = {}
@@ -279,10 +286,11 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     const flags = {
       ...transferredFlags,
       __show: true,
-      __listeners
+      __listeners,
+      __loaded: {}
     }
 
-    const win = new BrowserWindow({ ...copy, show: false }) // Always initially hide the window
+    const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow // Always initially hide the window
     Object.assign(win, flags)
 
 
@@ -363,11 +371,14 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       acc[id] = new Promise(resolve => ipcMain.once(`commoners:loaded:${__id}:${id}`, () => resolve(runWindowPlugin(win, id, 'load'))))
       return acc
     }, {}) // Asyncronously load plugins. Allow for accessing the load status of each plugin
-    
+
     // ------------------------ Window Page Load Behavior ------------------------
     loadPage(win, page)
 
-    // Show after plugin loading
+    // ------------------------ Window Creation Callback ------------------------
+    if (onInitialized) onInitialized.call(electron, win) 
+
+    // ------------------------ Show Window after Global Variables are Set ------------------------
     await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
     win.show()
 

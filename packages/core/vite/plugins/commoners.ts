@@ -2,13 +2,12 @@
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 
 import { getIcon } from '../../utils/index.js'
-import { isDesktop, isMobile } from '../../globals.js'
+import { isDesktop, isMobile, vite } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from "../../assets/services/index.js"
-import { mergeConfig } from 'vite'
 
 const virtualModuleId = 'commoners:env'
 
@@ -44,12 +43,13 @@ type CommonersPluginOptions = {
     env: Record<string, string>
 }
 
-export default ({ 
+export default async ({ 
     config, 
     build, 
     dev,
     env
 }: CommonersPluginOptions) => {
+    const { mergeConfig } = await vite
 
     const { outDir, target } = config
 

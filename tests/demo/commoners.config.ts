@@ -75,12 +75,9 @@ const config = defineConfig({
 
     plugins: {
         longLoadTime: {
-            load: () => {
-
-                const promise = new Promise(resolve => setTimeout(resolve, 5000))
-                console.log('Long load time plugin')
-                promise.then(() => console.log('Long load time plugin resolved'))
-                return promise
+            load: () => new Promise(resolve => setTimeout(resolve, 5000)),
+            desktop: {
+                load: () => console.log('Loaded on desktop')
             }
         },
         checks: checksPlugin,
@@ -89,10 +86,23 @@ const config = defineConfig({
         windows: windowsPlugin({
             popup: {
                 src: join(root, "pages", "windows", 'popup.html'),
-                window: {
-                    height: 200,
-                    width: 500
-                }
+                window: function () {
+
+                    const baseOptions = { height: 200, width: 500 }
+                    if (!this) return baseOptions // Web environment
+
+                    // Desktop environment
+                    const displays = this.screen.getAllDisplays()
+                    const externalDisplay = displays.find((display) => display.bounds.x !== 0 || display.bounds.y !== 0)
+                    const chosenDisplay = externalDisplay || displays[0]
+
+                    return {
+                        ...baseOptions,
+                        x: chosenDisplay.bounds.x,
+                        y: chosenDisplay.bounds.y,
+                        fullscreen: true
+                    }
+                },
             }
         }),
         bluetooth: bluetoothPlugin, 
