@@ -226,7 +226,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 }
 
   // ------------------- Configure the main window properties -------------------  
-  const preload = join(__dirname, 'preload.js')
+  const preload = join(__dirname, 'preload.cjs')
 
   // Replace with getIcon (?)
   const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))

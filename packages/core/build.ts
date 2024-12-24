@@ -74,8 +74,6 @@ export const buildServices = async (
             target
         }
     )
-
-    return []
 }
 
 export async function buildApp (

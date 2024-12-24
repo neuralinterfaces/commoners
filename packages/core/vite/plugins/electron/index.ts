@@ -39,7 +39,7 @@ async function resolveViteConfig(options: ElectronOptions): Promise<InlineConfig
         lib: {
             entry: options.entry,
             formats: [ 'cjs' ],
-            fileName: () => '[name].js',
+            fileName: () => '[name].cjs',
         },
         emptyOutDir: false 
       },

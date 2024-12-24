@@ -2,7 +2,7 @@
 import { join } from "node:path";
 
 // Internal Imports
-import { build, configureForDesktop, createServices, resolveConfig } from './index.js'
+import { build, buildServices, configureForDesktop, createServices, resolveConfig } from './index.js'
 import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
 import { ResolvedConfig, ResolvedService, UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
@@ -35,8 +35,7 @@ export const services = async (
     const { root, target } = resolvedConfig
 
     // Build service outputs
-    await build(resolvedConfig, { services: resolvedServices, dev: true })
-
+    await buildServices(resolvedConfig, { services: resolvedServices, dev: true })
     if (!resolvedServices) resolvedServices = resolveServices(resolvedConfig)
 
     // Create services

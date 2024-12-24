@@ -29,8 +29,8 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   
   // ---------------------- Electron ----------------------
   const isElectron = target === 'electron'
-  expect(existsSync(join(baseDir, 'main.js'))).toBe(isElectron)
-  expect(existsSync(join(baseDir, 'preload.js'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, 'main.cjs'))).toBe(isElectron)
+  expect(existsSync(join(baseDir, 'preload.cjs'))).toBe(isElectron)
 
   // ---------------------- PWA ----------------------
   const isPWA = target === 'pwa'

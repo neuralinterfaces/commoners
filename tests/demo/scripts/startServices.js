@@ -1,6 +1,8 @@
+const { join } = require('node:path')
+
 const { loadConfigFromFile, startServices } = require('@commoners/solidarity')
 
-loadConfigFromFile(__dirname).then(async config => {
+loadConfigFromFile(join(__dirname, '..')).then(async config => {
     
     const { services, close } = await startServices(config)
     

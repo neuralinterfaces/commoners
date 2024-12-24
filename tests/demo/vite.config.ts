@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 
 export default {
     build: {
@@ -5,11 +6,11 @@ export default {
 
             // Equivalent to the Commoners pages configuration
             input: { 
-                main: './index.html',
-                services: "./pages/services/index.html",
-                windows: "./pages/windows/index.html",
-                serial: "./pages/serial/index.html",
-                bluetooth: "./pages/bluetooth/index.html" 
+                main: join(__dirname, './index.html'),
+                services: join(__dirname, "./pages/services/index.html"),
+                windows: join(__dirname, "./pages/windows/index.html"),
+                serial: join(__dirname, "./pages/serial/index.html"),
+                bluetooth: join(__dirname, "./pages/bluetooth/index.html") 
             } 
         }
     }

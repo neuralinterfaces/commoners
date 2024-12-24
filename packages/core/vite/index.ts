@@ -155,15 +155,16 @@ export const resolveViteConfig = async (
     if (Object.keys(pages).length) {
 
         const rootHTML = getAbsolutePath(root, 'index.html')
-        const hasIndexPage = Object.values(pages).find(page => getAbsolutePath(root, page) === rootHTML)
+        const allPages = Object.values(pages).map(filepath => getAbsolutePath(root, filepath))
 
-        rollupOptions.input = Object.values(pages).reduce((acc, filepath) => {
-            acc[crypto.randomUUID()] = getAbsolutePath(root, filepath)
-            return acc
-        }, {}) 
-
-        // Must specify the root index page
-        if (!hasIndexPage) rollupOptions.input[crypto.randomUUID()] = rootHTML
+        if (allPages.length) {
+            if (!allPages.includes(rootHTML)) allPages.push(rootHTML)
+            const allUniquePages = Array.from(new Set(allPages))
+            rollupOptions.input = allUniquePages.reduce(( acc, filepath ) => {
+                acc[crypto.randomUUID()] = filepath
+                return acc
+            }, {}) 
+        }
     }
 
     // Define a default set of plugins and configuration options

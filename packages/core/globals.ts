@@ -73,7 +73,7 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     }
 }
 
-export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.js')
+export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.cjs')
 
 const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 
