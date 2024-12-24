@@ -74,6 +74,15 @@ const config = defineConfig({
 
 
     plugins: {
+        longLoadTime: {
+            load: () => {
+
+                const promise = new Promise(resolve => setTimeout(resolve, 5000))
+                console.log('Long load time plugin')
+                promise.then(() => console.log('Long load time plugin resolved'))
+                return promise
+            }
+        },
         checks: checksPlugin,
         splash: splashPagePlugin(splashSrc),
         protocol: customProtocolPlugin('commoners', { supportFetchAPI: true }), // NOTE: Test this in detail with a build

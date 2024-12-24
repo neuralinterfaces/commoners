@@ -166,17 +166,12 @@ export default ({
                 if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, ...args } // Ensure desktop is configured properly at the start
 
                 GLOBAL.READY = new Promise(res => {
-                
-                    const resolve = (...args) => {
-                        res(...args) // Resolve the promise
+                    GLOBAL.__READY = (value) => {
+                        res(value) // Resolve the promise
                         delete GLOBAL.__READY
-                        if (send) {
-                            send("commoners:ready:" + __id) // Notify the main process that everything is ready
-                        }
+                        if (send) send("commoners:ready:" + __id) // Notify the main process that the electron process is ready
                     }
-                    
-                    GLOBAL.__READY = resolve
-                })    
+                })  
 
                 // Directly import the plugins from the transpiled configuration object
                 import("${updatedConfigURL}").then(o => {

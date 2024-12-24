@@ -325,18 +325,7 @@ export default (windows: Windows): Plugin => {
 
           this.on(`${id}:close`, () => win.close(), win); // Trigger window closure
           win.on("closed", () => this.send(`${id}:closed`)); // Listen for window closure
-
-          // NOTE: This does not resolve when build...for some reason
-          // // Wait until the frontend plugins are ready
-          // win.__ready.then(() => {
-          //   this.send(`link:${id}`), // Request link to ID
-          //   console.log('Commoners ready on window', id, type)
-          // })
-
-          // Request to link until successful
-          const requestToLink = () => this.send(`link:${id}`) // Request link to ID
-          requestToLink()
-          linkInterval = setInterval(requestToLink, 100)
+          this.send(`link:${id}`) // Request link to ID. Window plugin already ready
         });
 
       },

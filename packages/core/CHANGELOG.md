@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Allow launching built services from the command line using `commoners launch`.
 
 ## Fixes
+- Only trigger Electron plugins when the frontend is loaded. 
 - Fix multi-page workflow when using a `vite.config.js` file.
 - Fix test workflow and launch commands for Windows and partial Linux support.
 

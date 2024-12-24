@@ -190,11 +190,10 @@ const runAppPlugins = async (args: any[] = [], type = 'start') => {
 }
 
 
-const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
-  return await Promise.all(Object.entries(plugins).map(async ([id, plugin]: [string, any]) => {
+const runWindowPlugin = async (win, id, type) => {
 
-    if (toIgnore.includes(id)) return
-    const desktopState = plugin.desktop ?? {}
+  const plugin = plugins[id]
+  const desktopState = plugin.desktop ?? {}
 
     const types = {
       load: type === "load",
@@ -205,23 +204,18 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     const thisPlugin = desktopState[type]
     if (!thisPlugin) return
 
-    const context = contexts[id]
+    const context = { ...contexts[id] }
     
-    const { on, createWindow } = context
-
-    if (types.load) {
-      context.createWindow = (page, opts) => createWindow(page, opts, [ id ]) // Do not recursively call window creation in load function
-    }
+    const { createWindow } = context
+    if (types.load) context.createWindow = (page, opts) => createWindow(page, opts, [ id ]) // Do not recursively call window creation in load function
     
-    const result = await thisPlugin.call(context, win)
+    return await thisPlugin.call(context, win)
+}
 
-    if (types.load) {
-      context.on = on
-      context.createWindow = createWindow
-    }
-
-    return result
-
+const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
+  return await Promise.all(Object.entries(plugins).map(async ([id, plugin]: [string, any]) => {
+    if (toIgnore.includes(id)) return
+    return runWindowPlugin(win, id, type)
   }))
 }
 
@@ -365,15 +359,17 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     })
 
     // ------------------------ Window Load Behavior ------------------------
-    await runWindowPlugins(win, 'load', toIgnore) 
-
+    win.__loaded = Object.keys(plugins).reduce((acc, id) => {
+      acc[id] = new Promise(resolve => ipcMain.once(`commoners:loaded:${__id}:${id}`, () => resolve(runWindowPlugin(win, id, 'load'))))
+      return acc
+    }, {}) // Asyncronously load plugins. Allow for accessing the load status of each plugin
+    
     // ------------------------ Window Page Load Behavior ------------------------
     loadPage(win, page)
-    await new Promise(resolve => win.once('ready-to-show', resolve)) // Show after plugin loading
 
-    win.show() // Allow annotating to skip show
-
-    win.__ready = new Promise(resolve => win.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
+    // Show after plugin loading
+    await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
+    win.show()
 
     return win
   }

@@ -107,7 +107,8 @@ export type ResolvedService = {
 }
 
 // ------------------- Plugins -------------------
-type LoadedPlugin = { [x:string]: any } | Function | any
+type BaseLoadedPlugin = { [x:string]: any } | Function | any
+type LoadedPlugin = BaseLoadedPlugin | Promise<BaseLoadedPlugin>
 
 type SupportQuery = (() => boolean | Promise<boolean>)
 type SupportCheck = boolean | SupportQuery
@@ -164,9 +165,9 @@ type PluginLoadCallback = (this: IpcRenderer) => LoadedPlugin // General load be
 // Runs with special behaviors on desktop
 type HybridPlugin = {
     isSupported?: {
-        web?: true | SupportQuery, // Assumed to be false
+        web?: boolean | SupportQuery, // Assumed to be false
         desktop?: SupportQuery, // Cannot be false. Assumed to be true
-        mobile?: true | SupportQuery | MobileCapacitorCheck // Assumed to be false.
+        mobile?: boolean | SupportQuery | MobileCapacitorCheck // Assumed to be false.
     }
     load?: PluginLoadCallback,
     desktop: DesktopPluginOptions // Prioritizes desktop support
@@ -174,13 +175,13 @@ type HybridPlugin = {
 
 // Runs only on remote targets (web, mobile)
 type RemotePlugin = {
-    isSupported: { web?: SupportCheck, desktop: false, mobile?: SupportCheck | MobileCapacitorCheck },
+    isSupported: { web?: SupportCheck, desktop: boolean, mobile?: SupportCheck | MobileCapacitorCheck },
     load: (this: IpcRenderer) => LoadedPlugin
 }
 
 // Runs on all targets
 type BasicPlugin = { 
-    isSupported: { web?: FalseOrQuery, desktop?: FalseOrQuery, mobile?: FalseOrQuery | MobileCapacitorCheck },
+    isSupported?: { web?: FalseOrQuery, desktop?: FalseOrQuery, mobile?: FalseOrQuery | MobileCapacitorCheck },
     load: (this: IpcRenderer) => LoadedPlugin 
 }
 
@@ -322,6 +323,7 @@ type ExposedDesktopServices = {
         status: ServiceStatus
     }
 }
+
 
 type ExposedPlugins = {
     [x:string]: LoadedPlugin
