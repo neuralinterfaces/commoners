@@ -44,8 +44,9 @@ if ( __PLUGINS ) {
 
                 loaded[id] = load.call(ctx, ENV)
                 await loaded[id]
-                if (DESKTOP) TEMP_COMMONERS.send(["commoners:loaded", DESKTOP.__id, id].join(":")) // Notify the main process that the plugin is loaded
             }
+
+            if (DESKTOP) TEMP_COMMONERS.send(["commoners:loaded", DESKTOP.__id, id].join(":")) // Notify the main process that the plugin is loaded
 
         } catch (e) {
             pluginErrorMessage(id, "load", e)

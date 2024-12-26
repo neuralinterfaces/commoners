@@ -4,7 +4,7 @@ import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
 import { existsSync } from 'node:fs';
-import { ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
+import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
 
 function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
   const decodePath = (path) => decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
@@ -182,7 +182,7 @@ const runAppPlugins = async (args: any[] = [], type = 'start') => {
     const thisPlugin = desktopState[type]
     if (!thisPlugin) return
     
-    return thisPlugin.call(contexts[id], ...args)
+    return thisPlugin.call(contexts[id], ...args, id)
 
   }))
 
@@ -201,6 +201,7 @@ const runWindowPlugin = async (win, id, type) => {
 
     // Coordinate the state transitions for the plugins
     const thisPlugin = desktopState[type]
+
     if (!thisPlugin) return
 
     const context = { ...contexts[id] }
@@ -208,7 +209,7 @@ const runWindowPlugin = async (win, id, type) => {
     const { createWindow } = context
     if (types.load) context.createWindow = (page, opts) => createWindow(page, opts, [ id ]) // Do not recursively call window creation in load function
     
-    return await thisPlugin.call(context, win)
+    return await thisPlugin.call(context, win, id)
 }
 
 const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
@@ -286,9 +287,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     const flags = {
       ...transferredFlags,
       __show: true,
-      __listeners,
-      __loaded: {}
-    }
+      __listeners
+    } as ElectronBrowserWindowFlags
 
     const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow // Always initially hide the window
     Object.assign(win, flags)
@@ -367,10 +367,16 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     })
 
     // ------------------------ Window Load Behavior ------------------------
-    win.__loaded = Object.keys(plugins).reduce((acc, id) => {
-      acc[id] = new Promise(resolve => ipcMain.once(`commoners:loaded:${__id}:${id}`, () => resolve(runWindowPlugin(win, id, 'load'))))
+    win.__ready = new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, () => resolve())) // Wait for the window to be ready to show
+
+    // Asyncronously load plugins. Allow for accessing the load status of each plugin
+    win.__loading = Object.keys(plugins).reduce((acc, id) => {
+      acc[id] = new Promise(resolve => ipcMain.once(`commoners:loaded:${__id}:${id}`, async () => resolve(await runWindowPlugin(win, id, 'load'))))
       return acc
     }, {}) // Asyncronously load plugins. Allow for accessing the load status of each plugin
+
+    // Allow querying load state with exclusions
+    win.__loaded = Promise.all(Object.values(win.__loading)).then(() => {})
 
     // ------------------------ Window Page Load Behavior ------------------------
     loadPage(win, page)

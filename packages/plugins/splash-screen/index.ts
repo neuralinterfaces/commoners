@@ -7,8 +7,10 @@ const DEFAULT_OPTIONS = {
 }
 
 type SplashScreenOption = {
-    duration?: number,
-    window?: Electron.BrowserWindowConstructorOptions
+    minimumDisplayTime?: number,
+    window?: Electron.BrowserWindowConstructorOptions,
+    waitUntil?: string[]
+    
 }
 
 
@@ -18,13 +20,14 @@ export default (page: string, options: SplashScreenOption = {}) => {
         page: { src: page },
       },
       desktop: {
-        load: async function (loadingWindow) {
-
+        load: async function (loadingWindow, pluginId) {
+          
             if (!loadingWindow.__main || !loadingWindow.__show) return // Only run when the main window has been spawned and will show soon
 
             const { 
-                duration = 1000, // This defines a minimum wait time
-                window = {} 
+                minimumDisplayTime, // This defines a minimum wait time
+                window = {} ,
+                waitUntil
             } =  options
 
             const firstLoad = !this.LOADED
@@ -35,19 +38,22 @@ export default (page: string, options: SplashScreenOption = {}) => {
 
             const { assets } = this.plugin;
 
+            // Create the splash window
             const win = await this.createWindow(assets.page,  Object.assign(DEFAULT_OPTIONS, window))
 
             const start = performance.now()
-            loadingWindow.once('ready-to-show', () => {
-                const now = performance.now()
-                const elapsed = now - start
-                const durationLeft = duration ? duration - elapsed : 0  // Wait for rest of time if duration is specified
-                setTimeout(() => {
-                    win.close()
-                    loadingWindow.__show = true // Respect locks applied from other plugins
-                    loadingWindow.show()
-                }, durationLeft);
-            })
+
+            const promiseToAwait = waitUntil ? Promise.all(Object.keys(win.__loading).map(id => waitUntil.includes(id) && id !== pluginId &&  win.__loading[id])).then(() => {}) : loadingWindow.__ready
+            await promiseToAwait
+              
+            const show = () => {
+                win.close()
+                loadingWindow.__show = true // Respect locks applied from other plugins
+                loadingWindow.show()
+            }
+
+            if (minimumDisplayTime) setTimeout(show, minimumDisplayTime - (performance.now() - start)); // Show for duration left
+            else show()
 
         },
       },

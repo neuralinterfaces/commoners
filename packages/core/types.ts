@@ -150,14 +150,14 @@ type DesktopPluginContext = {
 type DesktopPluginOptions = {
 
     // App Controls
-    start?: (this: DesktopPluginContext) => void,
-    ready?: (this: DesktopPluginContext) => void,
-    quit?: (this: DesktopPluginContext) => void,
+    start?: (this: DesktopPluginContext, id: string) => void,
+    ready?: (this: DesktopPluginContext, services: ResolvedServices, id: string) => void,
+    quit?: (this: DesktopPluginContext, id: string) => void,
 
     
     // Window Controls
-    load?: (this: DesktopPluginContext, win: BrowserWindow) => void,
-    unload?: (this: DesktopPluginContext, win: BrowserWindow) => void,
+    load?: (this: DesktopPluginContext, win: BrowserWindow, id: string) => void,
+    unload?: (this: DesktopPluginContext, win: BrowserWindow, id: string) => void,
 }
 
 type PluginLoadCallback = (this: IpcRenderer) => LoadedPlugin // General load behavior
@@ -291,11 +291,12 @@ export type ServiceBuildOptions = {
     services?: ServiceSelection
 }
 
+type ResolvedServices = { [x: string]: ResolvedService } 
 export type ResolvedConfig = BaseConfig & {
 
     build?: BuildOptions
 
-    services: { [x: string]: ResolvedService }
+    services: ResolvedServices
 
     // package.json properties used in the library
     type?: 'module' | 'commonjs',
@@ -352,7 +353,7 @@ export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
     WEB: boolean,
     SERVICES: ExposedServices,
 }) | (BaseCommonersGlobalObject & {
-    DESKTOP:  {
+    DESKTOP:  ElectronTransferableBrowserWindowFlags & {
         quit: () => void,
     },
     MOBILE: false,
@@ -369,12 +370,17 @@ type ElectronWindowCreationCallback = (this: typeof Electron, win: BrowserWindow
 type BaseElectronWindowOptions = Electron.BrowserWindowConstructorOptions & { onInitialized?: ElectronWindowCreationCallback }
 export type ElectronWindowOptions = BaseElectronWindowOptions | (( this: typeof Electron | void ) => BaseElectronWindowOptions)
 
-type ElectronBrowserWindowFlags = {
-    __show: boolean;
-    __listeners: any[];
-    __loaded: {};
+type ElectronTransferableBrowserWindowFlags =  {
     __id: number;
     __main: boolean
 }
+
+export type ElectronBrowserWindowFlags = {
+    __show: boolean;
+    __listeners: any[];
+    __loading: Record<string, any>;
+    __loaded: Promise<void>;
+    __ready: Promise<void>;
+} & ElectronTransferableBrowserWindowFlags
 
 export type ExtendedElectronBrowserWindow = BrowserWindow & ElectronBrowserWindowFlags

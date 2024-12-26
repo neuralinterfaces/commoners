@@ -75,13 +75,18 @@ const config = defineConfig({
 
     plugins: {
         longLoadTime: {
-            load: () => new Promise(resolve => setTimeout(resolve, 5000)),
+            load: () => new Promise(resolve => setTimeout(resolve, 2000)),
             desktop: {
                 load: () => console.log('Loaded on desktop')
             }
         },
         checks: checksPlugin,
-        splash: splashPagePlugin(splashSrc),
+
+        splash: splashPagePlugin(splashSrc, { 
+            minimumDisplayTime: 1000,
+            waitUntil: [ 'longLoadTime' ] 
+        }), 
+
         protocol: customProtocolPlugin('commoners', { supportFetchAPI: true }), // NOTE: Test this in detail with a build
         windows: windowsPlugin({
             popup: {

@@ -140,7 +140,7 @@ export const open = async (
     const testingPlugin = Object.values(config.plugins).find(p => p.options && "remoteDebuggingPort" in p.options)
     if (!testingPlugin) throw Error("Must use the @commoners/testing/plugin to enable remote debugging of the Electron application")
 
-    await sleep(5 * 1000) // Wait for five seconds for Electron to open
+    await sleep(5 * 1000) // Wait for five seconds for Electron to open (and close splash screen)
     const browser = states.browser = await chromium.connectOverCDP(`http://localhost:${testingPlugin.options.remoteDebuggingPort}`);
     const defaultContext = browser.contexts()[0];
     states.page = defaultContext.pages()[0];
