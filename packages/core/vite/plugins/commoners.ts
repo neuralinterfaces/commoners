@@ -51,7 +51,7 @@ export default async ({
 }: CommonersPluginOptions) => {
     const { mergeConfig } = await vite
 
-    const { outDir, target } = config
+    const { outDir, target, pages } = config
 
     // Variables only resolved once for the main configuration
     const actualOutDir = outDir
@@ -124,6 +124,12 @@ export default async ({
                 VERSION: resolvedConfig.version,
                 ICON: iconPath,
                 SERVICES: services,
+
+                // Provide relative page paths
+                PAGES: Object.entries(pages).reduce((acc, [ id, path ]) => {
+                    acc[id] = relative(root, path).replaceAll(sep, posix.sep)
+                    return acc
+                }, {}),
         
                 // Target Shortcuts
                 DESKTOP: desktop,
@@ -172,6 +178,22 @@ export default async ({
                         if (send) send("commoners:ready:" + __id) // Notify the main process that the electron process is ready
                     }
                 })  
+
+                const { ROOT } = GLOBAL
+
+                GLOBAL.PAGES = Object.entries(GLOBAL.PAGES).reduce((acc, [ id, path ]) => {
+
+                    acc[id] = ({ search, hash } = {}) => {
+                        const components = [ ROOT, path ].filter((str) => str)
+                        const url = new URL(components.join('/'), window.location.href)
+                        if (search) url.search = search
+                        if (hash) url.hash = hash
+                        console.log(components, url.href, url)
+                        window.location.href = url.href
+                    }
+
+                    return acc
+                }, {})
 
                 // Directly import the plugins from the transpiled configuration object
                 import("${updatedConfigURL}").then(o => {

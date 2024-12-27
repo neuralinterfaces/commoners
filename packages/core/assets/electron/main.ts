@@ -323,7 +323,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         return shell.openExternal(url) // Opened externally
       }
 
-      loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..") 
+      const pageIdentifier = urlObj.pathname + urlObj.search + urlObj.hash
+      loadPage(win, pageIdentifier) // Required for successful navigation relative to the root (e.g. "../..") 
     })
 
 

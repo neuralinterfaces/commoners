@@ -153,10 +153,8 @@ export const resolveViteConfig = async (
 
     // Resolve pages
     if (Object.keys(pages).length) {
-
         const rootHTML = getAbsolutePath(root, 'index.html')
-        const allPages = Object.values(pages).map(filepath => getAbsolutePath(root, filepath))
-
+        const allPages = Object.values(pages)
         if (allPages.length) {
             if (!allPages.includes(rootHTML)) allPages.push(rootHTML)
             const allUniquePages = Array.from(new Set(allPages))

@@ -30,7 +30,7 @@ const dts: Plugin = {
           cwd: __dirname
         }, async (err, stdout, stderr) => {
           console.warn((await chalk).yellow(stdout))
-          res()
+          res(true)
         });
       });
     }

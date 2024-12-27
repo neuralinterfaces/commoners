@@ -13,6 +13,8 @@ import { printFailure, printSubtle } from './utils/formatting.js'
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
 
+const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
+
 
 // Top-Level Package Exports
 export * from './types.js'
@@ -153,6 +155,13 @@ export async function resolveConfig(
     
     // Always have a build options object
     if (!copy.build) copy.build = {}
+
+    // Resolve pages
+    if (!copy.pages) copy.pages = {}
+    copy.pages = Object.entries(copy.pages).reduce(( acc, [ id, filepath ] ) => {
+        acc[id] = getAbsolutePath(root, filepath)
+        return acc
+    }, {}) 
 
 
     if (services) {

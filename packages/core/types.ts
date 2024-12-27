@@ -341,6 +341,8 @@ type BaseCommonersGlobalObject = {
 
     ENV: Record<string, any>, // Environment Variables loaded using Vite
 
+    PAGES: Record<string, (options: { search?: string, hash?: string }) => void>,
+
     ROOT: string,
 
     __READY: Function, // Resolve Function

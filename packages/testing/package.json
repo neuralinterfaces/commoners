@@ -7,12 +7,12 @@
     "module": "./dist/main.mjs",
     "exports": {
         ".": {
-        "import": "./dist/main.mjs",
-        "require": "./dist/main.cjs"
+            "import": "./dist/main.mjs",
+            "require": "./dist/main.cjs"
         },
         "./plugin": {
-        "import": "./dist/plugin.mjs",
-        "require": "./dist/plugin.cjs"
+            "import": "./dist/plugin.mjs",
+            "require": "./dist/plugin.cjs"
         }
     },
     

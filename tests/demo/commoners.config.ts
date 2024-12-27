@@ -17,10 +17,8 @@ import * as serialPlugin from '@commoners/serial'
 import * as services from '@commoners/solidarity/services'
 import { defineConfig } from '@commoners/solidarity/config';
 
-// WITH TREE SHAKING?
+// NOTE: I have not been able to get tree-shaking to work and support the following import style
 // import { defineConfig, services } from '@commoners/solidarity';
-
-// import windowsPlugin from '../../packages/plugins/windows/index.ts'
 
 const short_name = 'Test App'
 export const name = `Commoners ${short_name}`
