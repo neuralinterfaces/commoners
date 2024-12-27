@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Allow for popup window configuration, bundling, and runtime control in plugins.
 
 ### Changed
+- Added `PAGES` global variable to simplify navigation on multi-page applications.
 - Always emit CJS files when executing in a Node.js environment.
 - Fixed Desktop and PWA builds in custom output directories
 - Separated testing utilities from `vitest` for use with any testing framework.
