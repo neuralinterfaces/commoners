@@ -83,7 +83,11 @@ export const launchApp = async ( config: LaunchConfig ) => {
 
     let target = config.target;
 
-    const { root, port, host = 'localhost' } = config
+    const { 
+        root, 
+        port,
+        host = 'localhost' 
+    } = config
 
 
     // ---------------------- Auto-Detect Target ----------------------

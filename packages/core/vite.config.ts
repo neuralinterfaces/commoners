@@ -59,7 +59,6 @@ export default defineConfig({
     }) 
   ],
   build: {
-    emptyOutDir: false,
     target: 'node16',
     lib: {
       entry: {

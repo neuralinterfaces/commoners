@@ -51,6 +51,7 @@
     "vite": "^5.3.4",
     "vite-plugin-node-polyfills": "^0.22.0",
     "vite-plugin-pwa": "^0.16.4",
+    "ws": "^8.18.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

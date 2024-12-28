@@ -5,8 +5,11 @@ export default defineConfig({
     lib: {
       entry: 'index',
       name: 'local-services',
-      formats: ['es', 'cjs'],
+      formats: [ 'es', 'cjs' ],
       fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`
     },
-  }
+    rollupOptions: {
+      external: ['os', 'dgram'], // Ensure Node.js modules are treated as external
+    },
+  },
 })

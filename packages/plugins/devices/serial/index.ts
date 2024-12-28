@@ -1,16 +1,17 @@
 import createModal from '../modal.js';
 
 export const isSupported = {
-  // mobile: () => {
-  //   return commoners.target === 'android'
-  // },
-  web: async () => 'serial' in navigator // Ensure serial feature is available
+  load: ({ WEB, MOBILE }) => {
+    if (WEB) return 'serial' in navigator // Ensure serial feature is available
+    if (MOBILE) return MOBILE === 'android'
+  },
+}
+
+export const ready = function () {
+  this.CALLBACKS = {}
 }
 
 export const desktop = {
-  ready: function () {
-      this.CALLBACKS = {}
-  },
   load: function ( win ) {
 
     const { __id } = win

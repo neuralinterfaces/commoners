@@ -225,21 +225,19 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
         const pluginAssets = { ...(plugin.assets ?? {}) }
 
         // Only bundle assets in production mode
-        if (!dev) Object.entries(pluginAssets).map(([key, fileInfo]) => {
+        if (!dev) Object.entries(pluginAssets).map(([key, assetSrc ]) => {
 
-            const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src } = fileInfoDictionary
 
             // Skip HTML files for bundling or copying
             // Handle in the main Vite build process instead
-            if (extname(src) === '.html') {
-                pluginAssets[key] = src
+            if (extname(assetSrc) === '.html') {
+                pluginAssets[key] = assetSrc
                 return 
             }
             
-            const absPath = getAbsolutePath(root, src)
+            const absPath = getAbsolutePath(root, assetSrc)
 
-            const filename = basename(src)
+            const filename = basename(assetSrc)
             const assetPath = join('plugins', id, key, filename)
             const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
 
@@ -523,7 +521,6 @@ export const bundleConfig = async (
 
     const format = extension === '.mjs' ? 'es' : extension === '.cjs' ? 'cjs' : undefined
 
-
     const plugins = []
 
     const root = dirname(input)
@@ -553,6 +550,7 @@ export const bundleConfig = async (
             outDir,
 
             rollupOptions: {
+                external: ['os', 'dgram'], // Ensure Node.js modules are treated as external
                 plugins: [
                     importMetaResolvePlugin() // Ensure import.meta.url is resolved correctly within each source file
                 ]

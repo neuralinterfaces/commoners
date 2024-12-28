@@ -193,22 +193,28 @@ export default (windows: Windows): Plugin => {
   const windowTypes = Object.keys(windows)
 
   const assets = windowTypes.reduce((acc, id) => {
-    const info = typeof windows[id] === 'string' ? { src: windows[id] } : windows[id]
-    acc[id] = info
+    acc[id] = windows[id].src || windows[id]
     return acc
   }, {})
 
   return {
     isSupported: {
-      mobile: false,
 
-      // Do not allow popups on mobile browsers
-      web: () => {
+      load: ({ MOBILE, DESKTOP }) => {
+        if (MOBILE) return false
+        if (DESKTOP) return true
+
+        // Do not allow popups on mobile browsers
         const isMobileBrowser = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0
         return !isMobileBrowser
-      }
+      },
+
+      start: ({ DESKTOP }) => DESKTOP,
+      ready: ({ DESKTOP }) => DESKTOP,
     },
+
     assets,
+
     load({ WEB }) {
 
       if (WEB) {
@@ -281,58 +287,66 @@ export default (windows: Windows): Plugin => {
       return manager
       
     },
-    desktop: {
-      ready: function () {
-        const { createWindow } = this
-        const { assets } = this.plugin;
 
-        this.WINDOWS = {}
+    start: function () {
+      this.WINDOWS = {}
+    },
 
-        this.on("windows", (ev) => {
-          ev.returnValue = Object.entries(this.WINDOWS).reduce((acc, [ id, win ]) => {
-            const type = this.getAttribute(win, "type")
-            if (type) acc[id] = type // Only provide windows spawned with this plugin
-            return acc
-          }, {})
-        })
+    ready: function () {
+      
+      const { createWindow } = this
 
-        this.on("exists", (ev, id) => ev.returnValue = !!this.WINDOWS[id])
+      const { assets } = this.plugin;
 
-        // Close specific window if requested by the plugin
-        this.on(`close`, (_, id) => this.WINDOWS[id]?.close()); 
+      this.WINDOWS = {}
+
+      this.on("windows", (ev) => {
+        ev.returnValue = Object.entries(this.WINDOWS).reduce((acc, [ id, win ]) => {
+          const type = this.getAttribute(win, "type")
+          if (type) acc[id] = type // Only provide windows spawned with this plugin
+          return acc
+        }, {})
+      })
+
+      this.on("exists", (ev, id) => ev.returnValue = !!this.WINDOWS[id])
+
+      // Close specific window if requested by the plugin
+      this.on(`close`, (_, id) => this.WINDOWS[id]?.close()); 
+      
+      this.on("open", async (_, type, requestId) => {
+
+        const { window, onWindowCreation } = windows[type]
         
-        this.on("open", async (_, type, requestId) => {
 
-          const { window, onWindowCreation } = windows[type]
-          
+        const win = await createWindow(
+          assets[type], 
+          window,
+          onWindowCreation
+        );
 
-          const win = await createWindow(
-            assets[type], 
-            window,
-            onWindowCreation
-          );
+        this.setAttribute(win, "type", type) // Assign type attribute to window
+        const id = win.__id
 
-          this.setAttribute(win, "type", type) // Assign type attribute to window
-          const id = win.__id
-
-          this.on(`${id}:message`, (_, value) => this.send(`${id}:message`, value), win); // Send from ID
-          this.on(`message:${id}`, (_, value) => this.send(`message:${id}`, value), win); // Send to ID
+        this.on(`${id}:message`, (_, value) => this.send(`${id}:message`, value), win); // Send from ID
+        this.on(`message:${id}`, (_, value) => this.send(`message:${id}`, value), win); // Send to ID
 
 
-          let linkInterval;
-          // Handle link request from ID
-          this.on(`${id}:link`, () => {
-            clearInterval(linkInterval)
-            this.send(`ready:${id}`); // Always send ready to dependent windows
-            this.send(`${requestId}:ready`, id); // Send ready to main window
-          }, win);
+        let linkInterval;
+        // Handle link request from ID
+        this.on(`${id}:link`, () => {
+          clearInterval(linkInterval)
+          this.send(`ready:${id}`); // Always send ready to dependent windows
+          this.send(`${requestId}:ready`, id); // Send ready to main window
+        }, win);
 
-          this.on(`${id}:close`, () => win.close(), win); // Trigger window closure
-          win.on("closed", () => this.send(`${id}:closed`)); // Listen for window closure
-          this.send(`link:${id}`) // Request link to ID. Window plugin already ready
-        });
+        this.on(`${id}:close`, () => win.close(), win); // Trigger window closure
+        win.on("closed", () => this.send(`${id}:closed`)); // Listen for window closure
+        this.send(`link:${id}`) // Request link to ID. Window plugin already ready
+      });
 
-      },
+    },
+
+    desktop: {
 
       load: function (win) {
 
@@ -343,6 +357,7 @@ export default (windows: Windows): Plugin => {
         // Close all windows when the main window has closed
         if (__main)  win.on("closed", () => Object.values(this.WINDOWS).forEach(_win => _win !== win && _win.close()));
       },
+      
       unload: function (win) {
         delete this.WINDOWS[win.__id]
       }

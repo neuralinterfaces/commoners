@@ -16,9 +16,7 @@ type SplashScreenOption = {
 
 export default (page: string, options: SplashScreenOption = {}) => {
     return {
-      assets: {
-        page: { src: page },
-      },
+      assets: { page },
       desktop: {
         load: async function (loadingWindow, pluginId) {
           
@@ -43,7 +41,7 @@ export default (page: string, options: SplashScreenOption = {}) => {
 
             const start = performance.now()
 
-            const promiseToAwait = waitUntil ? Promise.all(Object.keys(win.__loading).map(id => waitUntil.includes(id) && id !== pluginId &&  win.__loading[id])).then(() => {}) : loadingWindow.__ready
+            const promiseToAwait = waitUntil ? Promise.all(Object.keys(win.__loading).map(id => waitUntil.includes(id) && id !== pluginId && win.__loading[id])).then(() => {}) : loadingWindow.__ready
             await promiseToAwait
               
             const show = () => {

@@ -85,6 +85,7 @@ export async function loadConfigFromFile(
     let config = {} as UserConfig // No user-defined configuration found
 
     if (configPath) {
+
         const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
         const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
 
@@ -222,9 +223,4 @@ export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
 
 }
 
-export const createServices = async (services: ResolvedConfig['services'], opts: ServiceCreationOptions = {}) => await createAll(services, opts) as {
-    services: {
-        [name:string]: ResolvedService
-    }
-    close: (id?:string) => void
-}
+export const createServices = (services: ResolvedConfig['services'], opts: ServiceCreationOptions = {}) => createAll(services, opts)

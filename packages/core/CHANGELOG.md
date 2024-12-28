@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 - Allow for popup window configuration, bundling, and runtime control in plugins.
 
 ### Changed
+- Handle `isSupported` queries per feature on the plugin. 
+- Provide a `start`, `ready`, and `quit` callback on plugins across all targets (note: dev only for web and mobile).
 - Added `PAGES` global variable to simplify navigation on multi-page applications.
 - Always emit CJS files when executing in a Node.js environment.
 - Fixed Desktop and PWA builds in custom output directories

@@ -5,6 +5,7 @@ import * as utils from '@electron-toolkit/utils'
 import * as services from '../services/index'
 import { existsSync } from 'node:fs';
 import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
+import { runAppPlugins } from '../plugins';
 
 function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
   const decodePath = (path) => decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
@@ -121,10 +122,15 @@ makeSingleInstance();
 const _config = require(configPath) // Requires putting the dist at the Resource Path
 const config = _config.default || _config
 
-const plugins = config.plugins ?? {}
+
+// Copy the plugins in case they aren't extensible
+const PLUGINS = Object.entries(config.plugins ?? {}).reduce((acc, [ key, value ]) => {
+  acc[key] = { ...value }
+  return acc
+}, {})
 
 // Precreate contexts to track custom properties 
-const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
+const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
 
   const { assets = {} } = plugin
 
@@ -150,11 +156,10 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
 
     // Provide specific variables from the plugin
     plugin: {
-      assets: Object.entries(assets).reduce((acc, [ key, value ]) => {
-        const filepath = typeof value === 'string' ? value : value.src
-        const filename = basename(filepath)
+      assets: Object.entries(assets).reduce((acc, [ key, src ]) => {
+        const filename = basename(src)
         const isHTML = extname(filename) === '.html'
-        if ( isDevServer || isHTML ) acc[key] = filepath
+        if ( isDevServer || isHTML ) acc[key] = src
         else acc[key] = join(assetsPath, 'plugins', id, key, filename)
         return acc
       }, {})
@@ -163,35 +168,18 @@ const contexts = Object.entries(plugins).reduce((acc, [ id, plugin ]) => {
   return acc
 }, {})
 
-const runAppPlugins = async (args: any[] = [], type = 'start') => {
-  return await Promise.all(Object.entries(plugins).map(([id, plugin]: [string, any]) => {
-    const desktopState = plugin.desktop ?? {}
 
-    const types = {
-      start: type === "start",
-      ready: type === "ready",
-      quit: type === "quit"
-    }
-
-    // Coordinate the state transitions for the plugins
-    const { __state } = desktopState
-    if (types.start && __state) return
-    if (types.ready && __state !== "start") return
-    desktopState.__state = type
-
-    const thisPlugin = desktopState[type]
-    if (!thisPlugin) return
-    
-    return thisPlugin.call(contexts[id], ...args, id)
-
-  }))
-
-}
+const boundRunAppPlugins = runAppPlugins.bind({
+  env: { WEB: false, DESKTOP: "electron",  MOBILE: false },
+  plugins: PLUGINS,
+  contexts
+})
 
 
 const runWindowPlugin = async (win, id, type) => {
 
-  const plugin = plugins[id]
+  const plugin = PLUGINS[id]
+
   const desktopState = plugin.desktop ?? {}
 
     const types = {
@@ -213,7 +201,7 @@ const runWindowPlugin = async (win, id, type) => {
 }
 
 const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
-  return await Promise.all(Object.entries(plugins).map(async ([id, plugin]: [string, any]) => {
+  return await Promise.all(Object.keys(PLUGINS).map(async (id) => {
     if (toIgnore.includes(id)) return
     return runWindowPlugin(win, id, type)
   }))
@@ -371,7 +359,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     win.__ready = new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, () => resolve())) // Wait for the window to be ready to show
 
     // Asyncronously load plugins. Allow for accessing the load status of each plugin
-    win.__loading = Object.keys(plugins).reduce((acc, id) => {
+    win.__loading = Object.keys(PLUGINS).reduce((acc, id) => {
       acc[id] = new Promise(resolve => ipcMain.once(`commoners:loaded:${__id}:${id}`, async () => resolve(await runWindowPlugin(win, id, 'load'))))
       return acc
     }, {}) // Asyncronously load plugins. Allow for accessing the load status of each plugin
@@ -422,12 +410,12 @@ async function createMainWindow() {
 }
 
 // ------------------------ App Start Behavior ------------------------
-runAppPlugins().then(() => {
+boundRunAppPlugins().then(() => {
 
   app.whenReady().then(async () => {
 
     // ------------------------ Service Creation ------------------------
-    const { services: active, close: closeService } = await services.createAll(config.services, {
+    const output = await services.createAll(config.services, {
       target: 'desktop', 
       build: isProduction,
       root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir
@@ -435,17 +423,19 @@ runAppPlugins().then(() => {
       onLog: (id, msg) => serviceSend(id, 'log', msg.toString())
     })
 
+    const { active = {}, resolved = {}, close: closeService } = output
+
+    ipcMain.on('commoners:services', (event) => event.returnValue = services.sanitize(resolved)) // Expose to renderer process (and ensure URLs are correct)
+
     // ------------------------Track Service Status in Windows ------------------------
-    if (active) {
-      for (let id in active) {
-        serviceOn(id, 'status', (event) => event.returnValue = active[id].status)
-        serviceOn(id, 'close', () => closeService(id))
-      }
-      ipcMain.on('commoners:services', (event) => event.returnValue = services.sanitize(active)) // Expose to renderer process (and ensure URLs are correct)
+    for (let id in resolved) {
+      const isRemote = !(id in active)
+      serviceOn(id, 'status', (event) => event.returnValue =isRemote ? 'remote' : active[id].status)
+      serviceOn(id, 'close', () => isRemote || closeService(id))
     }
 
     // ------------------------ App Ready Behavior ------------------------
-    await runAppPlugins([ active ], 'ready') // Non-Window Load Behavior
+    await boundRunAppPlugins([ active ], 'ready') // Non-Window Load Behavior
 
     // --------------------- Main Window Creation ---------------------
     createMainWindow()
@@ -468,7 +458,7 @@ app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit()) /
 app.on('before-quit', async (ev) => {
   ev.preventDefault()
   try { 
-    await runAppPlugins([], 'quit')
+    await boundRunAppPlugins([], 'quit')
     services.close()
    } catch (err) { console.error(err); } finally { app.exit() } // Exit gracefully
 });

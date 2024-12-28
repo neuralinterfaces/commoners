@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
-import { normalizeTarget } from '@commoners/solidarity'
+import { getNormalizedTarget } from '@commoners/solidarity'
 
 import { build, open } from '@commoners/testing'
 import { checkAssets } from './assets'
@@ -77,7 +77,7 @@ const e2eTests = {
     },
     basic: (output, { target }, isDev = true) => {
 
-        const normalizedTarget = normalizeTarget(target)
+        const normalizedTarget = getNormalizedTarget(target)
         
         describe('Basic E2E Test', () => {
     
@@ -157,12 +157,14 @@ const e2eTests = {
                 // Desktop controls
                 expect(DESKTOP).instanceOf(Object)
                 expect("quit" in DESKTOP).toBe(true)
+                expect("__id" in DESKTOP).toBe(true)
+                expect("__main" in DESKTOP).toBe(true)
 
 
                 // Desktop service controls
                 Object.values(SERVICES).forEach(service => {
-                    expect("onClosed" in service).toBe(true)  // Function
                     expect("close" in service).toBe(true)  // Function
+                    expect("onClosed" in service).toBe(true)  // Function
                     expect("status" in service).toBe(true)  // Function
                 })
               } 

@@ -3,7 +3,7 @@ import { getFreePorts } from './network.js';
 
 import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { ResolvedService } from "../../types.js";
+import { ResolvedService, ActiveServices, ActiveService } from "../../types.js";
 
 type ServiceOptions = {
   root: string,
@@ -266,7 +266,7 @@ async function getServiceUrl(service) {
     url,
     __src = src && resolve(root, src),
     __compile, 
-    __autobuild
+    __autobuild,
   } = resolvedForBuild
 
   return {
@@ -277,7 +277,7 @@ async function getServiceUrl(service) {
 
     // For Client
     url: await getServiceUrl({ src, url, host, port }),
-
+    
     status: null,
 
   }
@@ -358,10 +358,7 @@ export async function start(config, id, opts = {}) {
 
       processes[id] = childProcess
 
-      return {
-        process: childProcess,
-        info: config
-      }
+      return { ...config, process: childProcess } as ActiveService
 
     } else {
       await printServiceMessage(label, `Failed to create service from ${filepath}: ${error}`, 'warn')
@@ -374,7 +371,7 @@ const killProcess = (p) => {
   return p.kill()
 }
 
-export function close(id) {
+export function close( id?: string ) {
 
   // Kill Specific Process
   if (id) {
@@ -439,7 +436,7 @@ export async function resolveAll(servicesToResolve = {}, opts) {
     serviceInfo[name] = service
   })) // Run sidecars automatically based on the configuration file
 
-  return serviceInfo
+  return serviceInfo as Record<string, ResolvedService>
 }
 
 
@@ -447,10 +444,17 @@ export async function createAll(services = {}, opts) {
 
   const resolved = await resolveAll(services, opts)
 
-  await Promise.all(Object.entries(resolved).map(([id, config]) => start(config, id, opts))) // Run sidecars automatically based on the configuration file
+  // Run sidecars automatically based on the configuration file
+  const activeServices: ActiveServices = {}
+  await Promise.all(Object.entries(resolved).map(async ([ id, config ]) => {
+    const active = await start(config, id, opts)
+    if (!active) return
+    activeServices[id] = active
+  }))
 
   return {
-    services: resolved,
+    active: activeServices,
+    resolved,
     close
   }
 }

@@ -1,3 +1,5 @@
+import { desktop, isSupported } from "@commoners/bluetooth"
+
 type TestOptions = {
     remoteDebuggingPort?: number
     remoteAllowOrigins?: string 
@@ -13,23 +15,22 @@ export default (options: TestOptions) => {
 
     return {
 
+        isSupported: {
+            start: ({ DESKTOP }) => DESKTOP
+        },
+
         // Store options for future reference
         options,
 
-        // Check if supported
-        isSupported: {
-            web: false,
-            mobile: false
+        start: function() {
+            const { process } = globalThis
+            const { COMMONERS_TESTING } = process.env
+            if (!COMMONERS_TESTING) return
+            if (remoteDebuggingPort) this.electron.app.commandLine.appendSwitch("remote-debugging-port", `${remoteDebuggingPort}`)
+            if (remoteAllowOrigins) this.electron.app.commandLine.appendSwitch("remote-allow-origins", `${remoteAllowOrigins}`)
         },
 
         desktop: {
-            start: function() {
-                const { process } = globalThis
-                const { COMMONERS_TESTING } = process.env
-                if (!COMMONERS_TESTING) return
-                if (remoteDebuggingPort) this.electron.app.commandLine.appendSwitch("remote-debugging-port", `${remoteDebuggingPort}`)
-                if (remoteAllowOrigins) this.electron.app.commandLine.appendSwitch("remote-allow-origins", `${remoteAllowOrigins}`)
-            },
             load: function (win) {
                 const { process } = globalThis
                 const { COMMONERS_TESTING } = process.env

@@ -18,7 +18,6 @@ const external = new Set([
 
 export default defineConfig({
   build: {
-    emptyOutDir: false, // This is required so we always have permission to execute the development version that is installed in the global node_modules
     target: 'node16',
     lib: {
       // Could also be a dictionary or array of multiple entry points

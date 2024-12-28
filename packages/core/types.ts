@@ -1,5 +1,6 @@
 import electron, { BrowserWindow, BrowserWindowConstructorOptions, IpcMainEvent, IpcRenderer } from 'electron'
 import * as utils from '@electron-toolkit/utils'
+import { ChildProcess } from 'node:child_process'
 
 type ViteUserConfig = import('vite').UserConfig
 type ElectronBuilderConfiguration = import('electron-builder').Configuration
@@ -20,7 +21,7 @@ export type ServiceOptions = string | string[]
 export type ServiceCreationOptions = {
     root?: string, 
     target?: string
-    services?: string | string[],
+    services?: string | string[] | boolean;
     build?: boolean,
     onLog?: Function
     onClosed?: Function
@@ -54,6 +55,8 @@ export type ViteOptions = { dev?: boolean }
 export type ServerOptions = { printUrls?: boolean }
 
 export type TargetType = typeof valid.target[number]
+export type SpecificTargetType = 'ios' | 'android' | 'electron' | 'tauri' | 'web'
+
 // export type PlatformType = typeof validDesktopTargets[number]
 
 // ------------------- Services -------------------
@@ -98,7 +101,7 @@ export type ResolvedService = {
     build: ExtraServiceMetadata['build'],
     __src: string
     __compile: boolean,
-    __autobuild: boolean
+    __autobuild: boolean,
 
     // For Client
     url: string // What URL to use for service requests
@@ -106,13 +109,24 @@ export type ResolvedService = {
     status: ServiceStatus,
 }
 
+export type ActiveService = ResolvedService & { process: ChildProcess }
+export type ActiveServices = {
+    [x:string]: ActiveService
+}
+
 // ------------------- Plugins -------------------
 type BaseLoadedPlugin = { [x:string]: any } | Function | any
 type LoadedPlugin = BaseLoadedPlugin | Promise<BaseLoadedPlugin>
 
-type SupportQuery = (() => boolean | Promise<boolean>)
-type SupportCheck = boolean | SupportQuery
-type FalseOrQuery = false | SupportQuery
+type SupportQueryInfo = {
+    MOBILE: false | 'ios' | 'android',
+    DESKTOP: false | 'electron' | 'tauri',
+    WEB: boolean,
+}
+
+type SupportQueryResultBase = boolean | string
+type SupportQueryResult = SupportQueryResultBase | Promise<SupportQueryResultBase>
+type SupportQuery = ((info: SupportQueryInfo) => SupportQueryResult)
 
 type TagName = string
 type TagAttribute = Record<string, string>
@@ -124,8 +138,6 @@ export type CapacitorConfig = {
     plist?: Record<string, any>,
     manifest?: Record<TagName, TagAttribute[]>
 }
-
-type MobileCapacitorCheck = { capacitor?: CapacitorConfig } 
 
 type DesktopPluginContext = {
     id: string,
@@ -147,45 +159,45 @@ type DesktopPluginContext = {
     }
 }
 
+// Window Controls
 type DesktopPluginOptions = {
-
-    // App Controls
-    start?: (this: DesktopPluginContext, id: string) => void,
-    ready?: (this: DesktopPluginContext, services: ResolvedServices, id: string) => void,
-    quit?: (this: DesktopPluginContext, id: string) => void,
-
-    
-    // Window Controls
     load?: (this: DesktopPluginContext, win: BrowserWindow, id: string) => void,
     unload?: (this: DesktopPluginContext, win: BrowserWindow, id: string) => void,
 }
 
-type PluginLoadCallback = (this: IpcRenderer) => LoadedPlugin // General load behavior
+type PluginLoadCallback = ( this: IpcRenderer, env: CommonersGlobalObject ) => LoadedPlugin // General load behavior
+
+type OptionalPluginBehaviors = {
+    assets?: Record<string, string>,
+    start?: (this: DesktopPluginContext, id: string) => void,
+    ready?: (this: DesktopPluginContext, services: ResolvedServices, id: string) => void,
+    quit?: (this: DesktopPluginContext, id: string) => void,
+}
+
+type IsSupportedOption = false | SupportQuery
+
+export type SupportConfiguration = {
+    load?: IsSupportedOption,
+    start?: IsSupportedOption,
+    ready?: IsSupportedOption,
+    quit?: IsSupportedOption,
+    capacitor?: CapacitorConfig | false // NOTE: This overrides all other support options for mobile builds
+}
 
 // Runs with special behaviors on desktop
 type HybridPlugin = {
-    isSupported?: {
-        web?: boolean | SupportQuery, // Assumed to be false
-        desktop?: SupportQuery, // Cannot be false. Assumed to be true
-        mobile?: boolean | SupportQuery | MobileCapacitorCheck // Assumed to be false.
-    }
+    isSupported?: SupportConfiguration,
     load?: PluginLoadCallback,
     desktop: DesktopPluginOptions // Prioritizes desktop support
-}
-
-// Runs only on remote targets (web, mobile)
-type RemotePlugin = {
-    isSupported: { web?: SupportCheck, desktop: boolean, mobile?: SupportCheck | MobileCapacitorCheck },
-    load: (this: IpcRenderer) => LoadedPlugin
-}
+} & OptionalPluginBehaviors
 
 // Runs on all targets
 type BasicPlugin = { 
-    isSupported?: { web?: FalseOrQuery, desktop?: FalseOrQuery, mobile?: FalseOrQuery | MobileCapacitorCheck },
-    load: (this: IpcRenderer) => LoadedPlugin 
-}
+    isSupported?: SupportConfiguration,
+    load?: PluginLoadCallback,
+} & OptionalPluginBehaviors
 
-export type Plugin = BasicPlugin | HybridPlugin | RemotePlugin
+export type Plugin = BasicPlugin | HybridPlugin
 
 // type ValidNestedProperty = TargetType | PlatformType | ModeType
 
@@ -336,6 +348,7 @@ type BaseCommonersGlobalObject = {
     PLUGINS: ExposedPlugins,
     READY: Promise<ExposedPlugins>,
 
+    TARGET: SpecificTargetType,
     DEV: boolean,
     PROD: boolean,
 

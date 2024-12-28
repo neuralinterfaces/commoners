@@ -11,6 +11,8 @@ import splashPagePlugin from '@commoners/splash-screen'
 import customProtocolPlugin from '@commoners/custom-protocol'
 import testingPlugin from "@commoners/testing/plugin"
 import windowsPlugin from '@commoners/windows'
+import localServicesPlugin from "@commoners/local-services"
+
 import * as bluetoothPlugin from '@commoners/bluetooth'
 import * as serialPlugin from '@commoners/serial'
 
@@ -68,17 +70,21 @@ const config = defineConfig({
         windows: join(root, "pages", "windows", 'index.html') ,
         serial: join(root, "pages", "serial", 'index.html'),
         bluetooth: join(root, "pages", "bluetooth", 'index.html'),
+        localServies: join(root, "pages", "local-services", 'index.html'),
     },
 
 
     plugins: {
         longLoadTime: {
-            load: () => new Promise(resolve => setTimeout(resolve, 2000)),
+            load: () => new Promise(resolve => setTimeout(() => resolve(true), 2000)),
             desktop: {
-                load: () => console.log('Loaded on desktop')
+                load: () => console.log('Long load time has resolved in the desktop environment')
             }
         },
+
         checks: checksPlugin,
+
+        localServices: localServicesPlugin({ register: true }),
 
         splash: splashPagePlugin(splashSrc, { 
             minimumDisplayTime: 1000,

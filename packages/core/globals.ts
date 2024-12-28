@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from 'node:module';
 
 import { removeDirectory } from './utils/files.js'
+import { SpecificTargetType } from './types.js'
 
 // External Packages
 import * as yaml from 'js-yaml'
@@ -30,16 +31,18 @@ export const globalTempDir = join(globalWorkspacePath, '.temp')
 const callbacks = []
 export const onCleanup = (callback) => callbacks.push(callback)
 
-export const cleanup = (code = 0) => {
-    callbacks.forEach(cb => {
-        if (!cb.called) cb(code)
-        cb.called = true // Prevent double-calling
-    })
+export const cleanup = async (code = 0) => {
+    for (const cb of callbacks) {
+        if (!cb.called) {
+            cb.called = true // Prevent double-calling
+            await cb(code)
+        }
+    }
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']
-exitEvents.forEach(event => process.on(event, (code) => {
-    cleanup(code)
+exitEvents.forEach(event => process.on(event, async (code) => {
+    try { await cleanup(code) } catch (e) { console.error(e) }
     process.exit(code === 'SIGINT' ? 0 : code)
 }))
 
@@ -82,21 +85,25 @@ export const PLATFORM = getOS()  // Declared Mobile OR Implicit Desktop Patform
 export const isDesktop = (target: TargetType) => validDesktopTargets.includes(target)
 export const isMobile = (target: TargetType) => validMobileTargets.includes(target)
 
-export const normalizeTarget = (target: TargetType) => {
+export const getNormalizedTarget = (target: TargetType) => {
     const isDesktopTarget = isDesktop(target)
     const isMobileTarget = isMobile(target)
     return isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
 }
 
+export const getSpecificTarget = (target: TargetType) => {
+    if (!target) target = 'web' // Default to web target
+    else if (target === 'mobile') target = PLATFORM === 'mac' ? 'ios' : 'android'  // Auto-detect mobile platform
+    else if (target === 'desktop') target = 'electron' // Auto-detect desktop platform
+    return target as SpecificTargetType
+}
+    
+
 export const ensureTargetConsistent = async (target: TargetType, allow = []) => {
 
     if (allow.includes(target)) return target
+    target = getSpecificTarget(target)
     
-    if (!target) target = 'web' // Default to web target
-
-    if (target === 'mobile') target = PLATFORM === 'mac' ? 'ios' : 'android'  // Auto-detect mobile platform
-    if (target === 'desktop') target = 'electron' // Auto-detect desktop platform
-
     const _chalk = await chalk
 
     // Provide a custom warning message for tauri

@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 // Internal Imports
 import * as assets from './assets.js'
 import { chalk, onCleanup } from "../globals.js"
-import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfigurationObject } from "../types.js"
+import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfiguration } from "../types.js"
 
 // Internal Utilities
 import { runCommand } from "../utils/processes.js"
@@ -42,13 +42,7 @@ const getBaseConfig = ({
 
 const isCapacitorConfig = (o: CapacitorConfig) => o && typeof o === 'object' && 'name' in o && 'plugin' in o
 
-const getCapacitorConfig = (o: Plugin) => {
-    if (!(o.isSupported && typeof o.isSupported === 'object')) return null
-    const mobile = o.isSupported.mobile
-    if (!mobile || typeof mobile === 'boolean') return null
-    return mobile.capacitor
-}
-
+const getCapacitorConfig = (o: Plugin) => o.isSupported?.capacitor
 
 const getCapacitorPluginAccessor = (plugin: Plugin) => {
 
@@ -57,10 +51,9 @@ const getCapacitorPluginAccessor = (plugin: Plugin) => {
 
     return {
         ref: capacitorPlugin,
-        setParent: (v) => {
-            const supportObj = plugin.isSupported as SupportConfigurationObject
-            if (v === false) supportObj.mobile = false
-            else if (!supportObj.mobile) supportObj.mobile = {} // Set to evaluate to true
+        setParent: (v: boolean) => {
+            const supportObj = plugin.isSupported as SupportConfiguration
+            if (v === false) supportObj.capacitor = false // Disable plugin for mobile
         }
     } 
 

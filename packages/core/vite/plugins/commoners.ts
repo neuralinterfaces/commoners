@@ -2,12 +2,14 @@
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 
 import { getIcon } from '../../utils/index.js'
-import { isDesktop, isMobile, vite } from '../../globals.js'
+import { getSpecificTarget, isDesktop, isMobile, vite } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from "../../assets/services/index.js"
+
+import WebSocket from 'ws';
 
 const virtualModuleId = 'commoners:env'
 
@@ -60,19 +62,9 @@ export default async ({
     
     const resolvedVirtualModuleId = '\0' + virtualModuleId
 
-    const { plugins } = config
-    const pluginAssetInfo = Object.values(plugins).reduce((acc, plugin) => {
-
-        const { assets = {} } = plugin
-
-        Object.values(assets).map((value) => {
-            const config = typeof value === 'string' ? { src: value } : value
-            const { src, ...overrides } = config
-            if (Object.keys(overrides).length) acc[`/${src}`] = overrides
-        })
-
-        return acc
-    }, {})
+    const states = {} as {
+        wsServer?: WebSocket.Server
+    }
 
     return {
         name: 'commoners',
@@ -89,14 +81,43 @@ export default async ({
                 return lines.join("\n")
             }
         },
+
+        // // Hook to Vite's server start event
+        // configureServer(server) {
+
+        //     // Create a WebSocket server when Vite server starts
+        //     const wsServer = states.wsServer = new WebSocket.Server({ noServer: true });
+    
+        //     // // Handle WebSocket connections
+        //     // wsServer.on('connection', (ws: WebSocket) => {
+        //     //     console.log('New WebSocket connection established');
+        
+        //     //     // Handle messages from clients
+        //     //     ws.on('message', (message: string) => {
+        //     //         console.log('Received message:', message);
+        //     //     });
+        
+        //     //     // Send a welcome message to the client
+        //     //     ws.send(JSON.stringify({ event: 'welcome', data: 'Hello from Vite WebSocket Server!' }));
+        //     // });
+    
+        //     // // Upgrade HTTP server to WebSocket server
+        //     // server.httpServer?.on('upgrade', (request, socket, head) => {
+        //     //     wsServer?.handleUpgrade(request, socket, head, (ws) => wsServer?.emit('connection', ws, request));
+        //     // });
+        // },
+    
+        // // Optional: handle clean up when the Vite server shuts down
+        // close() {
+        //     if (states.wsServer) states.wsServer.close();
+        // },
+        
         transformIndexHtml(html, ctx) {
 
             const { path: htmlPath } = ctx
             const parent = dirname(htmlPath)
 
-            const overrides = pluginAssetInfo[htmlPath] ?? {}
-
-            const resolvedConfig = mergeConfig(config, overrides)
+            const resolvedConfig = mergeConfig(config)
             // resolvedConfig.root = parent
 
             // Only use custom outDir if not in development
@@ -132,6 +153,7 @@ export default async ({
                 }, {}),
         
                 // Target Shortcuts
+                TARGET: getSpecificTarget(target),
                 DESKTOP: desktop,
                 MOBILE: mobile,
                 WEB: !desktop && !mobile,

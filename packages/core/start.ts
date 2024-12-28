@@ -1,5 +1,5 @@
 // Built-In Modules
-import { join } from "node:path";
+import { basename, extname, join } from "node:path";
 
 // Internal Imports
 import { build, buildServices, configureForDesktop, createServices, resolveConfig } from './index.js'
@@ -11,6 +11,8 @@ import { createServer } from "./vite/index.js";
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAllAssets } from "./build.js";
+
+import { runAppPlugins } from './assets/plugins/index.js'
 
 
 const createAllServices = (services, { root, target }) => createServices(services, { root, target, services: true, build: false }) // Run services in parallel
@@ -107,7 +109,48 @@ export const app = async function (
         if (isDesktopTarget) await configureForDesktop(outDir, root)
 
         // Create all services
-        else activeInstances.services = await services(configCopy, resolvedServices)
+        else {
+            
+
+            // Copy plugins to allow for modification when assigned as modules
+            const plugins = Object.entries({...(resolvedConfig.plugins || {})}).reduce((acc, [name, plugin]) => {
+                acc[name] = { ...plugin }
+                return acc
+            }, {})
+            
+            // Create a shared context for the plugin functions
+            const boundRunAppPlugins = runAppPlugins.bind({
+                env: {
+                    TARGET: target,
+                    WEB: !isMobileTarget && !isDesktopTarget,
+                    DESKTOP: isDesktopTarget,
+                    MOBILE: isMobileTarget
+                },
+                plugins, 
+                contexts: Object.entries(plugins).reduce((acc, [ id, { assets = {} }]) => {
+                    acc[id] = {
+                        id,
+                        createWindow: (page) => window.open(page),
+                        send: (channel, ...args) => console.log(channel, ...args),
+                        on: (channel, callback) => console.log(channel, callback),
+                        plugin: {
+                          assets: Object.entries(assets).reduce((acc, [ key, src ]) => {
+                            const filename = basename(src)
+                            const isHTML = extname(filename) === '.html'
+                            if (isHTML) acc[key] = src
+                            return acc
+                          }, {})
+                        }
+                      }
+                    return acc
+                }, {})
+            })
+            
+            onCleanup(() => boundRunAppPlugins([], 'quit')) // Cleanup on exit
+            await boundRunAppPlugins() // Run the init event before creating services
+            const { active } = activeInstances.services = await services(configCopy, resolvedServices)
+            await boundRunAppPlugins([ active ], 'ready') // Run the ready event after all services are created
+        }
 
         // Serve the frontend (if not mobile)
         if (!isMobileTarget) {

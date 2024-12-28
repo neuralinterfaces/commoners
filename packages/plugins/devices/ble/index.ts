@@ -7,47 +7,47 @@ type DeviceInformation = {
   deviceId: string
 }
 
-// @capacitor-community/bluetooth-le must be installed by the user
-export const isSupported = {
-
-  mobile: {
-    capacitor: {
-      name: 'BluetoothLe',
-      plugin: '@capacitor-community/bluetooth-le', // Must be installed by the user
+const capacitorConfiguration = {
+  name: 'BluetoothLe',
+  plugin: '@capacitor-community/bluetooth-le', // Must be installed by the user
 
 
-      // The following configuration is automatically added to the plist file
-      plist: {
-        NSBluetoothAlwaysUsageDescription: "Uses Bluetooth to connect and interact with peripheral BLE devices.",
-        UIBackgroundModes: ["bluetooth-central"]
-      },
-
-
-      // NOTE: Make sure tosSet the androidNeverForLocation flag when initializing the BleClient.
-      manifest: {
-        'uses-permission': [
-          { 'android:name': 'android.permission.ACCESS_COARSE_LOCATION', 'android:maxSdkVersion': '30' },
-          { 'android:name': 'android.permission.ACCESS_FINE_LOCATION', 'android:maxSdkVersion': '30' },
-          {
-            'android:name': 'android.permission.BLUETOOTH_SCAN',
-            'android:usesPermissionFlags': 'neverForLocation',
-            'tools:targetApi': 's'
-          }
-        ]
-      },
-
-      options: {
-        displayStrings: {
-          scanning: "Scanning BLE...",
-          cancel: "Stop Scanning",
-          availableDevices: "Devices available!",
-          noDeviceFound: "No BLE devices found."
-        }
-      }
-    }
+  // The following configuration is automatically added to the plist file
+  plist: {
+    NSBluetoothAlwaysUsageDescription: "Uses Bluetooth to connect and interact with peripheral BLE devices.",
+    UIBackgroundModes: ["bluetooth-central"]
   },
 
-  web: async () => (await navigator.bluetooth?.getAvailability()) === true
+
+  // NOTE: Make sure tosSet the androidNeverForLocation flag when initializing the BleClient.
+  manifest: {
+    'uses-permission': [
+      { 'android:name': 'android.permission.ACCESS_COARSE_LOCATION', 'android:maxSdkVersion': '30' },
+      { 'android:name': 'android.permission.ACCESS_FINE_LOCATION', 'android:maxSdkVersion': '30' },
+      {
+        'android:name': 'android.permission.BLUETOOTH_SCAN',
+        'android:usesPermissionFlags': 'neverForLocation',
+        'tools:targetApi': 's'
+      }
+    ]
+  },
+
+  options: {
+    displayStrings: {
+      scanning: "Scanning BLE...",
+      cancel: "Stop Scanning",
+      availableDevices: "Devices available!",
+      noDeviceFound: "No BLE devices found."
+    }
+  }
+}
+
+// @capacitor-community/bluetooth-le must be installed by the user
+export const isSupported = {
+  capacitor: capacitorConfiguration,
+  load: async ({ WEB }) => {
+    if (WEB) return (await navigator.bluetooth?.getAvailability()) === true // Ensure bluetooth feature is available
+  },
 }
 
 export const desktop = {

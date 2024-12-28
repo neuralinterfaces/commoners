@@ -19,8 +19,10 @@
   "dependecies": {
     "@commoners/bluetooth": "0.0.55",
     "@commoners/custom-protocol": "0.0.55",
+    "@commoners/local-services": "0.0.60",
     "@commoners/serial": "0.0.55",
     "@commoners/splash-screen": "0.0.55",
     "@commoners/windows": "0.0.58"
-  }
+  },
+  "main": ".commoners/.temp/main.cjs"
 }

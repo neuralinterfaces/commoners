@@ -142,10 +142,8 @@ export const resolveViteConfig = async (
 
     // Get html files from plugins
     for (const plugin of Object.values(commonersPlugins)) {
-        Object.values(plugin.assets ?? {}).map((fileInfo) => {
-            const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
-            const { src } = fileInfoDictionary
-            if (extname(src) === '.html') pages[crypto.randomUUID()] = getAbsolutePath(root, src)
+        Object.values(plugin.assets ?? {}).map((assetSrc) => {
+            if (extname(assetSrc) === '.html') pages[crypto.randomUUID()] = getAbsolutePath(root, assetSrc)
         })
     }
 
