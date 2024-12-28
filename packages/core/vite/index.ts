@@ -2,7 +2,7 @@
 import { extname, isAbsolute, join, relative } from 'node:path'
 
 // General Internal Imports
-import { rootDir, isDesktop, vite, chalk } from "../globals.js";
+import { isDesktop, vite, chalk } from "../globals.js";
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 
 // Internal Plugins
@@ -141,11 +141,11 @@ export const resolveViteConfig = async (
 
 
     // Get html files from plugins
-    for (const [id, plugin] of Object.entries(commonersPlugins)) {
-        Object.entries(plugin.assets ?? {}).map(([key, fileInfo]) => {
+    for (const plugin of Object.values(commonersPlugins)) {
+        Object.values(plugin.assets ?? {}).map((fileInfo) => {
             const fileInfoDictionary = typeof fileInfo === 'string' ? { src: fileInfo } : fileInfo
             const { src } = fileInfoDictionary
-            if (extname(src) === '.html') pages[`_plugins/${id}/${key}`] = src
+            if (extname(src) === '.html') pages[crypto.randomUUID()] = getAbsolutePath(root, src)
         })
     }
 

@@ -158,10 +158,13 @@ export async function resolveConfig(
 
     // Resolve pages
     if (!copy.pages) copy.pages = {}
+
     copy.pages = Object.entries(copy.pages).reduce(( acc, [ id, filepath ] ) => {
         acc[id] = getAbsolutePath(root, filepath)
         return acc
     }, {}) 
+
+
 
 
     if (services) {

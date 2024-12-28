@@ -3,12 +3,10 @@ import { existsSync, readdirSync} from 'node:fs';
 import { extname, join } from 'node:path';
 import { cpus } from 'node:os';
 
-import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, chalk } from './globals.js';
-import { getFreePorts } from './assets/services/network.js'
+import { PLATFORM, ensureTargetConsistent, isMobile, isDesktop, globalWorkspacePath, chalk, vite } from './globals.js';
 import { ConfigResolveOptions, LaunchConfig } from './types.js';
 import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js';
 import { spawnProcess } from './utils/processes.js'
-import { createServer } from './utils/server.js'
 
 import * as mobile from './mobile/index.js'
 import { createAll } from './assets/services/index.js';
@@ -148,18 +146,25 @@ export const launchApp = async ( config: LaunchConfig ) => {
 
     else {
 
-        const server = createServer({ root: outDir })
+        const __vite = await vite
 
-        const resolvedPort = port || (await getFreePorts(1))[0]
-
-        const url = `http://localhost:${resolvedPort}`
-        server.listen(parseInt(resolvedPort), host, async () => {
-            printSubtle(`Server is running on ${_chalk.cyan(url)}${host !== 'localhost' ? ` (${host})` : ''}`)
-            if (!process.env.VITEST) {
-                const _open = await open
-                _open(url)
+        const server = await __vite.createServer({
+            configFile: false,
+            root: outDir,
+            server: { 
+                port, 
+                host,
+                open: !process.env.VITEST
             }
-        });
+        })
+
+        await server.listen()
+
+        // Print out the URL if everything was initialized here (i.e. dev mode)
+        const { port: resolvedPort, host: resolvedHost } = server.config.server;
+        const protocol = server.config.server.https ? 'https' : 'http';
+        const url = `${protocol}://localhost:${resolvedPort}`;
+        printSubtle(`Server is running on ${_chalk.cyan(url)}${resolvedHost !== 'localhost' ? ` (${resolvedHost})` : ''}`)
 
         return {
             url, 

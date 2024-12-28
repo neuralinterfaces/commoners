@@ -259,8 +259,6 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
     return assets
 }
 
-type AssetsToBuild = { assets?: boolean, services?: boolean }
-
 const resolveAssetInfo = (info, outDir, root) => {
     const isString = typeof info === 'string'
     const output = isString ? null : info.output
