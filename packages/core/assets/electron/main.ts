@@ -170,7 +170,7 @@ const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
 
 
 const boundRunAppPlugins = runAppPlugins.bind({
-  env: { WEB: false, DESKTOP: "electron",  MOBILE: false },
+  env: { WEB: false, DESKTOP: "electron",  MOBILE: false, DEV: isDevServer, PROD: !isDevServer },
   plugins: PLUGINS,
   contexts
 })

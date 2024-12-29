@@ -1,51 +1,58 @@
 import { Plugin } from "@commoners/solidarity";
 
+const DEFAULT_TYPE = 'http'
+
+const commands = {
+    services: {
+        get: "get-services",
+        response: "services",
+    },
+    up: "up",
+    down: "down",
+}
+
+type LocalServicePluginOptions = {
+    type?: string,
+    register?: true | string[]
+}
+
 function getURL(host, port) {
     return `http://${host}:${port}`
 }
 
 const sanitizeService = (
-    service, 
-    hostname
+    service
 ) => {
 
     // Send a localhost URL if the service is running on the same machine
-    const host = hostname === service.host ? "localhost" : service.host
+    const host = service.host ? "localhost" : service.host
 
     return {
       name: service.name,
       host: service.host,
       metadata: service.txt,
-      url: getURL(host, service.port),
+      url: `http://${service.referer.address}:${service.port}`,
     };
 }
 
-const listenForServices = async function ( type ) {
-
-    const hostname = await import('os').then(os => os.hostname())
+const listenForServices = async function ( type = DEFAULT_TYPE ) {
 
     const active = {};
 
     // Browse for all available services
     const browser = this.bonjour.find({ type }, (service) => {
-        const sanitized = sanitizeService(service, hostname);
-        console.log('Service Up', sanitized)
+        const sanitized = sanitizeService(service);
         active[sanitized.url] = sanitized;
-        if (this.send) this.send("up", sanitized); // Desktop or Development
+        if (this.send) this.send(commands.up, sanitized); // Desktop or Development
     });
 
      // Desktop or Development
-    if (this.on && this.send) {
-        this.on(`get-services`, (ev) => {
-            ev.returnValue = active
-            this.send(`services`, active)
-        })
-    }
+    if (this.on && this.send) this.on(commands.services.get, () => this.send(commands.services.response, active))
 
-    browser.on("down", (service) => {
-      const sanitized = sanitizeService(service, hostname);
+    browser.on(commands.down, (service) => {
+      const sanitized = sanitizeService(service);
       delete active[sanitized.url];
-      if (this.send) this.send("down", sanitized); // Desktop or Development
+      if (this.send) this.send(commands.down, sanitized); // Desktop or Development
     });
 
     // Start the browser
@@ -55,34 +62,29 @@ const listenForServices = async function ( type ) {
 
 }
 
-type LocalServicePluginOptions = {
-    type?: string,
-    register?: true | string[]
-}
-
 function load() {
     return {
         getServices: async () => {
-            return this.sendSync("get-services")
             return new Promise((resolve) => {
-                const services = this.sendSync("get-services")
-                this.send("get-services")
-                this.on(`services`, (_, services) => {
-                    console.log(services, services)
-                    resolve(services)
-                })
+                this.once(commands.services.response, (_, services) => resolve(services))
+                this.send(commands.services.get)
             })
         },
-        onServiceUp: (callback) => this.on(`up`, (_, url) => callback(url)),
-        onServiceDown: (callback) => this.on(`down`, (_, url) => callback(url)),
+        onServiceUp: (callback) => this.on(commands.up, (evt, url) => {
+            console.log('Service up', evt, url)
+            callback(url)
+        }),
+        onServiceDown: (callback) => this.on(commands.down, (_, url) => callback(url)),
     }
 }
 
 export default ({
-    type = 'http',
+    type = DEFAULT_TYPE,
     register = []
 }: LocalServicePluginOptions) => {
     return {
+
+        isSupported: ({ DESKTOP, DEV }) => DESKTOP || DEV,
 
         load,
 
@@ -93,17 +95,16 @@ export default ({
         },
 
         ready: async function (services, pluginId) {
-        
+
             if (register === true) register = Object.keys(services)
             
             for (const id of register) {
                 const service = services[id]
-                console.log('Registering', id, !!service)
                 if (!service) continue
                 const { url } = service
                 const port = parseInt(new URL(url).port)
 
-                const name = `${pluginId}-${id}`
+                const name = `commoners-${pluginId}-${id}`
                 const published = this.bonjour.publish({ name, type, port });
                 service.process.on("close", () => published.stop())
             }

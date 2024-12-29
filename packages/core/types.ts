@@ -119,6 +119,8 @@ type BaseLoadedPlugin = { [x:string]: any } | Function | any
 type LoadedPlugin = BaseLoadedPlugin | Promise<BaseLoadedPlugin>
 
 type SupportQueryInfo = {
+    DEV: boolean,
+    PROD: boolean,
     MOBILE: false | 'ios' | 'android',
     DESKTOP: false | 'electron' | 'tauri',
     WEB: boolean,
@@ -182,7 +184,7 @@ export type SupportConfiguration = {
     ready?: IsSupportedOption,
     quit?: IsSupportedOption,
     capacitor?: CapacitorConfig | false // NOTE: This overrides all other support options for mobile builds
-}
+} | SupportQuery
 
 // Runs with special behaviors on desktop
 type HybridPlugin = {
@@ -342,6 +344,8 @@ type ExposedPlugins = {
     [x:string]: LoadedPlugin
 }
 
+type WS_URL = string
+
 type BaseCommonersGlobalObject = {
     NAME: string,
     VERSION: string,
@@ -349,7 +353,7 @@ type BaseCommonersGlobalObject = {
     READY: Promise<ExposedPlugins>,
 
     TARGET: SpecificTargetType,
-    DEV: boolean,
+    DEV: false | WS_URL,
     PROD: boolean,
 
     ENV: Record<string, any>, // Environment Variables loaded using Vite

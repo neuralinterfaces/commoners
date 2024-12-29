@@ -8,8 +8,8 @@ import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from "../../assets/services/index.js"
-
-import WebSocket from 'ws';
+import { getLocalIP } from '../../utils/ip/cross-platform.js'
+import { networkInterfaces } from 'node:os'
 
 const virtualModuleId = 'commoners:env'
 
@@ -62,10 +62,7 @@ export default async ({
     
     const resolvedVirtualModuleId = '\0' + virtualModuleId
 
-    const states = {} as {
-        wsServer?: WebSocket.Server
-    }
-
+    
     return {
         name: 'commoners',
         resolveId(id) {
@@ -81,36 +78,6 @@ export default async ({
                 return lines.join("\n")
             }
         },
-
-        // // Hook to Vite's server start event
-        // configureServer(server) {
-
-        //     // Create a WebSocket server when Vite server starts
-        //     const wsServer = states.wsServer = new WebSocket.Server({ noServer: true });
-    
-        //     // // Handle WebSocket connections
-        //     // wsServer.on('connection', (ws: WebSocket) => {
-        //     //     console.log('New WebSocket connection established');
-        
-        //     //     // Handle messages from clients
-        //     //     ws.on('message', (message: string) => {
-        //     //         console.log('Received message:', message);
-        //     //     });
-        
-        //     //     // Send a welcome message to the client
-        //     //     ws.send(JSON.stringify({ event: 'welcome', data: 'Hello from Vite WebSocket Server!' }));
-        //     // });
-    
-        //     // // Upgrade HTTP server to WebSocket server
-        //     // server.httpServer?.on('upgrade', (request, socket, head) => {
-        //     //     wsServer?.handleUpgrade(request, socket, head, (ws) => wsServer?.emit('connection', ws, request));
-        //     // });
-        // },
-    
-        // // Optional: handle clean up when the Vite server shuts down
-        // close() {
-        //     if (states.wsServer) states.wsServer.close();
-        // },
         
         transformIndexHtml(html, ctx) {
 
@@ -159,13 +126,13 @@ export default async ({
                 WEB: !desktop && !mobile,
         
                 // Production vs Development
-                DEV: dev,
+                DEV: dev ? `ws://${getLocalIP(networkInterfaces)}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
                 PROD: !dev,
         
                 // Environment Variables
                 ENV: env,
 
-                ROOT: relative(relTo, root).replaceAll(sep, posix.sep)
+                ROOT: relative(relTo, root).replaceAll(sep, posix.sep),
             }
             
             const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
@@ -204,13 +171,11 @@ export default async ({
                 const { ROOT } = GLOBAL
 
                 GLOBAL.PAGES = Object.entries(GLOBAL.PAGES).reduce((acc, [ id, path ]) => {
-
                     acc[id] = ({ search, hash } = {}) => {
                         const components = [ ROOT, path ].filter((str) => str)
                         const url = new URL(components.join('/'), window.location.href)
                         if (search) url.search = search
                         if (hash) url.hash = hash
-                        console.log(components, url.href, url)
                         window.location.href = url.href
                     }
 

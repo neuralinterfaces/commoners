@@ -1,4 +1,4 @@
-name: commoners-test-app
+name: commoners-demo
 channels:
   - defaults
 dependencies:
@@ -7,4 +7,4 @@ dependencies:
   - numpy
   - pip:
     - pyinstaller==6.0.0
-prefix: /opt/anaconda3/envs/commoners-test-app
+prefix: /opt/anaconda3/envs/commoners-demo

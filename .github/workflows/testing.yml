@@ -47,7 +47,7 @@ jobs:
       - name: Install Conda Environment
         uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-environment: commoners-test-app
+          activate-environment: commoners-demo
           environment-file: tests/demo/src/services/python/environment.yml
           auto-activate-base: false
       

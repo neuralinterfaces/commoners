@@ -19,8 +19,8 @@ export async function runAppPlugins (
       if (types.ready && __state !== "start") return
       plugin.__state = type
 
-      const { DESKTOP, MOBILE, WEB, TARGET } = this.env
-      const featureIsSupported = await isPluginFeatureSupported.call({ WEB, DESKTOP: DESKTOP ? TARGET : false,  MOBILE: MOBILE ? TARGET : false }, plugin, type)
+      const { DESKTOP, MOBILE, WEB, TARGET, DEV, PROD } = this.env
+      const featureIsSupported = await isPluginFeatureSupported.call({ WEB, DESKTOP: DESKTOP ? TARGET : false,  MOBILE: MOBILE ? TARGET : false, DEV: !!DEV, PROD: !DEV }, plugin, type)
       if (!featureIsSupported) return
       
       return plugin[type].call(this.contexts[id], ...args, id)

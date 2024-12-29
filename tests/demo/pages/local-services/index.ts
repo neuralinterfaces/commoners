@@ -2,18 +2,8 @@ const { READY } = commoners
 
 READY.then(({ localServices }) => {
 
-    if (!localServices) return document.body.innerHTML = '<p>Cannot access local services</p>'
+    if (!localServices) return document.body.innerHTML = '<p>Local services are not available</p>'
 
-    localServices.onServiceUp((service) => {
-        console.log('Got', service)
-        addListItem(service)
-    })
-
-    localServices.onServiceDown((service) => {
-        const { url } = service
-        const li = document.getElementById(url)
-        if (li) li.remove()
-    })
 
     const addListItem = async (info) => {
         const { name, url } = info
@@ -36,10 +26,15 @@ READY.then(({ localServices }) => {
         })
     }
 
+    localServices.onServiceUp(addListItem)
+
+    localServices.onServiceDown((service) => {
+        const { url } = service
+        const li = document.getElementById(url)
+        if (li) li.remove()
+    })
+
     const ul = document.querySelector<HTMLUListElement>('ul')!
     ul.innerHTML = ''
-    localServices.getServices().then(services => {
-        console.log(services)
-        Object.entries(services).map(([ _, info ]) => addListItem(info))
-    })
+    localServices.getServices().then(services => Object.entries(services).map(([ _, info ]) => addListItem(info)))
 })

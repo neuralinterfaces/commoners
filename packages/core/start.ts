@@ -14,6 +14,16 @@ import { buildAllAssets } from "./build.js";
 
 import { runAppPlugins } from './assets/plugins/index.js'
 
+import WebSocket from 'ws';
+import { getFreePorts } from "./assets/services/network.js";
+
+const wsPortEnvVar = 'COMMONERS_WEBSOCKET_PORT'
+
+const wsContexts = {
+    plugins: {
+        callbacks: {}
+    }
+}
 
 const createAllServices = (services, { root, target }) => createServices(services, { root, target, services: true, build: false }) // Run services in parallel
 
@@ -69,6 +79,11 @@ export const app = async function (
             outDir 
         }
 
+        // Initialize DevelopmentWebSocket information
+        const { env } = process
+        if (!isDesktopTarget) env[wsPortEnvVar] || ( env[wsPortEnvVar] = (await getFreePorts(1))[0])
+
+
         // Build for mobile before moving forward
         if (isMobileTarget) await build(
             configCopy, 
@@ -110,7 +125,22 @@ export const app = async function (
 
         // Create all services
         else {
-            
+
+            const wss = new WebSocket.Server({ port: env[wsPortEnvVar] })
+            onCleanup(() => wss.close()) // Close the WebSocket server on exit
+
+            // Get messages
+            wss.on('connection', ws => {
+                ws.on('message', message => {
+                    const data = JSON.parse(message)
+                    const { context, id, channel, args } = data
+                    const matchedContext = wsContexts[context]
+                    if (!matchedContext) return console.error(`Unknown WS message context: ${context}`)
+                    const pluginCallbacks = matchedContext.callbacks[id]?.[channel] ?? {}
+                    const evtObject = {}
+                    Object.getOwnPropertySymbols(pluginCallbacks).forEach(symbol => pluginCallbacks[symbol](evtObject,...args))
+                })
+            })
 
             // Copy plugins to allow for modification when assigned as modules
             const plugins = Object.entries({...(resolvedConfig.plugins || {})}).reduce((acc, [name, plugin]) => {
@@ -124,15 +154,28 @@ export const app = async function (
                     TARGET: target,
                     WEB: !isMobileTarget && !isDesktopTarget,
                     DESKTOP: isDesktopTarget,
-                    MOBILE: isMobileTarget
+                    MOBILE: isMobileTarget,
+                    DEV: true,
+                    PROD: false
                 },
                 plugins, 
+
+                // Simplified plugin context for Web and Mobile
                 contexts: Object.entries(plugins).reduce((acc, [ id, { assets = {} }]) => {
+
+                    const pluginOnCallbacks = wsContexts.plugins.callbacks[id] = {}
+
                     acc[id] = {
                         id,
-                        createWindow: (page) => window.open(page),
-                        send: (channel, ...args) => console.log(channel, ...args),
-                        on: (channel, callback) => console.log(channel, callback),
+                        // No electron, utils, createWindow, etc...
+                        send: (channel, ...args) => wss.clients.forEach(client => client.send(JSON.stringify({ context: "plugins", id, channel, args }))),
+
+                        on: (channel, callback) => {
+                            const symbol = Symbol()
+                            const channelCallbacks = pluginOnCallbacks[channel] = pluginOnCallbacks[channel] || {}
+                            channelCallbacks[symbol] = (evtObject, ...args) => callback(evtObject, ...args)
+                            return symbol
+                        },
                         plugin: {
                           assets: Object.entries(assets).reduce((acc, [ key, src ]) => {
                             const filename = basename(src)

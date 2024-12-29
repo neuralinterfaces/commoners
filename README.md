@@ -56,10 +56,10 @@ conda env create -f tests/demo/src/services/python/environment.yml
 ```
 
 #### Running Tests
-Always run tests with the `commoners-test-app` environment activated.
+Always run tests with the `commoners-demo` environment activated.
 
 ```bash
-conda activate commoners-test-app
+conda activate commoners-demo
 ```
 
 You must also ensure that `g++` is available to build the C++ server.

@@ -12,29 +12,49 @@ const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
 if ( __PLUGINS ) {
 
-    const devSocketListeners = {}
-    console.log(import.meta.env)
+    const devSocketListeners = { plugins: {}}
+    const devSocketServer = DEV && !DESKTOP ? new WebSocket(DEV) : null
 
-    const devSocketURL = new URL(window.location.href)
-    devSocketURL.protocol = "ws"
-    devSocketURL.pathname = ""
-    devSocketURL.search = ""
-    devSocketURL.hash = ""
+    // Initialize the WebSocket Development Server
+    if (devSocketServer) {
 
-    const devSocketServer = DEV ? new WebSocket(devSocketURL) : null
+        const devSocketReady = new Promise((resolve) => {
+            const ogSend = devSocketServer.send
+            devSocketServer.send = async function (data) { await devSocketReady && ogSend.call(this, data) }
+            devSocketServer.onopen = () => resolve(true)
+        })
+
+        devSocketServer.onerror = function (e) {
+            console.error("WebSocket Error:", e)
+        }
+
+        devSocketServer.onmessage = async function (message) {
+            const data = JSON.parse(message.data)
+            const { context, id, channel, args } = data
+            const matchingContext = devSocketListeners[context]
+            if (!matchingContext) return console.error(`Unknown WS message context: ${context}`)
+            const pluginCallbacks = matchingContext[id]?.[channel] ?? {}
+            const evtObject = {}
+            Object.getOwnPropertySymbols(pluginCallbacks).forEach(symbol => pluginCallbacks[symbol](evtObject,...args))
+        }
+
+    }
 
     const loaded = {}
     
     const pluginLoadedContext = {
         WEB,
         DESKTOP: DESKTOP ? ENV.TARGET : false,
-        MOBILE: MOBILE ? ENV.TARGET : false
+        MOBILE: MOBILE ? ENV.TARGET : false,
+        DEV: !!DEV,
+        PROD: !DEV,
     }
 
     const registerPluginAsLoaded = (id) => DESKTOP &&  TEMP_COMMONERS.send(["commoners:loaded", DESKTOP.__id, id].join(":")) // Notify the main process that the plugin is loaded
 
     asyncFilter(Object.entries(__PLUGINS), async ([ id, plugin ]) => {
         try {
+
             const supported = await isPluginLoadable.call(
                 pluginLoadedContext,
                 plugin
@@ -53,10 +73,12 @@ if ( __PLUGINS ) {
         const { load } = sanitizePluginProperties(o, TARGET)
         return { id, load }
     })
-
+    
     sanitized.forEach(async ({ id, load }) => {
         
         loaded[id] = undefined // Register that all supported plugins are technically loaded
+
+        const pluginListeners = devSocketListeners["plugins"][id] = {}
 
         try {
 
@@ -72,23 +94,22 @@ if ( __PLUGINS ) {
                 
                 // NOTE: Hook up with a custom WebSocket implementation
                 {
-                    send: (channel, ...args) => devSocketServer.send(JSON.stringify({ context: "plugins", id, channel, args })),
+                    send: (channel, ...args) => devSocketServer && devSocketServer.send(JSON.stringify({ context: "plugins", id, channel, args })),
                     sendSync: false,
                     on: (channel, listener) => {
-                        devSocketListeners[id] = devSocketListeners[id] ?? {}
-                        devSocketListeners[id][channel] = devSocketListeners[id][channel] ?? {}
+                        const channelListeners = pluginListeners[channel] = pluginListeners[channel] ?? {}
                         const symbol = Symbol()
-                        devSocketListeners[id][channel][symbol] = listener
+                        channelListeners[symbol] = listener
                         return symbol
                     },
                     once: function (channel, listener) {
                         const subscription = this.on(channel, (...args) => {
-                            delete devSocketListeners[id][channel][subscription]
+                            delete pluginListeners[channel]?.[subscription]
                             listener(...args)
                         })
                     },
                     removeAllListeners: (channel) => {
-                        delete devSocketListeners?.[id]?.[channel]
+                        delete pluginListeners?.[channel]
                     }
                 }
 

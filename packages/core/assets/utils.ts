@@ -17,8 +17,13 @@ export async function isPluginFeatureSupported(plugin, feature) {
     if (isMobile && plugin.isSupported?.capacitor === false) return false
 
     // Check if the plugin supports the feature
-    let supported = plugin.isSupported?.[feature]
+    let supported = undefined
+
+    if (typeof plugin.isSupported === 'function') supported = plugin.isSupported
+    else supported = plugin.isSupported?.[feature]
+    
     if (typeof supported === 'function') try { supported = await supported(this) } catch (e) { supported = false }
+
     if (supported === undefined) return true // Assume supported if not defined
     return supported
 }

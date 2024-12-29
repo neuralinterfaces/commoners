@@ -1,5 +1,5 @@
 {
-  "name": "@commoners/test-app",
+  "name": "@commoners/demo",
   "version": "0.0.59",
   "private": true,
   "description": "A test app for the commoners library",
@@ -24,5 +24,16 @@
     "@commoners/splash-screen": "0.0.55",
     "@commoners/windows": "0.0.58"
   },
-  "main": ".commoners/.temp/main.cjs"
+  "main": ".commoners/.temp/main.cjs",
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  }
 }
