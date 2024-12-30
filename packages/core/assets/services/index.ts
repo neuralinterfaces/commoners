@@ -5,6 +5,8 @@ import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { ResolvedService, ActiveServices, ActiveService } from "../../types.js";
 
+import { getLocalIP } from './ip.js'
+
 type ServiceOptions = {
   root: string,
   target?: string, // For desktop check
@@ -41,6 +43,7 @@ const LOCAL_HOSTS = [
 const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root,path))
 
 const isDesktop = (target) => target === 'desktop' || target === 'electron'
+const isMobile = (target) => target === 'mobile' || target === 'ios' || target === 'android'
 
 const printServiceMessage = async (id, message, type = 'log') => {
   const _chalk = await chalk
@@ -165,9 +168,11 @@ export function resolveServiceBuildInfo(
   // For non-service builds, skip builds for non-URLS or if not local mode
   if (!isServicesOnlyBuild) {
 
+    const { url } = resolvedWithoutSource
+
     // Ensure remote URLs are treated as such
-    const isRemoteUrl = !getLocalUrl(resolvedWithoutSource.url)
-    if (isRemoteUrl) return { url: resolvedWithoutSource.url }
+    const isRemoteUrl = !getLocalUrl(url)
+    if (isRemoteUrl) return { url }
 
     // Only URLs should pass in remote mode
     if (isBuildProcess && !isLocalMode) {
@@ -179,7 +184,7 @@ export function resolveServiceBuildInfo(
 
 
 
-  const { src, url, base, filepath, host, port, __autobuild, __compile } = resolvedWithoutSource
+  const { src, url, base, filepath, public: isPublic, port, __autobuild, __compile } = resolvedWithoutSource
   
   // Resolve filepath
   const fullFile = filepath && resolvePath(root, filepath)
@@ -194,7 +199,7 @@ export function resolveServiceBuildInfo(
     base: base && resolvePath(root, base),
     filepath: file,
 
-    host, 
+    public: isPublic, 
     port,
 
     __autobuild,
@@ -211,19 +216,16 @@ function getLocalUrl(url) {
 async function getServiceUrl(service) {
 
   const resolved = resolveServiceConfiguration(service)
-  const { url, host, port, src } = resolved
+  const { url, port, src } = resolved
 
   if (!src) return url // Cannot generate URL without source file
 
   // Only modify URL if a source file is provided
   const _url = getLocalUrl(url)
 
-
   if (_url) {
     const resolvedPort = port || (await getFreePorts(1))[0]
     if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
-    if (host && LOCAL_HOSTS.includes(host)) _url.hostname = host // Only use the specified host if it's local
-
     return _url.href
   }
 
@@ -234,7 +236,7 @@ async function getServiceUrl(service) {
 
     if (config.__src) return config // Ensures that references are maintained throughout the application
 
-  const { root } = opts
+  const { root, target } = opts
 
   // Use the URL to determine the appropriate build strategy
   const resolved = resolveServiceConfiguration(config)
@@ -258,7 +260,6 @@ async function getServiceUrl(service) {
 
   // Return buildable service
   const { 
-    host, 
     port, 
     filepath, 
     base, 
@@ -269,6 +270,19 @@ async function getServiceUrl(service) {
     __autobuild,
   } = resolvedForBuild
 
+
+  resolvedForBuild.url = await getServiceUrl({ src, url, port })
+
+  const isMobileTarget = isMobile(target)
+
+  if (isMobileTarget && getLocalUrl(resolvedForBuild.url)) {
+    const host = getLocalIP() // Use public IP address for mobile development
+    resolvedForBuild.public = true // All services are public in mobile mode
+    const url = new URL(resolvedForBuild.url)
+    url.hostname = host
+    resolvedForBuild.url = url.toString()  // Transform localhost references to public IP
+  }
+
   return {
 
     // For Build Configuration
@@ -276,7 +290,8 @@ async function getServiceUrl(service) {
     __src,  __compile, __autobuild, // Flags
 
     // For Client
-    url: await getServiceUrl({ src, url, host, port }),
+    url: resolvedForBuild.url,
+    public: !!resolvedForBuild.public, 
     
     status: null,
 
@@ -288,7 +303,7 @@ async function getServiceUrl(service) {
 const isExecutable = (ext) => ext === '.exe' || !ext
 
 // Create and monitor arbitary processes
-export async function start(config, id, opts = {}) {
+export async function start(config, id, opts) {
 
   const label = id ?? 'commoners-service'
 
@@ -306,15 +321,17 @@ export async function start(config, id, opts = {}) {
 
     let error;
 
+    const resolvedURL = new URL(config.url)
+
+    // const host = getLocalIP() // Constrain to local IP address if not public
+    resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
+
     try {
 
       const { build } = opts
       const root = !build && opts.root
       const cwd = root || process.cwd()
-
-      const url = new URL(config.url)
-
-      const env = { ...process.env, PORT: url.port, HOST: url.hostname }
+      const env = { ...process.env, PORT: resolvedURL.port, HOST: resolvedURL.hostname }
 
       const resolvedFilepath = resolve((isExecutable(ext) && !ext && existsSync(filepath + '.exe')) ? filepath + '.exe' : filepath)
 
@@ -336,7 +353,7 @@ export async function start(config, id, opts = {}) {
     if (childProcess) {
 
       const _chalk = await chalk
-      printServiceMessage(label, _chalk.cyanBright(config.url))
+      printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
 
       if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
         config.status = true
@@ -400,10 +417,7 @@ export const sanitize = (
   
   .reduce((acc, [id, info]) => {
     const { url } = info
-
-    acc[id] = { 
-      url: url && url.replace('0.0.0.0', 'localhost')
-    }
+    acc[id] = { url }
 
     return acc
   }, {})

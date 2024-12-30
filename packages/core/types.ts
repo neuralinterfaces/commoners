@@ -73,7 +73,7 @@ type UserBuildCommand = string | ((info: PackageBuildInfo) => string | Promise<s
 
 
 type _ExtraServiceMetadata = {
-    host?: string,
+    public?: boolean,
     port?: number,
     build?: UserBuildCommand
 }
@@ -93,6 +93,7 @@ export type UserService = string | (BaseServiceMetadata & ExtraServiceMetadata) 
 
 
 type ServiceStatus = null | boolean
+
 export type ResolvedService = {
 
     // For Service Build
@@ -103,16 +104,15 @@ export type ResolvedService = {
     __compile: boolean,
     __autobuild: boolean,
 
+    public: boolean,
+
     // For Client
     url: string // What URL to use for service requests
-
     status: ServiceStatus,
 }
 
 export type ActiveService = ResolvedService & { process: ChildProcess }
-export type ActiveServices = {
-    [x:string]: ActiveService
-}
+export type ActiveServices = { [x:string]: ActiveService }
 
 // ------------------- Plugins -------------------
 type BaseLoadedPlugin = { [x:string]: any } | Function | any
@@ -171,8 +171,8 @@ type PluginLoadCallback = ( this: IpcRenderer, env: CommonersGlobalObject ) => L
 
 type OptionalPluginBehaviors = {
     assets?: Record<string, string>,
-    start?: (this: DesktopPluginContext, id: string) => void,
-    ready?: (this: DesktopPluginContext, services: ResolvedServices, id: string) => void,
+    start?: (this: DesktopPluginContext, services: ResolvedServices, id: string) => void,
+    ready?: (this: DesktopPluginContext, services: ActiveServices, id: string) => void,
     quit?: (this: DesktopPluginContext, id: string) => void,
 }
 
@@ -236,7 +236,7 @@ export type BaseConfig = {
     target: TargetType, // Specify the default target platform
     outDir: string, // Specify the default output directory
 
-    host?: LocalHostType
+    public?: boolean
     port?: PortType, // Specify the port for Start and Launch commands
 
     // Common Options
@@ -289,7 +289,7 @@ export type LaunchConfig = {
     services: BaseConfig["services"],
 
     // Server + Service Options
-    host: BaseConfig["host"],
+    public: BaseConfig["public"],
     port: BaseConfig["port"]
 }
 

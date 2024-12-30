@@ -12,7 +12,7 @@ import * as mobile from './mobile/index.js'
 import { createAll } from './assets/services/index.js';
 import { resolveConfig } from './index.js';
 
-const open = import('open').then(m => m.default)
+type ViteServerOptions = import('vite').ServerOptions
 
 const matchFile = (directory, extensions) => {
     if (!existsSync(directory)) return null
@@ -86,7 +86,7 @@ export const launchApp = async ( config: LaunchConfig ) => {
     const { 
         root, 
         port,
-        host = 'localhost' 
+        public: isPublic
     } = config
 
 
@@ -152,14 +152,17 @@ export const launchApp = async ( config: LaunchConfig ) => {
 
         const __vite = await vite
 
+        const serverConfig = {
+            port, 
+            open: !process.env.VITEST
+        } as ViteServerOptions
+
+        if (isPublic) serverConfig.host = '0.0.0.0'
+
         const server = await __vite.createServer({
             configFile: false,
             root: outDir,
-            server: { 
-                port, 
-                host,
-                open: !process.env.VITEST
-            }
+            server: serverConfig
         })
 
         await server.listen()

@@ -29,7 +29,6 @@ export default (page: string, options: SplashScreenOption = {}) => {
             } =  options
 
             const firstLoad = !this.LOADED
-
             if (!firstLoad) return
             this.LOADED = true
             loadingWindow.__show = false

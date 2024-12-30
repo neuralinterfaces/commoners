@@ -16,14 +16,14 @@ export default {
     plugins: {
         selectiveBuild: {
             isSupported: {
-                load: ({ WEB, DESKTOP, MOBILE }) => WEB || DESKTOP || MOBILE,
-                start: ({ DESKTOP }) => DESKTOP,
-                ready: ({ DESKTOP }) => DESKTOP,
-                quit: ({ DESKTOP }) => DESKTOP
+                load: ({ DEV, WEB, DESKTOP, MOBILE }) => DEV || DESKTOP,
+                start: ({ DEV, DESKTOP }) => DEV || DESKTOP,
+                ready: ({ DEV, DESKTOP }) => DEV || DESKTOP,
+                quit: ({ DEV, DESKTOP }) => DEV || DESKTOP,
             },
             load: () => console.log(commoners.target + ' application (load)'),
-            start: () => console.log('application (start)'),
-            ready: () => console.log('application build (ready)'),
+            start: ( serviceConfigs ) => console.log('application (start)'),
+            ready: ( activeServices ) => console.log('application build (ready)'),
             quit: () => console.log('application build (quit)'),
             desktop: {
                 load: () => console.log('desktop build (load)'),

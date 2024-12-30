@@ -8,8 +8,7 @@ import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from "../../assets/services/index.js"
-import { getLocalIP } from '../../utils/ip/cross-platform.js'
-import { networkInterfaces } from 'node:os'
+import { getLocalIP } from '../../assets/services/ip.js'
 
 const virtualModuleId = 'commoners:env'
 
@@ -126,7 +125,7 @@ export default async ({
                 WEB: !desktop && !mobile,
         
                 // Production vs Development
-                DEV: dev ? `ws://${getLocalIP(networkInterfaces)}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
+                DEV: dev ? `ws://${getLocalIP()}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
                 PROD: !dev,
         
                 // Environment Variables

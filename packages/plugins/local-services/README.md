@@ -1,27 +1,17 @@
 # @commoners/local-services
-Share and connect to services available on your local network (**desktop** only).
+Register and monitor services available on your local network
 
-## Arguments
-- `isValid` - A function that returns whether or not a service should be connected to (`(ip, env) => boolean`)
-    - `ip` - The IP address of the service (`localhost` if the current machine)
-    - `env` - The service's environment variables
-
-- `port` - The port to use for the service gateway (`number`)
-    - Optional if you have a `COMMONERS_SHARE_PORT` environment variable
-
+Available across **desktop** usage. Only available in development for **web** and **mobile**.
 
 ## Example
 ```js
 import localServicesPlugin from '@commoners/local-services'
 
 export default {
-    plugins: [
-        localServicesPlugin((ip, env) => {
-            if (ip === 'localhost') return true
-            return env.SECRET_KEY === '****************'
-        }, 3768)
-    ]
+    plugins: {               
+        localServices: localServicesPlugin({ register: [ 'http', 'numpy', 'cpp' ] }), // Register and listen for specified services
+        // allLocalServices: localServicesPlugin({ register: true }), // Register and listen for all services
+        listenForLocalServices: localServicesPlugin({ type: 'http' }) // Only listen for HTTP services
+    }
 }
 ```
-
-With the above configuration, you would be able to discover shared services on your local machine by running `commoners share --port 3768`.

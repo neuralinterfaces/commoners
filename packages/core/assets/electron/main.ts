@@ -137,6 +137,10 @@ const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
   acc[id] = { 
     id,
 
+    MOBILE: false,
+    DESKTOP: true,
+    WEB: false,
+
     // Packaged Electron Utilities
     electron,
     utils,
@@ -170,7 +174,7 @@ const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
 
 
 const boundRunAppPlugins = runAppPlugins.bind({
-  env: { WEB: false, DESKTOP: "electron",  MOBILE: false, DEV: isDevServer, PROD: !isDevServer },
+  env: { WEB: false, DESKTOP: true, MOBILE: false, TARGET: "electron", DEV: isDevServer, PROD: !isDevServer },
   plugins: PLUGINS,
   contexts
 })
@@ -192,7 +196,7 @@ const runWindowPlugin = async (win, id, type) => {
 
     if (!thisPlugin) return
 
-    const context = { ...contexts[id] }
+    const context = contexts[id]
     
     const { createWindow } = context
     if (types.load) context.createWindow = (page, opts) => createWindow(page, opts, [ id ]) // Do not recursively call window creation in load function
@@ -409,16 +413,22 @@ async function createMainWindow() {
   return await createWindow(undefined, windowOptions, [], true)
 }
 
+const baseServiceOptions = { 
+  target: 'desktop',
+  build: isProduction,
+  root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir 
+}
+
 // ------------------------ App Start Behavior ------------------------
-boundRunAppPlugins().then(() => {
+services.resolveAll(config.services, baseServiceOptions).then(async (resolvedServices) => {
+  
+  await boundRunAppPlugins([ resolvedServices ])
 
   app.whenReady().then(async () => {
 
     // ------------------------ Service Creation ------------------------
-    const output = await services.createAll(config.services, {
-      target: 'desktop', 
-      build: isProduction,
-      root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir
+    const output = await services.createAll(resolvedServices, {
+      ...baseServiceOptions,
       onClosed: (id, code) => serviceSend(id, 'closed', code),
       onLog: (id, msg) => serviceSend(id, 'log', msg.toString())
     })

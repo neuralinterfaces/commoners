@@ -20,18 +20,13 @@ function getURL(host, port) {
     return `http://${host}:${port}`
 }
 
-const sanitizeService = (
-    service
-) => {
-
-    // Send a localhost URL if the service is running on the same machine
-    const host = service.host ? "localhost" : service.host
-
+function sanitizeService(service) {
     return {
       name: service.name,
       host: service.host,
       metadata: service.txt,
-      url: `http://${service.referer.address}:${service.port}`,
+      ip: service.referer.address,
+      url: getURL(service.host, service.port)
     };
 }
 
@@ -41,18 +36,18 @@ const listenForServices = async function ( type = DEFAULT_TYPE ) {
 
     // Browse for all available services
     const browser = this.bonjour.find({ type }, (service) => {
-        const sanitized = sanitizeService(service);
+        const sanitized = sanitizeService.call(this, service);
         active[sanitized.url] = sanitized;
-        if (this.send) this.send(commands.up, sanitized); // Desktop or Development
+        this.send(commands.up, sanitized); // Desktop or Development
     });
 
      // Desktop or Development
-    if (this.on && this.send) this.on(commands.services.get, () => this.send(commands.services.response, active))
+    this.on(commands.services.get, () => this.send(commands.services.response, active))
 
     browser.on(commands.down, (service) => {
-      const sanitized = sanitizeService(service);
+      const sanitized = sanitizeService.call(this, service);
       delete active[sanitized.url];
-      if (this.send) this.send(commands.down, sanitized); // Desktop or Development
+      this.send(commands.down, sanitized); // Desktop or Development
     });
 
     // Start the browser
@@ -70,10 +65,7 @@ function load() {
                 this.send(commands.services.get)
             })
         },
-        onServiceUp: (callback) => this.on(commands.up, (evt, url) => {
-            console.log('Service up', evt, url)
-            callback(url)
-        }),
+        onServiceUp: (callback) => this.on(commands.up, (_, url) => callback(url)),
         onServiceDown: (callback) => this.on(commands.down, (_, url) => callback(url)),
     }
 }
@@ -82,23 +74,34 @@ export default ({
     type = DEFAULT_TYPE,
     register = []
 }: LocalServicePluginOptions) => {
+
+    const registerAll = register === true
+
     return {
 
         isSupported: ({ DESKTOP, DEV }) => DESKTOP || DEV,
 
         load,
 
-        start: async function () {
+        start: async function ( services ) {
             const { Bonjour } = await import('bonjour-service')
             this.bonjour = new Bonjour()
             this.browser = await listenForServices.call(this, type)
+
+            const toRegister = registerAll ? Object.keys(services) : register
+
+            toRegister.forEach(id => {
+                const service = services[id]
+                if (!service) return
+                service.public = true // Transform to a public service
+            })
         },
 
         ready: async function (services, pluginId) {
 
-            if (register === true) register = Object.keys(services)
-            
-            for (const id of register) {
+            const toRegister = registerAll ? Object.keys(services) : register
+
+            for (const id of toRegister) {
                 const service = services[id]
                 if (!service) continue
                 const { url } = service

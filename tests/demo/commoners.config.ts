@@ -47,7 +47,7 @@ const TEST_OPTIONS = {
 
 const config = defineConfig({
 
-    host: '0.0.0.0', // Public Vite server host (NOTE: registered as insecure)
+    public: true, // Public Vite server host (NOTE: registered as insecure)
     port: 3000, // Hardcoded Vite server port
 
     // // NOTE: Attempt to enable these for Commoners package testing
@@ -84,7 +84,8 @@ const config = defineConfig({
 
         checks: checksPlugin,
 
-        localServices: localServicesPlugin({ register: true }),
+        // Specify a subset of services to register as public services
+        localServices: localServicesPlugin({ register: [ 'http', 'numpy', 'cpp' ] }),
 
         splash: splashPagePlugin(splashSrc, { 
             minimumDisplayTime: 1000,

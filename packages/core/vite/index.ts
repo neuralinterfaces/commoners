@@ -18,6 +18,7 @@ type ManifestOptions = import ('vite-plugin-pwa').ManifestOptions
 type VitePWAOptions = import ('vite-plugin-pwa').VitePWAOptions
 
 type Plugin = import('vite').Plugin
+type ViteServerOptions = import('vite').ServerOptions
 
 const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
 
@@ -106,7 +107,7 @@ export const resolveViteConfig = async (
 ) => {
 
     const _vite = await vite
-    let { vite: viteUserConfig = {}, target, outDir, port, host } = commonersConfig
+    let { vite: viteUserConfig = {}, target, outDir, port, public: isPublic } = commonersConfig
 
     const isDesktopTarget = isDesktop(target)
 
@@ -141,18 +142,21 @@ export const resolveViteConfig = async (
 
 
     // Get html files from plugins
-    for (const plugin of Object.values(commonersPlugins)) {
-        Object.values(plugin.assets ?? {}).map((assetSrc) => {
-            if (extname(assetSrc) === '.html') pages[crypto.randomUUID()] = getAbsolutePath(root, assetSrc)
+    const pluginPages = Object.values(commonersPlugins).reduce(( acc, plugin ) => {
+        Object.values(plugin.assets ?? {}).forEach((assetSrc) => {
+            if (extname(assetSrc) === '.html') acc[crypto.randomUUID()] = getAbsolutePath(root, assetSrc)
         })
-    }
+        return acc
+    }, {}) as Record<string, string>
+
+    const collectedPages = { ...pages, ...pluginPages }
 
     const rollupOptions = {}
 
     // Resolve pages
-    if (Object.keys(pages).length) {
+    if (Object.keys(collectedPages).length) {
         const rootHTML = getAbsolutePath(root, 'index.html')
-        const allPages = Object.values(pages)
+        const allPages = Object.values(collectedPages)
         if (allPages.length) {
             if (!allPages.includes(rootHTML)) allPages.push(rootHTML)
             const allUniquePages = Array.from(new Set(allPages))
@@ -162,6 +166,13 @@ export const resolveViteConfig = async (
             }, {}) 
         }
     }
+
+    const serverConfig = { 
+        port, 
+        open: !isDesktopTarget && !process.env.VITEST // Open the browser unless testing / building for desktop
+    } as ViteServerOptions
+
+    if (isPublic) serverConfig.host = '0.0.0.0'
 
     // Define a default set of plugins and configuration options
     const viteConfig = _vite.defineConfig({
@@ -174,7 +185,7 @@ export const resolveViteConfig = async (
             rollupOptions
         },
         plugins,
-        server: { port, host, open: !isDesktopTarget && !process.env.VITEST }, // Open the browser unless testing / building for desktop
+        server: serverConfig, // Open the browser unless testing / building for desktop
         clearScreen: false,
         envPrefix: ["VITE_", "COMMONERS_"]
     })

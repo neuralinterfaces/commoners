@@ -15,9 +15,7 @@ export default (options: TestOptions) => {
 
     return {
 
-        isSupported: {
-            start: ({ DESKTOP }) => DESKTOP
-        },
+        isSupported: ({ DESKTOP }) => DESKTOP,
 
         // Store options for future reference
         options,

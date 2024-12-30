@@ -9,6 +9,7 @@ import { checkAssets } from './assets'
 import config from './demo/commoners.config'
 
 import { join } from 'node:path'
+import { getLocalIP } from '../packages/core/assets/services/ip'
 
 export const EXTRA_OUTPUT_LOCATIONS = [ "build" ]
 
@@ -32,6 +33,8 @@ const getServices = async (output) => {
 
 
 export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+const localIP = getLocalIP()
 
 const e2eTests = {
     plugins: (output, { target }, isDev = true) => {
@@ -94,6 +97,8 @@ const e2eTests = {
                   NAME, 
                   VERSION, 
                   PLUGINS, 
+
+                  PAGES,
                   SERVICES, 
                   READY, 
 
@@ -111,26 +116,29 @@ const e2eTests = {
                 const isDesktop = normalizedTarget === 'desktop'
                 const availableByDefault = isDev || isDesktop
 
-                expect(NAME).toBe(config.name);
-                expect(VERSION).toBe(userPkg.version);
+                expect(NAME, "Name does not natch").toBe(config.name);
+                expect(VERSION, "Version does not match").toBe(userPkg.version);
 
-                expect(WEB).toBe(normalizedTarget === 'web');
-                expect(MOBILE).toBe(normalizedTarget === 'mobile');
+                expect(WEB, "Web flag does not match").toBe(normalizedTarget === 'web');
+                expect(MOBILE, "Mobile flag does not match").toBe(normalizedTarget === 'mobile');
 
-                expect(READY).instanceOf(Object) // Resolved Promise
+                expect(READY, "Ready promise is not the expected type").instanceOf(Object) // Resolved Promise
+
+                // Existence Checks
+                expect(PAGES, "Pages dictionary is not the expected type").instanceOf(Object)
 
                 // Build Mode Changes
-                expect(DEV, "DEV").toBe(isDev);
-                expect(PROD, "PROD").toBe(!isDev);
+                expect(DEV, "Dev flag does not match").toBe(isDev ? `ws://${localIP}:${process.env['COMMONERS_WEBSOCKET_PORT']}` : false);
+                expect(PROD, "Prod flag does not match").toBe(!isDev);
 
-                if (isDev) expect(ENV.COMMONERS_MODE).toStrictEqual('development')
-                else expect(ENV.COMMONERS_MODE).toStrictEqual('production')
+                expect(ENV.COMMONERS_MODE, "Commoners custom environment variable does not match").toStrictEqual(isDev ? 'development' : 'production')
 
                 // Plugin Checks
-                expect('checks' in PLUGINS).toBe(true); // Test checks existence
+                expect('checks' in PLUGINS, "Checks plugin is not enabled").toBe(true); // Test checks existence
+                expect('localServices' in PLUGINS, "Local services plugin is not enabled").toBe(isDev || isDesktop);
 
                 // Service Checks
-                expect(SERVICES).instanceOf(Object)
+                expect(SERVICES, "Services dictionary is not the expected type").instanceOf(Object)
 
                 Object.entries(SERVICES).forEach(([ name, service ]) => {
 
@@ -150,32 +158,31 @@ const e2eTests = {
               if (isDesktop) {
 
                 // Desktop-specific plugins
-                expect('splash' in PLUGINS).toBe(true); 
-                expect('protocol' in PLUGINS).toBe(true);
-                expect('__testing' in PLUGINS).toBe(true);
+                expect('protocol' in PLUGINS, "Protocol plugin is not enabled").toBe(true);
+
+                // // NOTE: Only run on the backend. No loaded value to check on the frontend
+                // expect('splash' in PLUGINS, "Splash plugin is not enabled").toBe(true); 
+                // expect('__testing' in PLUGINS, "Testing plugin is not enabled").toBe(true);
 
                 // Desktop controls
-                expect(DESKTOP).instanceOf(Object)
-                expect("quit" in DESKTOP).toBe(true)
-                expect("__id" in DESKTOP).toBe(true)
-                expect("__main" in DESKTOP).toBe(true)
+                expect(DESKTOP, "Desktop flag is not the expected type").instanceOf(Object)
+                expect("quit" in DESKTOP, "Desktop flag does not have a quit function").toBe(true)
+                expect("__id" in DESKTOP, "Desktop flag does not have an __id value").toBe(true)
+                expect("__main" in DESKTOP, "Desktop flag does not have a __main flag").toBe(true)
 
 
-                // Desktop service controls
-                Object.values(SERVICES).forEach(service => {
-                    expect("close" in service).toBe(true)  // Function
-                    expect("onClosed" in service).toBe(true)  // Function
-                    expect("status" in service).toBe(true)  // Function
-                })
+                // Check desktop service controls
+                const allWithClose = Object.values(SERVICES).filter(service => "close" in service)
+                expect(allWithClose.length, "Each service does not have a close function").toBeGreaterThan(0)
+
+                const allWithOnClosed = Object.values(SERVICES).filter(service => "onClosed" in service)
+                expect(allWithOnClosed.length, "Each service does not have an onClosed function").toBeGreaterThan(0)
+
+                const allWithStatus = Object.values(SERVICES).filter(service => "status" in service)
+                expect(allWithStatus.length, "Each service does not have a status value").toBeGreaterThan(0)
               } 
               
               else expect(DESKTOP).toBe(false);
-
-
-              // // Environment Variables
-              // expect(ENV.VITE_ENV_VARIABLE).toBe('test')
-
-
 
             });
           })

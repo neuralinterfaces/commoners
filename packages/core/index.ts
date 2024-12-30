@@ -117,7 +117,7 @@ export async function resolveConfig(
     } : ConfigResolveOptions = {}
 ) {
 
-    if (o.__resolved) return o
+    if (o.__resolved) return o as ResolvedConfig
     
     // Mobile commands must always run from the root of the specified project
     if (isMobile(o.target) && o.root) {
@@ -164,9 +164,6 @@ export async function resolveConfig(
         acc[id] = getAbsolutePath(root, filepath)
         return acc
     }, {}) 
-
-
-
 
     if (services) {
         const selectedServices = typeof services === "string" ? [ services ] : services

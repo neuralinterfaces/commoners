@@ -4,17 +4,13 @@ import { basename, extname, join } from "node:path";
 // Internal Imports
 import { build, buildServices, configureForDesktop, createServices, resolveConfig } from './index.js'
 import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, onCleanup } from "./globals.js";
-import { ResolvedConfig, ResolvedService, UserConfig } from "./types.js";
+import { UserConfig } from "./types.js";
 import { createServer } from "./vite/index.js";
 
 // Internal Utilities
 import { printHeader, printTarget } from "./utils/formatting.js"
-import { updateServicesWithLocalIP } from "./utils/ip/index.js";
 import { buildAllAssets } from "./build.js";
-
 import { runAppPlugins } from './assets/plugins/index.js'
-
-import WebSocket from 'ws';
 import { getFreePorts } from "./assets/services/network.js";
 
 const wsPortEnvVar = 'COMMONERS_WEBSOCKET_PORT'
@@ -27,73 +23,50 @@ const wsContexts = {
 
 const createAllServices = (services, { root, target }) => createServices(services, { root, target, services: true, build: false }) // Run services in parallel
 
-type ResolvedServices = Record<string, ResolvedService>
-
-const resolveServices = (
-    config: ResolvedConfig
-): ResolvedServices => {
-    const { target } = config
-    const isMobileTarget = isMobile(target)
-    if (isMobileTarget) return updateServicesWithLocalIP(config.services) // Create URLs that will be shared with the frontend
-    return config.services
-}
-
 export const services = async (
     config: UserConfig,
     resolvedServices
 ) => {
 
     const resolvedConfig = await resolveConfig(config);
-    const { root, target } = resolvedConfig
+    const { root, target, services } = resolvedConfig
 
     // Build service outputs
     await buildServices(resolvedConfig, { services: resolvedServices, dev: true })
-    if (!resolvedServices) resolvedServices = resolveServices(resolvedConfig)
+
+    resolvedServices = resolvedServices || services
 
     // Create services
     return await createAllServices(resolvedServices, { root, target })
 
 }
 
+const startServices = services
+
 export const app = async function ( 
     config: UserConfig
 ) {
         
-        const resolvedConfig = await resolveConfig(config);
+        const resolvedConfig = await resolveConfig(config)
         
-        const { name, root, target } = resolvedConfig
+        const { name, root, target, services } = resolvedConfig
 
         const isDesktopTarget = isDesktop(target)
         const isMobileTarget = isMobile(target)
 
         await printHeader(`${name} — ${printTarget(target)} Development`)
 
-        const resolvedServices = resolveServices(resolvedConfig)
-
         // Temporary directory for the build
         const outDir = join(root, globalTempDir)
         const filesystemManager = await handleTemporaryDirectories(outDir)
 
-        const configCopy = { 
-            ...resolvedConfig, 
-            outDir 
-        }
+        const configCopy = { ...resolvedConfig, outDir }
 
-        // Initialize DevelopmentWebSocket information
         const { env } = process
-        if (!isDesktopTarget) env[wsPortEnvVar] || ( env[wsPortEnvVar] = (await getFreePorts(1))[0])
+        if (!isDesktopTarget) env[wsPortEnvVar] || ( env[wsPortEnvVar] = (await getFreePorts(1))[0]) // Initialize WebSocket Development Server
 
-
-        // Build for mobile before moving forward
-        if (isMobileTarget) await build(
-            configCopy, 
-            { services: resolvedServices, dev: true }
-        )
-
-        // Manually clear and build the output assets
-        else {
-            await buildAllAssets(configCopy, true)
-        }
+        if (isMobileTarget) await build( configCopy, { services, dev: true } ) // Build for mobile before moving forward
+        else await buildAllAssets(configCopy, true) // Manually clear and build the output assets
 
         const activeInstances: {
             frontend?: Awaited<ReturnType<typeof createServer>>,
@@ -126,10 +99,15 @@ export const app = async function (
         // Create all services
         else {
 
-            const wss = new WebSocket.Server({ port: env[wsPortEnvVar] })
-            onCleanup(() => wss.close()) // Close the WebSocket server on exit
+            // Copy plugins to allow for modification when assigned as modules
+            const plugins = Object.entries({...(resolvedConfig.plugins || {})}).reduce((acc, [name, plugin]) => {
+                acc[name] = { ...plugin }
+                return acc
+            }, {})
 
-            // Get messages
+            const { Server } = require("ws") // Ensure node version is imported
+            const wss = new Server({ port: env[wsPortEnvVar] })
+            onCleanup(() => wss.close()) // Close the WebSocket server on exit
             wss.on('connection', ws => {
                 ws.on('message', message => {
                     const data = JSON.parse(message)
@@ -142,19 +120,17 @@ export const app = async function (
                 })
             })
 
-            // Copy plugins to allow for modification when assigned as modules
-            const plugins = Object.entries({...(resolvedConfig.plugins || {})}).reduce((acc, [name, plugin]) => {
-                acc[name] = { ...plugin }
-                return acc
-            }, {})
+            const targetFlags = {
+                MOBILE: isMobileTarget,
+                DESKTOP: isDesktopTarget,
+                WEB: !isMobileTarget && !isDesktopTarget
+            }
             
             // Create a shared context for the plugin functions
             const boundRunAppPlugins = runAppPlugins.bind({
                 env: {
                     TARGET: target,
-                    WEB: !isMobileTarget && !isDesktopTarget,
-                    DESKTOP: isDesktopTarget,
-                    MOBILE: isMobileTarget,
+                    ...targetFlags,
                     DEV: true,
                     PROD: false
                 },
@@ -167,6 +143,8 @@ export const app = async function (
 
                     acc[id] = {
                         id,
+                        ...targetFlags,
+
                         // No electron, utils, createWindow, etc...
                         send: (channel, ...args) => wss.clients.forEach(client => client.send(JSON.stringify({ context: "plugins", id, channel, args }))),
 
@@ -190,8 +168,8 @@ export const app = async function (
             })
             
             onCleanup(() => boundRunAppPlugins([], 'quit')) // Cleanup on exit
-            await boundRunAppPlugins() // Run the init event before creating services
-            const { active } = activeInstances.services = await services(configCopy, resolvedServices)
+            await boundRunAppPlugins([ services ]) // Run the init event before creating services
+            const { active } = activeInstances.services = await startServices(configCopy, services)
             await boundRunAppPlugins([ active ], 'ready') // Run the ready event after all services are created
         }
 

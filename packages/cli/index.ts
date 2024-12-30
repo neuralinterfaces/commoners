@@ -58,11 +58,11 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
 .option('--config <path>', 'Specify a configuration file')
 
 .option('--port <port>', 'Choose a port to launch on')
-.option('--host <host>', 'Choose a host to launch on (services only)')
+.option('--public', 'Launch your service as public (services only)')
 
 .action(async (root, options) => {
 
-    const { config: configPath, service, host, port, ...overrides } = options
+    const { config: configPath, service, public: isPublic, port, ...overrides } = options
 
     await preprocessTarget(overrides.target)
 
@@ -81,12 +81,12 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
 
         const resolvedServices = typeof service === 'string' ? [ service ] : service
         const nServices = Object.keys(resolvedServices).length
-        if (nServices > 1 && (port || host)) return await failed(`Cannot specify port or host when launching multiple services`)
+        if (nServices > 1 && (port || isPublic)) return await failed(`Cannot specify port or public when launching multiple services`)
         if (nServices === 1) {
             const serviceName = resolvedServices[0]
             if (serviceName in config.services) {
                 const service = resolveServiceConfiguration(config.services[serviceName])
-                Object.assign(service, { host, port }) // Set host and port on single service
+                Object.assign(service, { public: isPublic, port }) // Set host and port on single service
                 config.services[serviceName] = service
             }
         }
