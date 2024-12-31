@@ -56,7 +56,6 @@ console.log(commoners) // { NAME: 'My App', VERSION: '0.0.0', ICON: '<path>', DE
 Try replacing the default `h1` and `img` tags with your custom `NAME` and `ICON` using the `commoners` global variable!
 
 ## Building for Production
-### Application
 To build your application for production, run one of the following commands:
 
 ```bash
