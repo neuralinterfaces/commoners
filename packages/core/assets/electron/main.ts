@@ -6,6 +6,7 @@ import * as services from '../services/index'
 import { existsSync } from 'node:fs';
 import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
 import { runAppPlugins } from '../plugins';
+import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons';
 
 function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
   const decodePath = (path) => decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
@@ -214,11 +215,16 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   // ------------------- Configure the main window properties -------------------  
   const preload = join(__dirname, 'preload.cjs')
 
-  // Replace with getIcon (?)
-  const defaultIcon = config.icon && (typeof config.icon === 'string' ? config.icon : Object.values(config.icon).find(str => typeof str === 'string'))
-  const linuxIcon = config.icon?.linux || defaultIcon
+  const isWindows = platform === 'windows'
+  const isLinux = platform === 'linux'
 
-  const platformDependentWindowConfig = (platform === 'linux' && linuxIcon) ? { icon: linuxIcon } : {}
+  const defaultIcon = getIcon(config.icon, {
+    preferredFormats: isWindows ? ELECTRON_WINDOWS_PREFERENCE : ELECTRON_PREFERENCE
+  })
+
+  const linuxIcon = defaultIcon // config.icon?.linux || defaultIcon
+
+  const platformDependentWindowConfig = (isLinux && linuxIcon) ? { icon: linuxIcon } : {}
 
   const electronOptions = config.electron ?? {}
   const windowOptions = electronOptions.window ?? {}

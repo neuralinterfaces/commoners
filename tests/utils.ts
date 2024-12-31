@@ -189,6 +189,12 @@ const e2eTests = {
     }
 }
 
+export const getMockOutput = () => {
+  return {
+    cleanup: () => {}
+  }
+}
+
 export const registerStartTest = (name, { target = 'web' } = {}, enabled = true) => {
   
   
@@ -196,16 +202,14 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
   describeCommand(name, () => {
 
-    const output = {}
+    const output = getMockOutput()
     beforeAll(async () => {
       const _output = await open(projectBase, { target })
       Object.assign(output, _output)
 
     })
 
-    afterAll(() => {
-      output.cleanup()
-    })
+    afterAll(() => output.cleanup())
 
     test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
 
@@ -272,8 +276,7 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
 
 
     // Setup build for testing
-    const output = {}
-
+    const output = getMockOutput()
 
     beforeAll(async () => {
 
@@ -297,13 +300,13 @@ export const registerBuildTest = (name, { target = 'web', publish = false }: Bui
 
     describeFn('Launched application tests', async () => {
 
-      const output = {}
+      const output = getMockOutput()
       beforeAll(async () => {
         const _output = await open(projectBase, opts, true)
         Object.assign(output, _output)
       })
 
-      afterAll(() => output?.cleanup())
+      afterAll(() => output.cleanup())
 
       e2eTests.basic(output, { target }, false)
       e2eTests.plugins(output, { target }, false)

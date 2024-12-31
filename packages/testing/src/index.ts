@@ -26,9 +26,7 @@ type Output = {
   cleanup: Function
 }
 
-const onTestFunction = () => {
-  process.env["COMMONERS_TESTING"] = true
-}
+const onTestFunction = () => process.env["COMMONERS_TESTING"] = 'true' // Set the testing environment variable
 
 // NOTE: You'll likely have to wait longer for Electron to build
 export const build = async (
@@ -55,7 +53,7 @@ export const build = async (
     cleanup: async (relativePathsToRemove = []) => {
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
       toRemove.forEach(path => removeDirectory(path))
-      cleanup() // Cleanup after the build process
+      await cleanup() // Cleanup after the build process
     }
   }
 }
@@ -82,7 +80,7 @@ export const buildServices = async (
     cleanup: async (relativePathsToRemove = []) => {
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
       toRemove.forEach(path => removeDirectory(path))
-      cleanup() // Cleanup after the build process
+      await cleanup() // Cleanup after the build process
     }
   }
 }
@@ -160,7 +158,7 @@ export const open = async (
     // Override cleanup function
     cleanup: async () => {
       
-      cleanup() // Cleanup the command
+      await cleanup() // Cleanup the command
 
       // Close Electron instances
       if (isElectron) {

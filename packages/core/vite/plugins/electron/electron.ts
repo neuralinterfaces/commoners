@@ -1,3 +1,4 @@
+import * as cleanup from '../../../cleanup.js';
 import { printServiceMessage } from '../../../utils/formatting.js'
 import { treeKillSync } from './processes.js'
 
@@ -29,8 +30,8 @@ export async function startup( root ) {
     // Start Electron.app
     const app = electronGlobalStates.app = spawn(electronPath, argv, {  cwd: root,  env: { ...process.env, FORCE_COLOR: '1' } }) // Ensure the app is started from the root of the selected project
     
-    // Exit command after Electron.app exits
-    app.once('exit', process.exit)
+    // Kill the process after Electron.app exits
+    app.once('exit', cleanup.exit) // Calls cleanup and exits the process
 
     // Print out any messages from Electron.app
     app.stdout.on('data', data => log(data))
@@ -55,5 +56,6 @@ export async function startup( root ) {
     delete electronGlobalStates.app
   }
 
-  // Properly close Electron process on Windows
+  // Properly close Electron process on Windows. 
+  // NOTE: May not need this after change to process.kill above...
   process.on('SIGINT', startup.exit)

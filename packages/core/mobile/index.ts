@@ -5,7 +5,9 @@ import { createRequire } from 'node:module';
 
 // Internal Imports
 import * as assets from './assets.js'
-import { chalk, onCleanup } from "../globals.js"
+import { chalk } from "../globals.js"
+import { onCleanup } from '../cleanup.js'
+
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfiguration } from "../types.js"
 
 // Internal Utilities

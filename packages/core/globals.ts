@@ -7,6 +7,9 @@ import { createRequire } from 'node:module';
 import { removeDirectory } from './utils/files.js'
 import { SpecificTargetType } from './types.js'
 
+import { onCleanup } from './cleanup.js'
+export { cleanup } from './cleanup.js'
+
 // External Packages
 import * as yaml from 'js-yaml'
 import dotenv from 'dotenv'
@@ -27,24 +30,6 @@ export { electronVersion }
 export const globalWorkspacePath = '.commoners'
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')
-
-const callbacks = []
-export const onCleanup = (callback) => callbacks.push(callback)
-
-export const cleanup = async (code = 0) => {
-    for (const cb of callbacks) {
-        if (!cb.called) {
-            cb.called = true // Prevent double-calling
-            await cb(code)
-        }
-    }
-}
-
-const exitEvents = ['beforeExit', 'exit', 'SIGINT']
-exitEvents.forEach(event => process.on(event, async (code) => {
-    try { await cleanup(code) } catch (e) { console.error(e) }
-    process.exit(code === 'SIGINT' ? 0 : code)
-}))
 
 export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     

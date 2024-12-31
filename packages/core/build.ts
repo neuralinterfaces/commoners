@@ -15,7 +15,7 @@ import {
 import { lstatSync } from './utils/lstat.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { removeDirectory } from './utils/files.js'
-import { getIcon } from "./utils/index.js"
+import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from "./assets/utils/icons.js"
 import merge from './utils/merge.js'
 
 // Core Internal Imports
@@ -210,14 +210,17 @@ export async function buildApp (
         })
 
         // TODO: Get platform-specific icon
-        const rawIconSrc = getIcon(icon)
-        if (rawIconSrc) {
-            const defaultIcon = isAbsolute(rawIconSrc) ? rawIconSrc : join(root, rawIconSrc)
-            const macIcon = defaultIcon ? getAssetBuildPath(defaultIcon, outDir) : defaultIcon // icon && typeof icon === 'object' && 'mac' in icon ? icon.mac : defaultIcon
-            buildConfig.mac.icon = macIcon 
-            buildConfig.win.icon = macIcon // icon && typeof icon === 'object' && 'win' in icon ? icon.win : defaultIcon
-    
+        const preferredMacIcon = getIcon(icon, { preferredFormats: ELECTRON_PREFERENCE })
+        const preferredWinIcon = getIcon(icon, { preferredFormats: ELECTRON_WINDOWS_PREFERENCE })
+
+        const resolveIconPath = (path) => {
+            const resolved = isAbsolute(path) ? path : join(root, path)
+            return resolved ? getAssetBuildPath(resolved, outDir) : resolved
         }
+
+        if (preferredMacIcon) buildConfig.mac.icon = resolveIconPath(preferredMacIcon)
+        if (preferredWinIcon) buildConfig.win.icon = resolveIconPath(preferredWinIcon)
+
         // Ensure proper absolute paths are provided for Electron build
         const electronTemplateDir = path.join(templateDir, 'electron')
         

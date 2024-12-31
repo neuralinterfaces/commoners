@@ -204,11 +204,12 @@ export type Plugin = BasicPlugin | HybridPlugin
 // type ValidNestedProperty = TargetType | PlatformType | ModeType
 
 // ------------------- Icon -------------------
-type BaseIconType = string //| {[x in PlatformType]?: string}
+export type BaseIconType = string | string[] // One or multiple formats
 type ValidNestedIconKey = typeof valid.icon[number] // | ValidNestedProperty // NOTE: Not yet drilling for the icon
 
 // Complete Recursive Configurations
 type IconConfiguration = {[x in ValidNestedIconKey]?: BaseIconType }
+
 
 export type IconType = BaseIconType | IconConfiguration
 
@@ -285,12 +286,12 @@ export type ConfigResolveOptions = {
 export type LaunchConfig = {
     root: BaseConfig["root"],
     target: BaseConfig["target"],
-    outDir: BaseConfig["outDir"],
-    services: BaseConfig["services"],
+    outDir?: BaseConfig["outDir"],
+    services?: BaseConfig["services"],
 
     // Server + Service Options
-    public: BaseConfig["public"],
-    port: BaseConfig["port"]
+    public?: BaseConfig["public"],
+    port?: BaseConfig["port"]
 }
 
 export type BuildHooks = {

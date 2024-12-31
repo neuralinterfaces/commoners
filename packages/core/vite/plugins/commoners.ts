@@ -1,7 +1,8 @@
 
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 
-import { getIcon } from '../../utils/index.js'
+import { getIcon } from "../../assets/utils/icons.js"
+
 import { getSpecificTarget, isDesktop, isMobile, vite } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'

@@ -1,4 +1,4 @@
-import { isPluginFeatureSupported } from '../utils.js'
+import { isPluginFeatureSupported } from '../utils/index.js'
 
 export async function runAppPlugins (
   args: any[] = [], 

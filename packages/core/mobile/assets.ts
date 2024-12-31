@@ -1,7 +1,8 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 
 import { extname, join, resolve } from "node:path"
-import { getIcon } from "../utils/index.js"
+import { getIcon } from "../assets/utils/icons.js"
+
 import { removeDirectory } from '../utils/files.js'
 import { valid, ResolvedConfig } from "../types.js"
 
@@ -31,8 +32,8 @@ export const create = (config: ResolvedConfig) => {
     const { light, dark, parent, default: iconDefault } = iconInfo
 
     if (iconDefault) {
-        const lightSrc = getIcon(config.icon, valid.icon[0])
-        const darkSrc = getIcon(config.icon, valid.icon[1])
+        const lightSrc = getIcon(config.icon, { type: valid.icon[0] })
+        const darkSrc = getIcon(config.icon, { type: valid.icon[1] })
         light.src = lightSrc ? resolve(root, lightSrc) : iconDefault
         dark.src = darkSrc ? resolve(root, darkSrc) : iconDefault
         light.to = join(parent.path, 'logo' + extname(light.src))

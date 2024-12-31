@@ -3,8 +3,10 @@ import { dirname, join, relative, normalize, resolve, isAbsolute } from 'node:pa
 import { existsSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
-import { globalWorkspacePath, getDefaultMainLocation, templateDir, onCleanup, ensureTargetConsistent, isMobile } from './globals.js'
-import { ConfigResolveOptions, ResolvedConfig, ResolvedService, ServiceCreationOptions, TargetType, UserConfig } from './types.js'
+import { globalWorkspacePath, getDefaultMainLocation, templateDir, ensureTargetConsistent, isMobile } from './globals.js'
+import { onCleanup } from './cleanup.js'
+
+import { ConfigResolveOptions, ResolvedConfig, ServiceCreationOptions, UserConfig } from './types.js'
 import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'

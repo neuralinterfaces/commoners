@@ -10,9 +10,11 @@ import electronPlugin from './plugins/electron/index.js'
 import commonersPlugin from './plugins/commoners.js'
 
 // Internal Imports
-import { getIcon, safePath } from '../utils/index.js';
 import { printServiceMessage } from '../utils/formatting.js';
 import { getAssetBuildPath } from '../utils/assets.js';
+
+import { getAllIcons, getIcon } from '../assets/utils/icons.js'
+import { safePath } from '../assets/utils/paths.js'
 
 type ManifestOptions = import ('vite-plugin-pwa').ManifestOptions
 type VitePWAOptions = import ('vite-plugin-pwa').VitePWAOptions
@@ -61,14 +63,8 @@ const resolvePWAOptions = (opts = {}, { name, description, appId, icon, root }: 
     if (!('includeAssets' in pwaOpts)) pwaOpts.includeAssets = []
     else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [ pwaOpts.includeAssets ]
     
-    const icons = []
-    const rawIconSrc = getIcon(icon)
-    if (rawIconSrc) {
-        const defaultIcon = getAbsolutePath(root, rawIconSrc)
-        const iconBuildPath = getAssetBuildPath(defaultIcon, outDir)
-        icons.push(relative(outDir, iconBuildPath)) // Use the relative path for builds
-    }
-
+    // Only include preferred icons
+    const icons = getAllIcons(icon).map((src: string) => relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir)))
     pwaOpts.includeAssets.push(...icons.map(safePath)) // Include specified assets
 
     const baseManifest = {

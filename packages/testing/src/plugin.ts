@@ -21,7 +21,7 @@ export default (options: TestOptions) => {
         options,
 
         start: function() {
-            const { process } = globalThis
+            const { process } = globalThis  // Required for process resolution
             const { COMMONERS_TESTING } = process.env
             if (!COMMONERS_TESTING) return
             if (remoteDebuggingPort) this.electron.app.commandLine.appendSwitch("remote-debugging-port", `${remoteDebuggingPort}`)
@@ -30,7 +30,7 @@ export default (options: TestOptions) => {
 
         desktop: {
             load: function (win) {
-                const { process } = globalThis
+                const { process } = globalThis // Required for process resolution
                 const { COMMONERS_TESTING } = process.env
                 if (!COMMONERS_TESTING) return
                 win.__show = null // Do not show windows while testing

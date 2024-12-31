@@ -14,6 +14,7 @@ import { spawnProcess } from './processes.js'
 import { ResolvedConfig, ResolvedService, PackageBuildInfo } from "../types.js"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
+import { getAllIcons } from "../assets/utils/icons.js"
 
 const CONFIG_EXTENSION_TARGETS = [
     '.cjs',
@@ -213,11 +214,8 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
     })
 
 
-    // Copy Icons
-    if (resolvedConfig.icon) {
-        const icons = (typeof resolvedConfig.icon === 'string') ? [resolvedConfig.icon] : Object.values(resolvedConfig.icon)
-        assets.copy.push(...icons.map(icon => getAbsolutePath(root, icon)) as string[])
-    }
+    // Copy All Icons
+    if (resolvedConfig.icon) assets.copy.push(...getAllIcons(resolvedConfig.icon).map(icon => getAbsolutePath(root, icon)))
 
     // Handle Provided Plugins
     for (const [id, plugin] of Object.entries(resolvedConfig.plugins)) {
