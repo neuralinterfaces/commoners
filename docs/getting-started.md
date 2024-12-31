@@ -57,10 +57,26 @@ Try replacing the default `h1` and `img` tags with your custom `NAME` and `ICON`
 
 ## Building for Production
 ### Application
-To build your application for production, run the following command:
+To build your application for production, run one of the following commands:
 
 ```bash
-commoners build --target [platform]
+commoners build # Uses the `target` field of the configuration. Defaults to `web`.
+
+# Web
+commoners build --target web # Basic web application
+commoners build --target pwa # Progressive Web App (PWA)
+
+# Desktop
+commoners build --target desktop # Electron
+
+# Mobile
+commoners build --target android # Android
+commoners build --target ios # iOS (requires macOS)
+commoners build --target mobile # Inferred based on current platform
 ```
 
-Replace `[platform]` with `web`, `pwa`, `desktop`, or `mobile` to build for the desired platform.
+
+## Conclusion
+Congratulations! You've built your first cross-platform application using Commoners. 
+
+For more advanced features, check out the [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) on GitHub.
