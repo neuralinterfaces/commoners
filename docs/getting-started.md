@@ -1,5 +1,6 @@
 # Getting Started
-Welcome to Commoners! This guide will help you get started with building your first cross-platform application.
+Welcome to Commoners! In this guide, you'll build your first cross-platform application using Commoners in a few simple steps.
+
 
 Since Commoners is built on top of [Vite](https://vitejs.dev), you can use the `create-vite` package to scaffold a new project. To do this, run the following command in your terminal:
 
@@ -62,15 +63,4 @@ To build your application for production, run the following command:
 commoners build --target [platform]
 ```
 
-### Services
-Service builds are generally deferred to the user.
-    
-```bash
-commoners build --service node --service tsNode # Specified services are built
-```
-
-In the case of desktop builds, all relevant services are bundled by default.
-
-```bash
-commoners build --target desktop
-```
+Replace `[platform]` with `web`, `pwa`, `desktop`, or `mobile` to build for the desired platform.

@@ -55,6 +55,13 @@ const port = process.env.PORT || 8000
 http.createServer((req, res) => { /* ... */ }).listen(port, host, () => console.log(`Server running at http://${host}:${port}/`));
 ```
 
+### CLI
+Individual services can be built for independent use using the `commoners build` command.
+    
+```bash
+commoners build --service test --service other-service
+```
+
 ## Supported Services
 
 ### [Node.js](https://nodejs.org)
