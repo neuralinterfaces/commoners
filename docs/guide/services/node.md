@@ -1,7 +1,12 @@
+
+# Example Node Service
+This is an example HTTP server written in TypeScript.
+
+```ts
 import http from 'node:http';
 
-const host = process.env.HOST
-const port = process.env.PORT
+const host = process.env.HOST || ''
+const port = process.env.PORT || 8000
 
 const server = http.createServer((
     req: http.IncomingMessage,
@@ -27,9 +32,7 @@ const server = http.createServer((
   res.writeHead(200, { 'Content-Type': 'text/plain' });
   res.end('Hello World\n');
   return;
-
 });
 
-server.listen(port, host,
-    () => console.log(`Server running at http://${host}:${port}/`)
-);
+server.listen(port, host, () => console.log(`Server running at http://${host}:${port}/`));
+```

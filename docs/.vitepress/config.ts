@@ -36,6 +36,15 @@ export default defineConfig({
                 { text: 'Mobile', link: '/guide/targets/mobile' }
               ]
             },
+            {
+              text: 'Services',
+              link: '/guide/services',
+              items: [
+                { text: 'Node', link: '/guide/services/node' },
+                { text: 'Python', link: '/guide/services/python' },
+                { text: 'C++', link: '/guide/services/cpp' }
+              ]
+            },
             { text: 'Services', link: '/guide/services' },
             { text: 'Plugins', link: '/guide/plugins' },
             { text: 'Testing', link: '/guide/testing' },

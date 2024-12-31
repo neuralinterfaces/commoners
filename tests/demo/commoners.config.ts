@@ -219,7 +219,8 @@ const config = defineConfig({
         removedOnDesktop: {
             src: expressSrc,
             publish: { 
-                url: remoteURL,
+                // url: remoteURL,
+                remote: remoteURL,
                 local: false
             },
         },
