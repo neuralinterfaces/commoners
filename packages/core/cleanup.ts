@@ -12,7 +12,7 @@ export const cleanup = async (code = 0) => {
 
 export const exit = async (code) => {
     try { await cleanup(code) } catch (e) { console.error(e) }
-    if (!globalThis.process.env.COMMONERS_TESTING) process.exit(code === 'SIGINT' ? 0 : code) // Do not force exit if testing
+    if (!globalThis.process.env.__COMMONERS_TESTING) process.exit(code === 'SIGINT' ? 0 : code) // Do not force exit if testing
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT']

@@ -26,7 +26,7 @@ type Output = {
   cleanup: Function
 }
 
-const onTestFunction = () => process.env["COMMONERS_TESTING"] = 'true' // Set the testing environment variable
+const onTestFunction = () => process.env["__COMMONERS_TESTING"] = 'true' // Set the testing environment variable
 
 // NOTE: You'll likely have to wait longer for Electron to build
 export const build = async (
