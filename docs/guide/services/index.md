@@ -1,5 +1,5 @@
 # Services
-Services are independent processes that the main application can send network requests to.
+Services are independent processes accessible via network requests.
 
 ## Usage
 ### Configuration

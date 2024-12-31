@@ -34,7 +34,6 @@ We love the following tools and use them in Commoners to provide you with a reli
 
 - [Vite](https://vitejs.dev) - Vite is a lightning-fast build tool for modern web development. It is a foundational piece of the Commoners, providing a streamlined development workflow for all platforms.
 - [Electron](https://www.electronjs.org) - Electron is a powerful framework for building cross-platform **desktop** applications using Chromium and Node.js.
-- [Tauri](https://tauri.app) - Tauri is a promising solution for distributing cross-platform **desktop** applications as WebViews. We are currently evaluating its potential for integration with Commoners.
 - [Capacitor](https://capacitorjs.com) - Capacitor is a powerful framework for building cross-platform **mobile** applications using WebViews. Native plugins are available for advanced features.
 
 While direct use of `vite`, `electron`, and `capacitor` will be beneficial for some situations, Commoners provides a few key advantages over these platform-specific solutions:
@@ -43,3 +42,6 @@ While direct use of `vite`, `electron`, and `capacitor` will be beneficial for s
 3. Allows you to prototype features for different platforms—web, desktop, mobile, or all at once—to decide the ideal form factor for your application.
 4. Provides community plugins for advanced features such as Bluetooth and serial communication, discovery of local services, and more.
 5. Automatically packages local backends into your desktop builds.
+
+#### Future Integrations
+- [Tauri](https://tauri.app) - A promising solution for distributing cross-platform applications as WebViews. We are currently evaluating Tauri for inclusion in Commoners.

@@ -18,22 +18,21 @@ hero:
 features:
   - icon: 🌐
     title: One Codebase. All Platforms.
-    details: Distribute your app on web, desktop, and mobile.
+    details: Distribute on web, desktop, and mobile.
   - icon: 💻
-    title: Web Native Architecture
+    title: Web-First Development
     details: Only HTML, CSS, and JavaScript required.
   - icon: ⚡️
     title: Blazing Fast
-    details: Built on Vite for the ideal developer experience.
-  - icon: ⏳
-    title: Streamlined Development Workflow
-    details: Build all your projects with the same tools.
+    details: Built on Vite for an ideal developer experience.
   - icon: 🔩
-    title: Modular
-    details: Separate platform-specific code from the core.
+    title: Modular Development
+    details: Use plugins to manage platform-specific code. 
   - icon: 🧩
-    title: Extensible
-    details: User-defined services are first-class citizens.
-    
+    title: Composable Architecture
+    details: Write services in any language.
+  - icon: 🏢
+    title: Built to Scale
+    details: Manage all your projects with one tool.
 ---
 
