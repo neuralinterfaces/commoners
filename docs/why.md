@@ -10,7 +10,13 @@ In particular, Commoners was developed for an impossible task in modern web deve
 ## The Solution
 With a basic knowledge of HTML, CSS, and JavaScript, **anyone can write cross-platform applications** with Commoners.
 
- Commoners serves as a **fully-stocked laboratory for application development**. It provides a consistent development workflow across all platforms, allowing you to focus on what matters: your application.
+By providing a consistent development workflow across platforms, Commoners allows you to focus on what matters: your unique application logic.
+
+Commoners is built around the complementary approaches of [progressive enhancement](https://www.gov.uk/service-manual/technology/using-progressive-enhancement) and [graceful degradation](https://developer.mozilla.org/en-US/docs/Glossary/Graceful_degradation), ensuring that your application will work on any platform, regardless of its capabilities.
+
+We've dubbed our approach **platform enhancement**, allowing you to create multi-page static sites that work across all major platforms.
+
+While Commoner is best characterized as a rapid prototyping tool for research software, I'm using Commoners for commercial products at [Universal Brain](https://universal-brain.com/). And you can too!
 
 ## The Alternatives
 Sometimes Commoners will not be the best solution for your project. Here are some alternatives to consider:
