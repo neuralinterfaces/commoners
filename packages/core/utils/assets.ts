@@ -1,7 +1,6 @@
 // Built-In Modules
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { dirname, extname, join, relative, isAbsolute, resolve, normalize, sep, posix, basename } from "node:path"
-import { pathToFileURL } from "node:url"
 
 
 
@@ -15,6 +14,8 @@ import { ResolvedConfig, ResolvedService, PackageBuildInfo } from "../types.js"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
 import { getAllIcons } from "../assets/utils/icons.js"
+
+import { importMetaResolvePlugin, nativeNodeModulesPlugin } from "./esbuild/plugins.js"
 
 const CONFIG_EXTENSION_TARGETS = [
     '.cjs',
@@ -450,7 +451,8 @@ export const buildAssets = async (
                 const buildForNode = () => buildForBrowser({
                     outfile: output,
                     platform: 'node',
-                    external: ["*.node"]
+                    // external: ["*.node"],
+                    plugins: [ nativeNodeModulesPlugin() ]
                 })
 
                 const buildForBrowser = (opts = {}) => esbuild.build({ ...baseConfig, format, ...opts })
@@ -497,12 +499,6 @@ export const buildAssets = async (
 }
 
 
-const importMetaResolvePlugin = () => {
-    return {
-        name: 'import-meta-resolve',
-        resolveImportMeta: (_, { moduleId }) => `"${pathToFileURL(moduleId)}"` // Custom import.meta.url value
-    }
-}
 
 export const bundleConfig = async (
     input, 
