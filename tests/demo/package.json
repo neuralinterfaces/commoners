@@ -1,6 +1,6 @@
 {
   "name": "@commoners/demo",
-  "version": "0.0.59",
+  "version": "0.0.60-alpha.0",
   "private": true,
   "description": "A test app for the commoners library",
   "type": "module",
