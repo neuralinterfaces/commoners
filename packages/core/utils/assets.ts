@@ -249,7 +249,10 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
             pluginAssets[key] = outPath
         })
 
-        if (plugin.assets) plugin.assets = pluginAssets
+        // NOTE: Need to reassign to the same object in case exported from a module
+        if (plugin.assets) {
+            for (const key of Object.keys(pluginAssets)) plugin.assets[key] = pluginAssets[key] // Add all new assets
+        }
     }
 
 
