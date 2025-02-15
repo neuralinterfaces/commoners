@@ -236,13 +236,12 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
             const filename = basename(assetSrc)
             const assetPath = join('plugins', id, key, filename)
             const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
-
             const extension  = extname(filename)
 
             const chosenAssetGroup = (extension.includes('js') || extension.includes('ts')) ? assets.bundle : assets.copy
             chosenAssetGroup.push({ 
                 input: absPath, 
-                output: assetPath, 
+                output: outPath, 
                 force: true // Ensure strict output location
             })
 
@@ -483,11 +482,12 @@ export const buildAssets = async (
         const isObject = typeof info === 'object'
         const file = isObject ? info.input : info
         const locationToEncode = (isObject ? info.output : undefined) ?? file
+        const forceSpecifiedLocation = isObject && info.force
 
         const extraResource = isObject ? info.extraResource : false
 
         // Ensure extra resources are copied to the output directory
-        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, getAssetBuildPath(locationToEncode, outDir)) }
+        const output: AssetOutput = { file: extraResource ? copyAssetOld(file, { outDir, root }) : copyAsset(file, forceSpecifiedLocation ? locationToEncode : getAssetBuildPath(locationToEncode, outDir)) }
 
         // Handle extra resources
         if (isObject) {
