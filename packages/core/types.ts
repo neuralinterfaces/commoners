@@ -1,4 +1,4 @@
-import electron, { BrowserWindow, BrowserWindowConstructorOptions, IpcMainEvent, IpcRenderer } from 'electron'
+import electron, { BrowserWindow, BrowserWindowConstructorOptions, CustomScheme, IpcMainEvent, IpcRenderer } from 'electron'
 import * as utils from '@electron-toolkit/utils'
 import { ChildProcess } from 'node:child_process'
 
@@ -224,6 +224,7 @@ type PWAOptions = {
 type ElectronOptions = {
     splash?: string,
     window?: BrowserWindowConstructorOptions,
+    protocol?: string | CustomScheme
     build?: ElectronBuilderConfiguration
 }
 

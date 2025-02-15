@@ -227,6 +227,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   const platformDependentWindowConfig = (isLinux && linuxIcon) ? { icon: linuxIcon } : {}
 
   const electronOptions = config.electron ?? {}
+  const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
   const windowOptions = electronOptions.window ?? {}
 
   const defaultWindowConfig = {
@@ -392,7 +393,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
 
-  if (isDevServer) return join(devServerURL, pathname)
+    if (isDevServer) return new URL(pathname, devServerURL).href
 
     const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))
 
@@ -427,6 +428,12 @@ const baseServiceOptions = {
 
 // ------------------------ App Start Behavior ------------------------
 services.resolveAll(config.services, baseServiceOptions).then(async (resolvedServices) => {
+
+  const hasCustomProtocol = !!protocolOptions.scheme
+  if (hasCustomProtocol) {
+    const { protocol } = electron
+    protocol.registerSchemesAsPrivileged([ protocolOptions ])
+  }
   
   await boundRunAppPlugins([ resolvedServices ])
 
@@ -448,6 +455,38 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
       const isRemote = !(id in active)
       serviceOn(id, 'status', (event) => event.returnValue =isRemote ? 'remote' : active[id].status)
       serviceOn(id, 'close', () => isRemote || closeService(id))
+    }
+
+
+    if (hasCustomProtocol) { 
+      const { scheme } = protocolOptions
+      const { protocol, net } = electron
+      app.setAppUserModelId(`com.${scheme}`)
+
+      console.log("Registered protocol", protocolOptions)
+      protocol.handle(scheme, (req) => {
+
+          const loadedURL = new URL(req.url)
+          const { host, pathname, search, hash } = loadedURL
+          const updatedPathname =  pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+
+          console.log(updatedPathname, host, search, hash)
+
+          // Proxy the services through the custom protocol
+          if (host === "services") {
+            const splitPath = updatedPathname.split('/')
+            const serviceId = splitPath[0]
+            const resolvedPath = splitPath.slice(1).join('/') + search + hash
+            const resolvedURL = new URL(resolvedPath, services[serviceId].url)
+            if (services[host]) return net.fetch(resolvedURL.href)
+            return new Response(`${resolvedPath} is not a valid request`, { status: 404 })
+          }
+
+          const resolvedPath = (host === 'pages' ? updatedPathname : ( updatedPathname ? `${host}${updatedPathname}` : host) + search + hash)
+          loadPage(restoreWindow(), resolvedPath)
+
+      })
+
     }
 
     // ------------------------ App Ready Behavior ------------------------

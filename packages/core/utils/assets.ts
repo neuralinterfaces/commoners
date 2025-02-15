@@ -229,10 +229,7 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
 
             // Skip HTML files for bundling or copying
             // Handle in the main Vite build process instead
-            if (extname(assetSrc) === '.html') {
-                pluginAssets[key] = assetSrc
-                return 
-            }
+            if (extname(assetSrc) === '.html') return  pluginAssets[key] = assetSrc
             
             const absPath = getAbsolutePath(root, assetSrc)
 
@@ -240,9 +237,12 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
             const assetPath = join('plugins', id, key, filename)
             const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
 
-            assets.bundle.push({
-                input: absPath,
-                output: outPath, // Uses Vite to handle the asset
+            const extension  = extname(filename)
+
+            const chosenAssetGroup = (extension.includes('js') || extension.includes('ts')) ? assets.bundle : assets.copy
+            chosenAssetGroup.push({ 
+                input: absPath, 
+                output: assetPath, 
                 force: true // Ensure strict output location
             })
 
