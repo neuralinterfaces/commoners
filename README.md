@@ -8,7 +8,7 @@
 Read the [documentation](https://commoners.dev) to learn more.
 
 ## Key Projects
-- [Brains@Play](https://github.com/neuralinterfaces/brainsatplay) — A multi-platform application for accessing neural data.
+- [Neurosys](https://github.com/neuralinterfaces/neurosys) — A desktop application for system-level neurofeedback.
 
 ## Build Solidarity
 At the heart of Commoners is our belief that everyone should be able to write an application using HTML, CSS, and JavaScript for distribution on all platforms.
