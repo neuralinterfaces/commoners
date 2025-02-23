@@ -50,7 +50,11 @@ if ( __PLUGINS ) {
         PROD: !DEV,
     }
 
-    const registerPluginAsLoaded = (id) => DESKTOP &&  TEMP_COMMONERS.send(["commoners:loaded", DESKTOP.__id, id].join(":")) // Notify the main process that the plugin is loaded
+    const registerPluginAsLoaded = (id) => {
+        if (!DESKTOP) return
+        const identifier = ["commoners:loaded", DESKTOP.__id, id].join(":")
+        return TEMP_COMMONERS.send(identifier) // Notify the main process that the plugin is loaded
+    }
 
     asyncFilter(Object.entries(__PLUGINS), async ([ id, plugin ]) => {
         try {

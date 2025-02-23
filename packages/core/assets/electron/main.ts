@@ -195,6 +195,7 @@ const runWindowPlugin = async (win, id, type) => {
     // Coordinate the state transitions for the plugins
     const thisPlugin = desktopState[type]
 
+
     if (!thisPlugin) return
 
     const context = contexts[id]
@@ -229,6 +230,13 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   const electronOptions = config.electron ?? {}
   const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
   const windowOptions = electronOptions.window ?? {}
+
+  // Aggregate window options on plugins
+  Object.entries(PLUGINS).forEach(([ id, plugin ]) => {
+    const { desktop: { mainWindowOverrides } = {} } = plugin
+    if (!mainWindowOverrides) return
+    Object.assign(windowOptions, mainWindowOverrides)
+  })
 
   const defaultWindowConfig = {
     autoHideMenuBar: true,
@@ -371,7 +379,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     // Asyncronously load plugins. Allow for accessing the load status of each plugin
     win.__loading = Object.keys(PLUGINS).reduce((acc, id) => {
-      acc[id] = new Promise(resolve => ipcMain.once(`commoners:loaded:${__id}:${id}`, async () => resolve(await runWindowPlugin(win, id, 'load'))))
+      const listener = `commoners:loaded:${__id}:${id}`
+      acc[id] = new Promise(resolve => ipcMain.once(listener, async () => resolve(await runWindowPlugin(win, id, 'load'))))
       return acc
     }, {}) // Asyncronously load plugins. Allow for accessing the load status of each plugin
 
@@ -416,7 +425,6 @@ function getPageLocation(pathname: string = 'index.html', alt = false) {
 async function createMainWindow() {
   const windows = BrowserWindow.getAllWindows()
   if (windows.find(o => o.__main)) return // Force only one main window
-
   return await createWindow(undefined, windowOptions, [], true)
 }
 
@@ -463,7 +471,8 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
       const { protocol, net } = electron
       app.setAppUserModelId(`com.${scheme}`)
 
-      console.log("Registered protocol", protocolOptions)
+      // console.log("Registered protocol", protocolOptions)
+      
       protocol.handle(scheme, (req) => {
 
           const loadedURL = new URL(req.url)

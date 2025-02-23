@@ -11,6 +11,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  
+  /* NOTE: View transitions are not supported well with <a> tags or desktop... */
+  /* @view-transition {
+    navigation: auto;
+  } */
 
   html, body {
     overflow: hidden;
