@@ -22,7 +22,7 @@
     "@commoners/local-services": "0.0.60",
     "@commoners/serial": "0.0.55",
     "@commoners/splash-screen": "0.0.55",
-    "@commoners/windows": "0.0.58"
+    "@commoners/windows": "0.0.59"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
