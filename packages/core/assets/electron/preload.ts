@@ -2,6 +2,14 @@ import { ipcRenderer } from 'electron'
 
 import { contextBridge } from 'electron'
 
+
+type PassedDesktopArgs = {
+  __id: string,
+  main?: boolean,
+  [key: string]: any
+}
+
+
 const globalVariableName = '__commoners'
 const services = ipcRenderer.sendSync('commoners:services')
 
@@ -14,8 +22,12 @@ const args = process.argv.slice(1).reduce((acc, arg) => {
   return acc;
 }, {});
 
+const { __id } = args as PassedDesktopArgs
+
 const TEMP_COMMONERS = { 
     quit: () => ipcRenderer.send('commoners:quit'),
+    close: () => ipcRenderer.send(`commoners:close:${__id}`),
+
     args,
     
     services, // Ensure correct ports

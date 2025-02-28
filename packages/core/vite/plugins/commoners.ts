@@ -152,13 +152,13 @@ export default async ({
             const highPriority = `
                 <script type="module">
 
-                const { send, services, quit, args } = globalThis.__commoners ?? {} 
+                const { send, services, quit, close, args } = globalThis.__commoners ?? {} 
 
                 const { __id } = args ?? {}
 
                 const GLOBAL = globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
-                if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, ...args } // Ensure desktop is configured properly at the start
+                if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, close, ...args } // Ensure desktop is configured properly at the start
 
                 GLOBAL.READY = new Promise(res => {
                     GLOBAL.__READY = (value) => {

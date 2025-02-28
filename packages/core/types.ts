@@ -376,6 +376,7 @@ export type CommonersGlobalObject = (BaseCommonersGlobalObject & {
 }) | (BaseCommonersGlobalObject & {
     DESKTOP:  ElectronTransferableBrowserWindowFlags & {
         quit: () => void,
+        close: () => void,
     },
     MOBILE: false,
     WEB: false,

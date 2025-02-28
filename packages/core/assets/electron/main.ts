@@ -344,6 +344,9 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       configurable: false
     })
 
+    ipcMain.once(`commoners:close:${__id}`, () => win.close())
+
+
     // ------------------------ Main Window Default Behaviors ------------------------
     if (isMainWindow) {
       ipcMain.once(`commoners:ready:${__id}`, () => {
