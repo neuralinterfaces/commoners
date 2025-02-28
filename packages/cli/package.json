@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "Cross-Platform Development for the Rest of Us",
-  "version": "0.0.60-alpha.1",
+  "version": "0.0.60-alpha.2",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -18,7 +18,7 @@
     "watch": "vite build --watch"
   },
   "dependencies": {
-    "@commoners/solidarity": "^0.0.60-alpha.1",
+    "@commoners/solidarity": "^0.0.60-alpha.2",
     "cac": "^6.7.14"
   },
   "devDependencies": {
