@@ -248,7 +248,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   let windowCount = 0
 
   // ------------------------ Window Page Load Behavior ------------------------
-  const loadPage = (win, page) => {
+  const loadPage = async (win, page) => {
 
       const location = getPageLocation(page)
 
@@ -259,8 +259,14 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   
       // NOTE: Catching the alternative location results in a delay depending on load time
       catch {
-        win.loadFile(location).catch(() => win.loadFile(getPageLocation(page, true)))
+        return await win.loadFile(location).catch(() => {
+          const location = getPageLocation(page, true)
+          win.loadFile(location)
+          return location
+        })
       }
+
+      return location
   }
 
   async function createWindow (
@@ -316,6 +322,12 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     })
 
 
+
+    const __location = {
+      search: undefined,
+      hash: undefined,
+    }
+
     // Catch all navigation events
     win.webContents.on('will-navigate', async (event, url) => {
 
@@ -330,8 +342,13 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         return shell.openExternal(url) // Opened externally
       }
 
-      const pageIdentifier = urlObj.pathname + urlObj.search + urlObj.hash
-      loadPage(win, pageIdentifier) // Required for successful navigation relative to the root (e.g. "../..") 
+      __location.search = urlObj.search
+      __location.hash = urlObj.hash
+      await loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..") 
+
+      // // NOTE: This does not work when using loadFile
+      // const pageIdentifier = urlObj.pathname + urlObj.search + urlObj.hash
+      // loadPage(win, pageIdentifier) // Required for successful navigation relative to the root (e.g. "../..") 
     })
 
 
@@ -345,6 +362,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     })
 
     ipcMain.once(`commoners:close:${__id}`, () => win.close())
+
+    ipcMain.on(`commoners:location:${__id}`, (event) => event.returnValue = __location)
 
 
     // ------------------------ Main Window Default Behaviors ------------------------

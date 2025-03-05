@@ -38,7 +38,7 @@ export class PyInstallerService {
 
         Object.entries(service).forEach(([key, value]) => {
             if (!(key in this)) this[key] = value;
-          });
+        });
       
     }
 }

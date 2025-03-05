@@ -96,8 +96,9 @@ export default async ({
             const configRoot = resolvedConfig.root
 
             const root = _assetOutDir ? actualOutDir : configRoot
-            const relTo = join(build ? assetOutDir : root, parent) // Resolve actual path in the assets
-            
+
+            const _relTo = build ? assetOutDir : root
+            const relTo = join(_relTo, parent) // Resolve actual path in the assets
             const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
         
             const services = sanitize(resolvedConfig.services)
@@ -105,6 +106,11 @@ export default async ({
             const rawIconSrc = getIcon(resolvedConfig.icon)
             const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
             const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
+
+            const pathsRelativeToConfigurationFile = Object.entries(pages).reduce((acc, [ id, path ]) => {
+                const relToCurrentPath = relative(configRoot, path) // Remove configuration path
+                return { [id]: join(_relTo, relToCurrentPath), ...acc }
+            }, {}) as Record<string, string>
         
             const globalObject = {
         
@@ -113,9 +119,9 @@ export default async ({
                 ICON: iconPath,
                 SERVICES: services,
 
-                // Provide relative page paths
-                PAGES: Object.entries(pages).reduce((acc, [ id, path ]) => {
-                    acc[id] = relative(root, path).replaceAll(sep, posix.sep)
+                // Provide page paths relative to the current file
+                PAGES: Object.entries(pathsRelativeToConfigurationFile).reduce((acc, [ id, path ]) => {
+                    acc[id] = relative(relTo, path).replaceAll(sep, posix.sep)
                     return acc
                 }, {}),
         
@@ -134,6 +140,7 @@ export default async ({
 
                 ROOT: relative(relTo, root).replaceAll(sep, posix.sep),
             }
+
             
             const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
             
@@ -170,10 +177,10 @@ export default async ({
 
                 const { ROOT } = GLOBAL
 
-                GLOBAL.PAGES = Object.entries(GLOBAL.PAGES).reduce((acc, [ id, path ]) => {
-                    acc[id] = ({ search, hash } = {}) => {
-                        const components = [ ROOT, path ].filter((str) => str)
-                        const url = new URL(components.join('/'), window.location.href)
+                GLOBAL.PAGES = Object.entries(GLOBAL.PAGES).reduce((acc, [ id, relPath ]) => {
+                    acc[id] = (info = {}) => {
+                        const { search, hash } = info
+                        const url = new URL(relPath, window.location.href)
                         if (search) url.search = search
                         if (hash) url.hash = hash
                         window.location.href = url.href

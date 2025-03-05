@@ -3,7 +3,7 @@ import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 // General Internal Imports
 import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
-import { BuildHooks, ServiceBuildOptions, UserConfig, WritableElectronBuilderConfig } from "./types.js"
+import { BuildHooks, ServiceBuildOptions, ServiceRebuildOption, UserConfig, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
 import { 
@@ -30,7 +30,11 @@ const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,
 const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
 
 
-export const buildAllAssets = async ( config, dev ) => {
+export const buildAllAssets = async ( 
+    config, 
+    dev,
+    rebuildServices: ServiceRebuildOption = true
+) => {
     const { outDir, root, target } = config
     const appAssets = await getAppAssets(config, dev)
     
@@ -41,7 +45,11 @@ export const buildAllAssets = async ( config, dev ) => {
     })
 
     if (dev || isDesktop(target)) {
-        const _outputs = await buildServices(config, { dev, outDir }) // Only build when in development, or during desktop builds
+        const _outputs = await buildServices(config, { 
+            dev, 
+            outDir,
+            rebuild: rebuildServices
+        }) // Only build when in development, or during desktop builds
         outputs.push(..._outputs)
     }
 
@@ -55,7 +63,7 @@ export const buildServices = async (
     options: ServiceBuildOptions = {}
 ) => {
 
-    const { dev = false, services } = options
+    const { dev = false, services, rebuild = true } = options
 
     let { outDir } = options
 
@@ -65,7 +73,7 @@ export const buildServices = async (
 
     const { root, target } = resolvedConfig
 
-    const assets = await getServiceAssets(resolvedConfig, dev)
+    const assets = await getServiceAssets(resolvedConfig, dev, rebuild)
     return await buildAssets(
         assets, 
         {
@@ -83,7 +91,8 @@ export async function buildApp (
     {
         services: devServices,
         onBuildAssets,
-        dev = false // Default to a production build
+        dev = false, // Default to a production build
+        rebuildServices = true // Rebuild services by default
     }: BuildHooks = {},
     
 ) {
@@ -141,7 +150,7 @@ export async function buildApp (
     console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
 
     // ---------------- Create Standard Output Files ----------------
-    const assets = await buildAllAssets(configCopy, dev)
+    const assets = await buildAllAssets(configCopy, dev, rebuildServices)
 
     if (onBuildAssets) {
         const result = onBuildAssets(outDir)

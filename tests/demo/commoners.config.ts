@@ -66,11 +66,12 @@ const config = defineConfig({
     name,
 
     pages: {
+        home: join(root, 'index.html'), // Allow navigation to the root page with commoners.PAGES.home()
         services: join(root, "pages", "services", 'index.html'),
         windows: join(root, "pages", "windows", 'index.html') ,
         serial: join(root, "pages", "serial", 'index.html'),
         bluetooth: join(root, "pages", "bluetooth", 'index.html'),
-        localServies: join(root, "pages", "local-services", 'index.html'),
+        localServices: join(root, "pages", "local-services", 'index.html'),
     },
 
 

@@ -108,12 +108,13 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 .option('--target <target>', 'Choose a build target', { default: 'web' })
 .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
 .option('--service <name>', 'Build service(s)')
+.option('--services', 'Force all services to rebuild')
 .option('--publish [type]', 'Publish the application', { default: 'always'})
 .option('--sign', 'Enable code signing (desktop target on Mac only)')
 .option('--config <path>', 'Specify a configuration file')
 .action(async (root, options) => {
 
-    const { config: configPath, service, sign, publish, ...overrides } = options
+    const { config: configPath, service, services, sign, publish, ...overrides } = options
     const { target } = overrides
 
     overrides.build = { sign, publish }
@@ -128,9 +129,11 @@ cli.command('build [root]', 'Build the application in the specified directory', 
 
     if (!config) return
 
-    if (!target && service) return await buildServices(config, { services: service }) // Only build services
+    const servicesToBuild = services ?  Object.keys(config.services) : service
 
-    build(reconcile(config, overrides))
+    if (!target && servicesToBuild) return await buildServices(config, { services: servicesToBuild }) // Only build services
+
+    build(reconcile(config, overrides), { rebuildServices: servicesToBuild ?? false }) // In the CLI workflow, services are built separately
 })
 
 // Start the application in development mode

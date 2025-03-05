@@ -10,7 +10,7 @@ import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from "./encode.js"
 import { chalk, isDesktop, rootDir, vite } from "../globals.js"
 import { spawnProcess } from './processes.js'
-import { ResolvedConfig, ResolvedService, PackageBuildInfo } from "../types.js"
+import { ResolvedConfig, ResolvedService, PackageBuildInfo, ServiceRebuildOption } from "../types.js"
 import { withExternalBuiltins } from "../vite/plugins/electron/inbuilt.js"
 import { printSubtle } from "./formatting.js"
 import { getAllIcons } from "../assets/utils/icons.js"
@@ -57,8 +57,8 @@ type AssetsCollection = {
 const getAbsolutePath = (root: string, path: string) => isAbsolute(path) ? path : join(root, path)
 
 // Intelligently build service only if it hasn't been built yet (unless forced)
-const mustBuild = ({ outDir, force }) => {
-    const hasBeenBuilt = existsSync(outDir)
+const mustBuild = ({ out, force }) => {
+    const hasBeenBuilt = existsSync(out)
     if (hasBeenBuilt && !force) return false
     return true
 }
@@ -111,7 +111,7 @@ export const packageFile = async (info: PackageBuildInfo) => {
 
     const tempOut = join(outDir, outName) + '.js'
 
-    const shouldBuild = mustBuild({ outDir: outDir, force })
+    const shouldBuild = mustBuild({ out: outDir, force })
 
     if (!shouldBuild) {
         printSubtle(`Skipping ${_chalk.bold(name)} build`)
@@ -175,7 +175,16 @@ async function buildService(
     if (typeof build === 'string') {
 
         // Output path
-        if (existsSync(build)) return build
+        if (existsSync(build)) return build // NOTE: Can be resolved by the above build function
+
+
+        // Stop if the build is not required
+        if (!mustBuild({ out, force })) {
+            const _chalk = await chalk
+            await printSubtle(`Skipping ${_chalk.bold(name)} build`)
+            return // Skipping without a specific path returned
+        }
+    
 
         // Terminal Command
         await spawnProcess(build, [], { cwd: root })
@@ -275,7 +284,11 @@ const resolveAssetInfo = (info, outDir, root) => {
     }
 }
 
-export const getServiceAssets = (resolvedConfig: ResolvedConfig, dev = false) => {
+export const getServiceAssets = (
+    resolvedConfig: ResolvedConfig, 
+    dev = false,
+    rebuildServices: ServiceRebuildOption = true
+) => {
 
     const { root } = resolvedConfig
 
@@ -308,12 +321,15 @@ export const getServiceAssets = (resolvedConfig: ResolvedConfig, dev = false) =>
  
          // Compile service when not in development mode or when the service is not autobuilt
          if (allowCompilation) {
-             bundleConfig.compile = async function ({ src, out }) {
+
+            bundleConfig.compile = async function ({ src, out }) {
  
                  const _chalk = await chalk
  
                  if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
- 
+
+                const rebuild = typeof rebuildServices === 'boolean' ? rebuildServices : rebuildServices.includes(name)
+                 
                  // Detect when to package into an executable source
                  const output = await buildService(
                      {
@@ -323,7 +339,7 @@ export const getServiceAssets = (resolvedConfig: ResolvedConfig, dev = false) =>
                          root
                      },
                      name,
-                     true // Always rebuild services
+                     rebuild // Force rebuild if specified
                  )
  
                  const toCopy = output === null ? null : output ?? (base ?? filepath)

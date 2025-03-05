@@ -295,16 +295,21 @@ export type LaunchConfig = {
     port?: BaseConfig["port"]
 }
 
+
+export type ServiceRebuildOption = boolean | string[]
+
 export type BuildHooks = {
     services?: ResolvedConfig['services']
     onBuildAssets?: Function,
     dev?: boolean
+    rebuildServices?: ServiceRebuildOption
 }
 
 export type ServiceBuildOptions = {
     dev?: boolean,
     outDir?: string,
-    services?: ServiceSelection
+    services?: ServiceSelection,
+    rebuild?: ServiceRebuildOption
 }
 
 type ResolvedServices = { [x: string]: ResolvedService } 

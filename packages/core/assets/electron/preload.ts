@@ -24,6 +24,13 @@ const args = process.argv.slice(1).reduce((acc, arg) => {
 
 const { __id } = args as PassedDesktopArgs
 
+const __location = ipcRenderer.sendSync(`commoners:location:${__id}`)
+
+// Update URL search and hash for the current window without reloading
+const url = new URL(window.location.href);
+for (let [key, value] of Object.entries(__location)) value && (url[key] = value)
+window.history.replaceState(null, "", url.toString());
+
 const TEMP_COMMONERS = { 
     quit: () => ipcRenderer.send('commoners:quit'),
     close: () => ipcRenderer.send(`commoners:close:${__id}`),
