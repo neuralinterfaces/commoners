@@ -65,7 +65,7 @@ export default {
 }
 ```
 
-More information on services can be found in the [Services](../guide/services) documentation.
+More information on services can be found in the [Services](./services/index) documentation.
 
 ### Target
 The `target` property defines the target of your application. This value is used to **change the default type of application** for the development and build commands.
