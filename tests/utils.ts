@@ -60,10 +60,10 @@ const e2eTests = {
               return commoners.READY.then(({ checks }) => checks.env)
             })
 
-            expect(env.COMMONERS_ENV_FOR_ALL_MODES).exists()
+            expect(env.COMMONERS_ENV_FOR_ALL_MODES).toBeTruthy()
 
-            if (isDev) expect(env.COMMONERS_ONLY_DEV).exists()
-            else expect(env.COMMONERS_ONLY_PROD).exists()
+            if (isDev) expect(env.COMMONERS_ONLY_DEV).toBeTruthy()
+            else expect(env.COMMONERS_ONLY_PROD).toBeTruthy()
         })
 
         test("Source file is resolved", async () => {
@@ -133,7 +133,7 @@ const e2eTests = {
                 expect(DEV, "Dev flag does not match").toBe(isDev ? `ws://${localIP}:${process.env['COMMONERS_WEBSOCKET_PORT']}` : false);
                 expect(PROD, "Prod flag does not match").toBe(!isDev);
 
-                expect(ENV.COMMONERS_ENV_FOR_ALL_MODES, "Commoners custom environment variable does not match").exists()
+                expect(ENV.COMMONERS_ENV_FOR_ALL_MODES, "Commoners custom environment variable does not match").toBeTruthy()
 
                 // Plugin Checks
                 expect('checks' in PLUGINS, "Checks plugin is not enabled").toBe(true); // Test checks existence
