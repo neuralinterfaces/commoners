@@ -8,7 +8,6 @@ const root = './'
 import * as checksPlugin from './src/plugins/checks'
 
 import splashPagePlugin from '@commoners/splash-screen'
-import customProtocolPlugin from '@commoners/custom-protocol'
 import testingPlugin from "@commoners/testing/plugin"
 import windowsPlugin from '@commoners/windows'
 import localServicesPlugin from "@commoners/local-services"
@@ -56,7 +55,15 @@ const config = defineConfig({
 
     // build: {
     //     sign: false, // Disable code signing
-    // },
+    // },    
+
+
+    // NOTE: Protocol definition is not yet tested...
+    electron: {
+        protocol: { scheme: 'commoners', privileges: { supportFetchAPI: true } }
+    },
+
+
 
     pwa: {
         manifest: { short_name }
@@ -95,7 +102,6 @@ const config = defineConfig({
             waitUntil: [ 'longLoadTime' ] 
         }), 
 
-        protocol: customProtocolPlugin('commoners', { supportFetchAPI: true }), // NOTE: Test this in detail with a build
         windows: windowsPlugin({
             popup: {
                 src: join(root, "pages", "windows", 'popup.html'),

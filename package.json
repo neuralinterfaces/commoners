@@ -18,12 +18,11 @@
   },
   "devDependencies": {
     "@commoners/bluetooth": "0.0.55",
-    "@commoners/custom-protocol": "0.0.55",
     "@commoners/local-services": "0.0.60",
     "@commoners/serial": "0.0.55",
     "@commoners/solidarity": "0.0.60-alpha.4",
     "@commoners/splash-screen": "0.0.55",
-    "@commoners/testing": "0.0.59",
+    "@commoners/testing": "0.0.60-alpha.4",
     "@commoners/windows": "0.0.60-alpha.2",
     "@vitest/coverage-v8": "^2.0.3",
     "search-insights": "^2.15.0",

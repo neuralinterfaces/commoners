@@ -159,9 +159,6 @@ const e2eTests = {
               // Desktop-Related Tests
               if (isDesktop) {
 
-                // Desktop-specific plugins
-                expect('protocol' in PLUGINS, "Protocol plugin is not enabled").toBe(true);
-
                 // // NOTE: Only run on the backend. No loaded value to check on the frontend
                 // expect('splash' in PLUGINS, "Splash plugin is not enabled").toBe(true); 
                 // expect('__testing' in PLUGINS, "Testing plugin is not enabled").toBe(true);

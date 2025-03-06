@@ -17,7 +17,3 @@ Display a splash screen while your application loads. Available on **desktop** b
 
 ### `@commoners/windows`
 Create multiple windows in your application. Available on **desktop** and **web** builds.
-
-### Electron Features
-#### `@commoners/custom-protocol`
-Register a custom protocol for your Electron application. Available on **desktop** builds.
