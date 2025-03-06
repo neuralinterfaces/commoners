@@ -86,7 +86,9 @@ const config = defineConfig({
         checks: checksPlugin,
 
         // Specify a subset of services to register as public services
-        localServices: localServicesPlugin({ register: [ 'http', 'numpy', 'cpp' ] }),
+        localServices: localServicesPlugin({ 
+            register: [ 'http', 'numpy', 'cpp' ] 
+        }),
 
         splash: splashPagePlugin(splashSrc, { 
             minimumDisplayTime: 1000,
