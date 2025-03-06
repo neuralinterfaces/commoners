@@ -16,6 +16,7 @@ import { printSubtle } from "./formatting.js"
 import { getAllIcons } from "../assets/utils/icons.js"
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from "./esbuild/plugins.js"
+import { getEnvFilesForMode, tryStatSync } from "../assets/services/env/utils.js"
 
 const CONFIG_EXTENSION_TARGETS = [
     '.cjs',
@@ -222,6 +223,17 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
         input: join(rootDir, 'assets', 'onload.ts'),
         output: 'onload.mjs'
     })
+
+    // Bundle environment files compatible with Vite (Desktop Only)
+    if (isDesktop(target)) {
+        const envFiles = getEnvFilesForMode("production", root)
+        const existingEnvFiles = envFiles.filter(file => tryStatSync(file)?.isFile())
+        assets.copy.push(...existingEnvFiles.map(file => ({ 
+            input: file, 
+            output: join(outDir, basename(file)),
+            force: true // Ensure strict output location
+        })))
+    }
 
 
     // Copy All Icons

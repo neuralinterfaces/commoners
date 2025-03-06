@@ -20,10 +20,12 @@
 
 std::string handleGetRequest() {
     std::stringstream httpResponse;
+    const char* secretvariable = std::getenv("SECRET_VARIABLE");
     httpResponse << "HTTP/1.1 200 OK\r\n"
                  << "Content-Type: text/plain\r\n"
                  << "Access-Control-Allow-Origin: *\r\n"
-                 << "\r\nHello World";
+                 << "\r\n"
+                 << (secretvariable ? secretvariable : "");
     return httpResponse.str();
 }
 

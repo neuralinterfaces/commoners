@@ -180,9 +180,10 @@ const config = defineConfig({
                 const { mkdirSync } = await import('node:fs')
                 const { dirname, resolve } = await import('node:path')
                 mkdirSync(dirname(out), { recursive: true }) // Ensure base and asset output directory exists
+
+                // Resolve the build command to use
                 const buildCommand = `g++ ${resolve(src)} -o ${resolve(out)} -std=c++11`
-                if (isWindows) return buildCommand + ` -lws2_32` // Windows requires additional linking
-                return buildCommand
+                return isWindows ? buildCommand + ` -lws2_32`: buildCommand // Windows requires additional linking
             },
 
             publish: './build/cpp/server.exe', // Specified output folder

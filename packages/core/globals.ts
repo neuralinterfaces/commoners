@@ -12,8 +12,6 @@ export { cleanup } from './cleanup.js'
 
 // External Packages
 import * as yaml from 'js-yaml'
-import dotenv from 'dotenv'
-dotenv.config()
 
 // Internal Imports
 import { printFailure, printSubtle } from "./utils/formatting.js";

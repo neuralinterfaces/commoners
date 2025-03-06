@@ -9,13 +9,14 @@ app.use(express.json({
 
 const port = process.env.PORT || 3000
 const host = process.env.HOST || 'localhost'
+const SECRET_VARIABLE = process.env.SECRET_VARIABLE || ''
 
 app.post('/echo', ({ body }, res) => {
   res.send(body)
 })
 
 app.get('*', (req, res) => {
-  res.send('Hello World')
+  res.send(SECRET_VARIABLE)
 })
 
 app.listen(port, host, () => {

@@ -7,6 +7,7 @@ import http from 'node:http';
 
 const host = process.env.HOST || ''
 const port = process.env.PORT || 8000
+const SECRET_VARIABLE = process.env.SECRET_VARIABLE || ''
 
 const server = http.createServer((
     req: http.IncomingMessage,
@@ -30,7 +31,7 @@ const server = http.createServer((
 
   // Default Response
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Hello World\n');
+  res.end(`${SECRET_VARIABLE}\n`);
   return;
 });
 

@@ -120,10 +120,13 @@ export const services = async (
     config: UserConfig,
     resolvedServices
 ) => {
+
+    const dev = true
     const resolvedConfig = await resolveConfig(config);
     const { root, target, services } = resolvedConfig
-    await buildServices(resolvedConfig, { services: resolvedServices, dev: true }) // Build service outputs
+    await buildServices(resolvedConfig, { services: resolvedServices, dev }) // Build service outputs
     resolvedServices = resolvedServices || services // Use all services if none are provided
+
     return await createAllServices(resolvedServices, { root, target }) // Create services
 
 }

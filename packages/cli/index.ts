@@ -166,3 +166,5 @@ cli.version(pkg.version)
 const parsed = cli.parse()
 if (parsed.options.version) process.exit()
 if (parsed.options.help) process.exit()
+
+

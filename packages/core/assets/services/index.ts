@@ -5,6 +5,8 @@ import { spawn, fork } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { ResolvedService, ActiveServices, ActiveService } from "../../types.js";
 
+import { loadEnvironmentVariables } from './env/index.js'
+
 import { getLocalIP } from './ip.js'
 
 type ServiceOptions = {
@@ -328,10 +330,20 @@ export async function start(config, id, opts) {
 
     try {
 
-      const { build } = opts
-      const root = !build && opts.root
-      const cwd = root || process.cwd()
-      const env = { ...process.env, PORT: resolvedURL.port, HOST: resolvedURL.hostname }
+      const _cwd = process.cwd()
+      const { build, root = _cwd } = opts
+      const cwd = build ? _cwd : root
+
+      const mode = build ? 'production' : 'development'
+      const userEnv = loadEnvironmentVariables(mode, root)
+
+      // Share environment variables with the child process
+      const env = { 
+        ...userEnv,
+        ...process.env, 
+        PORT: resolvedURL.port, 
+        HOST: resolvedURL.hostname 
+      }
 
       const resolvedFilepath = resolve((isExecutable(ext) && !ext && existsSync(filepath + '.exe')) ? filepath + '.exe' : filepath)
 

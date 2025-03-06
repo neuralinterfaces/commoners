@@ -6,6 +6,8 @@ This is an example HTTP server written in Python.
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+SECRET_VARIABLE = os.getenv('SECRET_VARIABLE', '')
+
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def _set_default_headers(self):
         self.send_response(200)
@@ -13,12 +15,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
         self.send_header('Access-Control-Allow-Headers', 'X-Requested-With,content-type')
 
-    # Hello World
+    # Pass Secret
     def do_GET(self):
         self._set_default_headers()
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
-        self.wfile.write(b'Hello World')
+        self.wfile.write(SECRET_VARIABLE.encode())
 
     # Echo
     def do_POST(self):

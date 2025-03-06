@@ -183,14 +183,14 @@ export const resolveViteConfig = async (
         plugins,
         server: serverConfig, // Open the browser unless testing / building for desktop
         clearScreen: false,
-        envPrefix: ["VITE_", "COMMONERS_"]
+        envPrefix: [ "VITE_", "COMMONERS_" ] // Allow for Commoners-specific environment variables
     })
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
 
-    const mode = dev ? "development" : "production"
+    const mode = dev ? 'development' : 'production'
     const env = _vite.loadEnv(mode, root, mergedConfig.envPrefix)
-
+    
     mergedConfig.plugins = [
         ...mergedConfig.plugins,
         commonersPlugin({ 
