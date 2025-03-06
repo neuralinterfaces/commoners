@@ -27,4 +27,4 @@ All notable changes to this project will be documented in this file.
 - Only trigger Electron plugins when the frontend is loaded. 
 - Fix multi-page workflow when using a `vite.config.js` file.
 - Fix test workflow and launch commands for Windows and partial Linux support.
-
+- Fix inclusion of environment files across different builds to maintain consistency with Vite behaviors.
