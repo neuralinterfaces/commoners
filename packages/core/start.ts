@@ -165,7 +165,10 @@ export const app = async function (
             close: () => void
         }
 
-        onCleanup(() => startManager.close())
+        onCleanup(() => {
+            console.log('CLEANUP')
+            startManager.close()
+        })
 
         // ------------------------------- Mobile -------------------------------
         if (isMobile(target)) {
@@ -179,7 +182,7 @@ export const app = async function (
         if (isDesktop(target)) {
             await buildAllAssets(scopedConfig, true) // Build the assets for desktop
             await configureForDesktop(outDir, root)
-            const frontend = startManager.frontend = await createServer(scopedConfig, {  printUrls: false })
+            const frontend = startManager.frontend = await createServer(scopedConfig, { printUrls: false })
             startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
             return startManager
         }
