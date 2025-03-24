@@ -397,7 +397,12 @@ export async function start(config, id, opts) {
 }
 
 const killProcess = (p) => {
-  return p.kill()
+  try {
+    return p.kill()
+  }
+  catch (e) {
+    console.error(e)
+  }
 }
 
 export function close( id?: string ) {

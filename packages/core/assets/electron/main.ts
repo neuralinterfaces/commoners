@@ -1,5 +1,5 @@
 import electron, { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join, basename, extname } from 'node:path'
+import { join, basename, extname, posix, sep } from 'node:path'
 import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
@@ -8,9 +8,15 @@ import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrow
 import { runAppPlugins } from '../plugins';
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons';
 
+const decodePath = (path) => {
+  const decoded = decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
+  return decoded.replaceAll(sep, posix.sep) // Normalize path separators for comparison
+}
+
 function normalizeAndCompare(path1, path2, comparison = (a,b) => a === b) {
-  const decodePath = (path) => decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
-  return comparison(decodePath(path1), decodePath(path2))
+  path1 = decodePath(path1)
+  path2 = decodePath(path2)
+  return comparison(path1, path2)
 }
 
 async function checkLinkType(url) {
@@ -425,6 +431,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 function getPageLocation(pathname: string = 'index.html', alt = false) {
 
     if (isDevServer) return new URL(pathname, devServerURL).href
+
+    pathname = pathname.startsWith('/') ? pathname.slice(1) : pathname // Remove leading slash on Windows
 
     const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))
 
