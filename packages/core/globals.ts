@@ -21,9 +21,15 @@ import { TargetType, WritableElectronBuilderConfig, universalTargetTypes, validD
 export const chalk = import("chalk").then(m => m.default)
 export const vite = import("vite")
 
+
+// Operating System
+const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+export const PLATFORM = getOS()  // Declared Mobile OR Implicit Desktop Patform
+
+
 // Ensure __filename is available in ES Modules
 const ____filename = new URL('', import.meta.url).pathname
-const __filename = ____filename.startsWith('/') ? ____filename.slice(1) : ____filename // NOTE: For some reason, a slash has started to be added here...
+const __filename = ____filename.startsWith('/') && PLATFORM === 'windows' ? ____filename.slice(1) : ____filename // NOTE: For some reason, a slash has started to be added here...
 const require = createRequire(import.meta.url);
 const { version: electronVersion } = require('electron/package.json')
 export { electronVersion }
@@ -63,10 +69,6 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
 }
 
 export const getDefaultMainLocation = (outDir) =>  join(outDir, 'main.cjs')
-
-const getOS = () => process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
-
-export const PLATFORM = getOS()  // Declared Mobile OR Implicit Desktop Patform
 
 export const isDesktop = (target: TargetType) => validDesktopTargets.includes(target)
 export const isMobile = (target: TargetType) => validMobileTargets.includes(target)

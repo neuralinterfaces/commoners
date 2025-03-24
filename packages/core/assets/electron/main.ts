@@ -103,6 +103,8 @@ const isDevServer = utils.is.dev && devServerURL
 
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
+const isWindows = platform === 'windows'
+const isLinux = platform === 'linux'
 
 // Get the Commoners configuration file
 const configPath = join(assetsPath, 'commoners.config.cjs') // Load the .cjs config version
@@ -221,9 +223,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
   // ------------------- Configure the main window properties -------------------  
   const preload = join(__dirname, 'preload.cjs')
-
-  const isWindows = platform === 'windows'
-  const isLinux = platform === 'linux'
 
   const defaultIcon = getIcon(config.icon, {
     preferredFormats: isWindows ? ELECTRON_WINDOWS_PREFERENCE : ELECTRON_PREFERENCE
@@ -432,7 +431,7 @@ function getPageLocation(pathname: string = 'index.html', alt = false) {
 
     if (isDevServer) return new URL(pathname, devServerURL).href
 
-    pathname = pathname.startsWith('/') ? pathname.slice(1) : pathname // Remove leading slash on Windows
+    pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
 
     const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))
 
@@ -546,7 +545,7 @@ app.on('ready', async () => {
 })
 
 // ------------------------ Default Close Behavior ------------------------
-app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit()) // Quit when all windows are closed, except on macOS.
+app.on('window-all-closed', () => platform !== 'mac' && app.quit()) // Quit when all windows are closed, except on macOS.
 
 // ------------------------ App Shutdown Behavior ------------------------
 app.on('before-quit', async (ev) => {
