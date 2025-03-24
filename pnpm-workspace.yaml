@@ -1,5 +1,9 @@
 packages:
-  - 'packages/**'
-  - 'tests/**'
+  - packages/**
+  - tests/**
   - '!**/dist/**'
   - '!packages/plugins/autoupdate'
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+  - sharp

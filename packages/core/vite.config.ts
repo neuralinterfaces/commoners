@@ -3,15 +3,11 @@ import { defineConfig } from "vite";
 import url from "node:url";
 import { join, resolve } from "node:path";
 import { readFileSync } from "node:fs";
-
-import { type Plugin } from 'vite';
-import { exec } from 'child_process';
 import { nodeBuiltIns } from "./utils/config";
 
 import { normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
-
-import chalk from 'chalk'
+import dts from 'vite-plugin-dts'
 
 const __dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
@@ -21,25 +17,9 @@ const toCopy = [
   join('assets'),
 ]
 
-const dts: Plugin = {
-  name: 'dts-generator',
-  buildEnd: (error?: Error) => {
-    if (!error) {
-      return new Promise((res, rej) => {
-        exec(`tsc --emitDeclarationOnly --outDir ./dist/types`,{
-          cwd: __dirname
-        }, async (err, stdout, stderr) => {
-          console.warn((await chalk).yellow(stdout))
-          res(true)
-        });
-      });
-    }
-  },
-};
-
 export default defineConfig({
   plugins: [ 
-    dts,
+    dts(),
     
     viteStaticCopy({
       targets: [

@@ -22,10 +22,8 @@ export const chalk = import("chalk").then(m => m.default)
 export const vite = import("vite")
 
 // Ensure __filename is available in ES Modules
-const __filename = new URL('', import.meta.url).pathname
-
-
-
+const ____filename = new URL('', import.meta.url).pathname
+const __filename = ____filename.startsWith('/') ? ____filename.slice(1) : ____filename // NOTE: For some reason, a slash has started to be added here...
 const require = createRequire(import.meta.url);
 const { version: electronVersion } = require('electron/package.json')
 export { electronVersion }
