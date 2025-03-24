@@ -115,7 +115,7 @@ export const packageFile = async (info: PackageBuildInfo) => {
     const shouldBuild = mustBuild({ out: outDir, force })
 
     if (!shouldBuild) {
-        printSubtle(`Skipping ${_chalk.bold(name)} build`)
+        printSubtle(`Using cached ${_chalk.bold(name)} build`)
         return outDir
     }
 
@@ -182,7 +182,7 @@ async function buildService(
         // Stop if the build is not required
         if (!mustBuild({ out, force })) {
             const _chalk = await chalk
-            await printSubtle(`Skipping ${_chalk.bold(name)} build`)
+            await printSubtle(`Using cached ${_chalk.bold(name)} build`)
             return // Skipping without a specific path returned
         }
     
