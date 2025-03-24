@@ -10,6 +10,7 @@ import { nodeBuiltIns } from "./utils/config";
 
 import { normalizePath } from "vite";
 import { viteStaticCopy } from 'vite-plugin-static-copy'
+import dts from 'vite-plugin-dts'
 
 import chalk from 'chalk'
 
@@ -21,25 +22,9 @@ const toCopy = [
   join('assets'),
 ]
 
-const dts: Plugin = {
-  name: 'dts-generator',
-  buildEnd: (error?: Error) => {
-    if (!error) {
-      return new Promise((res, rej) => {
-        exec(`tsc --emitDeclarationOnly --outDir ./dist/types`,{
-          cwd: __dirname
-        }, async (err, stdout, stderr) => {
-          console.warn((await chalk).yellow(stdout))
-          res(true)
-        });
-      });
-    }
-  },
-};
-
 export default defineConfig({
   plugins: [ 
-    dts,
+    dts(),
     
     viteStaticCopy({
       targets: [
@@ -62,7 +47,7 @@ export default defineConfig({
     target: 'node16',
     lib: {
       entry: {
-        main: resolve(__dirname, 'index'),
+        index: resolve(__dirname, 'index'),
         services: resolve(__dirname, 'services/index'),
         config: resolve(__dirname, 'config')
       },

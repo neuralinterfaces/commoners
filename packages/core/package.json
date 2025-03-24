@@ -6,19 +6,19 @@
   "license": "MIT",
   "exports": {
     ".": {
-      "import": "./dist/main.mjs",
-      "require": "./dist/main.cjs",
-      "types": "./dist/types/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./services": {
+      "types": "./dist/services/index.d.ts",
       "import": "./dist/services.mjs",
-      "require": "./dist/services.cjs",
-      "types": "./dist/types/services/index.d.ts"
+      "require": "./dist/services.cjs"
     },
     "./config": {
+      "types": "./dist/config.d.ts",
       "import": "./dist/config.mjs",
-      "require": "./dist/config.cjs",
-      "types": "./dist/types/config.d.ts"
+      "require": "./dist/config.cjs"
     }
   },
   "engines": {
@@ -48,9 +48,9 @@
     "open": "^9.1.0",
     "pkg": "^5.8.1",
     "plist": "^3.1.0",
-    "vite": "^5.3.4",
-    "vite-plugin-node-polyfills": "^0.22.0",
-    "vite-plugin-pwa": "^0.16.4",
+    "vite": "^6.2",
+    "vite-plugin-node-polyfills": "^0.23.0",
+    "vite-plugin-pwa": "^0.21.2",
     "ws": "^8.18.0",
     "xml2js": "^0.6.2"
   },
@@ -58,7 +58,8 @@
     "@types/node": "^20.14.11",
     "express": "4.19.2",
     "typescript": "^4.9.5",
-    "vite-plugin-static-copy": "^1.0.6"
+    "vite-plugin-dts": "^4.5.3",
+    "vite-plugin-static-copy": "^2.3"
   },
   "peerDependencies": {
     "@capacitor/android": "^6.1.0",

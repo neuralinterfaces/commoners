@@ -19,6 +19,8 @@
     },
     "include": [
       "index.ts",
+      "services/index.ts",
+      "config.ts",
       "*.d.ts"
     ],
 }

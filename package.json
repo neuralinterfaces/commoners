@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "pnpm demo",
     "build": "pnpm -r run build",
     "test": "vitest",
     "coverage": "vitest run --coverage",
@@ -23,11 +24,11 @@
     "@commoners/solidarity": "0.0.60-alpha.4",
     "@commoners/splash-screen": "0.0.55",
     "@commoners/testing": "0.0.60-alpha.4",
-    "@commoners/windows": "0.0.60-alpha.2",
+    "@commoners/windows": "0.0.60-alpha.4",
     "@vitest/coverage-v8": "^2.0.3",
     "search-insights": "^2.15.0",
     "commoners": "0.0.60-alpha.4",
-    "vite": "^5.3.4",
+    "vite": "^6.2",
     "vitepress": "^1.3.1",
     "vitest": "^2.0.3"
   },

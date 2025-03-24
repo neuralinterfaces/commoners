@@ -23,6 +23,7 @@ export const vite = import("vite")
 
 // Ensure __filename is available in ES Modules
 const __filename = new URL('', import.meta.url).pathname
+console.log(__filename)
 
 
 
