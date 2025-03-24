@@ -1,7 +1,7 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "0.0.60-alpha.5",
+  "version": "0.0.60-alpha.6",
   "type": "module",
   "license": "MIT",
   "exports": {
