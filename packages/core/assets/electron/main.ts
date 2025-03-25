@@ -24,7 +24,7 @@ async function checkLinkType(url) {
       const response = await fetch(url, { method: 'HEAD' });
       const contentDisposition = response.headers.get('Content-Disposition');
       if (contentDisposition && contentDisposition.includes('attachment')) return 'download'; // Download if attachment
-      if (!response.headers.get('Content-Type').startsWith('text/html')) return 'download'; // Download if not an HTML file
+      if (!response.headers.get('Content-Type').startsWith('text/html')) return 'unknown'; // Unknown if not HTML
       return 'webpage';
   } catch (error) { return 'unknown' }
 }
@@ -344,9 +344,10 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       if (!isValid) {
         const type = await checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url) // Download
-        return shell.openExternal(url) // Opened externally
+        if (isMainWindow) return shell.openExternal(url) // Only open externally if main window
+        else return win.loadURL(url) // Otherwise just load URL in the window (e.g. for PDFs)
       }
-
+      
       __location.search = urlObj.search
       __location.hash = urlObj.hash
       await loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..") 
