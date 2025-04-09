@@ -274,6 +274,11 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       return location
   }
 
+  const isValidUrl = (url) => {
+    const urlObj = new URL(url)
+    return (devServerURL && devServerURL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
+  }
+
   async function createWindow (
     page, 
     options: ElectronWindowOptions = {}, 
@@ -332,6 +337,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       search: undefined,
       hash: undefined,
     }
+    
 
     // Catch all navigation events
     win.webContents.on('will-navigate', async (event, url) => {
@@ -339,9 +345,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       event.preventDefault()
       
       const urlObj = new URL(url)
-      const isValid = (devServerURL && devServerURL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
 
-      if (!isValid) {
+      if (!isValidUrl(url)) {
         const type = await checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url) // Download
         if (isMainWindow) return shell.openExternal(url) // Only open externally if main window
@@ -416,14 +421,16 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     win.__loaded = Promise.all(Object.values(win.__loading)).then(() => {})
 
     // ------------------------ Window Page Load Behavior ------------------------
-    loadPage(win, page)
+    const loadPromise = loadPage(win, page)
 
     // ------------------------ Window Creation Callback ------------------------
     if (onInitialized) onInitialized.call(electron, win) 
 
     // ------------------------ Show Window after Global Variables are Set ------------------------
-    await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
-    win.show()
+    await loadPromise.then(async (url) => {
+      if (isValidUrl(url)) await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
+      else await new Promise(resolve => win.once('ready-to-show', () => resolve(true)))
+    }).finally(() => win.show())
 
     return win
   }

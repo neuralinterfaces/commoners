@@ -166,6 +166,7 @@ export const app = async function (
         }
 
         onCleanup(() => {
+            // console.log('CLEANUP')
             startManager.close()
         })
 
