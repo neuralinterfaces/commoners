@@ -1,6 +1,6 @@
 {
   "name": "@commoners/demo",
-  "version": "0.0.60-alpha.6",
+  "version": "0.0.60",
   "private": true,
   "description": "A test app for the commoners library",
   "type": "module",
@@ -21,7 +21,7 @@
     "@commoners/local-services": "0.0.60",
     "@commoners/serial": "0.0.55",
     "@commoners/splash-screen": "0.0.55",
-    "@commoners/windows": "0.0.60-alpha.2"
+    "@commoners/windows": "0.0.60"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
