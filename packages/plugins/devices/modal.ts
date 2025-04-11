@@ -134,8 +134,6 @@ export default (props: ModalProps) => {
 
       selectedDevice = ''
 
-      #dialog: HTMLDialogElement
-
       getDialog = () => {
         return this.shadowRoot.querySelector('dialog') as HTMLDialogElement
       }
