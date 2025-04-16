@@ -1,6 +1,6 @@
 {
     "name": "@commoners/splash-screen",
-    "version": "0.0.55",
+    "version": "0.0.62",
     "main": "./dist/index.cjs",
     "module": "./dist/index.mjs",
     "license": "MIT",
@@ -12,6 +12,6 @@
         "vite": "^5.3.4"
     },
     "peerDependencies": {
-        "@commoners/solidarity": "^0.0.55"
+        "@commoners/solidarity": ">=0.0.62 <0.1.0"
     }
 }
