@@ -255,18 +255,25 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   // ------------------------ Window Page Load Behavior ------------------------
   const loadPage = async (win, page) => {
 
+      if (isValidUrl(page)) {
+        win.loadURL(page)
+        return page
+      }
+
+      const location = getPageLocation(page)
+
       try {
-        const location = isDevServer ? new URL(page, devServerURL).href : page
-        new URL(location)
+        new URL(location) // test if the URL is valid
         win.loadURL(location)
         return location
       }
   
       // NOTE: Catching the alternative location results in a delay depending on load time
       catch {
-        const location = getPageLocation(page)
 
-        return await win.loadFile(location).catch(() => {
+        return await win.loadFile(location)
+        .then(() => location)
+        .catch(() => {
           const location = getPageLocation(page, true)
           win.loadFile(location)
           return location
@@ -275,8 +282,22 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   }
 
   const isValidUrl = (url) => {
-    const urlObj = new URL(url)
-    return (devServerURL && devServerURL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
+    try {
+      new URL(url)
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
+  const isCommonersUrl = (url) => {
+    try {
+      const urlObj = new URL(url)
+      return (devServerURL && devServerURL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
+    }
+    catch (e) {
+      return false
+    }
   }
 
   async function createWindow (
@@ -346,7 +367,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       
       const urlObj = new URL(url)
 
-      if (!isValidUrl(url)) {
+      if (!isCommonersUrl(url)) {
         const type = await checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url) // Download
         if (isMainWindow) return shell.openExternal(url) // Only open externally if main window
@@ -428,7 +449,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     // ------------------------ Show Window after Global Variables are Set ------------------------
     await loadPromise.then(async (url) => {
-      if (isValidUrl(url)) await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
+      if (isCommonersUrl(url)) await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
       else await new Promise(resolve => win.once('ready-to-show', () => resolve(true)))
     }).finally(() => win.show())
 
@@ -436,6 +457,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   }
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
+
+  if (isDevServer) return new URL(pathname, devServerURL).href
 
     pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
 
