@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
     - Ensured proper manual service builds by using the `publish` option to determine build location
 - Support HTML-only multi-page applications using inbuilt Vite features.
 - Allow launching built services from the command line using `commoners launch`.
+- Allow `createWindow` to reference remote URLs, allowing for remote content to be served on secondary windows.
 
 ## Fixes
 - Properly run cleanup handlers when Electron is closed via dock.
