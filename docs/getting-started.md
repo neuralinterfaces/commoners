@@ -18,7 +18,7 @@ Then, navigate to your new project directory and run `npm install` to install th
 After running `npm install`, add Commoners as a dependency.
 
 ```bash
-npm install -D commoners@0.0.60
+npm install -D commoners@0.0.61
 ```
 
 ### Scripts
