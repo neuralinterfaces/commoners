@@ -1,6 +1,6 @@
 {
   "name": "@commoners/demo",
-  "version": "0.0.60",
+  "version": "0.0.62",
   "private": true,
   "description": "A test app for the commoners library",
   "type": "module",
@@ -17,11 +17,11 @@
     "src/services/*"
   ],
   "dependecies": {
-    "@commoners/bluetooth": "0.0.60",
-    "@commoners/local-services": "0.0.60",
-    "@commoners/serial": "0.0.60",
-    "@commoners/splash-screen": "0.0.55",
-    "@commoners/windows": "0.0.61"
+    "@commoners/bluetooth": "0.0.62",
+    "@commoners/local-services": "0.0.62",
+    "@commoners/serial": "0.0.62",
+    "@commoners/splash-screen": "0.0.62",
+    "@commoners/windows": "0.0.62"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
