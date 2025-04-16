@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Support HTML-only multi-page applications using inbuilt Vite features.
 - Allow launching built services from the command line using `commoners launch`.
 - Allow `createWindow` to reference remote URLs, allowing for remote content to be served on secondary windows.
+- Properly handle bundled pages in built Electron applications as a result of the previous change.
 
 ## Fixes
 - Properly run cleanup handlers when Electron is closed via dock.
