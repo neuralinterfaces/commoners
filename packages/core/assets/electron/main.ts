@@ -255,23 +255,23 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   // ------------------------ Window Page Load Behavior ------------------------
   const loadPage = async (win, page) => {
 
-      const location = getPageLocation(page)
-
       try {
+        const location = isDevServer ? new URL(page, devServerURL).href : page
         new URL(location)
         win.loadURL(location)
+        return location
       }
   
       // NOTE: Catching the alternative location results in a delay depending on load time
       catch {
+        const location = getPageLocation(page)
+
         return await win.loadFile(location).catch(() => {
           const location = getPageLocation(page, true)
           win.loadFile(location)
           return location
         })
       }
-
-      return location
   }
 
   const isValidUrl = (url) => {
@@ -437,8 +437,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
 
-    if (isDevServer) return new URL(pathname, devServerURL).href
-
     pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
 
     const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))
@@ -515,8 +513,6 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
           const loadedURL = new URL(req.url)
           const { host, pathname, search, hash } = loadedURL
           const updatedPathname =  pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
-
-          console.log(updatedPathname, host, search, hash)
 
           // Proxy the services through the custom protocol
           if (host === "services") {
