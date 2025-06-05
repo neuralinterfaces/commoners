@@ -235,6 +235,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   const electronOptions = config.electron ?? {}
   const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
   const windowOptions = electronOptions.window ?? {}
+  const isSandboxed = electronOptions.sandbox !== false // Default to true if not explicitly set to false
 
   // Aggregate window options on plugins
   Object.entries(PLUGINS).forEach(([ id, plugin ]) => {
@@ -245,7 +246,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
   const defaultWindowConfig = {
     autoHideMenuBar: true,
-    webPreferences: { sandbox: false },
     ...platformDependentWindowConfig,
   }
 
@@ -317,6 +317,10 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     if (!('preload' in copy.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
     if (!('additionalArguments' in copy.webPreferences)) copy.webPreferences.additionalArguments = []
 
+    // Attempt to sandbox the window unless explicitly disabled
+    if (isSandboxed) copy.webPreferences = { contextIsolation: true, sandbox: true, nodeIntegration: false, ...copy.webPreferences }
+
+
     const __listeners = []
 
 
@@ -327,7 +331,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     copy.webPreferences.additionalArguments.push(...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`))
 
-
     const flags = {
       ...transferredFlags,
       __show: true,
@@ -336,7 +339,6 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow // Always initially hide the window
     Object.assign(win, flags)
-
 
     // Safe window management behaviors
     const originalManagers = {
@@ -502,6 +504,8 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
   }
   
   await boundRunAppPlugins([ resolvedServices ])
+
+  if (isSandboxed) app.enableSandbox() // Enable sandboxing if not explicitly disabled
 
   app.whenReady().then(async () => {
 
