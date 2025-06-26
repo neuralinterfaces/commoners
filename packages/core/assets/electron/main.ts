@@ -46,7 +46,11 @@ function send(this: BrowserWindow, channel: string, ...args: any[]) {
 type ReadyFunction = (win: BrowserWindow) => any
 let readyQueue: ReadyFunction[] = []
 
-const onWindowReady = (f: ReadyFunction) => globals.mainWindow ? f(globals.mainWindow) : readyQueue.push(f)
+const onNextWindowReady = (f: ReadyFunction) => {
+  const windows = BrowserWindow.getAllWindows()
+  if (windows.length === 0) return readyQueue.push(f) // No windows yet
+  windows.forEach(win => f(win)) // Call immediately if windows already exist
+}
 
 const getScopedIdentifier = (type, source, attr) => `${type}:${source}:${attr}`
 
@@ -59,15 +63,29 @@ const scopedOn = (type, id, channel, callback) => {
    } 
 }
 
-const scopedSend = (type, id, channel, ...args) => onWindowReady(() => {
+const scopedHandle = (type, id, channel, callback) => {
+  const event = getScopedIdentifier(type, id, channel)
+  ipcMain.handle(event, callback)
+  const remove = () => ipcMain.removeHandler(event)
+  return {
+    remove // A helper function to remove the handler
+  } 
+}
+
+const scopedSend = (type, id, channel, ...args) => {
   const windows = BrowserWindow.getAllWindows()
-  windows.forEach(win => send.call(win, getScopedIdentifier(type, id, channel), ...args)) // Send to all windows
-})
+  const event = getScopedIdentifier(type, id, channel)
+  windows.forEach(win => send.call(win, event, ...args)) // Send to all windows
+}
+
+
+
 const serviceSend = (id, channel, ...args) => scopedSend('services', id, channel, ...args)
 const serviceOn = (id, channel, callback) => scopedOn('services', id, channel, callback)
 
 const pluginSend = (pluginName, channel, ...args) => scopedSend('plugins', pluginName, channel, ...args)
 const pluginOn = (pluginName, channel, callback) => scopedOn('plugins', pluginName, channel, callback)
+const pluginHandle = (pluginName, channel, callback) => scopedHandle('plugins', pluginName, channel, callback)
 
 const globals: {
   firstInitialized: boolean,
@@ -91,7 +109,7 @@ const ogConsoleMethods: any = {};
 ['log', 'warn', 'error'].forEach(method => {
   const ogMethod = ogConsoleMethods[method] = console[method]
   console[method] = (...args) => {
-    onWindowReady(win => send.call(win, `commoners:console.${method}`, ...args))
+    onNextWindowReady(win => send.call(win, `commoners:console.${method}`, ...args))
     ogMethod(...args)
   }
 })
@@ -158,6 +176,11 @@ const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
     createWindow: (page: string, opts: ElectronWindowOptions) => createWindow(page, opts),
     open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
     send: function (channel, ...args) { return pluginSend(this.id, channel, ...args) },
+    handle: function (channel, callback, win?: BrowserWindow){
+      const listener = pluginHandle(this.id, channel, callback)
+      if (win) win.__listeners.push(listener) // Store the listener in the window
+      return listener
+    },
     on: function (channel, callback, win?: BrowserWindow ) { 
       const listener = pluginOn(this.id, channel, callback)
       if (win) win.__listeners.push(listener)
@@ -211,7 +234,8 @@ const runWindowPlugin = async (win, id, type) => {
     const { createWindow } = context
     if (types.load) context.createWindow = (page, opts) => createWindow(page, opts, [ id ]) // Do not recursively call window creation in load function
     
-    return await thisPlugin.call(context, win, id)
+    const result = await thisPlugin.call(context, win, id)
+    return result
 }
 
 const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load', toIgnore: string[] = []) => {
@@ -433,12 +457,18 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     // ------------------------ Window Load Behavior ------------------------
     win.__ready = new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, () => resolve())) // Wait for the window to be ready to show
 
-    // Asyncronously load plugins. Allow for accessing the load status of each plugin
-    win.__loading = Object.keys(PLUGINS).reduce((acc, id) => {
-      const listener = `commoners:loaded:${__id}:${id}`
-      acc[id] = new Promise(resolve => ipcMain.once(listener, async () => resolve(await runWindowPlugin(win, id, 'load'))))
+    // Synchronously run all plugin load callbacks
+    const called = Object.keys(PLUGINS).reduce((acc, id) => {
+      acc[id] = runWindowPlugin(win, id, 'load') // Possible promise
       return acc
-    }, {}) // Asyncronously load plugins. Allow for accessing the load status of each plugin
+    }, {}) 
+
+    // Then asyncronously load the plugin results. Allow for accessing the load status of each plugin
+    win.__loading = Object.entries(called).reduce((acc, [ id, promise ]) => {
+      const listener = `commoners:loaded:${__id}:${id}`
+      acc[id] = new Promise(resolve => ipcMain.once(listener, async () => resolve(await promise)))
+      return acc
+    }, {})
 
     // Allow querying load state with exclusions
     win.__loaded = Promise.all(Object.values(win.__loading)).then(() => {})
@@ -448,12 +478,13 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     // ------------------------ Window Creation Callback ------------------------
     if (onInitialized) onInitialized.call(electron, win) 
-
+      
     // ------------------------ Show Window after Global Variables are Set ------------------------
     await loadPromise.then(async (url) => {
       if (isCommonersUrl(url)) await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
       else await new Promise(resolve => win.once('ready-to-show', () => resolve(true)))
-    }).finally(() => win.show())
+    })
+    .finally(() => win.show())
 
     return win
   }

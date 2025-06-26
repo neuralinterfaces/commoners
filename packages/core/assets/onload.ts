@@ -91,9 +91,11 @@ if ( __PLUGINS ) {
                     ...DESKTOP,
                     send: (channel, ...args) => TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
                     sendSync: (channel, ...args) => TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),
+                    invoke: (channel, ...args) => TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
                     on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
                     once: (channel, listener) => TEMP_COMMONERS.once(`plugins:${id}:${channel}`, listener),
                     removeAllListeners: (channel) => TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`)
+
                 } : 
                 
                 // NOTE: Hook up with a custom WebSocket implementation
