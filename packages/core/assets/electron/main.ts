@@ -259,7 +259,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   const electronOptions = config.electron ?? {}
   const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
   const windowOptions = electronOptions.window ?? {}
-  const isSandboxed = electronOptions.sandbox !== false // Default to true if not explicitly set to false
+  const applyDefaultSecuritySettings = electronOptions.secure !== false // Default to true if not explicitly set to false
 
   // Aggregate window options on plugins
   Object.entries(PLUGINS).forEach(([ id, plugin ]) => {
@@ -342,7 +342,14 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     if (!('additionalArguments' in copy.webPreferences)) copy.webPreferences.additionalArguments = []
 
     // Attempt to sandbox the window unless explicitly disabled
-    if (isSandboxed) copy.webPreferences = { contextIsolation: true, sandbox: true, nodeIntegration: false, ...copy.webPreferences }
+    
+    if (applyDefaultSecuritySettings) copy.webPreferences = { 
+      contextIsolation: true, // Enable context isolation by default
+      sandbox: true, // Enable sandboxing by default
+      nodeIntegration: false,  // Disable Node.js integration by default
+      devTools: !isProduction, // Disable devTools in production
+      ...copy.webPreferences // Override with any existing webPreferences
+    }
 
 
     const __listeners = []
@@ -363,6 +370,9 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow // Always initially hide the window
     Object.assign(win, flags)
+
+    const { devTools } = copy.webPreferences ?? {}
+    if (applyDefaultSecuritySettings && devTools === false) win.webContents.on('devtools-opened', () => win.webContents.closeDevTools());
 
     // Safe window management behaviors
     const originalManagers = {
@@ -525,18 +535,21 @@ const baseServiceOptions = {
   root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir 
 }
 
+
 // ------------------------ App Start Behavior ------------------------
+if (applyDefaultSecuritySettings) app.enableSandbox() // Enable sandboxing if not explicitly disabled
+
+const hasCustomProtocol = !!protocolOptions.scheme
+if (hasCustomProtocol) {
+  const { protocol } = electron
+  protocol.registerSchemesAsPrivileged([ protocolOptions ])
+}
+
+if (!isProduction && config.name) app.setName(config.name);
+
 services.resolveAll(config.services, baseServiceOptions).then(async (resolvedServices) => {
 
-  const hasCustomProtocol = !!protocolOptions.scheme
-  if (hasCustomProtocol) {
-    const { protocol } = electron
-    protocol.registerSchemesAsPrivileged([ protocolOptions ])
-  }
-  
-  await boundRunAppPlugins([ resolvedServices ])
-
-  if (isSandboxed) app.enableSandbox() // Enable sandboxing if not explicitly disabled
+  await boundRunAppPlugins([ resolvedServices ]) // Run plugins on start with resolved services
 
   app.whenReady().then(async () => {
 

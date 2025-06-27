@@ -368,6 +368,7 @@ export async function start(config, id, opts) {
       printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
 
       if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
+        if (data.startsWith("\x1e")) return // Ignore messages that start with \x1e (Commoners-specific)
         config.status = true
         if (opts.onLog) opts.onLog(id, data)
         printServiceMessage(label, data)
