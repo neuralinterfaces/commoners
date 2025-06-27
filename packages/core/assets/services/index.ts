@@ -243,7 +243,7 @@ async function getServiceUrl(service) {
   // Use the URL to determine the appropriate build strategy
   const resolved = resolveServiceConfiguration(config)
 
-  const { src } = resolved
+  const { src, monitor } = resolved
 
 
   // Resolve service publish info
@@ -297,6 +297,8 @@ async function getServiceUrl(service) {
     
     status: null,
 
+    monitor
+
   }
 
 }
@@ -313,7 +315,7 @@ export async function start(config, id, opts) {
 
   if (!config) return
 
-  const { filepath } = config
+  const { filepath, monitor = {} } = config
 
   if (!filepath) return
 
@@ -367,14 +369,13 @@ export async function start(config, id, opts) {
       const _chalk = await chalk
       printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
 
-      if (childProcess.stdout) childProcess.stdout.on('data', (data) => {
-        if (data.startsWith("\x1e")) return // Ignore messages that start with \x1e (Commoners-specific)
+      if (childProcess.stdout && monitor.stdout !== false) childProcess.stdout.on('data', (data) => {
         config.status = true
         if (opts.onLog) opts.onLog(id, data)
         printServiceMessage(label, data)
       });
 
-      if (childProcess.stderr) childProcess.stderr.on('data', (data) => printServiceMessage(label, data, 'error'));
+      if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', (data) => printServiceMessage(label, data, 'error'));
 
       // Notify of process closure gracefully
       childProcess.on('close', (code) => {
