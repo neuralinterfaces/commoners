@@ -1,5 +1,3 @@
-import { desktop, isSupported } from "@commoners/bluetooth"
-
 type TestOptions = {
     remoteDebuggingPort?: number
     remoteAllowOrigins?: string 

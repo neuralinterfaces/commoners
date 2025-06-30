@@ -30,11 +30,6 @@ const splashSrc = join(root, 'splash.html')
 
 const remoteURL = 'https://jsonplaceholder.typicode.com/todos/1'
 
-const TEST_OPTIONS = {
-    remoteDebuggingPort: 8315,
-    remoteAllowOrigins: '*' // Allow all remote origins
-}
-
  async function manualBuildCommand (info) {
     const fs = await import('node:fs')
     const path = await import('node:path')
@@ -125,7 +120,10 @@ const config = defineConfig({
         }),
         bluetooth: bluetoothPlugin, 
         serial: serialPlugin,
-        __testing: testingPlugin(TEST_OPTIONS)
+        __testing: testingPlugin({
+            remoteDebuggingPort: 8315,
+            remoteAllowOrigins: '*' // Allow all remote origins
+        })
     },
 
     services: {
