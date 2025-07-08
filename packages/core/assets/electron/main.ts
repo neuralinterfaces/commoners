@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
 import { runAppPlugins } from '../plugins';
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons';
+import { performRuntimeIntegrityChecks } from './security';
 
 const decodePath = (path) => {
   const decoded = decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
@@ -529,11 +530,9 @@ async function createMainWindow() {
   return await createWindow(undefined, windowOptions, [], true)
 }
 
-const baseServiceOptions = { 
-  target: 'desktop',
-  build: isProduction,
-  root: isProduction ? __dirname : join(__dirname, '..', '..'), // Back out of default outDir 
-}
+const extraResourcesRoot = isProduction ? __dirname : join(__dirname, '..', '..') // Back out of default outDir 
+
+const baseServiceOptions = { target: 'desktop',  build: isProduction, root: extraResourcesRoot }
 
 
 // ------------------------ App Start Behavior ------------------------
@@ -552,6 +551,25 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
   await boundRunAppPlugins([ resolvedServices ]) // Run plugins on start with resolved services
 
   app.whenReady().then(async () => {
+
+    // Verify that the application integrity is intact when running in production
+    if (isProduction) {
+      const result = await performRuntimeIntegrityChecks()
+
+      if (!result) {
+
+        const _chalk = await chalk
+        console.error(_chalk.red('Runtime integrity checks failed. Exiting application.'))
+
+
+        electron.dialog.showErrorBox(
+          `${app.name} Integrity Check Failed`,
+          `This application has failed runtime integrity checks. This may indicate a security issue or corruption.\n\nPlease contact support or reinstall the application.`
+        ) 
+
+        app.quit() // Exit with error code
+      }
+    }
 
     // ------------------------ Service Creation ------------------------
     const output = await services.createAll(resolvedServices, {

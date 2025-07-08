@@ -2,13 +2,20 @@ directories:
   buildResources: build # AUGMENTED
   output: build
 
+asar: true # Ensures the app is packaged as an asar archive
+
 afterSign: build/notarize.cjs # AUGMENTED
 
 nsis:
   createDesktopShortcut: always
 
+win:
+  signAndEditExecutable: true # Ensures the executable is signed and edited for Windows builds
+  verifyUpdateCodeSignature: true # Ensures the update code signature is verified for Windows builds
+
 mac:
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED
+  hardenedRuntime: true # Ensures hardened runtime is enabled for macOS builds
   gatekeeperAssess: false  # Ensures code signing does not block builds
 
 linux:

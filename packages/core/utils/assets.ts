@@ -28,7 +28,8 @@ type ESBuildBuildOptions = import('esbuild').BuildOptions
 
 type AssetMetadata = {
     extraResource?: boolean,
-    sign?: boolean
+    sign?: boolean,
+    isDirectory?: boolean, // Whether the asset is a directory (useful for items created after registration)
 }
 
 type BuildInfo = {

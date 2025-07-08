@@ -2,7 +2,7 @@
 import path, { dirname, isAbsolute, join, relative, resolve } from "node:path"
 
 // General Internal Imports
-import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion } from "./globals.js"
+import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetConsistent, isMobile, globalWorkspacePath, handleTemporaryDirectories, chalk, vite, electronVersion, PLATFORM } from "./globals.js"
 import { BuildHooks, ServiceBuildOptions, ServiceRebuildOption, UserConfig, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
@@ -22,6 +22,8 @@ import merge from './utils/merge.js'
 import { configureForDesktop, resolveConfig } from "./index.js"
 import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 
 type CliOptions = import('electron-builder').CliOptions
 
@@ -201,15 +203,19 @@ export async function buildApp (
         // Handle extra resources and code signing
         const extraResources = buildConfig.extraResources = []
         const signIgnore = buildConfig.mac.signIgnore = []
-
-        assets.forEach(({ file, extraResource, sign }) => {
-
+        
+        const resolveFileLocation = (file) => {
             const relPath = relative(cwdRelativeOutDir, file)
-            const location = join(relativeOutDir, relPath)
+            return join(relativeOutDir, relPath)
+        }
 
-            const glob = (lstatSync(file).isDirectory()) ? join(location, '**') : location
+
+        assets.forEach(({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
+
+            const location = resolveFileLocation(file)
 
             if (extraResource) {
+                const glob = isDirectory ? join(location, '**') : location
                 extraResources.push(glob)
                 files.push(`!${glob}`)
             }
@@ -245,8 +251,41 @@ export async function buildApp (
 
         // Correct for different project roots
         if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
+        
+        // Ensure afterPack hook is set to write the ASAR hash 
+        buildConfig.afterPack = async (context) => {
 
-        const electronBuilderOpts: CliOptions = {  config: buildConfig as any  }
+            const { appOutDir, packager } = context;
+            const productFilename = packager.appInfo.productFilename;
+            const platform = packager.platform.name;
+
+            let asarPath: string;
+
+            if (platform === "mac") asarPath = join(appOutDir, `${productFilename}.app`, "Contents", "Resources", "app.asar"); // macOS: .app bundle
+            else if (platform === "win") asarPath = join(appOutDir, "resources", "app.asar"); // Windows: Unpacked dir
+            else if (platform === "linux") {
+                // Linux: Try default unpacked path
+                asarPath = join(appOutDir, "resources", "app.asar");
+
+                // Some AppImage/snap builds restructure the output
+                if (!existsSync(asarPath)) {
+
+                    // Fallback 1: Nested in 'usr/lib' (common in Snap or FHS-style builds)
+                    const altPath = join(appOutDir, "usr", "lib", productFilename.toLowerCase(), "resources", "app.asar");
+                    if (existsSync(altPath)) asarPath = altPath;
+                    else throw new Error("Cannot find app.asar on Linux build — tried multiple fallback paths.");
+                }
+            } else throw new Error(`Unsupported platform for afterPack hash check: ${platform}`);
+
+            const outputPath = join(dirname(asarPath), 'app.asar.sha256')
+            const file = readFileSync(asarPath);
+            const hash = createHash("sha256").update(file).digest("hex");
+            writeFileSync(outputPath, hash);
+        }
+
+        const electronBuilderOpts: CliOptions = {  
+            config: buildConfig as any 
+        }
 
         if (root) electronBuilderOpts.projectDir = root
         
