@@ -94,7 +94,8 @@ export async function buildApp (
         services: devServices,
         onBuildAssets,
         dev = false, // Default to a production build
-        rebuildServices = true // Rebuild services by default
+        rebuildServices = true, // Rebuild services by default
+        overwrite = false // Overwrite existing files
     }: BuildHooks = {},
     
 ) {
@@ -121,9 +122,12 @@ export async function buildApp (
     const selectedOutDir = outDir // This is used for the actual build output
 
     const customTempDir = isDesktopBuild || isMobileBuild
+
+    let wasOverwritten = false
     if (customTempDir) {
         outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
-        await handleTemporaryDirectories(dirname(outDir)) // Queue removal of temporary directories
+        const { overwrite: __wasOverwritten } = await handleTemporaryDirectories(dirname(outDir), overwrite) // Queue removal of temporary directories
+        wasOverwritten = __wasOverwritten
     }
 
     outDir = resolve(outDir) // Ensure absolute path
@@ -136,7 +140,7 @@ export async function buildApp (
 
 
     // ---------------- Clear Previous Builds ----------------
-    if (isDesktopBuild)  await removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
+    if (isDesktopBuild && !dev) removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
     await removeDirectory(outDir)
 
     // ------------------ Set Resolved Configuration ------------------
@@ -149,7 +153,7 @@ export async function buildApp (
     await _vite.build(await resolveViteConfig(configCopy, { dev }))
 
     // Log build success
-    console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
+    if (!wasOverwritten) console.log(`${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`)
 
     // ---------------- Create Standard Output Files ----------------
     const assets = await buildAllAssets(configCopy, dev, rebuildServices)
@@ -160,7 +164,7 @@ export async function buildApp (
     }
 
     // ------------------------- Target-Specific Build Steps -------------------------
-    if (isElectronBuild) {
+    if (isElectronBuild && !dev) {
 
         console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('electron-builder'))}\n`)
 
@@ -168,7 +172,7 @@ export async function buildApp (
         const relativeOutDir = relative(root, cwdRelativeOutDir)
 
         // Configure package.json for proper Electron build
-        await configureForDesktop(cwdRelativeOutDir, root, {
+        configureForDesktop(cwdRelativeOutDir, root, {
             name: name.toLowerCase().split(' ').join('-'), 
             version: '0.0.0'
         })
@@ -309,5 +313,8 @@ export async function buildApp (
         // @ts-ignore
         await mobile.open(mobileOpts, resolvedConfig)
     }
+
+
+    return outDir // Return the temporary output directory
     
 }

@@ -38,17 +38,25 @@ export const globalWorkspacePath = '.commoners'
 
 export const globalTempDir = join(globalWorkspacePath, '.temp')
 
-export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
+
+let __selectedTempDir: string
+export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwrite = false) => {
+
+    const canOverwrite = overwrite && __selectedTempDir === tempDir
+    const hasTempDir = existsSync(tempDir)
+    const isOverWritten = canOverwrite && hasTempDir
     
     // NOTE: Ensure that the single temporary directory is not overwritten for different targets
-    if (existsSync(tempDir)) {
+     if (!canOverwrite && existsSync(tempDir)) {
         await printFailure('An active development build was detected for this project.')
         await printSubtle('Shut down the active build and try again.')
         await printSubtle(`To reset this error, you may also delete the ${resolve(tempDir)} directory.`)
         process.exit(1)
     }
-    
+
     let removed = false
+
+    __selectedTempDir = tempDir
     const onClose = () => {
 
         // Prevent double-calling
@@ -64,6 +72,7 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir) => {
     onCleanup(onClose)
 
     return {
+        overwrite: isOverWritten,
         close: onClose
     }
 }

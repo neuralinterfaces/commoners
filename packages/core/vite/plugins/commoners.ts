@@ -159,7 +159,7 @@ export default async ({
             const highPriority = `
                 <script type="module">
 
-                const { send, services, quit, close, args } = globalThis.__commoners ?? {} 
+                const { send, on, services, quit, close, args } = globalThis.__commoners ?? {} 
 
                 const { __id } = args ?? {}
 
@@ -171,7 +171,11 @@ export default async ({
                     GLOBAL.__READY = (value) => {
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
-                        if (send) send("commoners:ready:" + __id) // Notify the main process that the electron process is ready
+                        const readyChannel = "commoners:ready:" + __id
+                        console.log("readyChannel", readyChannel)
+                        const sendReady = () => send(readyChannel)
+                        if (on) on(readyChannel, sendReady)
+                        if (send) sendReady() // Notify the main process that the electron process is ready
                     }
                 })  
 

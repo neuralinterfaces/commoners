@@ -194,14 +194,13 @@ export async function resolveConfig(
     return copy as ResolvedConfig
 }
 
-const writePackageJSON = (o, root = '') => {
-    writeFileSync(join(root, 'package.json'), JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
-}
+const writePackageJSON = (o, root = '') => writeFileSync(join(root, 'package.json'), JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
 
 // Ensure project can handle --desktop command
-export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
+export const configureForDesktop = (outDir, root = '', defaults = {}) => {
 
     const userPkg = getJSON(join(root, 'package.json'))
+
     const pkg = { 
         ...defaults, 
         ...userPkg 
@@ -209,15 +208,29 @@ export const configureForDesktop = async (outDir, root = '', defaults = {}) => {
 
     const resolvedOutDir = root ? relative(root, outDir) : outDir
     const defaultMainLocation = getDefaultMainLocation(resolvedOutDir)
+    
     if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
 
         // Write back the original package.json on exit
-        onCleanup(() => writePackageJSON(pkg, root))
+        let __reset = false
+        const reset = () => {
+            if (__reset) return
+            __reset = true
+            writePackageJSON(pkg, root)
+        }
+
+        onCleanup(reset)
 
         writePackageJSON({
             ...pkg, 
             main: defaultMainLocation 
         }, root)
+
+        return { reset }
+    }
+
+    return { 
+        reset: () => {} // No reset needed
     }
 
 }

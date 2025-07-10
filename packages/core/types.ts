@@ -303,6 +303,7 @@ export type BuildHooks = {
     onBuildAssets?: Function,
     dev?: boolean
     rebuildServices?: ServiceRebuildOption
+    overwrite?: boolean // Overwrite existing files
 }
 
 export type ServiceBuildOptions = {

@@ -28,7 +28,10 @@ export async function startup( root ) {
     await startup.exit()
   
     // Start Electron.app
-    const app = electronGlobalStates.app = spawn(electronPath, argv, {  cwd: root,  env: { ...process.env, FORCE_COLOR: '1' } }) // Ensure the app is started from the root of the selected project
+    const app = electronGlobalStates.app = spawn(electronPath, argv, {  
+      cwd: root, // Ensure the app is started from the root of the selected project
+      env: { ...process.env, FORCE_COLOR: '1' } 
+    })
     
     // Kill the process after Electron.app exits
     app.once('exit', cleanup.exit) // Calls cleanup and exits the process
@@ -43,17 +46,19 @@ export async function startup( root ) {
       startup.hookedProcessExit = true
       process.once('exit', startup.exit)
     }
+
+    return app
   }
 
   startup.hookedProcessExit = false
 
   startup.exit = async () => {
-    const { app } = electronGlobalStates
-    if (app) {
-      app.removeAllListeners()
-      treeKillSync(app.pid!)
-    }
-    delete electronGlobalStates.app
+    // const { app } = electronGlobalStates
+    // if (app) {
+    //   app.removeAllListeners()
+    //   treeKillSync(app.pid!)
+    // }
+    // delete electronGlobalStates.app
   }
 
   // Properly close Electron process on Windows. 

@@ -8,6 +8,7 @@ import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrow
 import { runAppPlugins } from '../plugins';
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons';
 import { performRuntimeIntegrityChecks } from './security';
+import { createInterface } from 'node:readline';
 
 const decodePath = (path) => {
   const decoded = decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
@@ -33,8 +34,6 @@ async function checkLinkType(url) {
 // Custom Window Flags
 // __main: Is Main Window
 // __show: Used to block show behavior
-
-const assetsPath = join(__dirname, 'assets')
 
 const chalk = import('chalk').then(m => m.default)
 
@@ -115,10 +114,10 @@ const ogConsoleMethods: any = {};
   }
 })
 
-const devServerURL = process.env.VITE_DEV_SERVER_URL
-const isProduction = !devServerURL
-const isDevServer = utils.is.dev && devServerURL
-
+const isProduction = !utils.is.dev
+const ASSET_ROOT_DIR = __dirname
+const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR :  process.env.COMMONERS_PROJECT_ROOT
+const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
 
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
@@ -126,7 +125,7 @@ const isWindows = platform === 'windows'
 const isLinux = platform === 'linux'
 
 // Get the Commoners configuration file
-const configPath = join(assetsPath, 'commoners.config.cjs') // Load the .cjs config version
+const configPath = join(viteAssetsPath, 'commoners.config.cjs') // Load the .cjs config version
 
 // --------------- App Window Management ---------------
 function restoreWindow() {
@@ -196,8 +195,8 @@ const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
       assets: Object.entries(assets).reduce((acc, [ key, src ]) => {
         const filename = basename(src)
         const isHTML = extname(filename) === '.html'
-        if ( isDevServer || isHTML ) acc[key] = src
-        else acc[key] = join(assetsPath, 'plugins', id, key, filename)
+        if ( !isProduction || isHTML ) acc[key] = src
+        else acc[key] = join(viteAssetsPath, 'plugins', id, key, filename)
         return acc
       }, {})
     }
@@ -207,7 +206,7 @@ const contexts = Object.entries(PLUGINS).reduce((acc, [ id, plugin ]) => {
 
 
 const boundRunAppPlugins = runAppPlugins.bind({
-  env: { WEB: false, DESKTOP: true, MOBILE: false, TARGET: "electron", DEV: isDevServer, PROD: !isDevServer },
+  env: { WEB: false, DESKTOP: true, MOBILE: false, TARGET: "electron", DEV: !isProduction, PROD: isProduction },
   plugins: PLUGINS,
   contexts
 })
@@ -247,7 +246,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 }
 
   // ------------------- Configure the main window properties -------------------  
-  const preload = join(__dirname, 'preload.cjs')
+  const preload = join(ASSET_ROOT_DIR, 'preload.cjs')
 
   const defaultIcon = getIcon(config.icon, {
     preferredFormats: isWindows ? ELECTRON_WINDOWS_PREFERENCE : ELECTRON_PREFERENCE
@@ -285,26 +284,17 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         return page
       }
 
-      const location = getPageLocation(page)
-
-      try {
-        new URL(location) // test if the URL is valid
-        win.loadURL(location)
+      const location = getPageLocation(page) // Always a file
+      const result = await win.loadFile(location)
+      .then(() => location)
+      .catch(() => {
+        const location = getPageLocation(page, true)
+        win.loadFile(location)
         return location
-      }
-  
-      // NOTE: Catching the alternative location results in a delay depending on load time
-      catch {
-
-        return await win.loadFile(location)
-        .then(() => location)
-        .catch(() => {
-          const location = getPageLocation(page, true)
-          win.loadFile(location)
-          return location
-        })
-      }
-  }
+      })
+      
+      return result
+}
 
   const isValidUrl = (url) => {
     try {
@@ -315,10 +305,18 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     }
   }
 
+  const isCommonersAsset = (location) => {
+    if (isValidUrl(location)) return isCommonersUrl(location) // Check if it's a file URL
+    else {
+      const normalizedPath = decodePath(location)
+      return normalizeAndCompare(normalizedPath, ASSET_ROOT_DIR, (a, b) => a.startsWith(b)) // Check if the path starts with the root directory
+    }
+  }
+
   const isCommonersUrl = (url) => {
     try {
       const urlObj = new URL(url)
-      return (devServerURL && devServerURL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
+      return urlObj.protocol === 'file:'
     }
     catch (e) {
       return false
@@ -491,9 +489,23 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     if (onInitialized) onInitialized.call(electron, win) 
       
     // ------------------------ Show Window after Global Variables are Set ------------------------
-    await loadPromise.then(async (url) => {
-      if (isCommonersUrl(url)) await new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, resolve)) // Commoners plugins are all loaded
-      else await new Promise(resolve => win.once('ready-to-show', () => resolve(true)))
+    await loadPromise.then(async (location) => {
+      const isAsset = isCommonersAsset(location)
+
+      // Load all commoners plugins before showing the asset window
+      if (isAsset) await new Promise(resolve => {
+        const readyChannel = `commoners:ready:${__id}`
+        ipcMain.once(readyChannel, resolve)
+        send.call(win, readyChannel) // Notify the main process that the window is loading
+      }) 
+
+      // Or just wait for the window to be ready to show
+      else await new Promise(resolve => {
+        const isReadyToShow = win.__ready
+        if (isReadyToShow) return resolve(true) // Already ready to show
+        else win.once('ready-to-show', () => resolve(true))
+      })
+
     })
     .finally(() => win.show())
 
@@ -502,14 +514,12 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
 
-  if (isDevServer) return new URL(pathname, devServerURL).href
-
     pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
 
-    const isContained = normalizeAndCompare(pathname, __dirname, (a,b) => a.startsWith(b))
+    const isContained = normalizeAndCompare(pathname, ASSET_ROOT_DIR, (a,b) => a.startsWith(b))
 
     // Check if dirname in the path
-    const location = isContained ? pathname : join(__dirname, pathname)
+    const location = isContained ? pathname : join(ASSET_ROOT_DIR, pathname)
 
     // Assume a file
     if (extname(location)) return location // Return if file extension is present
@@ -519,7 +529,6 @@ function getPageLocation(pathname: string = 'index.html', alt = false) {
 
     if (existsSync(html)) return html // Return if .html file exists
     if (existsSync(index)) return index // Return if index.html file exists
-
     return alt ? html : index // NOTE: This is because we cannot check for existence in the .asar archive
 }
 
@@ -530,9 +539,7 @@ async function createMainWindow() {
   return await createWindow(undefined, windowOptions, [], true)
 }
 
-const extraResourcesRoot = isProduction ? __dirname : join(__dirname, '..', '..') // Back out of default outDir 
-
-const baseServiceOptions = { target: 'desktop',  build: isProduction, root: extraResourcesRoot }
+const baseServiceOptions = { target: 'desktop',  build: isProduction, root: PROJECT_ROOT_DIR }
 
 
 // ------------------------ App Start Behavior ------------------------
@@ -570,6 +577,28 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
         app.quit() // Exit with error code
       }
     }
+
+    // ------------------------ STDIN Commands ------------------------
+
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout, // optional
+      terminal: false
+    })
+
+      rl.on('line', (line) => {
+        try {
+          const msg = JSON.parse(line.trim())
+          const { command, data } = msg
+          if (command === 'reload') {
+            const { frontend, service } = data || {}
+            if (frontend) BrowserWindow.getAllWindows().forEach(win => !win.isDestroyed() && win.webContents.reload())
+            if (service) console.warn('Service reloads are not yet implemented in the Electron main process.')
+
+          }
+        }
+        catch {}
+      })
 
     // ------------------------ Service Creation ------------------------
     const output = await services.createAll(resolvedServices, {

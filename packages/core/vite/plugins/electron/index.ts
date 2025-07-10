@@ -61,13 +61,10 @@ export const buildWithVite = async (options: ElectronOptions) => {
     const resolvedConfig = await resolveViteConfig(options)
     return _vite.build(withExternalBuiltins(resolvedConfig))
 }
-  
-  export default async function commonersElectronPlugin({ build, root, outDir}: { build: boolean, root: string, outDir: string  }): Promise<Plugin[]> {
+
+const getElectronBuildOptions = async ( root: string, outDir: string, build: boolean = false ) => {
 
     const _vite = await vite
-
-    let userConfig: UserConfig
-    let configEnv: ConfigEnv
 
     const electronTemplateBase = join(rootDir, 'assets', 'electron')
     const mainLocation = join(electronTemplateBase, 'main.ts')
@@ -92,53 +89,34 @@ export const buildWithVite = async (options: ElectronOptions) => {
         }),
     }
     
-    const optionsArray = [ main, preload ]
+    return [ main, preload ]
+}
+
+export const buildElectronAssets = async ( 
+  root: string, 
+  outDir: string, 
+  build: boolean = false,
+  configEnv: ConfigEnv,
+  userConfig: UserConfig = {}
+) => {
+    const optionsArray = await getElectronBuildOptions(root, outDir, build)
+    for (const options of optionsArray) {
+      assignFromConfigEnv.forEach((key) => options.vite[key] ??= configEnv[key])
+      assignFromUserConfig.forEach((key) => options.vite[key] ??= userConfig[key])
+      await buildWithVite(options)
+    }
+}
+
+
+export const startElectronInstance = (root) => startup(root)
   
+export default async function commonersElectronPlugin({ build, root, outDir}: { build: boolean, root: string, outDir: string  }): Promise<Plugin[]> {
+
+    let userConfig: UserConfig
+    let configEnv: ConfigEnv
+  
+    // NOTE: Serve behaviors removed for use as modules
     return [
-      {
-        name: pluginName,
-        apply: 'serve',
-        configureServer(server) {
-          server.httpServer?.once('listening', () => {
-            Object.assign(process.env, { VITE_DEV_SERVER_URL: resolveServerUrl(server) }) // Used in main.ts
-  
-            const entryCount = optionsArray.length
-            let closeBundleCount = 0
-  
-            for (const options of optionsArray) {
-              
-              const assignToConfig = (key) => options.vite[key] ??= server.config[key]
-              assignFromConfigEnv.forEach(assignToConfig)
-              assignFromUserConfig.forEach(assignToConfig)
-
-              const buildOptions = options.vite.build
-              buildOptions.watch ??= {}
-              buildOptions.minify ??= false
-
-              options.vite.plugins = [
-                {
-                  name: ':startup',
-                  closeBundle() {
-                    if (++closeBundleCount < entryCount) return
-  
-                    if (options.onstart) {
-                      options.onstart.call(this, {
-                        startup: () => startup(root),
-                        reload() {
-                          if (electronGlobalStates.app) server.ws.send({ type: 'full-reload' })
-                          else startup(root)
-                        },
-                      })
-                    } else startup(root)
-                  },
-                },
-              ]
-
-              buildWithVite(options)
-            }
-          })
-        },
-      },
       {
         name: pluginName,
         apply: 'build',
@@ -148,11 +126,7 @@ export const buildWithVite = async (options: ElectronOptions) => {
           config.base ??= './'
         },
         async closeBundle() {
-          for (const options of optionsArray) {
-            assignFromConfigEnv.forEach((key) => options.vite[key] ??= configEnv[key])
-            assignFromUserConfig.forEach((key) => options.vite[key] ??= userConfig[key])
-            await buildWithVite(options)
-          }
+          await buildElectronAssets(root, outDir, build, configEnv, userConfig)
         }
       },
     ]
