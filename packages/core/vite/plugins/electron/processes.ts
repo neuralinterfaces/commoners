@@ -14,6 +14,9 @@ export interface PidTree {
  */
 export function treeKillSync(pid: number) {
     if (process.platform === 'win32') {
+      const output = execSync(`tasklist /FI "PID eq ${pid}"`, { encoding: 'utf8' })
+      const match = output.match(/(\d+)\s+(\w+)/)
+      if (!match) return // No process found with the given PID
       execSync(`taskkill /pid ${pid} /T /F`)
     } else {
       killTree(pidTree({ pid, ppid: process.pid }))

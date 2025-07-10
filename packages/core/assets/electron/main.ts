@@ -10,6 +10,8 @@ import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../ut
 import { performRuntimeIntegrityChecks } from './security';
 import { createInterface } from 'node:readline';
 
+import { session } from 'electron'
+
 const decodePath = (path) => {
   const decoded = decodeURIComponent(path.replace(/\/+$/, '')); // Remove trailing slashes and decode
   return decoded.replaceAll(sep, posix.sep) // Normalize path separators for comparison
@@ -260,6 +262,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
   const windowOptions = electronOptions.window ?? {}
   const applyDefaultSecuritySettings = electronOptions.secure !== false // Default to true if not explicitly set to false
+  // if (applyDefaultSecuritySettings) app.enableSandbox() // Enable sandboxing if not explicitly disabled
 
   // Aggregate window options on plugins
   Object.entries(PLUGINS).forEach(([ id, plugin ]) => {
@@ -284,7 +287,11 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         return page
       }
 
-      const loadFile = (location) => win.loadURL(`file://${location}`)
+      const loadFile = async (location) => {
+        // console.log('Loading file:', location, existsSync(location))
+        await win.loadURL(`file://${location}`)
+        // console.log('Loaded!', location)
+      }
 
       const location = getPageLocation(page) // Always a file
       const result = await loadFile(location)
@@ -371,6 +378,15 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
     const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow // Always initially hide the window
     Object.assign(win, flags)
+
+    win.webContents.on('did-fail-load', (e, errorCode, errorDesc) => {
+      console.error(`[LOAD FAIL] ${errorCode}: ${errorDesc}`)
+    })
+    
+    win.webContents.on('crashed', () => {
+      console.error('[RENDERER CRASHED]')
+    })
+    
 
     const { devTools } = copy.webPreferences ?? {}
     if (applyDefaultSecuritySettings && devTools === false) win.webContents.on('devtools-opened', () => win.webContents.closeDevTools());
@@ -543,10 +559,6 @@ async function createMainWindow() {
 
 const baseServiceOptions = { target: 'desktop',  build: isProduction, root: PROJECT_ROOT_DIR }
 
-
-// ------------------------ App Start Behavior ------------------------
-if (applyDefaultSecuritySettings) app.enableSandbox() // Enable sandboxing if not explicitly disabled
-
 const hasCustomProtocol = !!protocolOptions.scheme
 if (hasCustomProtocol) {
   const { protocol } = electron
@@ -560,6 +572,8 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
   await boundRunAppPlugins([ resolvedServices ]) // Run plugins on start with resolved services
 
   app.whenReady().then(async () => {
+
+  
 
     // Verify that the application integrity is intact when running in production
     if (isProduction) {
@@ -579,6 +593,15 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
         app.quit() // Exit with error code
       }
     }
+
+    // session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    //   console.log(`[CSP] Headers received for ${details.url}`)
+    //   callback({
+    //     responseHeaders: {
+    //       ...details.responseHeaders
+    //     }
+    //   })
+    // })    
 
     // ------------------------ STDIN Commands ------------------------
 
