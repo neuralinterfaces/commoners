@@ -284,12 +284,14 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         return page
       }
 
+      const loadFile = (location) => win.loadURL(`file://${location}`)
+
       const location = getPageLocation(page) // Always a file
-      const result = await win.loadFile(location)
+      const result = await loadFile(location)
       .then(() => location)
       .catch(() => {
         const location = getPageLocation(page, true)
-        win.loadFile(location)
+        loadFile(location) // Try loading the file with an alt path
         return location
       })
       
