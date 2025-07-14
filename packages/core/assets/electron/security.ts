@@ -17,7 +17,7 @@ const logFile = path.join(homedir(), 'neurotique', 'commoners.log')
     // Runtime path to ASAR file and hash
     const ASAR_PATH = path.join(process.resourcesPath, "app.asar");
     const HASH_PATH = path.join(process.resourcesPath, "app.asar.sha256");
-    
+
     if (!existsSync(ASAR_PATH)) {
         console.warn("🔒 Skipping ASAR integrity check (app.asar not found)");
         return true; // don't fail in dev mode or unpacked builds
@@ -63,8 +63,8 @@ export function verifyExecutableSignature(): boolean {
   }
 }
 
-export async function performRuntimeIntegrityChecks(): Promise<boolean> {
+export async function performRuntimeIntegrityChecks(): Promise<{ asar: boolean, signature: boolean }> {
   const asarOk = await verifyAsarIntegrity();
   const signatureOk = verifyExecutableSignature();
-  return asarOk && signatureOk;
+  return { asar: asarOk, signature: signatureOk };
 }

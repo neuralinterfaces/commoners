@@ -32,7 +32,7 @@ for (let [key, value] of Object.entries(__location)) value && (url[key] = value)
 window.history.replaceState(null, "", url.toString());
 
 const TEMP_COMMONERS = { 
-    quit: () => ipcRenderer.send('commoners:quit'),
+    quit: (message?: string) => ipcRenderer.send('commoners:quit', message),
     close: () => ipcRenderer.send(`commoners:close:${__id}`),
 
     args,

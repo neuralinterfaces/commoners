@@ -92,6 +92,7 @@ const pluginHandle = (pluginName, channel, callback) => scopedHandle('plugins', 
 const globals: {
   firstInitialized: boolean,
   mainWindow: BrowserWindow | null,
+  quitMessage: string | null,
   plugins: {
     preload?: any
     load?: any,
@@ -102,8 +103,8 @@ const globals: {
   firstInitialized: false,
   isShuttingDown: false,
   mainWindow: null,
-  plugins: {}
-
+  plugins: {},
+  quitMessage: null
 }
 
 // Transfer all the main console commands to the browser
@@ -120,6 +121,11 @@ const isProduction = !utils.is.dev
 const ASSET_ROOT_DIR = __dirname
 const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR :  process.env.COMMONERS_PROJECT_ROOT
 const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
+
+globalThis.COMMONERS_QUIT = (message?: string) => {
+  globals.quitMessage = message || null // Store the quit message
+  app.quit() // Quit the application
+}
 
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
@@ -467,7 +473,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
     }
 
     // ------------------------ Default Quit Behavior ------------------------
-    ipcMain.once('commoners:quit', () => app.quit())
+    ipcMain.once('commoners:quit', (_, message) => globalThis.COMMONERS_QUIT(message))
 
     // ------------------------ Open Windows Externally ------------------------
     win.webContents.setWindowOpenHandler(({ url }) => {
@@ -577,20 +583,25 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
 
     // Verify that the application integrity is intact when running in production
     if (isProduction) {
-      const result = await performRuntimeIntegrityChecks()
+      const { asar, signature } = await performRuntimeIntegrityChecks()
+      const isValid = asar && signature // Both checks must pass
 
-      if (!result) {
+      if (!isValid) {
 
         const _chalk = await chalk
         console.error(_chalk.red('Runtime integrity checks failed. Exiting application.'))
+        const checksFailed = []
+        if (!asar) checksFailed.push('ASAR Integrity')
+        if (!signature) checksFailed.push('Executable Signature')
 
-
+        const messageBase = `This application has failed runtime integrity checks (${checksFailed.join(' + ')}), which may indicate a security issue or corruption.`
         electron.dialog.showErrorBox(
           `${app.name} Integrity Check Failed`,
-          `This application has failed runtime integrity checks. This may indicate a security issue or corruption.\n\nPlease contact support or reinstall the application.`
+          `${messageBase}\n\nPlease contact support or reinstall the application.`
         ) 
 
-        app.quit() // Exit with error code
+        globalThis.COMMONERS_QUIT(messageBase) // Exit with error message
+        return
       }
     }
 
@@ -686,7 +697,8 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
 
 app.on('ready', async () => {
   process.on("SIGINT", () => {
-    globals.isShuttingDown = true
+    globals.isShuttingDown = true 
+    globalThis.COMMONERS_QUIT("SIGINT received.") // Handle SIGINT gracefully
     process.exit(0)
   });
 })
@@ -698,7 +710,7 @@ app.on('window-all-closed', () => platform !== 'mac' && app.quit()) // Quit when
 app.on('before-quit', async (ev) => {
   ev.preventDefault()
   try { 
-    await boundRunAppPlugins([], 'quit')
+    await boundRunAppPlugins([ globals.quitMessage ], 'quit') // Run plugins on quit
     services.close()
    } catch (err) { console.error(err); } finally { app.exit() } // Exit gracefully
 });
