@@ -111,11 +111,11 @@ export const resolveViteConfig = async (
     
     const plugins: Plugin[] = [ ]
 
-    const { name, appId, root, icon, description, pages = {}, plugins: commonersPlugins } = commonersConfig
+    const { name, appId, root, icon, description, pages = {}, plugins: commonersPlugins, electron } = commonersConfig
     
     // Desktop Build
     if (isDesktopTarget) {
-        const plugin = await electronPlugin({ build, root, outDir })
+        const plugin = await electronPlugin({ build, root, outDir, electron })
         plugins.push(...plugin)
     } 
     

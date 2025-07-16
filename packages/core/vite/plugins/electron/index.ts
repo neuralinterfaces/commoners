@@ -110,13 +110,63 @@ export const buildElectronAssets = async (
 
 export const startElectronInstance = (root) => startup(root)
   
-export default async function commonersElectronPlugin({ build, root, outDir}: { build: boolean, root: string, outDir: string  }): Promise<Plugin[]> {
+export default async function commonersElectronPlugin({ build, root, outDir, electron }: { build: boolean, root: string, outDir: string, electron: any  }): Promise<Plugin[]> {
 
     let userConfig: UserConfig
     let configEnv: ConfigEnv
   
     // NOTE: Serve behaviors removed for use as modules
     return [
+      {
+        name: pluginName,
+        apply: 'serve',
+        configureServer(server) {
+
+          const { dev } = electron || {}
+          const { load } = dev || {}
+          if (load === 'file') return // Do not host files in dev mode
+
+          server.httpServer?.once('listening', async () => {
+            Object.assign(process.env, { VITE_DEV_SERVER_URL: resolveServerUrl(server) }) // Used in main.ts
+  
+            const optionsArray = await getElectronBuildOptions(root, outDir, build)
+            const entryCount = optionsArray.length
+            let closeBundleCount = 0
+  
+            for (const options of optionsArray) {
+              
+              const assignToConfig = (key) => options.vite[key] ??= server.config[key]
+              assignFromConfigEnv.forEach(assignToConfig)
+              assignFromUserConfig.forEach(assignToConfig)
+
+              const buildOptions = options.vite.build
+              buildOptions.watch ??= {}
+              buildOptions.minify ??= false
+
+              options.vite.plugins = [
+                {
+                  name: ':startup',
+                  closeBundle() {
+                    if (++closeBundleCount < entryCount) return
+  
+                    if (options.onstart) {
+                      options.onstart.call(this, {
+                        startup: () => startElectronInstance(root),
+                        reload() {
+                          if (electronGlobalStates.app) server.ws.send({ type: 'full-reload' })
+                          else startElectronInstance(root)
+                        },
+                      })
+                    } else startElectronInstance(root)
+                  },
+                },
+              ]
+
+              buildWithVite(options)
+            }
+          })
+        },
+      },
       {
         name: pluginName,
         apply: 'build',

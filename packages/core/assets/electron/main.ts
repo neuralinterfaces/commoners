@@ -119,6 +119,7 @@ const ogConsoleMethods: any = {};
 
 const isProduction = !utils.is.dev
 const ASSET_ROOT_DIR = __dirname
+const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
 const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR :  process.env.COMMONERS_PROJECT_ROOT
 const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
 
@@ -293,13 +294,17 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
         return page
       }
 
-      const loadFile = async (location) => {
-        // console.log('Loading file:', location, existsSync(location))
-        await win.loadURL(`file://${location}`)
-        // console.log('Loaded!', location)
-      }
+      const location = getPageLocation(page)
 
-      const location = getPageLocation(page) // Always a file
+      try {
+        new URL(location) // test if the URL is valid
+        win.loadURL(location)
+        return location
+      } catch {}
+  
+      // NOTE: Catching the alternative location results in a delay depending on load time
+      const loadFile = (location) => win.loadURL(`file://${location}`)
+
       const result = await loadFile(location)
       .then(() => location)
       .catch(() => {
@@ -331,7 +336,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   const isCommonersUrl = (url) => {
     try {
       const urlObj = new URL(url)
-      return urlObj.protocol === 'file:'
+      return (DEV_SERVER_URL && DEV_SERVER_URL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
     }
     catch (e) {
       return false
@@ -538,6 +543,8 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
 
+    if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
+
     pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
 
     const isContained = normalizeAndCompare(pathname, ASSET_ROOT_DIR, (a,b) => a.startsWith(b))
@@ -622,19 +629,18 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
       terminal: false
     })
 
-      rl.on('line', (line) => {
-        try {
-          const msg = JSON.parse(line.trim())
-          const { command, data } = msg
-          if (command === 'reload') {
-            const { frontend, service } = data || {}
-            if (frontend) BrowserWindow.getAllWindows().forEach(win => !win.isDestroyed() && win.webContents.reload())
-            if (service) console.warn('Service reloads are not yet implemented in the Electron main process.')
-
-          }
+    rl.on('line', (line) => {
+      try {
+        const msg = JSON.parse(line.trim())
+        const { command, data } = msg
+        if (command === 'reload') {
+          const { frontend, service } = data || {}
+          if (frontend) BrowserWindow.getAllWindows().forEach(win => !win.isDestroyed() && win.webContents.reload())
+          if (service) console.warn('Service reloads are not yet implemented in the Electron main process.')
         }
-        catch {}
-      })
+      }
+      catch {}
+    })
 
     // ------------------------ Service Creation ------------------------
     const output = await services.createAll(resolvedServices, {

@@ -225,7 +225,10 @@ type ElectronOptions = {
     splash?: string,
     window?: BrowserWindowConstructorOptions,
     protocol?: string | CustomScheme
-    build?: ElectronBuilderConfiguration
+    build?: ElectronBuilderConfiguration,
+    dev?: {
+        load?: 'url' | 'file', // Load the Electron pages from a file or URL
+    }
 }
 
 type RawPlugins = {[id: string]: Plugin}

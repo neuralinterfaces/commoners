@@ -15,7 +15,6 @@ import { buildAllAssets } from "./build.js";
 import { runAppPlugins } from './assets/plugins/index.js'
 import { getFreePorts } from "./assets/services/network.js";
 
-import chokidar from 'chokidar' // File watcher for electron development
 import { startElectronInstance } from "./vite/plugins/electron/index.js";
 
 
@@ -143,7 +142,7 @@ export const app = async function (
         
         const resolvedConfig = await resolveConfig(config)
         
-        const { name, root, target, services } = resolvedConfig
+        const { name, root, target, services, electron } = resolvedConfig
 
         await printHeader(`${name} — ${printTarget(target)} Development`)
 
@@ -183,44 +182,31 @@ export const app = async function (
         }
 
         // ------------------------------- Desktop -------------------------------
-        if (isDesktop(target)) {            
-            const buildConfig = { services, dev: true }
-            const outDir = await build( scopedConfig, buildConfig )
+        if (isDesktop(target)) {   
+            
+            const electronDevOptions = electron?.dev || {}
+            const { load = 'url' } = electronDevOptions // Default to loading from URL
+            
             process.env.COMMONERS_PROJECT_ROOT = root // Set the output directory for the desktop build
-            const { reset } = configureForDesktop(outDir, root)
-            const app = await startElectronInstance(root) // Start the Electron instance
+
+            // Load Files in Dev Mode
+            if (load === 'file') {
+                const outDir = await build( scopedConfig, { services, dev: true } )
+                const { reset } = configureForDesktop(outDir, root)
+                const app = await startElectronInstance(root) // Start the Electron instance
+                console.warn(`⚠️  Electron is running in ${load} mode. Hot reloading is not available.\n`)
+                // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
+            }
+
+            // Use Vite to Load URLs in Dev Mode
+            else {
+                await buildAllAssets(scopedConfig, true) // Build the assets for desktop
+                const { reset } = configureForDesktop(outDir, root)
+                const frontend = startManager.frontend = await createServer(scopedConfig, { printUrls: false })
+                startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
+            }
+
             // reset() // Reset the package.json to the original state
-
-            const watcher = chokidar.watch( 
-                root, // Watch the root directory of the project
-                {
-                    ignoreInitial: true, 
-                    ignored: (location) => {
-
-                        // Ignore hidden files and directories
-                        const locationName = basename(location)
-                        if (locationName.startsWith('.')) return true
-
-                        // Ignore files in __XXX__ directories
-                        if ( locationName.startsWith('__') && locationName.endsWith('__') ) return true
-
-                        // Ignore files in the node_modules, dist, and other directories
-                        return locationName === 'node_modules' ||
-                                locationName === 'dist' ||
-                                locationName === 'out' ||
-                                locationName === 'logs' ||
-                                locationName === 'build'
-                    }
-                })
-
-            watcher.on('change', async (changedPath) => {
-                // console.log("Changed", changedPath)
-                await build( scopedConfig, { ...buildConfig, overwrite: true } ) 
-                app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
-            })
-
-            onCleanup(() => watcher.close())
-
 
             return startManager
         }

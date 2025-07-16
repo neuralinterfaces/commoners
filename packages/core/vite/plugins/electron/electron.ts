@@ -52,13 +52,14 @@ export async function startup( root ) {
 
   startup.hookedProcessExit = false
 
+  // Exit the Electron process and remove all listeners
   startup.exit = async () => {
-    // const { app } = electronGlobalStates
-    // if (app) {
-    //   app.removeAllListeners()
-    //   treeKillSync(app.pid!)
-    // }
-    // delete electronGlobalStates.app
+    const { app } = electronGlobalStates
+    if (app) {
+      app.removeAllListeners()
+      treeKillSync(app.pid!)
+    }
+    delete electronGlobalStates.app
   }
 
   // Properly close Electron process on Windows. 

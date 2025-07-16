@@ -172,7 +172,6 @@ export default async ({
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
                         const readyChannel = "commoners:ready:" + __id
-                        console.log("readyChannel", readyChannel)
                         const sendReady = () => send(readyChannel)
                         if (on) on(readyChannel, sendReady)
                         if (send) sendReady() // Notify the main process that the electron process is ready
