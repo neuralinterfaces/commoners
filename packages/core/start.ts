@@ -187,7 +187,7 @@ export const app = async function (
             const electronDevOptions = electron?.dev || {}
             const { load = 'url' } = electronDevOptions // Default to loading from URL
             
-            process.env.COMMONERS_PROJECT_ROOT = root // Set the output directory for the desktop build
+            process.env.__COMMONERS_PROJECT_ROOT = root // Set the output directory for the desktop build
 
             // Load Files in Dev Mode
             if (load === 'file') {

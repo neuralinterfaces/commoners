@@ -120,7 +120,7 @@ const ogConsoleMethods: any = {};
 const isProduction = !utils.is.dev
 const ASSET_ROOT_DIR = __dirname
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
-const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR :  process.env.COMMONERS_PROJECT_ROOT
+const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR :  process.env.__COMMONERS_PROJECT_ROOT
 const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
 
 globalThis.COMMONERS_QUIT = (message?: string) => {
@@ -524,7 +524,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
       // Load all commoners plugins before showing the asset window
       if (isAsset) await new Promise(resolve => {
         const readyChannel = `commoners:ready:${__id}`
-        ipcMain.once(readyChannel, resolve)
+        ipcMain.once(readyChannel, () => resolve(true))
         send.call(win, readyChannel) // Notify the main process that the window is loading
       }) 
 
@@ -542,7 +542,7 @@ const runWindowPlugins = async (win: BrowserWindow | null = null, type = 'load',
   }
 
 function getPageLocation(pathname: string = 'index.html', alt = false) {
-
+    
     if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
 
     pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
