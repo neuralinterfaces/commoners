@@ -1,11 +1,44 @@
-import { execFileSync } from "child_process";
+import { execFileSync, execSync } from "child_process";
 import { platform, homedir } from "os";
 
 import { appendFileSync } from "fs";
 import path from "path";
 
+export function hasSignature(): boolean {
+  try {
+
+    const execPath = process.execPath;
+
+    // macOS: use codesign to see if there's *any* signature
+    if (process.platform === 'darwin') {
+      const output = execSync(`codesign -d --verbose=2 "${execPath}"`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'], // suppress stderr warnings
+      });
+      return /Authority=/.test(output); // Indicates signature exists
+    } 
+    
+
+    // Windows: check certificate status regardless of validity
+    else if (process.platform === 'win32') {
+      const exePath = process.execPath;
+      const output = execSync(
+        `powershell -Command "(Get-AuthenticodeSignature '${exePath}').SignerCertificate"`,
+        { encoding: 'utf8' }
+      ).trim();
+      return output !== '' && output !== 'null';
+    } 
+    
+    // Linux: assume no signature
+    else return false;
+
+  } catch (e) {
+    return false;
+  }
+}
+
 // Platform-Specific Binary Signature Check
-export function verifyExecutableSignature(): boolean {
+export function verifySignature(): boolean {
   try {
     const execPath = process.execPath;
     if (platform() === "win32") {

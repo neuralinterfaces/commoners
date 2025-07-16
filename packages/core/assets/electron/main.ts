@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
 import { runAppPlugins } from '../plugins';
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons';
-import { verifyExecutableSignature } from './security';
+import { hasSignature, verifySignature } from './security';
 import { createInterface } from 'node:readline';
 
 import { session } from 'electron'
@@ -590,18 +590,23 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
 
     // Verify that the application integrity is intact when running in production
     if (isProduction) {
-      const isValid = await verifyExecutableSignature() // Perform the executable signature check
+      const signatureExists = await hasSignature() // Check if the application has a valid signature
+      if (signatureExists) {
+        const isValid = await verifySignature() // Perform the executable signature check
 
-      if (!isValid) {
-        const messageBase = `This application has an invalid signature, which indicates a security issue or corruption.`
-        electron.dialog.showErrorBox(
-          `${app.getName()} Integrity Check Failed`,
-          `${messageBase}\n\nPlease contact support or reinstall the application.`
-        ) 
+        if (!isValid) {
+          const messageBase = `This application has an invalid signature, which indicates a security issue or corruption.`
+          electron.dialog.showErrorBox(
+            `${app.getName()} Integrity Check Failed`,
+            `${messageBase}\n\nPlease contact support or reinstall the application.`
+          ) 
 
-        globalThis.COMMONERS_QUIT(messageBase) // Exit with error message
-        return
+          globalThis.COMMONERS_QUIT(messageBase) // Exit with error message
+          return
+        }
       }
+
+      else console.warn(`⚠️ ${app.getName()} does not seem to be signed. Please ensure that the application is intentionally unsigned.`)
     }
 
     // session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
