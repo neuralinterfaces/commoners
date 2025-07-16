@@ -203,10 +203,8 @@ export async function buildApp (
             if (!buildConfig[platform]) buildConfig[platform] = {}
         }
 
-        // Set strong code-signing algorithm
-        for (const platform of ['mac', 'win']) {
-            if (!buildConfig[platform].signingHashAlgorithms) buildConfig[platform].signingHashAlgorithms = [ 'sha256' ]
-        }
+        // Set strong code-signing algorithm (Windows)
+        if (!buildConfig.win.signingHashAlgorithms) buildConfig.win.signingHashAlgorithms = [ 'sha256' ]
 
         // Ensure proper linux configuration
         buildConfig.linux.executableName = buildConfig.productName
