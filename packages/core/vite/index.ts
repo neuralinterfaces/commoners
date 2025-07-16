@@ -187,7 +187,6 @@ export const resolveViteConfig = async (
     })
 
     const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
-
     const mode = dev ? 'development' : 'production'
     const env = _vite.loadEnv(mode, root, mergedConfig.envPrefix)
     

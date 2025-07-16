@@ -24,6 +24,7 @@ import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { createHash } from "node:crypto"
+import { loadEnvironmentVariables } from "./assets/services/env/index.js"
 
 type CliOptions = import('electron-builder').CliOptions
 
@@ -167,6 +168,10 @@ export async function buildApp (
     if (isElectronBuild && !dev) {
 
         console.log(`\n👊 Running ${_chalk.bold(_chalk.cyanBright('electron-builder'))}\n`)
+
+        // Load environment into the app
+        const env = loadEnvironmentVariables('production', root)
+        Object.assign(process.env, env) // Merge environment variables into process.env
 
         const cwdRelativeOutDir = relative(process.cwd(), outDir)
         const relativeOutDir = relative(root, cwdRelativeOutDir)

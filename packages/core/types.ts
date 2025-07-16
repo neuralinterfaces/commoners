@@ -283,6 +283,7 @@ type ServiceSelection = string | string[]
 export type ConfigResolveOptions = {
     services?: ServiceSelection
     build?: boolean
+    dev?: boolean
 }
 
 

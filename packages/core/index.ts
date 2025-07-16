@@ -112,6 +112,7 @@ export async function resolveConfig(
     { 
         // Service Auto-Configuration
         build = false,
+        dev = !build,
 
         // Advanced Service Configuration
         services

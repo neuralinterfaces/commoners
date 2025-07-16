@@ -12,10 +12,6 @@ export const loadEnvironmentVariables = (mode: string, root: string) => {
 
     // Align environment loading with Vite's own environment loading—but include non-prefixed variables if desired
     const envFiles = getEnvFilesForMode(mode, root)
-
-    const parsed = Object.fromEntries(
-        envFiles.flatMap((filePath) => tryStatSync(filePath)?.isFile() ? Object.entries(parse(readFileSync(filePath))) : [])
-    )
-
+    const parsed = Object.fromEntries(envFiles.flatMap((filePath) => tryStatSync(filePath)?.isFile() ? Object.entries(parse(readFileSync(filePath))) : []))
     return LOADED[identifier] = Object.entries(parsed).reduce(( acc, [ key, value ] ) => ({ ...acc, [key]: value }), {})
 }
