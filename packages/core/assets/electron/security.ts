@@ -1,9 +1,6 @@
 import { execFileSync, execSync } from "child_process";
 import { platform, homedir } from "os";
 
-import { appendFileSync } from "fs";
-import path from "path";
-
 export function hasSignature(): boolean {
   try {
 
@@ -47,7 +44,7 @@ export function verifySignature(): boolean {
         `Get-AuthenticodeSignature "${execPath}" | ConvertTo-Json`
       ]).toString();
       const result = JSON.parse(out);
-      return result.Status === "Valid";
+      return result.Status === 0;
     } else if (platform() === "darwin") {
       execFileSync("codesign", ["--verify", "--deep", "--strict", execPath]);
       return true;
@@ -56,7 +53,6 @@ export function verifySignature(): boolean {
   } catch (err) {
     const message = `Executable signature check failed: ${err.message}`;
     console.error(`🔒 ${message}`);
-    appendFileSync(path.join(homedir(), 'neurotique', 'commoners.log'), `🔒 ${message}\n`);
     return false;
   }
 }

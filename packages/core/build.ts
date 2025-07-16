@@ -197,10 +197,16 @@ export async function buildApp (
             `${relativeOutDir}/**`, 
         ]
 
-        // Ensure platform-specific configs exist
-        if (!buildConfig.mac) buildConfig.mac = {}
-        if (!buildConfig.win) buildConfig.win = {}
-        if (!buildConfig.linux) buildConfig.linux = {}
+        // Ensure platform-specific configs exis
+        const platforms = ["mac", "win", "linux"]
+        for (const platform of platforms) {
+            if (!buildConfig[platform]) buildConfig[platform] = {}
+        }
+
+        // Set strong code-signing algorithm
+        for (const platform of ['mac', 'win']) {
+            if (!buildConfig[platform].signingHashAlgorithms) buildConfig[platform].signingHashAlgorithms = [ 'sha256' ]
+        }
 
         // Ensure proper linux configuration
         buildConfig.linux.executableName = buildConfig.productName
