@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { ElectronBrowserWindowFlags, ElectronWindowOptions, ExtendedElectronBrowserWindow } from '../../types';
 import { runAppPlugins } from '../plugins';
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons';
-import { performRuntimeIntegrityChecks } from './security';
+import { verifyExecutableSignature } from './security';
 import { createInterface } from 'node:readline';
 
 import { session } from 'electron'
@@ -578,7 +578,7 @@ if (hasCustomProtocol) {
   protocol.registerSchemesAsPrivileged([ protocolOptions ])
 }
 
-if (!isProduction && config.name) app.setName(config.name);
+if (config.name) app.setName(config.name);
 
 services.resolveAll(config.services, baseServiceOptions).then(async (resolvedServices) => {
 
@@ -590,20 +590,12 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
 
     // Verify that the application integrity is intact when running in production
     if (isProduction) {
-      const { asar, signature } = await performRuntimeIntegrityChecks()
-      const isValid = asar && signature // Both checks must pass
+      const isValid = await verifyExecutableSignature() // Perform the executable signature check
 
       if (!isValid) {
-
-        const _chalk = await chalk
-        console.error(_chalk.red('Runtime integrity checks failed. Exiting application.'))
-        const checksFailed = []
-        if (!asar) checksFailed.push('ASAR Integrity')
-        if (!signature) checksFailed.push('Executable Signature')
-
-        const messageBase = `This application has failed runtime integrity checks (${checksFailed.join(' + ')}), which may indicate a security issue or corruption.`
+        const messageBase = `This application has an invalid signature, which indicates a security issue or corruption.`
         electron.dialog.showErrorBox(
-          `${app.name} Integrity Check Failed`,
+          `${app.getName()} Integrity Check Failed`,
           `${messageBase}\n\nPlease contact support or reinstall the application.`
         ) 
 

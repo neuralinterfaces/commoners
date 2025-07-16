@@ -256,37 +256,6 @@ export async function buildApp (
         // Correct for different project roots
         if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
         
-        // Ensure afterPack hook is set to write the ASAR hash 
-        buildConfig.afterPack = async (context) => {
-
-            const { appOutDir, packager } = context;
-            const productFilename = packager.appInfo.productFilename;
-            const platform = packager.platform.name;
-
-            let asarPath: string;
-
-            if (platform === "mac") asarPath = join(appOutDir, `${productFilename}.app`, "Contents", "Resources", "app.asar"); // macOS: .app bundle
-            else if (platform === "win") asarPath = join(appOutDir, "resources", "app.asar"); // Windows: Unpacked dir
-            else if (platform === "linux") {
-                // Linux: Try default unpacked path
-                asarPath = join(appOutDir, "resources", "app.asar");
-
-                // Some AppImage/snap builds restructure the output
-                if (!existsSync(asarPath)) {
-
-                    // Fallback 1: Nested in 'usr/lib' (common in Snap or FHS-style builds)
-                    const altPath = join(appOutDir, "usr", "lib", productFilename.toLowerCase(), "resources", "app.asar");
-                    if (existsSync(altPath)) asarPath = altPath;
-                    else throw new Error("Cannot find app.asar on Linux build — tried multiple fallback paths.");
-                }
-            } else throw new Error(`Unsupported platform for afterPack hash check: ${platform}`);
-
-            const outputPath = join(dirname(asarPath), 'app.asar.sha256')
-            const file = readFileSync(asarPath);
-            const hash = createHash("sha256").update(file).digest("hex");
-            writeFileSync(outputPath, hash);
-        }
-
         const electronBuilderOpts: CliOptions = {  
             config: buildConfig as any 
         }
