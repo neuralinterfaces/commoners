@@ -606,7 +606,7 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
         }
       }
 
-      else console.warn(`⚠️ ${app.getName()} does not seem to be signed. Please ensure that the application is intentionally unsigned.`)
+      else console.warn(`⚠️  ${app.getName()} does not appear to be signed. Please ensure that the application is intentionally unsigned.`)
     }
 
     // session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

@@ -202,10 +202,10 @@ export async function buildApp (
         for (const platform of platforms) {
             if (!buildConfig[platform]) buildConfig[platform] = {}
         }
-
+        
         // Set strong code-signing algorithm (Windows)
         if (!buildConfig.win.signingHashAlgorithms) buildConfig.win.signingHashAlgorithms = [ 'sha256' ]
-
+        
         // Ensure proper linux configuration
         buildConfig.linux.executableName = buildConfig.productName
         Object.assign(buildConfig.linux, {
@@ -256,9 +256,22 @@ export async function buildApp (
         buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
 
-        // Disable code signing if publishing or explicitly requested
+        // Only enable code signing if publishing or explicitly requested
         const toSign = publish || sign
-        if (!toSign) buildConfig.mac.identity = null
+        if (!toSign) {
+
+            // Disable code signing for Mac
+            buildConfig.mac.identity = null
+
+            // Disable signing on Windows
+            buildConfig.win.sign = async () => {}
+            buildConfig.win.forceCodeSigning = false
+
+            // Remove any environment variables that may interfere with signing
+            const envVariablePrefixes = [ "CSC_", "WIN_CSC_" ]
+            const matchedEnvVariables = Object.keys(process.env).filter(key => envVariablePrefixes.some(prefix => key.startsWith(prefix)))
+            matchedEnvVariables.forEach(key => delete process.env[key])
+        }
 
         buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
 

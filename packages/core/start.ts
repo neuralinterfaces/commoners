@@ -194,7 +194,7 @@ export const app = async function (
                 const outDir = await build( scopedConfig, { services, dev: true } )
                 const { reset } = configureForDesktop(outDir, root)
                 const app = await startElectronInstance(root) // Start the Electron instance
-                console.warn(`⚠️ Electron is running in ${load} mode. Hot reloading is not available.\n`)
+                console.warn(`⚠️  Electron is running in ${load} mode. Hot reloading is not available.\n`)
                 // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
             }
 

@@ -43,6 +43,7 @@ const linkToMainElectronWindow = (id, context) => {
 
   // Start linking
   context.once(`link:${id}`, () => context.send(`${id}:link`))
+  context.send(`${id}:link`)
 
   const readyPromise = new Promise(resolve => context.on(`ready:${id}`, resolve))
 
@@ -331,10 +332,8 @@ export default (windows: Windows): Plugin => {
         this.on(`message:${id}`, (_, value) => this.send(`message:${id}`, value), win); // Send to ID
 
 
-        let linkInterval;
         // Handle link request from ID
         this.on(`${id}:link`, () => {
-          clearInterval(linkInterval)
           this.send(`ready:${id}`); // Always send ready to dependent windows
           this.send(`${requestId}:ready`, id); // Send ready to main window
         }, win);
