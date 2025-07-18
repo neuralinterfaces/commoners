@@ -45,6 +45,7 @@ const TEMP_COMMONERS = {
     send: (channel, ...args) => ipcRenderer.send(channel, ...args),
     invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
     sendSync: (channel, ...args) => ipcRenderer.sendSync(channel, ...args),
+    removeListener: (channel, listener) => ipcRenderer.removeListener(channel, listener),
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 }
 
