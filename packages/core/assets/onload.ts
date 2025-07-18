@@ -1,4 +1,4 @@
-import { removeAllListeners } from "process";
+import { removeAllListeners, removeListener } from "process";
 import { asyncFilter, isPluginLoadable, pluginErrorMessage, sanitizePluginProperties } from "./utils";
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
@@ -94,8 +94,8 @@ if ( __PLUGINS ) {
                     invoke: (channel, ...args) => TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
                     on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
                     once: (channel, listener) => TEMP_COMMONERS.once(`plugins:${id}:${channel}`, listener),
-                    removeAllListeners: (channel) => TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`)
-
+                    removeAllListeners: (channel) => TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`),
+                    removeListener: (channel, listener) => TEMP_COMMONERS.removeListener(`plugins:${id}:${channel}`, listener)
                 } : 
                 
                 // NOTE: Hook up with a custom WebSocket implementation
@@ -115,7 +115,14 @@ if ( __PLUGINS ) {
                         })
                     },
                     removeAllListeners: (channel) => {
-                        delete pluginListeners?.[channel]
+                        if (!channel) for (const key in pluginListeners) delete pluginListeners[key]
+                        else delete pluginListeners?.[channel]
+                    },
+                    removeListener: (channel, listener) => {
+                        const channelListeners = pluginListeners[channel]
+                        if (!channelListeners) return
+                        const symbol = Object.getOwnPropertySymbols(channelListeners).find(sym => channelListeners[sym] === listener)
+                        if (symbol) delete channelListeners[symbol]
                     }
                 }
 
