@@ -128,6 +128,18 @@ globalThis.COMMONERS_QUIT = (message?: string) => {
   app.quit() // Quit the application
 }
 
+process.on('uncaughtException', (err) => {
+
+  if (err.code === 'EPIPE') return // Ignore EPIPE errors. These often occur when using console.log during a plugins's quit() method, but only if Ctrl+C is pressed
+
+  electron.dialog.showErrorBox(
+    'Uncaught Commoners Error',
+    `${err.message}\n\n${err.stack}`
+  )
+
+})
+
+
 // Populate platform variable if it doesn't exist
 const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
 const isWindows = platform === 'windows'
@@ -699,21 +711,27 @@ services.resolveAll(config.services, baseServiceOptions).then(async (resolvedSer
 
 
 app.on('ready', async () => {
-  process.on("SIGINT", () => {
-    globals.isShuttingDown = true 
-    globalThis.COMMONERS_QUIT("SIGINT received.") // Handle SIGINT gracefully
-    process.exit(0)
-  });
+  const signals = [ 'SIGTERM', 'SIGINT' ]
+  signals.forEach(signal => {
+    process.on(signal, () => {
+      globals.isShuttingDown = true 
+      const message = `Received ${signal}. Shutting down gracefully...`
+      globalThis.COMMONERS_QUIT(message) // Handle signals gracefully
+    });
+  })
 })
 
 // ------------------------ Default Close Behavior ------------------------
-app.on('window-all-closed', () => platform !== 'mac' && app.quit()) // Quit when all windows are closed, except on macOS.
+app.on('window-all-closed', () => platform !== 'mac' && globalThis.COMMONERS_QUIT("All windows have been closed.")) // Quit when all windows are closed, except on macOS.
 
 // ------------------------ App Shutdown Behavior ------------------------
 app.on('before-quit', async (ev) => {
   ev.preventDefault()
+  globals.isShuttingDown = true // Set the shutdown state
   try { 
     await boundRunAppPlugins([ globals.quitMessage ], 'quit') // Run plugins on quit
     services.close()
-   } catch (err) { console.error(err); } finally { app.exit() } // Exit gracefully
+   } 
+   catch (err) { console.error(err); } 
+   finally { app.exit() } // Exit gracefully
 });

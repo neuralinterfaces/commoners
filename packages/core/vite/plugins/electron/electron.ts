@@ -1,6 +1,6 @@
 import * as cleanup from '../../../cleanup.js';
 import { printServiceMessage } from '../../../utils/formatting.js'
-import { treeKillSync } from './processes.js'
+import { treeKillGracefully } from './processes.js'
 
 type ChildProcess = import('node:child_process').ChildProcess
 
@@ -25,7 +25,7 @@ export async function startup( root ) {
     
     const electronPath = <any>(electron.default ?? electron)
   
-    await startup.exit()
+    await startup.exit() // Ensure any previous Electron.app is killed before starting a new one
   
     // Start Electron.app
     const app = electronGlobalStates.app = spawn(electronPath, argv, {  
@@ -44,7 +44,7 @@ export async function startup( root ) {
 
     if (!startup.hookedProcessExit) {
       startup.hookedProcessExit = true
-      process.once('exit', startup.exit)
+      process.once('exit', startup.exit) // Ensure we clean up when the Node.js process exits
     }
 
     return app
@@ -57,11 +57,7 @@ export async function startup( root ) {
     const { app } = electronGlobalStates
     if (app) {
       app.removeAllListeners()
-      treeKillSync(app.pid!)
+      await treeKillGracefully(app.pid!)
     }
     delete electronGlobalStates.app
   }
-
-  // Properly close Electron process on Windows. 
-  // NOTE: May not need this after change to process.kill above...
-  process.on('SIGINT', startup.exit)
