@@ -61,3 +61,9 @@ export async function startup( root ) {
     }
     delete electronGlobalStates.app
   }
+  
+  // Properly close Electron process on Windows. 
+  const signals = ['SIGTERM', 'SIGINT']
+  signals.forEach(signal => {
+    process.on(signal, startup.exit)
+  })
