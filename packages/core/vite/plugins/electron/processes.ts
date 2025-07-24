@@ -9,16 +9,20 @@ export interface PidTree {
 
 /**
  * Gracefully kill a process tree, waiting for exit before forcing.
+ * On Windows, uses taskkill (/T /F) which is inherently non-graceful.
  */
 export async function treeKillGracefully(pid: number, timeout: number = 3000) {
   if (process.platform === 'win32') {
     try {
+      // Confirm the process exists
       const output = execSync(`tasklist /FI "PID eq ${pid}"`, { encoding: 'utf8' })
-      const match = output.match(/(\d+)\s+(\w+)/)
-      if (!match) return // No such process
-      // /T: tree /F: force (Windows does not support graceful kill)
-      execSync(`taskkill /pid ${pid} /T /F`)
-    } catch { /* ignore */ }
+      if (!output.includes(`${pid}`)) return // Process doesn't exist
+
+      // Kill the whole process tree forcibly
+      execSync(`taskkill /PID ${pid} /T /F`)
+    } catch (err) {
+      // Swallow errors like "no such process"
+    }
   } else {
     const tree = pidTree({ pid, ppid: process.pid })
     await killTreeGracefully(tree, timeout)
@@ -41,7 +45,9 @@ export function pidTree(tree: PidTree): PidTree {
     if (childs) {
       tree.children = childs.map(cid => pidTree({ pid: cid, ppid: tree.pid }))
     }
-  } catch { }
+  } catch {
+    // If command fails, assume no children
+  }
 
   return tree
 }
@@ -57,7 +63,7 @@ export async function killTreeGracefully(tree: PidTree, timeout: number = 3000):
   try {
     process.kill(tree.pid, 'SIGTERM')
   } catch {
-    return // Already dead
+    return // Already dead or invalid PID
   }
 
   const checkInterval = 100
@@ -66,7 +72,7 @@ export async function killTreeGracefully(tree: PidTree, timeout: number = 3000):
   for (let i = 0; i < maxChecks; i++) {
     await wait(checkInterval)
     try {
-      process.kill(tree.pid, 0) // Check if still alive
+      process.kill(tree.pid, 0) // Still alive
     } catch {
       return // Process has exited
     }
@@ -74,5 +80,7 @@ export async function killTreeGracefully(tree: PidTree, timeout: number = 3000):
 
   try {
     process.kill(tree.pid, 'SIGKILL') // Force kill
-  } catch { /* still ignore */ }
+  } catch {
+    // Process may have exited in the meantime
+  }
 }

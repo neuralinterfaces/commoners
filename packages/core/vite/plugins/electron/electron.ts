@@ -30,7 +30,9 @@ export async function startup( root ) {
     // Start Electron.app
     const app = electronGlobalStates.app = spawn(electronPath, argv, {  
       cwd: root, // Ensure the app is started from the root of the selected project
-      env: { ...process.env, FORCE_COLOR: '1' } 
+      env: { ...process.env, FORCE_COLOR: '1' },
+      detached: true, // <- Crucial for treeKill to work effectively
+      stdio: [ 'ignore', 'pipe', 'pipe' ]
     })
     
     // Kill the process after Electron.app exits
