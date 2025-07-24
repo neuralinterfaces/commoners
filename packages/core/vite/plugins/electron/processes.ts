@@ -16,12 +16,11 @@ export async function treeKillGracefully(pid: number, timeout: number = 3000) {
     try {
       // Confirm the process exists
       const output = execSync(`tasklist /FI "PID eq ${pid}"`, { encoding: 'utf8' })
-      if (!output.includes(`${pid}`)) return // Process doesn't exist
-
-      // Kill the whole process tree forcibly
-      execSync(`taskkill /PID ${pid} /T /F`)
+      if (!output.includes(`${pid}`)) return console.warn(`Process ${pid} not found, skipping graceful kill.`)
+      execSync(`taskkill /PID ${pid} /T /F`) // Kill the whole process tree forcibly
     } catch (err) {
-      // Swallow errors like "no such process"
+      if (err.code !== 'ENOENT') console.error(`Failed to kill process ${pid}:`, err)
+      else console.warn(`Other error while killing process ${pid}:`, err)
     }
   } else {
     const tree = pidTree({ pid, ppid: process.pid })
