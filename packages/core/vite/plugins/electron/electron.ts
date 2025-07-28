@@ -41,7 +41,7 @@ export async function startup( root ) {
     const app = electronGlobalStates.app = spawn(electronPath, argv, {  
       cwd: root, // Ensure the app is started from the root of the selected project
       env: { ...process.env, FORCE_COLOR: '1' },
-      detached: true,
+      detached: false, // Do not detach the process. This ensures it will exit when the Node.js process exits, otherwise allows a graceful shutdown.
       stdio: [ 'ignore', 'pipe', 'pipe' ]
     })
     
