@@ -14,6 +14,16 @@ const log = async (data, method = 'log') => {
 }
 
 
+const cleanupElectronApp = async () => {
+  const { app } = electronGlobalStates
+    if (app) {
+      app.removeAllListeners()
+      await treeKillGracefully(app.pid!)
+    }
+    delete electronGlobalStates.app
+}
+
+
 export const electronGlobalStates: { app?: ChildProcess } = {}
 
 export async function startup( root ) {
@@ -25,13 +35,13 @@ export async function startup( root ) {
     
     const electronPath = <any>(electron.default ?? electron)
   
-    await startup.exit() // Ensure any previous Electron.app is killed before starting a new one
+    await cleanupElectronApp() // Ensure any previous Electron.app is killed before starting a new one
   
     // Start Electron.app
     const app = electronGlobalStates.app = spawn(electronPath, argv, {  
       cwd: root, // Ensure the app is started from the root of the selected project
       env: { ...process.env, FORCE_COLOR: '1' },
-      detached: true, // <- Crucial for treeKill to work effectively
+      detached: true,
       stdio: [ 'ignore', 'pipe', 'pipe' ]
     })
     
@@ -54,15 +64,10 @@ export async function startup( root ) {
 
   startup.hookedProcessExit = false
 
+
   // Exit the Electron process and remove all listeners
-  startup.exit = async () => {
-    const { app } = electronGlobalStates
-    if (app) {
-      app.removeAllListeners()
-      await treeKillGracefully(app.pid!)
-    }
-    delete electronGlobalStates.app
-  }
+  let cleanupPromise = null
+  startup.exit = async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()) // Ensure cleanup is only done once
   
   // Properly close Electron process on Windows. 
   const signals = ['SIGTERM', 'SIGINT']

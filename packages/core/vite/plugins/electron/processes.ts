@@ -1,5 +1,4 @@
 import { execSync } from 'node:child_process'
-import { setTimeout as wait } from 'node:timers/promises'
 
 export interface PidTree {
   pid: number
@@ -11,7 +10,7 @@ export interface PidTree {
  * Gracefully kill a process tree, waiting for exit before forcing.
  * On Windows, uses taskkill (/T /F) which is inherently non-graceful.
  */
-export async function treeKillGracefully(pid: number, timeout: number = 3000) {
+export async function treeKillGracefully(pid: number) {
   if (process.platform === 'win32') {
     try {
       // Confirm the process exists
@@ -24,7 +23,7 @@ export async function treeKillGracefully(pid: number, timeout: number = 3000) {
     }
   } else {
     const tree = pidTree({ pid, ppid: process.pid })
-    await killTreeGracefully(tree, timeout)
+    await killTreeGracefully(tree)
   }
 }
 
@@ -41,12 +40,9 @@ export function pidTree(tree: PidTree): PidTree {
       .match(/\d+/g)
       ?.map(id => +id)
 
-    if (childs) {
-      tree.children = childs.map(cid => pidTree({ pid: cid, ppid: tree.pid }))
-    }
-  } catch {
-    // If command fails, assume no children
-  }
+    if (childs) tree.children = childs.map(cid => pidTree({ pid: cid, ppid: tree.pid }))
+
+  } catch { } // Assume no children if command fails
 
   return tree
 }
@@ -54,32 +50,10 @@ export function pidTree(tree: PidTree): PidTree {
 /**
  * Kill a single process tree node with grace period and fallback.
  */
-export async function killTreeGracefully(tree: PidTree, timeout: number = 3000): Promise<void> {
+export async function killTreeGracefully(tree: PidTree): Promise<void> {
   if (tree.children) {
-    for (const child of tree.children) await killTreeGracefully(child, timeout)
+    for (const child of tree.children) await killTreeGracefully(child)
   }
 
-  try {
-    process.kill(tree.pid, 'SIGTERM')
-  } catch {
-    return // Already dead or invalid PID
-  }
-
-  const checkInterval = 100
-  const maxChecks = Math.ceil(timeout / checkInterval)
-
-  for (let i = 0; i < maxChecks; i++) {
-    await wait(checkInterval)
-    try {
-      process.kill(tree.pid, 0) // Still alive
-    } catch {
-      return // Process has exited
-    }
-  }
-
-  try {
-    process.kill(tree.pid, 'SIGKILL') // Force kill
-  } catch {
-    // Process may have exited in the meantime
-  }
+  try { process.kill(tree.pid, 'SIGTERM') } catch { } // Already dead or invalid PID
 }
