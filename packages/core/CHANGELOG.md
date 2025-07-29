@@ -23,6 +23,9 @@ All notable changes to this project will be documented in this file.
 - Allow launching built services from the command line using `commoners launch`.
 - Allow `createWindow` to reference remote URLs, allowing for remote content to be served on secondary windows.
 - Properly handle bundled pages in built Electron applications as a result of the previous change.
+- Enable security features by default in Electron applications.
+    - Properly code-sign on Windows and MacOS.
+- Allow loading pages using files (instead of live Vite URLs) in Electron development mode.
 
 ## Fixes
 - Properly run cleanup handlers when Electron is closed via dock.
