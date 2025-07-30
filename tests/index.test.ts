@@ -13,11 +13,11 @@ import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { buildServices } from '@commoners/testing'
 
-// const platforms = {
-//   windows: process.platform === 'win32',
-//   mac: process.platform === 'darwin',
-//   linux: process.platform === 'linux'
-// }
+const platforms = {
+  windows: process.platform === 'win32',
+  mac: process.platform === 'darwin',
+  linux: process.platform === 'linux'
+}
 
 describe('Custom project base is loaded', () => {
 
@@ -49,7 +49,7 @@ describe("Desktop Start + Build and Launch", () => {
   registerBuildTest(
     'Desktop', 
     { target: 'electron' },
-    // platforms.mac // Skip on non-Mac platforms
+    platforms.mac // Skip on non-Mac platforms
   )
 
   // NOTE: This interferes with Desktop Launch. 
