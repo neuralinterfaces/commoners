@@ -1,6 +1,6 @@
 {
     "name": "@commoners/windows",
-    "version": "0.0.64",
+    "version": "1.0.0",
     "main": "./dist/index.cjs",
     "module": "./dist/index.mjs",
     "license": "MIT",
@@ -12,6 +12,6 @@
         "vite": "^5.3.4"
     },
     "peerDependencies": {
-        "@commoners/solidarity": ">=0.0.64 <0.1.0"
+        "@commoners/solidarity": ">=1.0.0 <2.0.0"
     }
 }
