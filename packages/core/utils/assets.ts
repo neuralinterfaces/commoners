@@ -195,7 +195,6 @@ async function buildService(
 
     // Auto Build Configuration
     else return await packageFile(buildInfo)
-
 }
 
 // Derive assets to be transferred to the Commoners folder

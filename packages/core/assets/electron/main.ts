@@ -120,7 +120,7 @@ const ogConsoleMethods: any = {};
 const isProduction = !utils.is.dev
 const ASSET_ROOT_DIR = __dirname
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
-const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR :  process.env.__COMMONERS_PROJECT_ROOT
+const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR : process.cwd() // CWD is the project root in development
 const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
 
 globalThis.COMMONERS_QUIT = (message?: string) => {

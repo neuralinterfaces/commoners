@@ -85,8 +85,13 @@ const e2eTests = {
         const normalizedTarget = getNormalizedTarget(target)
         
         describe('Basic E2E Test', () => {
+
+            test("Commoners global variable is available", async () => {
+                const commoners = await output.page.evaluate(() => globalThis.commoners ? true : false)
+                expect(commoners, "Commoners is not available on the page").toBe(true)
+            });
     
-            test("Global variables are valid", async () => {
+            test("Commoners global variable is properly defined", async () => {
 
                 const userPkg = require(join(projectBase, 'package.json'))
 

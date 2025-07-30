@@ -168,10 +168,7 @@ export const app = async function (
             close: () => void
         }
 
-        onCleanup(() => {
-            // console.log('CLEANUP')
-            startManager.close()
-        })
+        onCleanup(() => startManager.close())
 
         // ------------------------------- Mobile -------------------------------
         if (isMobile(target)) {
@@ -187,8 +184,6 @@ export const app = async function (
             const electronDevOptions = electron?.dev || {}
             const { load = 'url' } = electronDevOptions // Default to loading from URL
             
-            process.env.__COMMONERS_PROJECT_ROOT = root // Set the output directory for the desktop build
-
             // Load Files in Dev Mode
             if (load === 'file') {
                 const outDir = await build( scopedConfig, { services, dev: true } )

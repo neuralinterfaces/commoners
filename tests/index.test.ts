@@ -33,24 +33,18 @@ describe('Custom project base is loaded', () => {
 })
 
 describe('Start', () => {
-
   registerStartTest('Web')
-
-  registerStartTest(
-    'Desktop', 
-    { target: 'electron'}
-  )
-
-  // NOTE: Skipped because Ruby Gems needs to be updated
-  registerStartTest('Mobile', { target: 'mobile' }, false)
-
+  registerStartTest('Mobile', { target: 'mobile' }, false) // NOTE: Skipped because Ruby Gems needs to be updated
 })
 
+
 describe('Build and Launch', () => {
-
-
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
+  registerBuildTest('Mobile', { target: 'mobile' }, false)
+})
+
+describe("Desktop Start + Build and Launch", () => {
 
   registerBuildTest(
     'Desktop', 
@@ -58,9 +52,14 @@ describe('Build and Launch', () => {
     platforms.mac // Skip on non-Mac platforms
   )
 
-  registerBuildTest('Mobile', { target: 'mobile' }, false)
-})
+  // NOTE: This interferes with Desktop Launch. 
+  // It seems that cleanup does not fully succeed until the parent process (CLI) is closed
+  registerStartTest(
+    'Desktop', 
+    { target: 'electron'}
+  )
 
+})
 
 describe('All services with sources can be built individually', async () => {
 
@@ -102,5 +101,4 @@ describe('All services with sources can be built individually', async () => {
         })
       })
     }
-
 })

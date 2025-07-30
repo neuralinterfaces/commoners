@@ -15,5 +15,5 @@ export const exit = async (code) => {
     if (!globalThis.process.env.__COMMONERS_TESTING) process.exit(code === 'SIGINT' ? 0 : code) // Do not force exit if testing
 }
 
-const exitEvents = ['beforeExit', 'exit', 'SIGINT']
+const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
 exitEvents.forEach(event => process.on(event, exit))

@@ -77,7 +77,7 @@ export const launchServices = async (
     
 }
 
-export const launchApp = async ( config: LaunchConfig ) => {
+export const launchApp = async ( config: LaunchConfig, args = []) => {
 
     const _chalk = await chalk
 
@@ -130,22 +130,19 @@ export const launchApp = async ( config: LaunchConfig ) => {
 
         let runExecutableCommand = "open" // Default to macOS command
         
-        const args = [
-            `"${fullPath}"`,  // The executable or path to open
-        ];
+        const resolvedArgs = [ `"${fullPath}"` ]; // The path to the executable file
+        const userArgs = new Set([ ...args ]) // User-provided arguments
 
         // Set the appropriate command based on the platform
-        if (PLATFORM === 'windows'|| PLATFORM === 'linux') runExecutableCommand = args.shift() // Run executable directly on Linux
-        else if (PLATFORM === 'mac') args.splice(1, 0, "--args") // macOS-specific flag to pass additional arguments
+        if (PLATFORM === 'windows'|| PLATFORM === 'linux') runExecutableCommand = resolvedArgs.shift() // Run executable directly        
+        if (PLATFORM === 'linux') userArgs.add('--no-sandbox') // Ensure No Sandbox
+        if (PLATFORM === 'mac' && userArgs.size) resolvedArgs.push("--args") // macOS-specific flag to pass additional arguments
+        resolvedArgs.push(...userArgs) // Add any additional arguments
 
+        printSubtle([runExecutableCommand, ...resolvedArgs].join(' '))
 
-        // Ensure No Sandbox
-        if (PLATFORM === 'linux') args.push('--no-sandbox')
-
-
-        printSubtle([runExecutableCommand, ...args].join(' '))
-
-        await spawnProcess(runExecutableCommand, args, { env: process.env  }); // Share the same environment variables
+        await spawnProcess(runExecutableCommand, resolvedArgs, { env: process.env }); // Share the same environment variables
+        
     } 
 
     else {
