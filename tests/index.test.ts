@@ -13,24 +13,24 @@ import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { buildServices } from '@commoners/testing'
 
-const platforms = {
-  windows: process.platform === 'win32',
-  mac: process.platform === 'darwin',
-  linux: process.platform === 'linux'
-}
+// const platforms = {
+//   windows: process.platform === 'win32',
+//   mac: process.platform === 'darwin',
+//   linux: process.platform === 'linux'
+// }
 
-// describe('Custom project base is loaded', () => {
+describe('Custom project base is loaded', () => {
 
-//   test('Config is resolved', () => {
-//     const configPath = resolveConfigPath(projectBase)
-//     expect(configPath).toBe(resolve(projectBase, 'commoners.config.ts'))
-//   })
+  test('Config is resolved', () => {
+    const configPath = resolveConfigPath(projectBase)
+    expect(configPath).toBe(resolve(projectBase, 'commoners.config.ts'))
+  })
 
-//   test('Config is loaded', async () => {
-//     const config = await loadConfigFromFile(projectBase)
-//     expect(config.name).toBe(name)
-//   })
-// })
+  test('Config is loaded', async () => {
+    const config = await loadConfigFromFile(projectBase)
+    expect(config.name).toBe(name)
+  })
+})
 
 describe('Start', () => {
   registerStartTest('Web')
