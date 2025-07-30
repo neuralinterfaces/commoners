@@ -47,7 +47,8 @@ export async function startup( root ) {
       detached: false, // Do not detach the process. This ensures it will exit when the Node.js process exits, otherwise allows a graceful shutdown.
       stdio: [ 'ignore', 'pipe', 'pipe' ]
     })
-    
+
+    app.once('exit', cleanup.exit)// Kill the process after Electron.app exits
     app.stdout.on('data', data => log(data)) // Print out any messages from Electron.app
     app.stderr.on('data', data => log(data, 'error')) // Print out any errors from Electron.app
     cleanup.onCleanup(onExit) // Kill the process after the process exits
