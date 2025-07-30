@@ -134,7 +134,6 @@ export const open = async (
   
   // Launched Electron Instance
   if (isElectron) {
-
     const testingPlugin = Object.values(config.plugins).find(p => p.options && "remoteDebuggingPort" in p.options)
     if (!testingPlugin) throw Error("Must use the @commoners/testing/plugin to enable remote debugging of the Electron application")
 
@@ -146,8 +145,7 @@ export const open = async (
 
   // Non-Electron Instance
   else {
-    const browser = states.browser = await chromium.launch()
-    // const browser = output.browser = await chromium.launch({ headless: false })
+    const browser = states.browser = await chromium.launch({ headless: true })
     const page = states.page = await browser.newPage();  
     await page.goto(states.url);
   }
@@ -157,16 +155,17 @@ export const open = async (
 
     // Override cleanup function
     cleanup: async () => {
-      
-      await cleanup() // Cleanup the command
 
-      // Close Electron instances
+        // Fully close the Electron instance
       if (isElectron) {
         await states.page.evaluate(() => {
           const { commoners } = globalThis
-          return commoners.READY.then(() => commoners.DESKTOP.quit())
+          return commoners && commoners.READY.then(() => commoners.DESKTOP.quit())
         })
       }
+
+      // Cleanup internal states
+      await cleanup()
 
       // Close Playwright browsers
       if (states.browser) await states.browser.close()

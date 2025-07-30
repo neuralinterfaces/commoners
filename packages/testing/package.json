@@ -1,6 +1,6 @@
 {
     "name": "@commoners/testing",
-    "version": "0.0.62",
+    "version": "0.0.65",
     "description": "Commoners Testing Library",
     "license": "MIT",
     "type": "module",

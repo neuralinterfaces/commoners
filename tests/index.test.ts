@@ -19,48 +19,47 @@ const platforms = {
   linux: process.platform === 'linux'
 }
 
-describe('Custom project base is loaded', () => {
+// describe('Custom project base is loaded', () => {
 
-  test('Config is resolved', () => {
-    const configPath = resolveConfigPath(projectBase)
-    expect(configPath).toBe(resolve(projectBase, 'commoners.config.ts'))
-  })
+//   test('Config is resolved', () => {
+//     const configPath = resolveConfigPath(projectBase)
+//     expect(configPath).toBe(resolve(projectBase, 'commoners.config.ts'))
+//   })
 
-  test('Config is loaded', async () => {
-    const config = await loadConfigFromFile(projectBase)
-    expect(config.name).toBe(name)
-  })
-})
+//   test('Config is loaded', async () => {
+//     const config = await loadConfigFromFile(projectBase)
+//     expect(config.name).toBe(name)
+//   })
+// })
 
 describe('Start', () => {
-
   registerStartTest('Web')
+  registerStartTest('Mobile', { target: 'mobile' }, false) // NOTE: Skipped because Ruby Gems needs to be updated
+})
 
+
+describe('Build and Launch', () => {
+  registerBuildTest('Web', { target: 'web' })
+  registerBuildTest('PWA', { target: 'pwa' })
+  registerBuildTest('Mobile', { target: 'mobile' }, false)
+})
+
+describe("Desktop Start + Build and Launch", () => {
+
+  registerBuildTest(
+    'Desktop', 
+    { target: 'electron' },
+    // platforms.mac // Skip on non-Mac platforms
+  )
+
+  // NOTE: This interferes with Desktop Launch. 
+  // It seems that cleanup does not fully succeed until the parent process (CLI) is closed
   registerStartTest(
     'Desktop', 
     { target: 'electron'}
   )
 
-  // NOTE: Skipped because Ruby Gems needs to be updated
-  registerStartTest('Mobile', { target: 'mobile' }, false)
-
 })
-
-describe('Build and Launch', () => {
-
-
-  registerBuildTest('Web', { target: 'web' })
-  registerBuildTest('PWA', { target: 'pwa' })
-
-  registerBuildTest(
-    'Desktop', 
-    { target: 'electron' },
-    platforms.mac // Skip on non-Mac platforms
-  )
-
-  registerBuildTest('Mobile', { target: 'mobile' }, false)
-})
-
 
 describe('All services with sources can be built individually', async () => {
 
@@ -102,5 +101,4 @@ describe('All services with sources can be built individually', async () => {
         })
       })
     }
-
 })

@@ -26,6 +26,9 @@ const cleanupElectronApp = async () => {
 
 export const electronGlobalStates: { app?: ChildProcess } = {}
 
+  let cleanupPromise = null
+  const onExit = async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()) // Ensure cleanup is only done once
+
 export async function startup( root ) {
     
     const argv = ['.', '--no-sandbox']
@@ -45,30 +48,9 @@ export async function startup( root ) {
       stdio: [ 'ignore', 'pipe', 'pipe' ]
     })
     
-    // Kill the process after Electron.app exits
-    app.once('exit', cleanup.exit) // Calls cleanup and exits the process
-
-    // Print out any messages from Electron.app
-    app.stdout.on('data', data => log(data))
-
-    // Print out any errors from Electron.app
-    app.stderr.on('data', data => log(data, 'error'))
-
-    if (!startup.hookedProcessExit) {
-      startup.hookedProcessExit = true
-      process.once('exit', startup.exit) // Ensure we clean up when the Node.js process exits
-    }
-
+    app.stdout.on('data', data => log(data)) // Print out any messages from Electron.app
+    app.stderr.on('data', data => log(data, 'error')) // Print out any errors from Electron.app
+    cleanup.onCleanup(onExit) // Kill the process after the process exits
+    
     return app
   }
-
-  startup.hookedProcessExit = false
-
-
-  // Exit the Electron process and remove all listeners
-  let cleanupPromise = null
-  startup.exit = async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()) // Ensure cleanup is only done once
-  
-  // Properly close Electron process on Windows. 
-  const signals = ['SIGTERM', 'SIGINT']
-  signals.forEach(signal => process.on(signal, startup.exit))
