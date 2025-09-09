@@ -253,7 +253,9 @@ export async function buildApp (
         const electronTemplateDir = path.join(templateDir, 'electron')
         
         buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
-        buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(electronTemplateDir, buildConfig.afterSign) : buildConfig.afterSign
+        if (!buildConfig.afterSign) buildConfig.afterSign = path.join(electronTemplateDir, 'build/notarize.cjs'); // Default afterSign script
+        else buildConfig.afterSign = typeof buildConfig.afterSign === 'string' ? path.join(root, buildConfig.afterSign) : buildConfig.afterSign
+
         buildConfig.mac.entitlementsInherit = path.join(electronTemplateDir, buildConfig.mac.entitlementsInherit)
 
         // Only enable code signing if publishing or explicitly requested
