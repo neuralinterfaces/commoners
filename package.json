@@ -17,13 +17,13 @@
     "demo:launch": "commoners launch tests/demo"
   },
   "devDependencies": {
-    "@commoners/bluetooth": "0.0.62",
+    "@commoners/bluetooth": "1.0.0-alpha.0",
     "@commoners/local-services": "0.0.62",
-    "@commoners/serial": "0.0.62",
+    "@commoners/serial": "1.0.0-alpha.0",
     "@commoners/solidarity": "1.0.0-alpha.0",
     "@commoners/splash-screen": "0.0.62",
     "@commoners/testing": "0.0.65",
-    "@commoners/windows": "0.0.64",
+    "@commoners/windows": "1.0.0-alpha.0",
     "@vitest/coverage-v8": "^2.0.3",
     "search-insights": "^2.15.0",
     "commoners": "1.0.0-alpha.0",

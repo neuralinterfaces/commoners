@@ -122,16 +122,34 @@ export function load() {
 
   const { __id } = DESKTOP
 
-  const onOpen = (callback) => this.on(`${__id}:open`, () => callback())
 
-  const onUpdate = (callback) => this.on(`${__id}:update`, (_, devices) => callback(devices))
+  const callbacks: Record<string, Function[]> = {}
+  
+  const runCallbacks = (type, ...args) => {
+    const fullId = `${__id}:${type}`
+    if (!callbacks[fullId]) return
+    callbacks[fullId].forEach(callback => callback(...args))
+  }
+
+  const addCallback = (type, callback) => {
+    const fullId = `${__id}:${type}`
+    if (!callbacks[fullId]) callbacks[fullId] = []
+    callbacks[fullId].push(callback)
+  }
+
+  this.on(`${__id}:open`, () => runCallbacks('open'))
+  this.on(`${__id}:update`, (_, devices) => runCallbacks('update', devices))
+  this.on(`${__id}:selected`, (_, id) => runCallbacks('selected', id))
+
+
+  const onOpen = (callback) => addCallback("open", callback)
+  const onUpdate = (callback) => addCallback("update", callback)
+  const onSelect = (callback) => addCallback("selected", callback)
 
   this.on(`${__id}:selected`, () => {
     if (matchTimeout) clearTimeout(matchTimeout)
       matchTimeout = null
   })
-
-  const onSelect = (callback) => this.on(`${__id}:selected`, (_, id) => callback(id))
 
   let matchTimeout;
 

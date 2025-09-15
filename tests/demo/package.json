@@ -17,11 +17,11 @@
     "src/services/*"
   ],
   "dependecies": {
-    "@commoners/bluetooth": "0.0.62",
+    "@commoners/bluetooth": "1.0.0-alpha.0",
     "@commoners/local-services": "0.0.62",
-    "@commoners/serial": "0.0.62",
+    "@commoners/serial": "1.0.0-alpha.0",
     "@commoners/splash-screen": "0.0.62",
-    "@commoners/windows": "0.0.64"
+    "@commoners/windows": "1.0.0-alpha.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
@@ -29,6 +29,5 @@
     "@capacitor/cli": "^6.2.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/ios": "^6.2.0"
-  },
-  "main": ".commoners/.temp/electron/main.cjs"
+  }
 }

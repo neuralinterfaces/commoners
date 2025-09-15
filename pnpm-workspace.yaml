@@ -3,7 +3,5 @@ packages:
   - tests/**
   - '!**/dist/**'
   - '!packages/plugins/autoupdate'
-onlyBuiltDependencies:
-  - electron
-  - esbuild
-  - sharp
+ignoredBuiltDependencies:
+  - '@commoners/testing'
