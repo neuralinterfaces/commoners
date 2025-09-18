@@ -351,14 +351,24 @@ export async function start(config, id, opts) {
 
       if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `File does not exist at ${resolvedFilepath}`, 'warn')
 
+      const resolvedProcessOptions = {
+        cwd,
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'], // explicit
+        shell: false,
+        windowsHide: true,
+        detached: false
+      }
+
+
       // Node Support
-      if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [], { cwd, silent: true, env })
+      if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [], { ...resolvedProcessOptions, silent: true })
 
       // Python Support
-      else if (ext === '.py') childProcess = spawn("python", [resolvedFilepath], { cwd, env })
+      else if (ext === '.py') childProcess = spawn("python", [resolvedFilepath], resolvedProcessOptions)
 
       // Executable Support
-      else if (isExecutable(ext)) childProcess = spawn(resolvedFilepath, [], { cwd, env })
+      else if (isExecutable(ext)) childProcess = spawn(resolvedFilepath, [], resolvedProcessOptions)
 
     } catch (e) {
       error = e
