@@ -6,17 +6,22 @@ import { isDesktop, getBuildConfig, globalTempDir, templateDir, ensureTargetCons
 import { BuildHooks, ServiceBuildOptions, ServiceRebuildOption, UserConfig, WritableElectronBuilderConfig } from "./types.js"
 
 // Internal Utilities
-import { 
+import {
     getAppAssets,
     getServiceAssets,
-    buildAssets, 
-    getAssetBuildPath 
+    buildAssets,
+    getAssetBuildPath
 } from "./utils/assets.js"
 import { lstatSync } from './utils/lstat.js'
 import { printHeader, printTarget } from "./utils/formatting.js"
 import { removeDirectory } from './utils/files.js'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from "./assets/utils/icons.js"
 import merge from './utils/merge.js'
+import {
+    chainAfterPack,
+    makeAfterPackEmbedAsarIntegrity,
+    afterPackFlipFuses
+} from "./utils/security.js";
 
 // Core Internal Imports
 import { configureForDesktop, resolveConfig } from "./index.js"
@@ -33,14 +38,14 @@ const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,
 const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
 
 
-export const buildAllAssets = async ( 
-    config, 
+export const buildAllAssets = async (
+    config,
     dev,
     rebuildServices: ServiceRebuildOption = true
 ) => {
     const { outDir, root, target } = config
     const appAssets = await getAppAssets(config, dev)
-    
+
     const outputs = await buildAssets(appAssets, {
         outDir,
         root,
@@ -48,8 +53,8 @@ export const buildAllAssets = async (
     })
 
     if (dev || isDesktop(target)) {
-        const _outputs = await buildServices(config, { 
-            dev, 
+        const _outputs = await buildServices(config, {
+            dev,
             outDir,
             rebuild: rebuildServices
         }) // Only build when in development, or during desktop builds
@@ -78,7 +83,7 @@ export const buildServices = async (
 
     const assets = await getServiceAssets(resolvedConfig, dev, rebuild)
     return await buildAssets(
-        assets, 
+        assets,
         {
             root,
             outDir: outDir ?? resolve(join(root, globalWorkspacePath, 'services')), // Default service output directory
@@ -87,7 +92,7 @@ export const buildServices = async (
     )
 }
 
-export async function buildApp (
+export async function buildApp(
     config: UserConfig = {},
 
     // Hooks
@@ -98,7 +103,7 @@ export async function buildApp (
         rebuildServices = true, // Rebuild services by default
         overwrite = false // Overwrite existing files
     }: BuildHooks = {},
-    
+
 ) {
 
     const _vite = await vite
@@ -178,7 +183,7 @@ export async function buildApp (
 
         // Configure package.json for proper Electron build
         configureForDesktop(cwdRelativeOutDir, root, {
-            name: name.toLowerCase().split(' ').join('-'), 
+            name: name.toLowerCase().split(' ').join('-'),
             version: '0.0.0'
         })
 
@@ -193,8 +198,8 @@ export async function buildApp (
 
         buildConfig.directories.output = actualOutDir
 
-        const files = buildConfig.files = [ 
-            `${relativeOutDir}/**`, 
+        const files = buildConfig.files = [
+            `${relativeOutDir}/**`,
         ]
 
         // Ensure platform-specific configs exis
@@ -202,21 +207,21 @@ export async function buildApp (
         for (const platform of platforms) {
             if (!buildConfig[platform]) buildConfig[platform] = {}
         }
-        
+
         // Set strong code-signing algorithm (Windows)
-        if (!buildConfig.win.signingHashAlgorithms) buildConfig.win.signingHashAlgorithms = [ 'sha256' ]
-        
+        if (!buildConfig.win.signingHashAlgorithms) buildConfig.win.signingHashAlgorithms = ['sha256']
+
         // Ensure proper linux configuration
         buildConfig.linux.executableName = buildConfig.productName
         Object.assign(buildConfig.linux, {
             executableName: buildConfig.productName,
             artifactName: "${productName}-${version}.${ext}"
         })
-        
+
         // Handle extra resources and code signing
         const extraResources = buildConfig.extraResources = []
         const signIgnore = buildConfig.mac.signIgnore = []
-        
+
         const resolveFileLocation = (file) => {
             const relPath = relative(cwdRelativeOutDir, file)
             return join(relativeOutDir, relPath)
@@ -251,21 +256,45 @@ export async function buildApp (
 
         // Ensure proper absolute paths are provided for Electron build
         const electronTemplateDir = path.join(templateDir, 'electron')
-        
+
         buildConfig.directories.buildResources = path.join(electronTemplateDir, buildConfig.directories.buildResources)
 
         const pathOptions = {
             afterSign: path.join(electronTemplateDir, 'build/notarize.cjs'),
             artifactBuildCompleted: undefined,
-            sign: undefined
+            sign: undefined,
+            // afterPack: undefined
         }
+
+        // strongly recommended: force electron-builder to use ASAR (it’s default, but be explicit)
+        if (buildConfig.asar === undefined) buildConfig.asar = true;
+
+        // ensure electron-builder runs our integrity injector first, then flips fuses
+        if (buildConfig.asar) {
+            // OPTIONAL: if you still patch app.asar (e.g., your test blocker), do it here.
+            // Ensure it modifies the ASAR at `${appOutDir}/resources/app.asar` (Win/Linux) or
+            // `${appOutDir}/${product}.app/Contents/Resources/app.asar` (macOS).
+            const mutateAsar = async ({ appOutDir, productName }) => {
+            // Example: run your patcher here so the final hash matches what ships.
+            // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
+            };
+
+            buildConfig.afterPack = chainAfterPack(
+            buildConfig.afterPack,
+            makeAfterPackEmbedAsarIntegrity(mutateAsar), // 1) mutate (optional) then embed pointers
+            afterPackFlipFuses                            // 2) flip fuses
+            );
+        }
+
+        // strongly recommended: force electron-builder to use ASAR (it’s default, but be explicit)
+        if (buildConfig.asar === undefined) buildConfig.asar = true;
 
         for (const key in pathOptions) {
             if (!buildConfig[key]) {
                 const defaultValue = pathOptions[key]
                 if (defaultValue !== undefined) buildConfig[key] = defaultValue
             }
-            
+
             else if (typeof buildConfig[key] === 'string' && !isAbsolute(buildConfig[key])) buildConfig[key] = path.join(root, buildConfig[key]) // Resolve paths relative to the root
         }
 
@@ -279,11 +308,11 @@ export async function buildApp (
             buildConfig.mac.identity = null
 
             // Disable signing on Windows
-            buildConfig.win.sign = async () => {}
+            buildConfig.win.sign = async () => { }
             buildConfig.win.forceCodeSigning = false
 
             // Remove any environment variables that may interfere with signing
-            const envVariablePrefixes = [ "CSC_", "WIN_CSC_" ]
+            const envVariablePrefixes = ["CSC_", "WIN_CSC_"]
             const matchedEnvVariables = Object.keys(process.env).filter(key => envVariablePrefixes.some(prefix => key.startsWith(prefix)))
             matchedEnvVariables.forEach(key => delete process.env[key])
         }
@@ -292,13 +321,13 @@ export async function buildApp (
 
         // Correct for different project roots
         if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
-        
-        const electronBuilderOpts: CliOptions = {  
-            config: buildConfig as any 
+
+        const electronBuilderOpts: CliOptions = {
+            config: buildConfig as any
         }
 
         if (root) electronBuilderOpts.projectDir = root
-        
+
 
         if (publish) electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
         else buildConfig.publish = null
@@ -322,5 +351,5 @@ export async function buildApp (
 
 
     return outDir // Return the temporary output directory
-    
+
 }
