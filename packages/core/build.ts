@@ -275,14 +275,14 @@ export async function buildApp(
             // Ensure it modifies the ASAR at `${appOutDir}/resources/app.asar` (Win/Linux) or
             // `${appOutDir}/${product}.app/Contents/Resources/app.asar` (macOS).
             const mutateAsar = async ({ appOutDir, productName }) => {
-            // Example: run your patcher here so the final hash matches what ships.
-            // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
+                // Example: run your patcher here so the final hash matches what ships.
+                // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
             };
 
             buildConfig.afterPack = chainAfterPack(
-            buildConfig.afterPack,
-            makeAfterPackEmbedAsarIntegrity(mutateAsar), // 1) mutate (optional) then embed pointers
-            afterPackFlipFuses                            // 2) flip fuses
+                buildConfig.afterPack,
+                makeAfterPackEmbedAsarIntegrity(mutateAsar), // embed (Win/mac) + verify + fallback
+                afterPackFlipFuses                            // then flip fuses
             );
         }
 

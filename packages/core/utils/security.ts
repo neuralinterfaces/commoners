@@ -1,25 +1,26 @@
-/* utils/security.ts */
 /* eslint-disable no-console */
 import { join, basename } from "node:path";
 import {
   existsSync, readdirSync, statSync, readFileSync, writeFileSync,
-  openSync, readSync, closeSync,
+  openSync, readSync, closeSync
 } from "node:fs";
 import { createHash } from "node:crypto";
 import plist from "plist";
 import { flipFuses, FuseVersion, FuseV1Options } from "@electron/fuses";
-import * as asar from "@electron/asar"; // ok if present; we fallback if needed
-
-// Win32 FFI (no dynamic imports)
 import ffi from "ffi-napi";
 import ref from "ref-napi";
 
-// ---------- tiny helpers ----------
+/* ---------------- tiny utils ---------------- */
 const log  = (...a: any[]) => console.log("[asar-integrity]", ...a);
 const warn = (...a: any[]) => console.warn("[asar-integrity]", ...a);
 const isWin = () => process.platform === "win32";
 const isMac = () => process.platform === "darwin";
 
+function sha256(buf: Buffer | Uint8Array) {
+  return createHash("sha256").update(buf).digest("hex");
+}
+
+/* ---------------- locate main exe ---------------- */
 function findExe(appOutDir: string, preferredBase?: string): string {
   if (preferredBase) {
     const p = join(appOutDir, `${preferredBase}.exe`);
@@ -35,14 +36,9 @@ function findExe(appOutDir: string, preferredBase?: string): string {
   return best;
 }
 
-// Prefer @electron/asar.getRawHeader, else manual parse
-function readRawAsarHeader(asarPath: string): Buffer | null {
-  try {
-    // @ts-ignore types not always present
-    const raw = (asar as any).getRawHeader?.(asarPath);
-    if (raw && Buffer.isBuffer(raw) && raw.length) return raw;
-  } catch {}
-  // Manual: [0..3]=4, [4..7]=headerSize (=4+jsonLen), [8..11]=jsonLen, then JSON bytes
+/* ---------------- read ASAR header bytes ---------------- */
+// JSON header bytes (what @electron/asar.getRawHeader() returns)
+function readJsonHeaderBytes(asarPath: string): Buffer | null {
   let fd = -1;
   try {
     fd = openSync(asarPath, "r");
@@ -52,77 +48,127 @@ function readRawAsarHeader(asarPath: string): Buffer | null {
     const headerSize = pre.readUInt32LE(4);
     const jsonLen = pre.readUInt32LE(8);
     if (len0 !== 4 || headerSize !== 4 + jsonLen || jsonLen <= 0) return null;
-    const jsonBuf = Buffer.allocUnsafe(jsonLen);
-    if (readSync(fd, jsonBuf, 0, jsonLen, 12) !== jsonLen) return null;
-    return jsonBuf;
+    const json = Buffer.allocUnsafe(jsonLen);
+    if (readSync(fd, json, 0, jsonLen, 12) !== jsonLen) return null;
+    return json;
   } catch { return null; }
   finally { if (fd >= 0) try { closeSync(fd); } catch {} }
 }
 
-const sha256Hex = (buf: Buffer | Uint8Array) => createHash("sha256").update(buf).digest("hex");
+// FULL header (12-byte prelude + JSON) for fallback on certain Electron builds
+function readFullHeaderBytes(asarPath: string): Buffer | null {
+  let fd = -1;
+  try {
+    fd = openSync(asarPath, "r");
+    const pre = Buffer.allocUnsafe(12);
+    if (readSync(fd, pre, 0, 12, 0) !== 12) return null;
+    const jsonLen = pre.readUInt32LE(8);
+    if (jsonLen <= 0) return null;
+    const full = Buffer.allocUnsafe(12 + jsonLen);
+    pre.copy(full, 0, 0, 12);
+    if (readSync(fd, full, 12, jsonLen, 12) !== jsonLen) return null;
+    return full;
+  } catch { return null; }
+  finally { if (fd >= 0) try { closeSync(fd); } catch {} }
+}
 
-// ---------- Windows: inject resource via Win32 API ----------
+/* ---------------- Win32 resource I/O (no CLIs) ---------------- */
 type HMODULE = Buffer;
-const kernel32 = isWin()
+const K = isWin()
   ? ffi.Library("Kernel32", {
+      GetLastError:         [ "uint32", [] ],
       BeginUpdateResourceW: [ "pointer", [ "pointer", "bool" ] ],
       UpdateResourceW:      [ "bool",    [ "pointer", "pointer", "pointer", "uint16", "pointer", "uint32" ] ],
       EndUpdateResourceW:   [ "bool",    [ "pointer", "bool" ] ],
+      LoadLibraryExW:       [ "pointer", [ "pointer", "pointer", "uint32" ] ],
+      FindResourceExW:      [ "pointer", [ "pointer", "pointer", "pointer", "uint16" ] ],
+      SizeofResource:       [ "uint32",  [ "pointer", "pointer" ] ],
+      LoadResource:         [ "pointer", [ "pointer", "pointer" ] ],
+      LockResource:         [ "pointer", [ "pointer" ] ],
+      FreeLibrary:          [ "bool",    [ "pointer" ] ],
     })
   : null;
 
-function wstr(s: string): Buffer { return Buffer.from(s + "\u0000", "ucs2"); }
+function wstr(s: string) { return Buffer.from(s + "\u0000", "ucs2"); }
+function lastErr() { return (K as any).GetLastError(); }
 
-function injectWinIntegrityResource(exePath: string, payloadUtf8: string) {
-  if (!kernel32) throw new Error("Win32 API not available");
-  const exeW  = wstr(exePath);
+function writeIntegrityResource(exePath: string, payloadJson: string) {
+  if (!isWin()) return;
+  const exeW = wstr(exePath);
   const typeW = wstr("Integrity");
   const nameW = wstr("ElectronAsar");
-  const data  = Buffer.from(payloadUtf8, "utf8");
+  const data  = Buffer.from(payloadJson, "utf8");
 
-  const h: HMODULE = kernel32.BeginUpdateResourceW(exeW, false) as unknown as Buffer;
+  const h: HMODULE = (K as any).BeginUpdateResourceW(exeW, false) as unknown as Buffer;
   // @ts-ignore
-  if (!h || (h.isNull && h.isNull())) throw new Error("BeginUpdateResourceW failed");
+  if (!h || (h.isNull && h.isNull())) throw new Error(`BeginUpdateResourceW failed (err=${lastErr()})`);
+  let ok = true; let err = 0;
 
   for (const lang of [1033, 0]) {
-    const ok = kernel32.UpdateResourceW(h, typeW, nameW, lang, data, data.length);
-    if (!ok) { kernel32.EndUpdateResourceW(h, true as any); throw new Error(`UpdateResourceW failed (lang=${lang})`); }
+    const r = (K as any).UpdateResourceW(h, typeW, nameW, lang, data, data.length);
+    if (!r) { ok = false; err = lastErr(); warn(`UpdateResourceW failed (lang=${lang}, err=${err})`); }
+    else log(`UpdateResourceW OK (lang=${lang}, ${data.length} bytes)`);
   }
-  const endOk = kernel32.EndUpdateResourceW(h, false);
-  if (!endOk) throw new Error("EndUpdateResourceW failed");
+  const end = (K as any).EndUpdateResourceW(h, !ok);
+  if (!end) throw new Error(`EndUpdateResourceW failed (err=${lastErr()})`);
+  if (!ok)  throw new Error(`UpdateResourceW failed (err=${err})`);
 }
 
-// ---------- macOS: write Info.plist ElectronAsarIntegrity ----------
+function readIntegrityResource(exePath: string) {
+  if (!isWin()) return [];
+  const LOAD_LIBRARY_AS_DATAFILE = 0x00000002;
+  const mod = (K as any).LoadLibraryExW(wstr(exePath), ref.NULL, LOAD_LIBRARY_AS_DATAFILE);
+  // @ts-ignore
+  if (!mod || (mod.isNull && mod.isNull())) throw new Error(`LoadLibraryExW failed (err=${lastErr()})`);
+  const typeW = wstr("Integrity");
+  const nameW = wstr("ElectronAsar");
+  const langs = [1033, 0];
+
+  const out: Array<{lang:number, found:boolean, json?:string, size?:number}> = [];
+  for (const lang of langs) {
+    const hRes = (K as any).FindResourceExW(mod, typeW, nameW, lang);
+    // @ts-ignore
+    if (!hRes || (hRes.isNull && hRes.isNull())) { out.push({ lang, found: false }); continue; }
+    const size = (K as any).SizeofResource(mod, hRes);
+    const hMem = (K as any).LoadResource(mod, hRes);
+    const ptr  = (K as any).LockResource(hMem);
+    let json: string | undefined;
+    if (ptr && !(ptr as any).isNull?.() && size > 0) {
+      json = Buffer.from(ref.reinterpret(ptr, size)).toString("utf8");
+    }
+    out.push({ lang, found: true, json, size });
+  }
+  (K as any).FreeLibrary(mod);
+  return out;
+}
+
+/* ---------------- macOS plist ---------------- */
 function writePlistIntegrity(infoPlistPath: string, headerHash: string) {
   const xml = readFileSync(infoPlistPath, "utf8");
   const obj: any = plist.parse(xml) || {};
-  const key = "ElectronAsarIntegrity";
-  obj[key] = obj[key] || {};
-  // MUST be this key path
-  obj[key]["Resources/app.asar"] = { algorithm: "SHA256", hash: headerHash };
-  const outXml = plist.build(obj);
-  writeFileSync(infoPlistPath, outXml, "utf8");
+  obj.ElectronAsarIntegrity = obj.ElectronAsarIntegrity || {};
+  // MUST be exactly this key
+  obj.ElectronAsarIntegrity["Resources/app.asar"] = { algorithm: "SHA256", hash: headerHash };
+  const out = plist.build(obj);
+  writeFileSync(infoPlistPath, out, "utf8");
 }
 
-// ---------- PUBLIC: electron-builder afterPack hooks ----------
+/* ---------------- public hooks ---------------- */
 /**
- * Optional hook: if you still patch app.asar (e.g., test-only shims),
- * do it here so the **final** header is what we hash.
- * If you don't need it, just leave it undefined when wiring.
+ * Embed ASAR integrity (Windows & macOS) in a robust way:
+ *  1) Optionally run your asar patcher (mutateAsar) FIRST
+ *  2) Hash JSON header; write resource/plist
+ *  3) Verify by re-reading resource; if missing/mismatch on Win, retry with FULL header hash
  */
 export type MutateAsarFn = (opts: { appOutDir: string, productName: string }) => Promise<void> | void;
 
-/**
- * Embed ASAR integrity (Windows & macOS).
- * IMPORTANT: If you mutate app.asar, do it BEFORE we compute the hash.
- */
 export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
   return async function afterPackEmbedAsarIntegrity(context: any) {
     const { appOutDir, packager } = context;
     const product =
       packager?.appInfo?.productFilename || packager?.appInfo?.productName;
 
-    // 1) (optional) mutate app.asar before hashing
+    // 1) let you modify app.asar BEFORE we hash it
     if (mutateAsar) {
       try { await mutateAsar({ appOutDir, productName: product }); }
       catch (e: any) { warn("mutateAsar failed:", e?.message || e); }
@@ -132,33 +178,69 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
     const asarPath = isMac()
       ? join(appOutDir, `${product}.app`, "Contents", "Resources", "app.asar")
       : join(appOutDir, "resources", "app.asar");
+    if (!existsSync(asarPath)) { warn("resources/app.asar not found; skipping"); return; }
 
-    if (!existsSync(asarPath)) {
-      warn("resources/app.asar not found; skipping integrity embedding.");
-      return;
-    }
+    // 3) hash JSON header (primary)
+    const jsonHeader = readJsonHeaderBytes(asarPath);
+    if (!jsonHeader?.length) { warn("ASAR JSON header unreadable; skipping"); return; }
+    const jsonHash = sha256(jsonHeader);
+    log("jsonHeaderSHA256:", jsonHash.slice(0, 12) + "…");
 
-    // 3) read header & hash
-    const header = readRawAsarHeader(asarPath);
-    if (!header?.length) { warn("ASAR header unreadable/empty"); return; }
-    const headerHash = sha256Hex(header);
-    log("Header bytes:", header.length, "hash:", headerHash.slice(0, 12) + "…");
-
-    // 4) write per-OS integrity “pointer” to the hash
     if (isMac()) {
       const plistPath = join(appOutDir, `${product}.app`, "Contents", "Info.plist");
       if (!existsSync(plistPath)) { warn("Info.plist not found:", plistPath); return; }
-      writePlistIntegrity(plistPath, headerHash);
-      log("Wrote ElectronAsarIntegrity to Info.plist");
-    } else if (isWin()) {
+      writePlistIntegrity(plistPath, jsonHash);
+      log("Wrote ElectronAsarIntegrity → Info.plist");
+      return;
+    }
+
+    if (isWin()) {
       const exePath = findExe(appOutDir, product);
-      // Windows expects JSON array payload:
-      // [ { "file":"resources\\app.asar","alg":"sha256","value":"<hash>" } ]
-      const payload = JSON.stringify([{ file: "resources\\app.asar", alg: "sha256", value: headerHash }]);
-      injectWinIntegrityResource(exePath, payload);
-      log(`Injected Integrity/ElectronAsar into ${basename(exePath)}`);
-    } else {
-      log("Linux build: no ASAR integrity embedding required");
+      const payload = (h: string) =>
+        JSON.stringify([{ file: "resources\\app.asar", alg: "sha256", value: h }]);
+
+      // write JSON-hash payload first
+      writeIntegrityResource(exePath, payload(jsonHash));
+
+      // verify by native readback; if it didn’t stick, hard fail
+      const hits = readIntegrityResource(exePath);
+      const first = hits.find(h => h.found && h.json);
+      if (!first) throw new Error("Integrity/ElectronAsar not found right after write");
+
+      // check value matches what we wrote; if not, try FULL header hash
+      let embedded: string | null = null;
+      try {
+        const arr = JSON.parse(first.json!);
+        const rec = Array.isArray(arr) && arr.find((x: any) =>
+          x && /resources\\app\.asar/i.test(x.file) && x.alg === "sha256"
+        );
+        embedded = rec && String(rec.value || "").toLowerCase();
+      } catch {}
+
+      if (embedded !== jsonHash) {
+        warn("Embedded hash != jsonHeader hash; trying FULL header hash fallback…");
+        const fullHeader = readFullHeaderBytes(asarPath);
+        if (!fullHeader) throw new Error("FULL ASAR header unreadable");
+        const fullHash = sha256(fullHeader);
+        writeIntegrityResource(exePath, payload(fullHash));
+
+        const hits2 = readIntegrityResource(exePath);
+        const first2 = hits2.find(h => h.found && h.json);
+        let embedded2: string | null = null;
+        try {
+          const arr2 = JSON.parse(first2?.json || "[]");
+          const rec2 = Array.isArray(arr2) && arr2.find((x: any) =>
+            x && /resources\\app\.asar/i.test(x.file) && x.alg === "sha256"
+          );
+          embedded2 = rec2 && String(rec2.value || "").toLowerCase();
+        } catch {}
+        if (embedded2 !== fullHash) {
+          throw new Error("Failed to embed Windows integrity resource (both modes)");
+        }
+        log("Embedded FULL header hash OK");
+      } else {
+        log("Embedded JSON header hash OK");
+      }
     }
   };
 }
@@ -187,7 +269,7 @@ export async function afterPackFlipFuses(context: any) {
   }
 }
 
-/** Chain multiple afterPack hooks safely. */
+/** Chain multiple `afterPack` hooks safely. */
 export function chainAfterPack(
   existing: ((ctx: any) => any) | undefined,
   ...fns: Array<(ctx: any) => any | Promise<any>>
