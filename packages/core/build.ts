@@ -19,6 +19,7 @@ import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from "./ass
 import merge from './utils/merge.js'
 import {
     chainAfterPack,
+    debugAfterPack,
     makeAfterPackEmbedAsarIntegrity,
     afterPackFlipFuses
 } from "./utils/security.js";
@@ -188,6 +189,8 @@ export async function buildApp(
         })
 
         const { electron, appId, icon } = configCopy
+        let { secure } = electron
+        secure = secure ?? true // Default to secure builds
 
         const buildConfig = merge((electron.build ?? {}), getBuildConfig()) as WritableElectronBuilderConfig
 
@@ -270,24 +273,24 @@ export async function buildApp(
         if (buildConfig.asar === undefined) buildConfig.asar = true;
 
         // ensure electron-builder runs our integrity injector first, then flips fuses
-        if (buildConfig.asar) {
+        if (buildConfig.asar && secure) {
             // OPTIONAL: if you still patch app.asar (e.g., your test blocker), do it here.
             // Ensure it modifies the ASAR at `${appOutDir}/resources/app.asar` (Win/Linux) or
             // `${appOutDir}/${product}.app/Contents/Resources/app.asar` (macOS).
             const mutateAsar = async ({ appOutDir, productName }) => {
                 // Example: run your patcher here so the final hash matches what ships.
                 // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
+                console.log('🔧 ASAR mutation step (currently no-op)');
             };
+
 
             buildConfig.afterPack = chainAfterPack(
                 buildConfig.afterPack,
+                debugAfterPack,
                 makeAfterPackEmbedAsarIntegrity(mutateAsar), // embed (Win/mac) + verify + fallback
                 afterPackFlipFuses                            // then flip fuses
             );
         }
-
-        // strongly recommended: force electron-builder to use ASAR (it’s default, but be explicit)
-        if (buildConfig.asar === undefined) buildConfig.asar = true;
 
         for (const key in pathOptions) {
             if (!buildConfig[key]) {

@@ -14,6 +14,21 @@ import { session } from 'electron'
 
 const isProduction = !utils.is.dev
 
+// Get the Commoners configuration file
+const ASSET_ROOT_DIR = __dirname
+const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
+const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR : process.cwd() // CWD is the project root in development
+const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
+const configPath = join(viteAssetsPath, 'commoners.config.cjs') // Load the .cjs config version
+const _config = require(configPath) // Requires putting the dist at the Resource Path
+const config = _config.default || _config
+
+// Resolve high-level configuration options
+const electronOptions = config.electron ?? {}
+const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
+const windowOptions = electronOptions.window ?? {}
+const applyDefaultSecuritySettings = electronOptions.secure !== false // Default to true if not explicitly set to false
+
 const globals: {
   firstInitialized: boolean,
   mainWindow: BrowserWindow | null,
@@ -40,9 +55,12 @@ globalThis.COMMONERS_QUIT = (message?: string) => {
 
 
 const runVerification = async () => {
+
       // Verify that the application integrity is intact when running in production
     if (isProduction) {
+      
       const signatureExists = await hasSignature() // Check if the application has a valid signature
+
       if (signatureExists) {
         const isValid = await verifySignature() // Perform the executable signature check
 
@@ -158,11 +176,6 @@ runVerification().then((isValid) => {
     }
   })
 
-  const ASSET_ROOT_DIR = __dirname
-  const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
-  const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR : process.cwd() // CWD is the project root in development
-  const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
-
   process.on('uncaughtException', (err) => {
 
     if (err.code === 'EPIPE') return // Ignore EPIPE errors. These often occur when using console.log during a plugins's quit() method, but only if Ctrl+C is pressed
@@ -179,9 +192,6 @@ runVerification().then((isValid) => {
   const platform = process.platform === 'win32' ? 'windows' : (process.platform === 'darwin' ? 'mac' : 'linux')
   const isWindows = platform === 'windows'
   const isLinux = platform === 'linux'
-
-  // Get the Commoners configuration file
-  const configPath = join(viteAssetsPath, 'commoners.config.cjs') // Load the .cjs config version
 
   // --------------- App Window Management ---------------
   function restoreWindow() {
@@ -201,10 +211,6 @@ runVerification().then((isValid) => {
   }
 
   makeSingleInstance();
-
-  const _config = require(configPath) // Requires putting the dist at the Resource Path
-  const config = _config.default || _config
-
 
   // Copy the plugins in case they aren't extensible
   const PLUGINS = Object.entries(config.plugins ?? {}).reduce((acc, [ key, value ]) => {
@@ -312,10 +318,6 @@ runVerification().then((isValid) => {
 
     const platformDependentWindowConfig = (isLinux && linuxIcon) ? { icon: linuxIcon } : {}
 
-    const electronOptions = config.electron ?? {}
-    const protocolOptions = electronOptions.protocol ? ( typeof electronOptions.protocol === 'string' ? { scheme: electronOptions.protocol } : electronOptions.protocol ) : {}
-    const windowOptions = electronOptions.window ?? {}
-    const applyDefaultSecuritySettings = electronOptions.secure !== false // Default to true if not explicitly set to false
     // if (applyDefaultSecuritySettings) app.enableSandbox() // Enable sandboxing if not explicitly disabled
 
     // Aggregate window options on plugins
