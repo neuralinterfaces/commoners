@@ -1,5 +1,6 @@
 // Built-In Modules
 import { basename, extname, join } from "node:path";
+import { createRequire } from "node:module";
 
 // Internal Imports
 import { build, buildServices, configureForDesktop, createServices, resolveConfig } from './index.js'
@@ -46,7 +47,8 @@ const runDevelopmentPlugins = async (
         return acc
     }, {}) as Record<string, Plugin>
     
-    const { Server } = await import('ws') // Import WebSocket server dynamically to avoid bundling issues
+    const require = createRequire(import.meta.url) // Create a require function for dynamic imports
+    const { Server } = require('ws') // Import WebSocket server dynamically to avoid bundling issues
 
     const wss = new Server({ port: env[wsPortEnvVar] })
     onCleanup(() => wss.close()) // Close the WebSocket server on exit
