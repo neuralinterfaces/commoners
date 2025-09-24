@@ -45,8 +45,9 @@ const runDevelopmentPlugins = async (
         acc[name] = { ...plugin }
         return acc
     }, {}) as Record<string, Plugin>
+    
+    const { Server } = await import('ws') // Import WebSocket server dynamically to avoid bundling issues
 
-    const { Server } = require("ws") // Ensure node version is imported
     const wss = new Server({ port: env[wsPortEnvVar] })
     onCleanup(() => wss.close()) // Close the WebSocket server on exit
     wss.on('connection', ws => {
