@@ -7,6 +7,4 @@ onlyBuiltDependencies:
   - '@commoners/testing'
   - electron
   - esbuild
-  - ffi-napi
-  - ref-napi
   - sharp
