@@ -1,23 +1,66 @@
 const callbacks = []
 export const onCleanup = callback => callbacks.push(callback)
 
-export const cleanup = async (code = 0) => {
-  for (const cb of callbacks) {
-    if (!cb.called) {
+const willBeAsync = () => callbacks.some(cb => cb.constructor.name === 'AsyncFunction')
+
+const __runCleanupCallback = (cb, code) => {
+   if (!cb.called) {
       cb.called = true // Prevent double-calling
-      await cb(code)
+      try { return cb(code) } 
+      catch (error) { console.error(`Cleanup Error: ${error.message}`) }
     }
-  }
 }
 
-export const exit = async code => {
-  try {
-    await cleanup(code)
-  } catch (e) {
-    console.error(e)
+export const cleanup = (code = 0) => {
+
+  if (willBeAsync()) {
+    return new Promise(async resolve => {
+      for (const cb of callbacks) await __runCleanupCallback(cb, code)
+      resolve(true)
+    })
   }
-  if (!globalThis.process.env.__COMMONERS_TESTING) process.exit(code === 'SIGINT' ? 0 : code) // Do not force exit if testing
+
+  for (const cb of callbacks) __runCleanupCallback(cb, code)
+}
+
+const originalExit = process.exit.bind(process)
+const runOriginalExit = (code) => {
+  originalExit(code)
+}
+
+const __exit = (code, force = true) => {
+  const isAsync = willBeAsync()
+  const willExit = force || !globalThis.process.env.__COMMONERS_TESTING
+  const normalized = typeof code === 'number' ? code : (code === 'SIGINT' ? 0 : 1);
+
+  if (isAsync) {
+    return cleanup(code)
+    .catch(error => console.error(`Async Cleanup Error: ${error.message}`))
+    .finally(() => {
+      if (willExit) runOriginalExit(normalized) // Do not force exit on SIGINT
+    })
+  }
+  
+  try {
+    cleanup(code)
+  } catch (error) {
+    console.error(`Sync Cleanup Error: ${error.message}`)
+  }
+
+  if (willExit) runOriginalExit(normalized) // Exit with original code
+}
+
+let __EXITING = {
+  called: false,
+  output: null
+}
+
+export const exit = (code, force = true) => {
+  if (__EXITING.called) return __EXITING.output
+  __EXITING.called = true
+  return __EXITING.output = __exit(code, force)
 }
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
-exitEvents.forEach(event => process.on(event, exit))
+exitEvents.forEach(event => process.on(event, (code) => exit(code, false))) // Register exit events, do not force exit though
+process.exit = exit

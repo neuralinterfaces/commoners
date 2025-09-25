@@ -227,7 +227,12 @@ cli
     const resolvedConfig = await resolveConfig(reconcile(config, overrides))
     const { name, target: resolvedTarget } = resolvedConfig
     ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
-    await start(resolvedConfig)
+    try {
+      await start(resolvedConfig)
+    } catch (error) {
+      ui.error('Failed to start application', error)
+      process.exit(1)
+    }
   })
 
 cli.help()
