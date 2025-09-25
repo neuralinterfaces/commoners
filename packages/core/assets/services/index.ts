@@ -1,19 +1,19 @@
-import { isAbsolute, extname, join, resolve, sep } from "node:path"
-import { getFreePorts } from './network.js';
+import { isAbsolute, extname, join, resolve, sep } from 'node:path'
+import { getFreePorts } from './network.js'
 
-import { spawn, fork } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { ResolvedService, ActiveServices, ActiveService } from "../../types.js";
+import { spawn, fork } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { ResolvedService, ActiveServices, ActiveService } from '../../types.js'
 
 import { loadEnvironmentVariables } from './env/index.js'
 
 import { getLocalIP } from './ip.js'
 
 type ServiceOptions = {
-  root: string,
-  target?: string, // For desktop check
-  services?: any, // Truthy
-  build?: boolean  // Default: true
+  root: string
+  target?: string // For desktop check
+  services?: any // Truthy
+  build?: boolean // Default: true
 }
 
 const chalk = import('chalk').then(m => m.default)
@@ -24,28 +24,24 @@ const globalWorkspacePath = '.commoners'
 const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
 const globalTempServiceWorkspacePath = join(globalWorkspacePath, '.temp.services')
 
-const jsExtensions = [ '.js', '.cjs', '.mjs' ]
+const jsExtensions = ['.js', '.cjs', '.mjs']
 
 // Ensure marked for Node.js usage
 const precompileExtensions = {
   node: [{ from: '.ts', to: '.cjs' }],
-  cpp: [{ from: '.cpp', to: '.exe' }]
+  cpp: [{ from: '.cpp', to: '.exe' }],
 }
 
 const autobuildExtensions = {
   node: [...jsExtensions, ...precompileExtensions.node.map(({ from }) => from)],
 }
 
-const LOCAL_HOSTS = [
-  'localhost',
-  '127.0.0.1',
-  '0.0.0.0'
-] 
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
-const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root,path))
+const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root, path))
 
-const isDesktop = (target) => target === 'desktop' || target === 'electron'
-const isMobile = (target) => target === 'mobile' || target === 'ios' || target === 'android'
+const isDesktop = target => target === 'desktop' || target === 'electron'
+const isMobile = target => target === 'mobile' || target === 'ios' || target === 'android'
 
 const printServiceMessage = async (id, message, type = 'log') => {
   const _chalk = await chalk
@@ -55,48 +51,36 @@ const printServiceMessage = async (id, message, type = 'log') => {
 // ------------------------------------ COPIED ---------------------------------------
 
 // NOTE: From core/utils/url.js to remove the need to copy this asset...
-export const isValidURL = (s) => {
-
+export const isValidURL = s => {
   if (existsSync(s)) return false
 
   try {
-    new URL(s);
-    return true;
+    new URL(s)
+    return true
   } catch (err) {
-    return false;
+    return false
   }
-};
-
+}
 
 // ------------------------------------------------------------------------------------
 let processes = {}
 
-export const resolveServiceConfiguration = (config) => {
+export const resolveServiceConfiguration = config => {
   if (typeof config === 'string') return isValidURL(config) ? { url: config } : { src: config }
   return config
 }
 
 const publishKeys = {
   local: 'local',
-  remote: 'remote'
+  remote: 'remote',
 }
 
-export function resolveServiceBuildInfo(
-  service, 
-  name, 
-  opts: ServiceOptions
-) {
-
+export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
   // MOVED HERE
-  const { 
-    root, 
-    target, 
-    services, 
-    build: isBuildProcess = true 
-  } = opts
+  const { root, target, services, build: isBuildProcess = true } = opts
 
   const isServicesOnlyBuild = !!services
-  const isDesktopTarget =  isDesktop(target)
+  const isDesktopTarget = isDesktop(target)
   const isLocalMode = !!(isDesktopTarget || isServicesOnlyBuild)
 
   if (service.__src) return service // Pre-resolved service
@@ -106,10 +90,15 @@ export function resolveServiceBuildInfo(
   const resolved = resolveServiceConfiguration(service)
   const { src: originalSource, ...resolvedWithoutSource } = resolved // Use OG source
 
-  const hasModeSpecificConfig = resolved.publish && typeof resolved.publish === "object" && Object.values(publishKeys).find(key => key in resolved.publish)
+  const hasModeSpecificConfig =
+    resolved.publish &&
+    typeof resolved.publish === 'object' &&
+    Object.values(publishKeys).find(key => key in resolved.publish)
 
   const basePublish = resolveServiceConfiguration(resolved.publish)
-  const modePublish = resolveServiceConfiguration((hasModeSpecificConfig && ( resolved.publish[publishMode] )))
+  const modePublish = resolveServiceConfiguration(
+    hasModeSpecificConfig && resolved.publish[publishMode]
+  )
 
   const { local, remote, ...publishConfig } = basePublish || {}
 
@@ -117,26 +106,33 @@ export function resolveServiceBuildInfo(
 
   // Reject services that are not published
   if (isBuildProcess && blockBuild && !isServicesOnlyBuild) return // Do not block if only a service
-  
+
   const resolvedPublishConfig = { ...publishConfig }
-  Object.assign(resolvedPublishConfig, modePublish) // Overwrite generic features with mode-specific config  
+  Object.assign(resolvedPublishConfig, modePublish) // Overwrite generic features with mode-specific config
 
   if (isBuildProcess) Object.assign(resolvedWithoutSource, resolvedPublishConfig) // Merge publish info with general info
 
   const { build } = resolvedWithoutSource
 
-  const autoBuild = !build && originalSource && autobuildExtensions.node.includes(extname(originalSource))  
-  const toCompile = originalSource && Object.values(precompileExtensions).flat().find(({ from }) => originalSource.endsWith(from))
-  
+  const autoBuild =
+    !build && originalSource && autobuildExtensions.node.includes(extname(originalSource))
+  const toCompile =
+    originalSource &&
+    Object.values(precompileExtensions)
+      .flat()
+      .find(({ from }) => originalSource.endsWith(from))
+
   const requiresBuild = autoBuild || toCompile || build
-  
+
   // Assign source and base items to determine filepath
   if (requiresBuild) {
-
     const buildingProductionVersion = isBuildProcess || build
 
-    // In development mode, compile source files in a temporary directory  
-    const outLocation = join(buildingProductionVersion? globalServiceWorkspacePath : globalTempServiceWorkspacePath, name)
+    // In development mode, compile source files in a temporary directory
+    const outLocation = join(
+      buildingProductionVersion ? globalServiceWorkspacePath : globalTempServiceWorkspacePath,
+      name
+    )
 
     const __compile = toCompile || build
 
@@ -146,13 +142,19 @@ export function resolveServiceBuildInfo(
 
     Object.assign(resolvedWithoutSource, {
       base: isConfigured ? publishBase : outLocation,
-      src: publishSrc ?? ( autoBuild ? (isBuildProcess ? name : `${name}.cjs` ) : ( toCompile ? `compiled${toCompile.to}` : name )), // Use default output name
+      src:
+        publishSrc ??
+        (autoBuild
+          ? isBuildProcess
+            ? name
+            : `${name}.cjs`
+          : toCompile
+            ? `compiled${toCompile.to}`
+            : name), // Use default output name
       __autobuild: autoBuild,
-      __compile
+      __compile,
     })
-
   }
-
 
   // Adjust filepath to the user-specified output location
   if (requiresBuild) {
@@ -162,14 +164,15 @@ export function resolveServiceBuildInfo(
 
   // Remove or add extensions based on platform
   if (resolvedWithoutSource.filepath) {
-    const fileExtension =  extname(resolvedWithoutSource.filepath)
-    if (WINDOWS && !fileExtension) resolvedWithoutSource.filepath += '.exe' // Add .exe (Win)
-    else if (!WINDOWS && fileExtension === '.exe') resolvedWithoutSource.filepath = resolvedWithoutSource.filepath.slice(0, -4) // Remove .exe (Unix)
+    const fileExtension = extname(resolvedWithoutSource.filepath)
+    if (WINDOWS && !fileExtension)
+      resolvedWithoutSource.filepath += '.exe' // Add .exe (Win)
+    else if (!WINDOWS && fileExtension === '.exe')
+      resolvedWithoutSource.filepath = resolvedWithoutSource.filepath.slice(0, -4) // Remove .exe (Unix)
   }
 
   // For non-service builds, skip builds for non-URLS or if not local mode
   if (!isServicesOnlyBuild) {
-
     const { url } = resolvedWithoutSource
 
     // Ensure remote URLs are treated as such
@@ -181,33 +184,43 @@ export function resolveServiceBuildInfo(
       const { url } = resolvedWithoutSource
       if (!url) return // Reject services that do not have a URL
       return { url }
-    }  
+    }
   }
 
+  const {
+    src,
+    url,
+    base,
+    filepath,
+    public: isPublic,
+    port,
+    __autobuild,
+    __compile,
+  } = resolvedWithoutSource
 
-
-  const { src, url, base, filepath, public: isPublic, port, __autobuild, __compile } = resolvedWithoutSource
-  
   // Resolve filepath
   const fullFile = filepath && resolvePath(root, filepath)
   const willBeBuilt = isBuildProcess || __compile || __autobuild
-  const file = fullFile && willBeBuilt ? (isDesktopTarget ? fullFile.replace(`app.asar${sep}`, '') : fullFile) : null // Reference correctly from build Electron application
-  
+  const file =
+    fullFile && willBeBuilt
+      ? isDesktopTarget
+        ? fullFile.replace(`app.asar${sep}`, '')
+        : fullFile
+      : null // Reference correctly from build Electron application
+
   return {
-    
     src,
     url,
     build,
     base: base && resolvePath(root, base),
     filepath: file,
 
-    public: isPublic, 
+    public: isPublic,
     port,
 
     __autobuild,
-    __compile
+    __compile,
   }
-
 }
 
 function getLocalUrl(url) {
@@ -216,7 +229,6 @@ function getLocalUrl(url) {
 }
 
 async function getServiceUrl(service) {
-
   const resolved = resolveServiceConfiguration(service)
   const { url, port, src } = resolved
 
@@ -234,9 +246,8 @@ async function getServiceUrl(service) {
   return url
 }
 
-  export async function resolveService(config, name, opts: ServiceOptions) {
-
-    if (config.__src) return config // Ensures that references are maintained throughout the application
+export async function resolveService(config, name, opts: ServiceOptions) {
+  if (config.__src) return config // Ensures that references are maintained throughout the application
 
   const { root, target } = opts
 
@@ -245,33 +256,27 @@ async function getServiceUrl(service) {
 
   const { src, monitor } = resolved
 
-
   // Resolve service publish info
-  const resolvedForBuild = resolveServiceBuildInfo(
-    resolved, 
-    name, 
-    opts
-  )
+  const resolvedForBuild = resolveServiceBuildInfo(resolved, name, opts)
 
   if (!resolvedForBuild) return // Reject flagged service
-  
+
   // Return URL only
   const keys = Object.keys(resolvedForBuild)
   const onlyURL = keys.length === 1 && keys[0] === 'url'
   if (onlyURL) return resolvedForBuild
 
   // Return buildable service
-  const { 
-    port, 
-    filepath, 
-    base, 
-    build, 
+  const {
+    port,
+    filepath,
+    base,
+    build,
     url,
     __src = src && resolve(root, src),
-    __compile, 
+    __compile,
     __autobuild,
   } = resolvedForBuild
-
 
   resolvedForBuild.url = await getServiceUrl({ src, url, port })
 
@@ -282,33 +287,32 @@ async function getServiceUrl(service) {
     resolvedForBuild.public = true // All services are public in mobile mode
     const url = new URL(resolvedForBuild.url)
     url.hostname = host
-    resolvedForBuild.url = url.toString()  // Transform localhost references to public IP
+    resolvedForBuild.url = url.toString() // Transform localhost references to public IP
   }
 
   return {
-
     // For Build Configuration
-    filepath: filepath || __src, base, build, // Build Info
-    __src,  __compile, __autobuild, // Flags
+    filepath: filepath || __src,
+    base,
+    build, // Build Info
+    __src,
+    __compile,
+    __autobuild, // Flags
 
     // For Client
     url: resolvedForBuild.url,
-    public: !!resolvedForBuild.public, 
-    
+    public: !!resolvedForBuild.public,
+
     status: null,
 
-    monitor
-
+    monitor,
   }
-
 }
 
-
-const isExecutable = (ext) => ext === '.exe' || !ext
+const isExecutable = ext => ext === '.exe' || !ext
 
 // Create and monitor arbitary processes
 export async function start(config, id, opts) {
-
   const label = id ?? 'commoners-service'
 
   config = await resolveService(config, id, opts)
@@ -320,10 +324,10 @@ export async function start(config, id, opts) {
   if (!filepath) return
 
   if (filepath) {
-    let childProcess;
+    let childProcess
     const ext = extname(filepath)
 
-    let error;
+    let error
 
     const resolvedURL = new URL(config.url)
 
@@ -331,7 +335,6 @@ export async function start(config, id, opts) {
     resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
 
     try {
-
       const _cwd = process.cwd()
       const { build, root = _cwd } = opts
       const cwd = build ? _cwd : root
@@ -340,85 +343,91 @@ export async function start(config, id, opts) {
       const userEnv = loadEnvironmentVariables(mode, root)
 
       // Share environment variables with the child process
-      const env = { 
+      const env = {
         ...userEnv,
-        ...process.env, 
-        PORT: resolvedURL.port, 
-        HOST: resolvedURL.hostname 
+        ...process.env,
+        PORT: resolvedURL.port,
+        HOST: resolvedURL.hostname,
       }
 
-      const resolvedFilepath = resolve((isExecutable(ext) && !ext && existsSync(filepath + '.exe')) ? filepath + '.exe' : filepath)
+      const resolvedFilepath = resolve(
+        isExecutable(ext) && !ext && existsSync(filepath + '.exe') ? filepath + '.exe' : filepath
+      )
 
-      if (!existsSync(resolvedFilepath)) return await printServiceMessage(label, `File does not exist at ${resolvedFilepath}`, 'warn')
+      if (!existsSync(resolvedFilepath))
+        return await printServiceMessage(
+          label,
+          `File does not exist at ${resolvedFilepath}`,
+          'warn'
+        )
 
       const resolvedProcessOptions = {
         cwd,
         env,
-        stdio: ['pipe', 'pipe', 'pipe', 'ipc'], // Added 'ipc' for fork() communication
+        stdio: ['pipe', 'pipe', 'pipe', 'ipc'] as ('pipe' | 'ipc')[], // Added 'ipc' for fork() communication
         shell: false,
         windowsHide: true,
-        detached: false
+        detached: false,
       }
 
-
       // Node Support
-      if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [], { ...resolvedProcessOptions, silent: true })
-
+      if (jsExtensions.includes(ext))
+        childProcess = fork(resolvedFilepath, [], { ...resolvedProcessOptions, silent: true })
       // Python Support
-      else if (ext === '.py') childProcess = spawn("python", [resolvedFilepath], resolvedProcessOptions)
-
+      else if (ext === '.py')
+        childProcess = spawn('python', [resolvedFilepath], resolvedProcessOptions)
       // Executable Support
       else if (isExecutable(ext)) childProcess = spawn(resolvedFilepath, [], resolvedProcessOptions)
-
     } catch (e) {
       error = e
     }
 
     if (childProcess) {
-
       const _chalk = await chalk
       printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
 
-      if (childProcess.stdout && monitor.stdout !== false) childProcess.stdout.on('data', (data) => {
-        config.status = true
-        if (opts.onLog) opts.onLog(id, data)
-        printServiceMessage(label, data)
-      });
+      if (childProcess.stdout && monitor.stdout !== false)
+        childProcess.stdout.on('data', data => {
+          config.status = true
+          if (opts.onLog) opts.onLog(id, data)
+          printServiceMessage(label, data)
+        })
 
-      if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', (data) => printServiceMessage(label, data, 'error'));
+      if (childProcess.stderr && monitor.stderr !== false)
+        childProcess.stderr.on('data', data => printServiceMessage(label, data, 'error'))
 
       // Notify of process closure gracefully
-      childProcess.on('close', (code) => {
+      childProcess.on('close', code => {
         config.status = false
         if (opts.onClosed) opts.onClosed(id, code)
         delete processes[id]
         if (code !== null) printServiceMessage(label, `Exited with code ${code}`, 'error')
-      });
+      })
 
-      // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`))); 
+      // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`)));
 
       processes[id] = childProcess
 
       return { ...config, process: childProcess } as ActiveService
-
     } else {
-      await printServiceMessage(label, `Failed to create service from ${filepath}: ${error}`, 'warn')
+      await printServiceMessage(
+        label,
+        `Failed to create service from ${filepath}: ${error}`,
+        'warn'
+      )
     }
-
   }
 }
 
-const killProcess = (p) => {
+const killProcess = p => {
   try {
     return p.kill()
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e)
   }
 }
 
-export function close( id?: string ) {
-
+export function close(id?: string) {
   // Kill Specific Process
   if (id) {
     if (processes[id]) {
@@ -439,65 +448,62 @@ export function close( id?: string ) {
 export const sanitize = (
   services: Record<string, ResolvedService> // NOTE: May not have URL...
 ) => {
-
   return Object.entries(services)
 
-  .filter(([_, { url }]) => url)
-  
-  .reduce((acc, [id, info]) => {
-    const { url } = info
-    acc[id] = { url }
+    .filter(([_, { url }]) => url)
 
-    return acc
-  }, {})
+    .reduce((acc, [id, info]) => {
+      const { url } = info
+      acc[id] = { url }
+
+      return acc
+    }, {})
 }
 
 export async function resolveAll(servicesToResolve = {}, opts) {
-
   const serviceInfo = {}
 
   const allServices = Object.keys(servicesToResolve)
   const { services } = opts
 
-  let selectedServices;
+  let selectedServices
 
   const typeOf = typeof services
-  if (typeOf === 'string') selectedServices = [ services ]
+  if (typeOf === 'string') selectedServices = [services]
   else if (typeOf === 'boolean') {
     if (services) selectedServices = allServices
     else selectedServices = []
-  } 
-  
-  else selectedServices = services || allServices
+  } else selectedServices = services || allServices
 
-
-  await Promise.all(selectedServices.map(async (name) => {
-    if (!selectedServices.includes(name)) return
-    const config = servicesToResolve[name]
-    const service = await resolveService(config, name, opts)
-    if (!service) return
-    serviceInfo[name] = service
-  })) // Run sidecars automatically based on the configuration file
+  await Promise.all(
+    selectedServices.map(async name => {
+      if (!selectedServices.includes(name)) return
+      const config = servicesToResolve[name]
+      const service = await resolveService(config, name, opts)
+      if (!service) return
+      serviceInfo[name] = service
+    })
+  ) // Run sidecars automatically based on the configuration file
 
   return serviceInfo as Record<string, ResolvedService>
 }
 
-
 export async function createAll(services = {}, opts) {
-
   const resolved = await resolveAll(services, opts)
 
   // Run sidecars automatically based on the configuration file
   const activeServices: ActiveServices = {}
-  await Promise.all(Object.entries(resolved).map(async ([ id, config ]) => {
-    const active = await start(config, id, opts)
-    if (!active) return
-    activeServices[id] = active
-  }))
+  await Promise.all(
+    Object.entries(resolved).map(async ([id, config]) => {
+      const active = await start(config, id, opts)
+      if (!active) return
+      activeServices[id] = active
+    })
+  )
 
   return {
     active: activeServices,
     resolved,
-    close
+    close,
   }
 }

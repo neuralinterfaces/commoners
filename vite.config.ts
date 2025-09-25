@@ -1,21 +1,19 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  server: { 
-    watch: { 
-      ignored: [
-        "**/package.json"
-      ] 
-    } 
+  server: {
+    watch: {
+      ignored: ['**/package.json'],
+    },
   },
   test: {
     hookTimeout: 2 * 1000 * 60, // Allow 2min for each test
     coverage: {
       exclude: [
-        '**/docs/**', 
-        '**/node_modules/**', 
-        '**/dist/**', 
-        '**/coverage/**', 
+        '**/docs/**',
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/coverage/**',
         '**/vite.config.ts',
         '**/.commoners/**',
 
@@ -24,6 +22,6 @@ export default defineConfig({
         'packages/plugins/**',
         'packages/testing/**',
       ],
-    }
+    },
   },
 })

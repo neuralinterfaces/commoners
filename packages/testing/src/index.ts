@@ -1,4 +1,3 @@
-
 import {
   loadConfigFromFile,
   start as CommonersStart,
@@ -9,7 +8,7 @@ import {
   UserConfig,
   BuildHooks,
   cleanup,
-  merge
+  merge,
 } from '@commoners/solidarity'
 // } from '../core/index'
 
@@ -20,21 +19,16 @@ import { join } from 'node:path'
 import { chromium, Page, Browser } from 'playwright'
 import { ServiceBuildOptions } from '../../core/types.js'
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 type Output = {
   cleanup: Function
 }
 
-const onTestFunction = () => process.env["__COMMONERS_TESTING"] = 'true' // Set the testing environment variable
+const onTestFunction = () => (process.env['__COMMONERS_TESTING'] = 'true') // Set the testing environment variable
 
 // NOTE: You'll likely have to wait longer for Electron to build
-export const build = async (
-  root, 
-  overrides: Partial<UserConfig> = {},
-  hooks: BuildHooks = {}
-) => {
-
+export const build = async (root, overrides: Partial<UserConfig> = {}, hooks: BuildHooks = {}) => {
   onTestFunction()
 
   const config = await loadConfigFromFile(root)
@@ -46,7 +40,7 @@ export const build = async (
     outDir,
     join(root, globalWorkspacePath), // All default commoners outputs, including services and temporary files
   ]
-  
+
   await CommonersBuild(updatedConfig, hooks)
 
   return {
@@ -54,15 +48,11 @@ export const build = async (
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
       toRemove.forEach(path => removeDirectory(path))
       await cleanup() // Cleanup after the build process
-    }
+    },
   }
 }
 
-export const buildServices = async (
-  root, 
-  options: ServiceBuildOptions = {}
-) => {
-
+export const buildServices = async (root, options: ServiceBuildOptions = {}) => {
   onTestFunction()
 
   const config = await loadConfigFromFile(root)
@@ -73,7 +63,7 @@ export const buildServices = async (
     outDir,
     join(root, globalWorkspacePath), // All default commoners outputs, including services and temporary files
   ]
-  
+
   await CommonersBuildServices(config, options)
 
   return {
@@ -81,25 +71,22 @@ export const buildServices = async (
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
       toRemove.forEach(path => removeDirectory(path))
       await cleanup() // Cleanup after the build process
-    }
+    },
   }
 }
 
 type BrowserTestOutput = {
-
-  page: Page,
-  browser: Browser,
-  url: string,
+  page: Page
+  browser: Browser
+  url: string
   server?: any
-
 } & Output
 
 export const open = async (
   root?: string,
-  overrides: Partial<UserConfig> = {}, 
+  overrides: Partial<UserConfig> = {},
   useBuild = false
 ) => {
-
   onTestFunction()
 
   const states: Partial<BrowserTestOutput> = {}
@@ -114,40 +101,45 @@ export const open = async (
 
   // Launch build of the project
   if (useBuild) {
-    
     const launchResults = await CommonersLaunch({
       root,
       target,
       outDir,
-      port
+      port,
     })
 
     Object.assign(states, launchResults)
   }
-
 
   // Start development server for the project
   else {
     const { url, close: cleanup } = await CommonersStart(updatedConfig)
     Object.assign(states, { url, cleanup })
   }
-  
+
   // Launched Electron Instance
   if (isElectron) {
-    const testingPlugin = Object.values(config.plugins).find(p => p.options && "remoteDebuggingPort" in p.options)
-    if (!testingPlugin) throw Error("Must use the @commoners/testing/plugin to enable remote debugging of the Electron application")
+    const testingPlugin = Object.values(config.plugins).find(
+      p => p.options && 'remoteDebuggingPort' in p.options
+    )
+    if (!testingPlugin)
+      throw Error(
+        'Must use the @commoners/testing/plugin to enable remote debugging of the Electron application'
+      )
 
     await sleep(5 * 1000) // Wait for five seconds for Electron to open (and close splash screen)
-    const browser = states.browser = await chromium.connectOverCDP(`http://localhost:${testingPlugin.options.remoteDebuggingPort}`);
-    const defaultContext = browser.contexts()[0];
-    states.page = defaultContext.pages()[0];
+    const browser = (states.browser = await chromium.connectOverCDP(
+      `http://localhost:${testingPlugin.options.remoteDebuggingPort}`
+    ))
+    const defaultContext = browser.contexts()[0]
+    states.page = defaultContext.pages()[0]
   }
 
   // Non-Electron Instance
   else {
-    const browser = states.browser = await chromium.launch({ headless: true })
-    const page = states.page = await browser.newPage();  
-    await page.goto(states.url);
+    const browser = (states.browser = await chromium.launch({ headless: true }))
+    const page = (states.page = await browser.newPage())
+    await page.goto(states.url)
   }
 
   return {
@@ -155,8 +147,7 @@ export const open = async (
 
     // Override cleanup function
     cleanup: async () => {
-
-        // Fully close the Electron instance
+      // Fully close the Electron instance
       if (isElectron) {
         await states.page.evaluate(() => {
           const { commoners } = globalThis
@@ -172,8 +163,6 @@ export const open = async (
 
       // Close active servers
       if (states.server) states.server.close()
-    }
-
+    },
   } as BrowserTestOutput
-
 }

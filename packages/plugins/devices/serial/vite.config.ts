@@ -6,7 +6,7 @@ export default defineConfig({
       entry: 'index',
       name: 'serial',
       formats: ['es', 'cjs'],
-      fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`
+      fileName: format => `index.${format === 'es' ? 'mjs' : 'cjs'}`,
     },
-  }
+  },
 })

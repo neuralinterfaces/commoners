@@ -1,7 +1,7 @@
 type ModalProps = {
-  headerText: string,
-  mapDeviceToInfo: Function,
-  onClose: Function,
+  headerText: string
+  mapDeviceToInfo: Function
+  onClose: Function
   added?: Function
   removed?: Function
 }
@@ -9,10 +9,8 @@ type ModalProps = {
 const name = 'commoners-device-modal'
 
 export default (props: ModalProps) => {
-
   if (!customElements.get(name)) {
-
-    const template = document.createElement('template');
+    const template = document.createElement('template')
 
     template.innerHTML = `
       <style>
@@ -114,16 +112,14 @@ export default (props: ModalProps) => {
           </footer>
         </section>
       </dialog>
-    `;
-
+    `
 
     class CommonersDeviceModal extends HTMLElement {
-
       headerText: ModalProps['headerText'] = 'Available Devices'
-      mapDeviceToInfo: ModalProps['mapDeviceToInfo'] 
-      onClose: ModalProps['onClose'] 
-      added: ModalProps['added'] 
-      removed: ModalProps['removed'] 
+      mapDeviceToInfo: ModalProps['mapDeviceToInfo']
+      onClose: ModalProps['onClose']
+      added: ModalProps['added']
+      removed: ModalProps['removed']
 
       constructor(props) {
         super()
@@ -139,53 +135,53 @@ export default (props: ModalProps) => {
       }
 
       connectedCallback() {
+        this.attachShadow({ mode: 'open' })
 
-        this.attachShadow({mode: 'open'});
-
-        this.shadowRoot.appendChild(template.content.cloneNode(true));
+        this.shadowRoot.appendChild(template.content.cloneNode(true))
 
         const dialog = this.getDialog()
-        dialog.addEventListener('click', () => dialog.close());
+        dialog.addEventListener('click', () => dialog.close())
 
         const container = this.shadowRoot.querySelector('section') as HTMLElement
-        container.addEventListener('click', (event) => event.stopPropagation());
-      
+        container.addEventListener('click', event => event.stopPropagation())
+
         const title = this.shadowRoot.querySelector('h3') as HTMLElement
         title.innerText = this.headerText
-      
+
         const ul = this.shadowRoot.querySelector('ul') as HTMLUListElement
 
         const cancelButton = this.shadowRoot.getElementById('cancel') as HTMLButtonElement
-        cancelButton.addEventListener('click', () => dialog.close());
-      
+        cancelButton.addEventListener('click', () => dialog.close())
+
         const pairButton = this.shadowRoot.getElementById('pair') as HTMLButtonElement
         pairButton.addEventListener('click', () => dialog.close(this.selectedDevice))
-      
+
         dialog.addEventListener('close', () => {
           this.onClose(dialog.returnValue ?? '')
         })
-      
+
         // Wath for when the dialog opens
-        let observer = new MutationObserver((ev) => {
+        let observer = new MutationObserver(ev => {
           if (ev[0].attributeName == 'open') {
             ul.innerText = ''
             this.selectedDevice = ''
             pairButton.setAttribute('disabled', '')
             this.renderList(this.devices)
           }
-        });
-      
+        })
+
         observer.observe(dialog, { attributes: true })
 
         const { added, removed } = this
-      
-        if (added) added((device) => ul.append(this.createListItem(this.mapDeviceToInfo(device))))
-      
-        if (removed) removed((device) => {
-          const info = this.mapDeviceToInfo(device)
-          const el = dialog.querySelector(`[data-id="${info.id}"]`) as HTMLLIElement
-          el.remove()
-        })
+
+        if (added) added(device => ul.append(this.createListItem(this.mapDeviceToInfo(device))))
+
+        if (removed)
+          removed(device => {
+            const info = this.mapDeviceToInfo(device)
+            const el = dialog.querySelector(`[data-id="${info.id}"]`) as HTMLLIElement
+            el.remove()
+          })
       }
 
       createListItem = ({ name, info, id }) => {
@@ -197,7 +193,7 @@ export default (props: ModalProps) => {
         return li
       }
 
-      onItemClicked = (id) => {
+      onItemClicked = id => {
         const pairButton = this.shadowRoot.getElementById('pair') as HTMLButtonElement
         pairButton.removeAttribute('disabled')
         this.selectedDevice = id
@@ -207,9 +203,9 @@ export default (props: ModalProps) => {
           if (item.getAttribute('data-id') === id) item.setAttribute('selected', '')
           else item.removeAttribute('selected')
         })
-      } 
+      }
 
-      renderList = (devices) => {
+      renderList = devices => {
         const dialog = this.getDialog()
         const ul = this.shadowRoot?.querySelector('ul') as HTMLUListElement
         const mapped = devices.map(this.mapDeviceToInfo)
@@ -220,19 +216,17 @@ export default (props: ModalProps) => {
       showModal = () => this.getDialog().showModal()
 
       close = () => this.getDialog().close()
-      
-      update = (update) => {
-        this.renderList(this.devices = update)
+
+      update = update => {
+        this.renderList((this.devices = update))
       }
-      
     }
 
-    window.customElements.define(name, CommonersDeviceModal);
+    window.customElements.define(name, CommonersDeviceModal)
   }
-    
+
   const modal = document.createElement(name)
   Object.assign(modal, props)
-  
-  return modal
 
+  return modal
 }

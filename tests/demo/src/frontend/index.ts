@@ -9,4 +9,4 @@ icon.src = ICON
 const mode = document.getElementById('commoners-mode') as HTMLElement
 mode.textContent = DEV ? 'Development' : PROD ? 'Production' : 'Unknown'
 
-console.log("Vite ENV", import.meta.env)
+console.log('Vite ENV', import.meta.env)

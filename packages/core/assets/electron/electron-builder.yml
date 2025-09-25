@@ -16,7 +16,7 @@ win:
 mac:
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED
   hardenedRuntime: true # Ensures hardened runtime is enabled for macOS builds
-  gatekeeperAssess: false  # Ensures code signing does not block builds
+  gatekeeperAssess: false # Ensures code signing does not block builds
 
 linux:
   target:

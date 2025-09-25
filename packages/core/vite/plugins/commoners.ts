@@ -1,162 +1,153 @@
-
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 
-import { getIcon } from "../../assets/utils/icons.js"
+import { getIcon } from '../../assets/utils/icons.js'
 
 import { getSpecificTarget, isDesktop, isMobile, vite } from '../../globals.js'
 
 import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
-import { sanitize } from "../../assets/services/index.js"
+import { sanitize } from '../../assets/services/index.js'
 import { getLocalIP } from '../../assets/services/ip.js'
 
 const virtualModuleId = 'commoners:env'
 
-const ENV_VAR_NAMES = [ 
-    'NAME', 
-    'VERSION', 
-    'ICON', 
-    'SERVICES', 
+const ENV_VAR_NAMES = [
+  'NAME',
+  'VERSION',
+  'ICON',
+  'SERVICES',
 
-    'READY', 
-    'PLUGINS', 
+  'READY',
+  'PLUGINS',
 
-    'DESKTOP',
-    'MOBILE',
-    'WEB', 
+  'DESKTOP',
+  'MOBILE',
+  'WEB',
 
-    'DEV',
-    'PROD',
+  'DEV',
+  'PROD',
 ]
 
-
 const TAGS = {
-    head: {
-        start: '<head>',
-        end: '</head>'
-    }
+  head: {
+    start: '<head>',
+    end: '</head>',
+  },
 }
 
 type CommonersPluginOptions = {
-    config: ResolvedConfig
-    build: boolean,
-    dev: boolean,
-    env: Record<string, string>
+  config: ResolvedConfig
+  build: boolean
+  dev: boolean
+  env: Record<string, string>
 }
 
-export default async ({ 
-    config, 
-    build, 
-    dev,
-    env
-}: CommonersPluginOptions) => {
-    const { mergeConfig } = await vite
+export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
+  const { mergeConfig } = await vite
 
-    const { outDir, target, pages } = config
+  const { outDir, target, pages } = config
 
-    // Variables only resolved once for the main configuration
-    const actualOutDir = outDir
-    const desktop = isDesktop(target)
-    const mobile = isMobile(target)
-    
-    const resolvedVirtualModuleId = '\0' + virtualModuleId
+  // Variables only resolved once for the main configuration
+  const actualOutDir = outDir
+  const desktop = isDesktop(target)
+  const mobile = isMobile(target)
 
-    
-    return {
-        name: 'commoners',
-        resolveId(id) {
-            if (id === virtualModuleId)  return resolvedVirtualModuleId
-        },
-        load(id) {
-            if (id === resolvedVirtualModuleId) {
-                const lines = [
-                    "const ENV = globalThis.commoners",
-                    ...ENV_VAR_NAMES.map(name => `export const ${name} = ENV.${name}`),
-                    "export default ENV"
-                ]
-                return lines.join("\n")
-            }
-        },
-        
-        transformIndexHtml(html, ctx) {
+  const resolvedVirtualModuleId = '\0' + virtualModuleId
 
-            const { path: htmlPath } = ctx
-            const parent = dirname(htmlPath)
+  return {
+    name: 'commoners',
+    resolveId(id) {
+      if (id === virtualModuleId) return resolvedVirtualModuleId
+    },
+    load(id) {
+      if (id === resolvedVirtualModuleId) {
+        const lines = [
+          'const ENV = globalThis.commoners',
+          ...ENV_VAR_NAMES.map(name => `export const ${name} = ENV.${name}`),
+          'export default ENV',
+        ]
+        return lines.join('\n')
+      }
+    },
 
-            const resolvedConfig = mergeConfig(config)
-            // resolvedConfig.root = parent
+    transformIndexHtml(html, ctx) {
+      const { path: htmlPath } = ctx
+      const parent = dirname(htmlPath)
 
-            // Only use custom outDir if not in development
-            const _assetOutDir = dev ? undefined : resolvedConfig?.outDir
-            const assetOutDir = _assetOutDir ?? actualOutDir
+      const resolvedConfig = mergeConfig(config, {})
+      // resolvedConfig.root = parent
 
-            
-            // Resolve paths per HTML file built
-            const configRoot = resolvedConfig.root
+      // Only use custom outDir if not in development
+      const _assetOutDir = dev ? undefined : resolvedConfig?.outDir
+      const assetOutDir = _assetOutDir ?? actualOutDir
 
-            const root = _assetOutDir ? actualOutDir : configRoot
+      // Resolve paths per HTML file built
+      const configRoot = resolvedConfig.root
 
-            const _relTo = build ? assetOutDir : root
-            const relTo = join(_relTo, parent) // Resolve actual path in the assets
-            const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
-        
-            const services = sanitize(resolvedConfig.services)
-        
-            const rawIconSrc = getIcon(resolvedConfig.icon)
-            const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
-            const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
+      const root = _assetOutDir ? actualOutDir : configRoot
 
-            const pathsRelativeToConfigurationFile = Object.entries(pages).reduce((acc, [ id, path ]) => {
-                const relToCurrentPath = relative(configRoot, path) // Remove configuration path
-                return { [id]: join(_relTo, relToCurrentPath), ...acc }
-            }, {}) as Record<string, string>
-        
-            const globalObject = {
-        
-                NAME: resolvedConfig.name,
-                VERSION: resolvedConfig.version,
-                ICON: iconPath,
-                SERVICES: services,
+      const _relTo = build ? assetOutDir : root
+      const relTo = join(_relTo, parent) // Resolve actual path in the assets
+      const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
 
-                // Provide page paths relative to the current file
-                PAGES: Object.entries(pathsRelativeToConfigurationFile).reduce((acc, [ id, path ]) => {
-                    acc[id] = relative(relTo, path).replaceAll(sep, posix.sep)
-                    return acc
-                }, {}),
-        
-                // Target Shortcuts
-                TARGET: getSpecificTarget(target),
-                DESKTOP: desktop,
-                MOBILE: mobile,
-                WEB: !desktop && !mobile,
-        
-                // Production vs Development
-                DEV: dev ? `ws://${getLocalIP()}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
-                PROD: !dev,
-        
-                // Environment Variables
-                ENV: env,
+      const services = sanitize(resolvedConfig.services)
 
-                ROOT: relative(relTo, root).replaceAll(sep, posix.sep),
-            }
+      const rawIconSrc = getIcon(resolvedConfig.icon)
+      const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
+      const iconPath = resolvedIcon ? getAssetLinkPath(resolvedIcon, assetOutDir, relTo) : null
 
-            
-            const faviconLink = rawIconSrc ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >` : ''
-            
-            // Inject required items into the HTML head
-            const headStart = html.indexOf(TAGS.head.start)
-            const headEnd = html.indexOf(TAGS.head.end)
-            const headContent = headStart && headEnd ? html.slice(headStart + TAGS.head.start.length, headEnd) : ''
-            const beforeHead = headStart ? html.slice(0, headStart) : ''
-            const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
+      const pathsRelativeToConfigurationFile = Object.entries(pages).reduce((acc, [id, path]) => {
+        const relToCurrentPath = relative(configRoot, path) // Remove configuration path
+        return { [id]: join(_relTo, relToCurrentPath), ...acc }
+      }, {}) as Record<string, string>
 
-            const lowPriority = `
+      const globalObject = {
+        NAME: resolvedConfig.name,
+        VERSION: resolvedConfig.version,
+        ICON: iconPath,
+        SERVICES: services,
+
+        // Provide page paths relative to the current file
+        PAGES: Object.entries(pathsRelativeToConfigurationFile).reduce((acc, [id, path]) => {
+          acc[id] = relative(relTo, path).replaceAll(sep, posix.sep)
+          return acc
+        }, {}),
+
+        // Target Shortcuts
+        TARGET: getSpecificTarget(target),
+        DESKTOP: desktop,
+        MOBILE: mobile,
+        WEB: !desktop && !mobile,
+
+        // Production vs Development
+        DEV: dev ? `ws://${getLocalIP()}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
+        PROD: !dev,
+
+        // Environment Variables
+        ENV: env,
+
+        ROOT: relative(relTo, root).replaceAll(sep, posix.sep),
+      }
+
+      const faviconLink = rawIconSrc
+        ? `<link rel="shortcut icon" href="${iconPath}" type="image/${extname(iconPath).slice(1)}" >`
+        : ''
+
+      // Inject required items into the HTML head
+      const headStart = html.indexOf(TAGS.head.start)
+      const headEnd = html.indexOf(TAGS.head.end)
+      const headContent =
+        headStart && headEnd ? html.slice(headStart + TAGS.head.start.length, headEnd) : ''
+      const beforeHead = headStart ? html.slice(0, headStart) : ''
+      const afterHead = headEnd ? html.slice(headEnd + TAGS.head.end.length) : ''
+
+      const lowPriority = `
                 <title>${resolvedConfig.name}</title>
                 ${faviconLink}
             `
 
-            const highPriority = `
+      const highPriority = `
                 <script type="module">
 
                 const { send, on, services, quit, close, args } = globalThis.__commoners ?? {} 
@@ -203,8 +194,7 @@ export default async ({
             </script>\n
             `
 
-            return `${beforeHead}${TAGS.head.start}${highPriority}${headContent}${lowPriority}${TAGS.head.end}${afterHead}`
-            
-        }
-    }
+      return `${beforeHead}${TAGS.head.start}${highPriority}${headContent}${lowPriority}${TAGS.head.end}${afterHead}`
+    },
+  }
 }

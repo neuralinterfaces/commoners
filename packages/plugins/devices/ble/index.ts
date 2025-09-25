@@ -3,7 +3,7 @@ import createModal from '../modal.js'
 type MACAddress = string
 
 type DeviceInformation = {
-  name: string,
+  name: string
   deviceId: string
 }
 
@@ -11,35 +11,37 @@ const capacitorConfiguration = {
   name: 'BluetoothLe',
   plugin: '@capacitor-community/bluetooth-le', // Must be installed by the user
 
-
   // The following configuration is automatically added to the plist file
   plist: {
-    NSBluetoothAlwaysUsageDescription: "Uses Bluetooth to connect and interact with peripheral BLE devices.",
-    UIBackgroundModes: ["bluetooth-central"]
+    NSBluetoothAlwaysUsageDescription:
+      'Uses Bluetooth to connect and interact with peripheral BLE devices.',
+    UIBackgroundModes: ['bluetooth-central'],
   },
-
 
   // NOTE: Make sure tosSet the androidNeverForLocation flag when initializing the BleClient.
   manifest: {
     'uses-permission': [
-      { 'android:name': 'android.permission.ACCESS_COARSE_LOCATION', 'android:maxSdkVersion': '30' },
+      {
+        'android:name': 'android.permission.ACCESS_COARSE_LOCATION',
+        'android:maxSdkVersion': '30',
+      },
       { 'android:name': 'android.permission.ACCESS_FINE_LOCATION', 'android:maxSdkVersion': '30' },
       {
         'android:name': 'android.permission.BLUETOOTH_SCAN',
         'android:usesPermissionFlags': 'neverForLocation',
-        'tools:targetApi': 's'
-      }
-    ]
+        'tools:targetApi': 's',
+      },
+    ],
   },
 
   options: {
     displayStrings: {
-      scanning: "Scanning BLE...",
-      cancel: "Stop Scanning",
-      availableDevices: "Devices available!",
-      noDeviceFound: "No BLE devices found."
-    }
-  }
+      scanning: 'Scanning BLE...',
+      cancel: 'Stop Scanning',
+      availableDevices: 'Devices available!',
+      noDeviceFound: 'No BLE devices found.',
+    },
+  },
 }
 
 // @capacitor-community/bluetooth-le must be installed by the user
@@ -51,80 +53,77 @@ export const isSupported = {
 }
 
 export const desktop = {
-  load: function ( win ) {
-
+  load: function (win) {
     const { webContents, __id } = win
     const { session } = webContents
 
-      const WIN_STATES: {
-        select?: Function,
-        match?: DeviceInformation
-      } = {}
+    const WIN_STATES: {
+      select?: Function
+      match?: DeviceInformation
+    } = {}
 
-      const match = (value: DeviceInformation) => WIN_STATES.match = value
+    const match = (value: DeviceInformation) => (WIN_STATES.match = value)
 
-      const selectDevice = (value: MACAddress | '') => {
-          const { select } = WIN_STATES
-          if (typeof select === 'function') {
-            select(value) // Select the device by MAC Address, or cancel device selection
-            this.send(`${__id}:selected`, value) // Notify the renderer that a device was selected
-          }
-
-          delete WIN_STATES.select
-          delete WIN_STATES.match
+    const selectDevice = (value: MACAddress | '') => {
+      const { select } = WIN_STATES
+      if (typeof select === 'function') {
+        select(value) // Select the device by MAC Address, or cancel device selection
+        this.send(`${__id}:selected`, value) // Notify the renderer that a device was selected
       }
-  
-      this.on(`${__id}:match`, (_evt, value: DeviceInformation) => match(value))
-      this.on(`${__id}:select`, ( _evt, value: MACAddress) => selectDevice(value));
 
-      // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
-      session.setBluetoothPairingHandler((details, callback) => {
-        if (details.pairingKind === 'confirm') callback({ confirmed: true })
-        else console.error(`Commoners Bluetooth Plugin does not support devices that need ${details.pairingKind} permissions.`)
-      })
-      
+      delete WIN_STATES.select
+      delete WIN_STATES.match
+    }
 
-      webContents.on('select-bluetooth-device', (event, devices, callback) => {
+    this.on(`${__id}:match`, (_evt, value: DeviceInformation) => match(value))
+    this.on(`${__id}:select`, (_evt, value: MACAddress) => selectDevice(value))
 
-        event.preventDefault()
+    // NOTE: For handling additional permissions that rarely crop up. Automatically confirm
+    session.setBluetoothPairingHandler((details, callback) => {
+      if (details.pairingKind === 'confirm') callback({ confirmed: true })
+      else
+        console.error(
+          `Commoners Bluetooth Plugin does not support devices that need ${details.pairingKind} permissions.`
+        )
+    })
 
-        const newRequest = !WIN_STATES.select
-        WIN_STATES.select = callback
+    webContents.on('select-bluetooth-device', (event, devices, callback) => {
+      event.preventDefault()
 
-        // If a device was saved to select later, select it now
+      const newRequest = !WIN_STATES.select
+      WIN_STATES.select = callback
 
-        const { match } = WIN_STATES
+      // If a device was saved to select later, select it now
 
-        if (match) {
+      const { match } = WIN_STATES
 
-          // Match by name
-          const hasMatch = devices.find(device => {
-            if (match.name && device.deviceName !== match.name) return false
-            return true
-          })
+      if (match) {
+        // Match by name
+        const hasMatch = devices.find(device => {
+          if (match.name && device.deviceName !== match.name) return false
+          return true
+        })
 
-          if (hasMatch) selectDevice(hasMatch.deviceId)
-          return
-        } 
-        
-        // Open the device modal and update it with the available devices
-        if (newRequest) this.send(`${__id}:open`, devices); // Initial request always starts at zero
-        this.send(`${__id}:update`, devices);
-      })
-  }
+        if (hasMatch) selectDevice(hasMatch.deviceId)
+        return
+      }
+
+      // Open the device modal and update it with the available devices
+      if (newRequest) this.send(`${__id}:open`, devices) // Initial request always starts at zero
+      this.send(`${__id}:update`, devices)
+    })
+  },
 }
 
 export function load() {
-
   const { DESKTOP } = commoners
 
   if (!DESKTOP) return
 
   const { __id } = DESKTOP
 
-
   const callbacks: Record<string, Function[]> = {}
-  
+
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`
     if (!callbacks[fullId]) return
@@ -141,60 +140,51 @@ export function load() {
   this.on(`${__id}:update`, (_, devices) => runCallbacks('update', devices))
   this.on(`${__id}:selected`, (_, id) => runCallbacks('selected', id))
 
-
-  const onOpen = (callback) => addCallback("open", callback)
-  const onUpdate = (callback) => addCallback("update", callback)
-  const onSelect = (callback) => addCallback("selected", callback)
+  const onOpen = callback => addCallback('open', callback)
+  const onUpdate = callback => addCallback('update', callback)
+  const onSelect = callback => addCallback('selected', callback)
 
   this.on(`${__id}:selected`, () => {
     if (matchTimeout) clearTimeout(matchTimeout)
-      matchTimeout = null
+    matchTimeout = null
   })
 
-  let matchTimeout;
+  let matchTimeout
 
   const select = (deviceID: MACAddress) => this.send(`${__id}:select`, deviceID)
 
-  const match = (
-    device: DeviceInformation,
-    timeout?: number
-  ) => {
-
+  const match = (device: DeviceInformation, timeout?: number) => {
     if (!device) return
-    
+
     this.send(`${__id}:match`, device)
 
     if (!timeout) return
-    
-    matchTimeout = setTimeout(
-      () => cancel(),
-      timeout
-    )
+
+    matchTimeout = setTimeout(() => cancel(), timeout)
   }
 
   const cancel = () => this.send(`${__id}:select`, '')
 
   const modal = createModal({
     headerText: 'Available BLE Devices',
-    mapDeviceToInfo: (o) => {
+    mapDeviceToInfo: o => {
       return {
         name: o.deviceName,
-        id: o.deviceId
+        id: o.deviceId,
       }
     },
 
-    onClose: (device) => select(device)
+    onClose: device => select(device),
   })
-
 
   let latestDevices = ''
 
   onOpen(() => {
-    modal.close();
-    modal.showModal(); // avoid error
+    modal.close()
+    modal.showModal() // avoid error
   })
 
-  onUpdate((devices) => {
+  onUpdate(devices => {
     if (latestDevices !== JSON.stringify(devices)) {
       latestDevices = JSON.stringify(devices)
       modal.update(devices)
@@ -203,13 +193,13 @@ export function load() {
 
   document.body.append(modal)
 
-  return { 
-    onOpen, 
+  return {
+    onOpen,
     onUpdate,
     onSelect,
     select,
     match,
     cancel,
-    modal 
+    modal,
   }
 }

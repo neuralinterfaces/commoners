@@ -1,8 +1,8 @@
-import crypto from 'node:crypto';
-import { basename, extname, resolve } from 'node:path';
+import crypto from 'node:crypto'
+import { basename, extname, resolve } from 'node:path'
 
 // Generate a session-specific random seed
-const seed = crypto.randomBytes(16).toString('hex');
+const seed = crypto.randomBytes(16).toString('hex')
 
 /**
  * Generates a random set of characters based on the hash of an input path.
@@ -13,16 +13,19 @@ const seed = crypto.randomBytes(16).toString('hex');
  */
 export function encode(inputPath, length) {
   // Hash the absolute path combined with the seed
-  const hash = crypto.createHash('sha256').update(inputPath + seed).digest('hex');
+  const hash = crypto
+    .createHash('sha256')
+    .update(inputPath + seed)
+    .digest('hex')
 
   // Convert the hash to a random string
-  const randomChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
+  const randomChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
   for (let i = 0; i < length; i++) {
-    const randomIndex = parseInt(hash.slice(i * 2, i * 2 + 2), 16) % randomChars.length;
-    result += randomChars[randomIndex];
+    const randomIndex = parseInt(hash.slice(i * 2, i * 2 + 2), 16) % randomChars.length
+    result += randomChars[randomIndex]
   }
-  return result;
+  return result
 }
 
 export const encodePath = (input: string) => {
