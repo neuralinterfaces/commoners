@@ -226,6 +226,7 @@ type ElectronOptions = {
     window?: BrowserWindowConstructorOptions,
     protocol?: string | CustomScheme
     build?: ElectronBuilderConfiguration,
+    secure?: boolean, // Whether to use secure builds (default: true)
     dev?: {
         load?: 'url' | 'file', // Load the Electron pages from a file or URL
     }

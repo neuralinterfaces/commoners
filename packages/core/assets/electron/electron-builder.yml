@@ -4,7 +4,7 @@ directories:
 
 asar: true # Ensures the app is packaged as an asar archive
 
-afterSign: build/notarize.cjs # AUGMENTED
+# afterSign: build/notarize.cjs # Included via build.ts
 
 nsis:
   createDesktopShortcut: always

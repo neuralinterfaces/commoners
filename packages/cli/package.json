@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "Cross-Platform Development for the Rest of Us",
-  "version": "0.0.66",
+  "version": "1.0.0-alpha.0",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -18,13 +18,13 @@
     "watch": "vite build --watch"
   },
   "dependencies": {
-    "@commoners/solidarity": "0.0.66",
+    "@commoners/solidarity": "1.0.0-alpha.0",
     "cac": "^6.7.14"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "^20.19.15",
     "typescript": "^4.9.5",
-    "vite": "^5.3.4",
-    "vite-plugin-static-copy": "^1.0.0"
+    "vite": "^7.1.5",
+    "vite-plugin-static-copy": "^3.1.2"
   }
 }

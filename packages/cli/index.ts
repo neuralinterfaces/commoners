@@ -100,7 +100,7 @@ cli.command('launch [root]', 'Launch your build application in the specified dir
     else if (service) return await failed(`Cannot specify both services and a launch target`)
 
     const launchConfig = reconcile(config, overrides) as LaunchConfig
-    launch(launchConfig, isOnlyServices)
+    launch(launchConfig)
 })
 
 // Build the application using the specified settings

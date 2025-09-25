@@ -50,12 +50,29 @@ export function load() {
   if (!DESKTOP) return
 
   const { __id } = DESKTOP
+
+  const callbacks: Record<string, Function[]> = {}
   
+  const runCallbacks = (type, ...args) => {
+    const fullId = `${__id}:${type}`
+    if (!callbacks[fullId]) return
+    callbacks[fullId].forEach(callback => callback(...args))
+  }
+
+  this.on(`${__id}:added`, (_, port) => runCallbacks('added', port))
+  this.on(`${__id}:removed`, (_, port) => runCallbacks('removed', port))
+  this.on(`${__id}:request`, (_, value) => runCallbacks('request', value))
+
+  const addCallback = (type, callback) => {
+    const fullId = `${__id}:${type}`
+    if (!callbacks[fullId]) callbacks[fullId] = []
+    callbacks[fullId].push(callback)
+  }
   
-  const added = (callback) => this.on(`${__id}:added`, (_, port) => callback(port))
-  const removed = (callback) => this.on(`${__id}:removed`, (_, port) => callback(port))
+  const added = (callback) => addCallback("added", callback)
+  const removed = (callback) => addCallback("removed", callback)
   const select = (port) => this.send(`${__id}:select`, port)
-  const onRequest =(callback) => this.on(`${__id}:request`, (_, value) => callback(value))
+  const onRequest =(callback) => addCallback("request", callback)
 
   const modal = createModal({
     headerText: 'Available Serial Ports',

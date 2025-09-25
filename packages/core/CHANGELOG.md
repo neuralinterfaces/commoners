@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Provide a `start`, `ready`, and `quit` callback on plugins across all targets (note: dev only for web and mobile).
 - Added `PAGES` global variable to simplify navigation on multi-page applications.
 - Allow for popup window configuration, bundling, and runtime control in plugins.
+- Upgrade dependencies to latest version for improved performance and security.
 
 ### Changed
 - Handle each `target` for the start command independently
