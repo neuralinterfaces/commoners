@@ -71,7 +71,7 @@ pnpm test
 
 ##### Linux
 When running tests on Linux, you'll need to install FUSE for AppImage support: 
-```
+```bash
 sudo apt-get update && sudo apt-get install -y fuse
 ```
 

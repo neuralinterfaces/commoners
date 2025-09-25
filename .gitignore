@@ -1,33 +1,35 @@
+# macOS
 .DS_Store
+
+# Dependencies
 node_modules
 
+# Output directories
 _site
-
 .commoners
 .site
-
-**/pnpm-lock.yaml
-
-# Testing Resources
-.vite-templates
-
-# Builds
 build
 !packages/core/assets/**
 dist
-**/*.spec
+dist-ssr
 
-# Capacitor
+# AI
+CLAUDE.md
+
+# Testing Resources
+.vite-templates
+**/*.spec
+coverage
+
+# Mobile platforms
 ios
 android
 
-# Tests
-coverage
-
-# Docs
+# Documentation
 cache
 
-# Version Control
+# Lock files (PNPM only)
+**/pnpm-lock.yaml
 *.lock
 */**/*-lock.json
 
@@ -39,16 +41,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-node_modules
-dist
-dist-ssr
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
