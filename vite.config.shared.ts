@@ -42,14 +42,15 @@ export function createPackageConfig(options: PackageConfigOptions): UserConfigEx
       minify: 'terser',
       sourcemap: true,
       lib: {
-        entry: typeof options.entryPoint === 'string'
-          ? resolve(process.cwd(), options.entryPoint)
-          : Object.fromEntries(
-              Object.entries(options.entryPoint).map(([key, path]) => [
-                key,
-                resolve(process.cwd(), path)
-              ])
-            ),
+        entry:
+          typeof options.entryPoint === 'string'
+            ? resolve(process.cwd(), options.entryPoint)
+            : Object.fromEntries(
+                Object.entries(options.entryPoint).map(([key, path]) => [
+                  key,
+                  resolve(process.cwd(), path),
+                ])
+              ),
         name: options.libraryName,
         formats: ['es', 'cjs'],
         fileName: (format, entryName) => {

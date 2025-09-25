@@ -38,7 +38,7 @@ export const nativeNodeModulesPlugin = () => {
 
       // Tell esbuild's default loading behavior to use the "file" loader for
       // these ".node" files.
-      let opts = build.initialOptions
+      const opts = build.initialOptions
       opts.loader = opts.loader || {}
       opts.loader['.node'] = 'file'
     },

@@ -3,7 +3,7 @@ import electronUpdater from 'electron-updater'
 // NOTE: Ensure persistence of custom properties set on the function context
 
 export function load() {
-// this: IpcRenderer
+  // this: IpcRenderer
   return {
     onAvailable: () =>
       this.on(`available`, () => {

@@ -17,7 +17,6 @@ import { Plugin, ResolvedConfig, UserConfig } from './types.js'
 import { createServer } from './vite/index.js'
 
 // Internal Utilities
-import { printHeader, printTarget } from './utils/formatting.js'
 import { buildAllAssets } from './build.js'
 import { runAppPlugins } from './assets/plugins/index.js'
 import { getFreePorts } from './assets/services/network.js'
@@ -60,6 +59,7 @@ const runDevelopmentPlugins = async (config: ResolvedConfig) => {
       const data = JSON.parse(message)
       const { context, id, channel, args } = data
       const matchedContext = wsContexts[context]
+
       if (!matchedContext) return console.error(`Unknown WS message context: ${context}`)
       const pluginCallbacks = matchedContext.callbacks[id]?.[channel] ?? {}
       const evtObject = {}
@@ -142,10 +142,7 @@ const startServices = services
 
 export const app = async function (config: UserConfig) {
   const resolvedConfig = await resolveConfig(config)
-
-  const { name, root, target, services, electron } = resolvedConfig
-
-  await printHeader(`${name} — ${printTarget(target)} Development`)
+  const { root, target, services, electron } = resolvedConfig
 
   const outDir = join(root, globalTempDir) // Temporary directory for the build
   const filesystemManager = await handleTemporaryDirectories(outDir)
@@ -187,8 +184,9 @@ export const app = async function (config: UserConfig) {
     // Load Files in Dev Mode
     if (load === 'file') {
       const outDir = await build(scopedConfig, { services, dev: true })
-      const { reset } = configureForDesktop(outDir, root)
-      const app = await startElectronInstance(root) // Start the Electron instance
+      configureForDesktop(outDir, root)
+      await startElectronInstance(root) // Start the Electron instance
+
       console.warn(`⚠️  Electron is running in ${load} mode. Hot reloading is not available.\n`)
       // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
     }
@@ -196,7 +194,7 @@ export const app = async function (config: UserConfig) {
     // Use Vite to Load URLs in Dev Mode
     else {
       await buildAllAssets(scopedConfig, true) // Build the assets for desktop
-      const { reset } = configureForDesktop(outDir, root)
+      configureForDesktop(outDir, root)
       const frontend = (startManager.frontend = await createServer(scopedConfig, {
         printUrls: false,
       }))

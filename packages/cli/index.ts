@@ -8,13 +8,14 @@ import {
   resolveServiceConfiguration,
   start,
   loadConfigFromFile,
-  format,
 
   // Types
-  LaunchConfig,
+  resolveConfig,
+  resolveAppToLaunch,
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
+import { ui } from './src/ui/index.js'
 
 // Utilities
 import cac from 'cac'
@@ -27,15 +28,20 @@ const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
-const failed = async (message, submessage?: string) => {
-  await format.printFailure(message)
-  if (submessage) await format.printSubtle(submessage)
+const failed = (message, submessage?: string) => {
+  ui.error(message, submessage)
+
   process.exit(1)
 }
-async function preprocessTarget(target) {
+
+function preprocessTarget(target) {
   if (typeof target === 'string') {
-    if (!allTargets.includes(target))
-      await failed(`'${target}' is not a valid target.`, `Valid targets: ${allTargets.join(', ')}`)
+    if (!allTargets.includes(target)) {
+      const resolvedTargets = []
+      for (const t of allTargets) resolvedTargets.push(ui.target(t))
+
+      failed(`Invalid target: ${ui.target(target)}`, `Valid targets: ${resolvedTargets.join(', ')}`)
+    }
   }
 }
 
@@ -48,6 +54,12 @@ const getConfigPathFromOpts = ({ root, config }: ConfigOpts) =>
   root ? (config ? join(root, config) : root) : config
 
 const cli = cac()
+
+function renderCommaSeparatedList(list: string[]) {
+  if (list.length === 0) return ''
+  if (list.length === 1) return list[0]
+  return list.slice(0, -1).join(', ') + ' and ' + list.slice(-1)
+}
 
 // Launch the specified build
 cli
@@ -63,43 +75,85 @@ cli
   .action(async (root, options) => {
     const { config: configPath, service, public: isPublic, port, ...overrides } = options
 
-    await preprocessTarget(overrides.target)
+    preprocessTarget(overrides.target)
 
+    const spinner = ui.spinner('Loading configuration...', { type: 'dots' })
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
+    if (!config) return spinner.fail('Configuration not found')
+    const resolvedConfig = await resolveConfig(reconcile(config, overrides))
+    spinner.succeed('Configuration loaded')
 
-    if (!config) return
+    const { target } = resolvedConfig
+    const isOnlyServices = !overrides.target && service // Services take priority if specified
 
-    // Services take priority if specified
-    const isOnlyServices = !overrides.target && service
+    let launchSpinner
+    const start = message => {
+      // launchSpinner = ui.spinner(message, { type: 'dots' })
+      ui.header(message)
+    }
+
+    const succeed = (message: string, details?: string) => {
+      ui.success(message, details)
+      if (launchSpinner) launchSpinner.succeed(`${message}${details ? `: ${details}` : ''}`)
+    }
+
+    const failedHere = (message: string, details?: string) => {
+      ui.error(message, details)
+      if (launchSpinner) launchSpinner.fail(`${message}${details ? `: ${details}` : ''}`)
+    }
+
+    start(`Launching ${isOnlyServices ? 'Services' : ui.target(target, { plain: true })} Build`)
+
     if (isOnlyServices) {
-      delete config.target
+      delete resolvedConfig.target
 
       // NOTE: If passed, this simply wouldn't take effect
       if (options.outDir)
-        return await failed(`Cannot specify an output directory when launching services`)
+        return failed(`Cannot specify an output directory when launching services`)
 
       const resolvedServices = typeof service === 'string' ? [service] : service
       const nServices = Object.keys(resolvedServices).length
       if (nServices > 1 && (port || isPublic))
-        return await failed(`Cannot specify port or public when launching multiple services`)
+        return failed(`Cannot specify port or public when launching multiple services`)
       if (nServices === 1) {
         const serviceName = resolvedServices[0]
-        if (serviceName in config.services) {
-          const service = resolveServiceConfiguration(config.services[serviceName])
+        if (serviceName in resolvedConfig.services) {
+          const service = resolveServiceConfiguration(resolvedConfig.services[serviceName])
           Object.assign(service, { public: isPublic, port }) // Set host and port on single service
-          config.services[serviceName] = service
+          resolvedConfig.services[serviceName] = service
         }
       }
 
-      const launchConfig = reconcile(config, overrides) as LaunchConfig
-      return await launchServices(launchConfig, { services: service })
+      try {
+        await launchServices(resolvedConfig, { services: service })
+        succeed(
+          `${renderCommaSeparatedList(resolvedServices.map(s => `${ui.target(s, { plain: true })} Service`))} successfully launched!`
+        )
+        return
+      } catch (error) {
+        failedHere(
+          `Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${ui.target(s, { plain: true })} Service`))}`,
+          error.message
+        )
+
+        return process.exit(1)
+      }
     }
 
     // Ensure services are not specified with a target
-    else if (service) return await failed(`Cannot specify both services and a launch target`)
+    else if (service) return failed(`Cannot specify both services and a launch target`)
 
-    const launchConfig = reconcile(config, overrides) as LaunchConfig
-    launch(launchConfig)
+    // Enhanced launch feedback
+    const outDir = resolveAppToLaunch(resolvedConfig)
+
+    try {
+      await launch({ ...resolvedConfig, outDir })
+      succeed(`${ui.target(target, { plain: true })} successfully launched!`)
+    } catch (error) {
+      failedHere(` ${ui.target(target, { plain: true })} failed to launch`, error.message)
+
+      process.exit(1)
+    }
   })
 
 // Build the application using the specified settings
@@ -116,27 +170,46 @@ cli
   .option('--config <path>', 'Specify a configuration file')
   .action(async (root, options) => {
     const { config: configPath, service, services, sign, publish, ...overrides } = options
-    const { target } = overrides
-
+    const { target: manualTarget } = overrides
     overrides.build = { sign, publish }
 
-    await preprocessTarget(target)
+    preprocessTarget(manualTarget)
 
-    const config = await loadConfigFromFile(
-      getConfigPathFromOpts({
-        root,
-        config: configPath,
-      })
-    )
+    // Load the configuration file
+    const configSpinner = ui.spinner('Loading build configuration...', { type: 'dots' })
+    const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
+    if (!config) return configSpinner.fail('Configuration not found')
+    configSpinner.succeed('Build configuration loaded')
 
-    if (!config) return
-
+    // Build Services Only
     const servicesToBuild = services ? Object.keys(config.services) : service
+    if (!manualTarget && servicesToBuild) {
+      ui.header('Building Services')
+      try {
+        await buildServices(config, { services: servicesToBuild })
+        ui.success('All services ready for deployment!')
+      } catch (error) {
+        ui.error('Failed to build services', error.message)
 
-    if (!target && servicesToBuild)
-      return await buildServices(config, { services: servicesToBuild }) // Only build services
+        process.exit(1)
+      }
+      return
+    }
 
-    build(reconcile(config, overrides), { rebuildServices: servicesToBuild ?? false }) // In the CLI workflow, services are built separately
+    const resolvedConfig = await resolveConfig(reconcile(config, overrides), { build: true })
+    const { name, target: resolvedTarget } = resolvedConfig
+
+    // Enhanced build experience
+    ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Build`)
+
+    try {
+      await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false })
+      ui.success(`${resolvedTarget} build completed successfully!`)
+    } catch (error) {
+      ui.error('Failed to build application', error.message)
+
+      process.exit(1)
+    }
   })
 
 // Start the application in development mode
@@ -152,24 +225,27 @@ cli
 
   .action(async (root, options) => {
     const { config: configPath, ...overrides } = options
+    preprocessTarget(overrides.target)
 
-    await preprocessTarget(overrides.target)
-
-    const config = await loadConfigFromFile(
-      getConfigPathFromOpts({
-        root,
-        config: configPath,
-      })
-    )
-
-    if (!config) return
-
-    start(reconcile(config, overrides))
+    const configSpinner = ui.spinner('Loading development configuration...', { type: 'dots' })
+    const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
+    if (!config) return configSpinner.fail('Configuration not found')
+    const resolvedConfig = await resolveConfig(reconcile(config, overrides))
+    configSpinner.succeed('Development configuration loaded')
+    const { name, target: resolvedTarget } = resolvedConfig
+    ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
+    await start(resolvedConfig)
   })
 
 cli.help()
 cli.version(pkg.version)
 
-const parsed = cli.parse()
-if (parsed.options.version) process.exit()
-if (parsed.options.help) process.exit()
+const run = async () => {
+  const parsed = cli.parse()
+
+  if (parsed.options.version) process.exit()
+
+  if (parsed.options.help) process.exit()
+}
+
+run()

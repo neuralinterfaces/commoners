@@ -7,14 +7,12 @@ import {
   getBuildConfig,
   globalTempDir,
   templateDir,
-  ensureTargetConsistent,
   isMobile,
   globalWorkspacePath,
   handleTemporaryDirectories,
   chalk,
   vite,
   electronVersion,
-  PLATFORM,
 } from './globals.js'
 import {
   BuildHooks,
@@ -27,7 +25,6 @@ import {
 // Internal Utilities
 import { getAppAssets, getServiceAssets, buildAssets, getAssetBuildPath } from './utils/assets.js'
 import { lstatSync } from './utils/lstat.js'
-import { printHeader, printTarget } from './utils/formatting.js'
 import { removeDirectory } from './utils/files.js'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from './assets/utils/icons.js'
 import merge from './utils/merge.js'
@@ -47,8 +44,6 @@ import merge from './utils/merge.js'
 import { configureForDesktop, resolveConfig } from './index.js'
 import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { createHash } from 'node:crypto'
 import { loadEnvironmentVariables } from './assets/services/env/index.js'
 
 type CliOptions = import('electron-builder').CliOptions
@@ -85,7 +80,7 @@ export const buildAllAssets = async (config, dev, rebuildServices: ServiceRebuil
 export const buildServices = async (config: UserConfig = {}, options: ServiceBuildOptions = {}) => {
   const { dev = false, services, rebuild = true } = options
 
-  let { outDir } = options
+  const { outDir } = options
 
   // if (!dev) await printHeader(`${name} – ${buildOnlyServices ? 'Building Selected Services' : `${printTarget(target)} Build`}`)
 
@@ -149,8 +144,6 @@ export async function buildApp(
 
   const name = resolvedConfig.name
 
-  if (!dev) await printHeader(`${name} – ${printTarget(target)} Build`)
-
   if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
   // ---------------- Clear Previous Builds ----------------
@@ -182,10 +175,11 @@ export async function buildApp(
 
   // ------------------------- Target-Specific Build Steps -------------------------
   if (isElectronBuild && !dev) {
-    console.log(`\n💊 Running ${_chalk.bold(_chalk.cyanBright('electron-builder'))}\n`)
+    console.log(`\n🛠️ Running ${_chalk.bold(_chalk.cyanBright('electron-builder'))}\n`)
 
     // Load environment into the app
     const env = loadEnvironmentVariables('production', root)
+
     Object.assign(process.env, env) // Merge environment variables into process.env
 
     const cwdRelativeOutDir = relative(process.cwd(), outDir)
@@ -198,6 +192,7 @@ export async function buildApp(
     })
 
     const { electron, appId, icon } = configCopy
+
     let { secure } = electron
     secure = secure ?? true // Default to secure builds
 
@@ -409,9 +404,11 @@ export async function buildApp(
 
       // Remove any environment variables that may interfere with signing
       const envVariablePrefixes = ['CSC_', 'WIN_CSC_']
+
       const matchedEnvVariables = Object.keys(process.env).filter(key =>
         envVariablePrefixes.some(prefix => key.startsWith(prefix))
       )
+
       matchedEnvVariables.forEach(key => delete process.env[key])
     }
 
@@ -421,7 +418,7 @@ export async function buildApp(
     if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
 
     const electronBuilderOpts: CliOptions = {
-      config: buildConfig as any,
+      config: buildConfig as Record<string, any>,
     }
 
     if (root) electronBuilderOpts.projectDir = root
@@ -435,10 +432,10 @@ export async function buildApp(
   } else if (isMobileBuild) {
     const mobileOpts = { target, outDir }
 
-    // @ts-ignore
+    // @ts-expect-error
     await mobile.init(mobileOpts, resolvedConfig)
 
-    // @ts-ignore
+    // @ts-expect-error
     await mobile.open(mobileOpts, resolvedConfig)
   }
 

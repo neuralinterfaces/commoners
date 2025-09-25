@@ -34,7 +34,7 @@ export const getLocalIP = () => __getLocalIP(networkInterfaces)
 export const updateServicesWithLocalIP = services => {
   const host = getLocalIP() // Use public IP address for mobile development
 
-  for (let name in services) {
+  for (const name in services) {
     const service = services[name]
     service.public = true
     const url = new URL(service.url)

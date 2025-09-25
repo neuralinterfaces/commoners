@@ -2,7 +2,7 @@ const chalk = import('chalk').then(m => m.default)
 
 import { spawn } from 'node:child_process'
 
-let children = {}
+const children = {}
 
 const kill = code => {
   for (const child in children) children[child].kill()

@@ -50,7 +50,7 @@
     "open": "^9.1.0",
     "pkg": "^5.8.1",
     "plist": "^3.1.0",
-    "vite": "^7.1.5",
+    "vite": "^7.1.7",
     "vite-plugin-dts": "^4.5.3",
     "vite-plugin-node-polyfills": "^0.24.0",
     "vite-plugin-pwa": "^1.0.3",

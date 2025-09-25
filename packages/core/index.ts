@@ -34,7 +34,7 @@ export * from './globals.js'
 export * from './assets/services/index.js' // Service Helpers
 
 export * as format from './utils/formatting.js'
-export { launchApp as launch, launchServices } from './launch.js'
+export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
 export { app as start, services as startServices } from './start.js'
 export { merge } // Other Helpers
@@ -74,6 +74,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   }
 
   const isValidProject = await isCommonersProject(root)
+
   if (!isValidProject) process.exit(1)
 
   const configPath = resolveConfigPath(
@@ -100,6 +101,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   }
 
   // Set the root of the project
+
   config.root = relative(process.cwd(), resolvedRoot) || resolvedRoot
 
   return config
@@ -110,13 +112,13 @@ export async function resolveConfig(
   {
     // Service Auto-Configuration
     build = false,
-    dev = !build,
+    dev: _dev = !build,
 
     // Advanced Service Configuration
     services,
   }: ConfigResolveOptions = {}
 ) {
-  if ((o as any).__resolved) return o as ResolvedConfig
+  if ((o as Record<string, any>).__resolved) return o as ResolvedConfig
 
   // Mobile commands must always run from the root of the specified project
   if (isMobile(o.target) && o.root) {
@@ -131,6 +133,7 @@ export async function resolveConfig(
   const userPkg = getJSON(join(root, 'package.json'))
 
   // Merge Config and package.json (transformed name)
+
   const copy = merge(structuredClone(temp), {
     ...userPkg,
     name: userPkg.name
@@ -144,7 +147,7 @@ export async function resolveConfig(
   if (copy.outDir && !isAbsolute(copy.outDir)) copy.outDir = join(copy.root, copy.outDir)
 
   copy.plugins = plugins ?? {} // Transfer the original plugins
-  copy.services = (ogServices as any) ?? {} // Transfer original functions on publish
+  copy.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish
   copy.vite = vite ?? {} // Transfer the original Vite config
 
   const target = (copy.target = await ensureTargetConsistent(copy.target))
@@ -176,6 +179,7 @@ export async function resolveConfig(
       if (!selectedServices.every(name => allServices.includes(name))) {
         await printFailure(`Invalid service selection`)
         await printSubtle(`Available services: ${allServices.join(', ')}`) // Print actual services as a nice list
+
         process.exit(1)
       }
     }

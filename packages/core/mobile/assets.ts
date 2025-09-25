@@ -17,7 +17,7 @@ export const create = (config: ResolvedConfig) => {
 
   const rawIconSrc = getIcon(config.icon)
 
-  let iconInfo = {
+  const iconInfo = {
     default: rawIconSrc ? resolve(root, rawIconSrc) : null,
     parent: {
       path: parentPath,

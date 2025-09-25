@@ -161,7 +161,7 @@ export default (props: ModalProps) => {
         })
 
         // Wath for when the dialog opens
-        let observer = new MutationObserver(ev => {
+        const observer = new MutationObserver(ev => {
           if (ev[0].attributeName == 'open') {
             ul.innerText = ''
             this.selectedDevice = ''

@@ -440,7 +440,7 @@ export function close(id?: string) {
 
   // Kill All Processes
   else {
-    for (let id in processes) killProcess(processes[id])
+    for (const id in processes) killProcess(processes[id])
     processes = {}
   }
 }

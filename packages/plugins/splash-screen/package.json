@@ -9,7 +9,7 @@
     "build": "vite build"
   },
   "devDependencies": {
-    "vite": "^7.1.5"
+    "vite": "^7.1.7"
   },
   "peerDependencies": {
     "@commoners/solidarity": ">=0.0.62 <0.1.0"

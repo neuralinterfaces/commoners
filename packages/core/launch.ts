@@ -12,7 +12,7 @@ import {
   vite,
 } from './globals.js'
 import { ConfigResolveOptions, LaunchConfig } from './types.js'
-import { printHeader, printTarget, printFailure, printSubtle } from './utils/formatting.js'
+import { printFailure, printSubtle } from './utils/formatting.js'
 import { spawnProcess } from './utils/processes.js'
 
 import * as mobile from './mobile/index.js'
@@ -80,32 +80,26 @@ export const launchServices = async (
   })
 }
 
+export const resolveAppToLaunch = (config: LaunchConfig) => {
+  const { root, outDir } = config
+  if (outDir) return outDir // Use the specified output directory
+
+  const { target } = config
+  return join(root ?? '', globalWorkspacePath, target)
+}
+
 export const launchApp = async (config: LaunchConfig, args = []) => {
   const _chalk = await chalk
 
-  let target = config.target
+  let { target } = config
+  const { outDir: originalOutDir } = config
 
-  const { root, port, public: isPublic } = config
+  const { port, public: isPublic } = config
 
-  // ---------------------- Auto-Detect Target ----------------------
-  if (config.outDir) {
-    const desktopPath = getDesktopPath(config.outDir)
-
-    // Autodetect target build type from path
-    if (config.outDir) {
-      if (desktopPath) target = 'electron'
-    }
-  }
+  if (originalOutDir && getDesktopPath(originalOutDir)) target = 'electron' // Autodetect Electron target
 
   target = await ensureTargetConsistent(target)
-
-  // ---------------------- Launch based on Target ----------------------
-
-  const {
-    outDir = join(root ?? '', globalWorkspacePath, target), // Default location
-  } = config
-
-  await printHeader(`Launching ${printTarget(target)} Build (${outDir})`)
+  const outDir = resolveAppToLaunch(config)
 
   if (!existsSync(outDir)) {
     await printFailure(`The expected output directory was not found`)
@@ -141,6 +135,7 @@ export const launchApp = async (config: LaunchConfig, args = []) => {
 
     const serverConfig = {
       port,
+
       open: !process.env.VITEST,
     } as ViteServerOptions
 
