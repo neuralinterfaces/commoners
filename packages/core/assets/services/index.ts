@@ -354,7 +354,7 @@ export async function start(config, id, opts) {
       const resolvedProcessOptions = {
         cwd,
         env,
-        stdio: ['pipe', 'pipe', 'pipe'], // explicit
+        stdio: ['pipe', 'pipe', 'pipe', 'ipc'], // Added 'ipc' for fork() communication
         shell: false,
         windowsHide: true,
         detached: false
