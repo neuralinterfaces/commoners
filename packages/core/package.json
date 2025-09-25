@@ -1,7 +1,7 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "1.0.0-alpha.0",
+  "version": "1.0.0-alpha.1",
   "type": "module",
   "license": "MIT",
   "exports": {
@@ -45,13 +45,10 @@
     "electron-builder": "24.13.3",
     "electron-builder-squirrel-windows": "^24.0.0",
     "esbuild": "^0.23.0",
-    "ffi-napi": "^4.0.3",
     "js-yaml": "^4.1.0",
     "open": "^9.1.0",
     "pkg": "^5.8.1",
     "plist": "^3.1.0",
-    "rcedit": "^4.0.1",
-    "ref-napi": "^3.0.3",
     "vite": "^7.1.5",
     "vite-plugin-dts": "^4.5.3",
     "vite-plugin-node-polyfills": "^0.24.0",
