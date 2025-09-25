@@ -74,17 +74,15 @@ cli
 
   .action(async (root, options) => {
     const { config: configPath, service, public: isPublic, port, ...overrides } = options
+    const isOnlyServices = !overrides.target && service // Services take priority if specified
 
     preprocessTarget(overrides.target)
 
-    const spinner = ui.spinner('Loading configuration...', { type: 'dots' })
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return spinner.fail('Configuration not found')
+    if (!config) return failed('Configuration not found')
     const resolvedConfig = await resolveConfig(reconcile(config, overrides))
-    spinner.succeed('Configuration loaded')
 
     const { target } = resolvedConfig
-    const isOnlyServices = !overrides.target && service // Services take priority if specified
 
     let launchSpinner
     const start = message => {
@@ -176,10 +174,8 @@ cli
     preprocessTarget(manualTarget)
 
     // Load the configuration file
-    const configSpinner = ui.spinner('Loading build configuration...', { type: 'dots' })
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return configSpinner.fail('Configuration not found')
-    configSpinner.succeed('Build configuration loaded')
+    if (!config) return failed('Configuration not found')
 
     // Build Services Only
     const servicesToBuild = services ? Object.keys(config.services) : service
@@ -226,12 +222,9 @@ cli
   .action(async (root, options) => {
     const { config: configPath, ...overrides } = options
     preprocessTarget(overrides.target)
-
-    const configSpinner = ui.spinner('Loading development configuration...', { type: 'dots' })
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return configSpinner.fail('Configuration not found')
+    if (!config) return failed('Configuration not found')
     const resolvedConfig = await resolveConfig(reconcile(config, overrides))
-    configSpinner.succeed('Development configuration loaded')
     const { name, target: resolvedTarget } = resolvedConfig
     ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
     await start(resolvedConfig)
