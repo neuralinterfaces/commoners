@@ -193,8 +193,8 @@ export async function buildApp(
 
     const { electron, appId, icon } = configCopy
 
-    let { secure } = electron
-    secure = secure ?? true // Default to secure builds
+    let { security } = electron
+    security = security ?? true // Default to secure options
 
     const buildConfig = merge(
       electron.build ?? {},
@@ -290,7 +290,7 @@ export async function buildApp(
     }
 
     // // Ensure electron-builder runs our integrity injector first, then flips fuses
-    // if (buildConfig.asar && secure) {
+    // if (buildConfig.asar && security.integrity) {
 
     //     // Create debugged hook functions
     //     const debuggedAfterPackFlipFuses = async (context: any) => {

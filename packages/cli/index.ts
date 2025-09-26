@@ -196,14 +196,14 @@ cli
     const { name, target: resolvedTarget } = resolvedConfig
 
     // Enhanced build experience
-    ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Build`)
+    const buildTitle = `${name} ${ui.target(resolvedTarget, { plain: true })} Build`
+    ui.header(buildTitle)
 
     try {
       await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false })
-      ui.success(`${resolvedTarget} build completed successfully!`)
+      ui.success(`${buildTitle} completed successfully!`)
     } catch (error) {
-      ui.error('Failed to build application', error.message)
-
+      ui.error(`${buildTitle} failed`, error.message)
       process.exit(1)
     }
   })

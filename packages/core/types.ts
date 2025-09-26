@@ -228,12 +228,19 @@ type PWAOptions = {
 }
 
 // ------------------- Electron -------------------
+export type ElectronSecuritySettings = {
+  sandbox?: boolean // Enable sandboxing (default: false)
+  devTools?: boolean // Enable devTools (default: !isProduction)
+  contextIsolation?: boolean // Enable context isolation (default: true)
+  nodeIntegration?: boolean // Disable Node.js integration (default: false)
+}
+
 type ElectronOptions = {
   splash?: string
   window?: BrowserWindowConstructorOptions
   protocol?: string | CustomScheme
   build?: ElectronBuilderConfiguration
-  secure?: boolean // Whether to use secure builds (default: true)
+  security?: boolean | ElectronSecuritySettings // Whether to use secure builds (default: true)
   dev?: {
     load?: 'url' | 'file' // Load the Electron pages from a file or URL
   }

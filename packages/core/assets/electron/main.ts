@@ -8,6 +8,7 @@ import {
   ElectronBrowserWindowFlags,
   ElectronWindowOptions,
   ExtendedElectronBrowserWindow,
+  ElectronSecuritySettings
 } from '../../types'
 import { runAppPlugins } from '../plugins'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons'
@@ -35,7 +36,24 @@ const protocolOptions = electronOptions.protocol
     : electronOptions.protocol
   : {}
 const windowOptions = electronOptions.window ?? {}
-const applyDefaultSecuritySettings = electronOptions.secure !== false // Default to true if not explicitly set to false
+
+
+const DEFAULT_SECURITY_SETTINGS: ElectronSecuritySettings = {
+  contextIsolation: true, // Enable context isolation by default
+  nodeIntegration: false, // Disable Node.js integration by default
+  sandbox: false, // Disable sandboxing by default
+  devTools: !isProduction, // Disable devTools in production
+}
+
+const securitySettings: ElectronSecuritySettings = {}
+if (electronOptions.security) {
+  const { security } = electronOptions
+  if (security) {
+    Object.assign(securitySettings, DEFAULT_SECURITY_SETTINGS)
+    if (typeof security === 'object') Object.assign(securitySettings, security) // Merge with custom security settings if provided
+  }
+}
+
 
 const globals: {
   firstInitialized: boolean
@@ -335,7 +353,7 @@ runVerification().then(isValid => {
 
   const platformDependentWindowConfig = isLinux && linuxIcon ? { icon: linuxIcon } : {}
 
-  // if (applyDefaultSecuritySettings) app.enableSandbox() // Enable sandboxing if not explicitly disabled
+  if (securitySettings.sandbox) app.enableSandbox() // Enable sandboxing if not explicitly disabled
 
   // Aggregate window options on plugins
   Object.entries(PLUGINS).forEach(([id, plugin]) => {
@@ -422,20 +440,17 @@ runVerification().then(isValid => {
 
     // Ensure web preferences exist
     if (!copy.webPreferences) copy.webPreferences = {}
-    if (!('preload' in copy.webPreferences)) copy.webPreferences.preload = preload // Provide preload script if not otherwise specified
-    if (!('additionalArguments' in copy.webPreferences))
-      copy.webPreferences.additionalArguments = []
+    const { webPreferences } = copy
+    if (!('preload' in webPreferences)) webPreferences.preload = preload // Provide preload script if not otherwise specified
+    if (!('additionalArguments' in webPreferences))webPreferences.additionalArguments = []
 
-    // Attempt to sandbox the window unless explicitly disabled
-
-    if (applyDefaultSecuritySettings)
-      copy.webPreferences = {
-        contextIsolation: true, // Enable context isolation by default
-        sandbox: true, // Enable sandboxing by default
-        nodeIntegration: false, // Disable Node.js integration by default
-        devTools: true, // !isProduction, // Disable devTools in production
-        ...copy.webPreferences, // Override with any existing webPreferences
-      }
+    // Apply security-related settings to webPreferences
+    const webPreferencesSecuritySettings = [ 'sandbox', 'devTools', 'contextIsolation', 'nodeIntegration' ]
+    const securitySettingsForWebPreferences = Object.entries(securitySettings).reduce((acc, [key, value]) => {
+      if (webPreferencesSecuritySettings.includes(key)) acc[key] = value
+      return acc
+    }, {})
+    Object.assign(webPreferences, securitySettingsForWebPreferences) // Merge security settings into web preferences
 
     const __listeners = []
 
@@ -461,13 +476,10 @@ runVerification().then(isValid => {
       console.error(`[LOAD FAIL] ${errorCode}: ${errorDesc}`)
     })
 
-    win.webContents.on('crashed', () => {
-      console.error('[RENDERER CRASHED]')
-    })
+    win.webContents.on('crashed', () => console.error('[RENDERER CRASHED]'))
 
     const { devTools } = copy.webPreferences ?? {}
-    if (applyDefaultSecuritySettings && devTools === false)
-      win.webContents.on('devtools-opened', () => win.webContents.closeDevTools())
+    if (devTools === false) win.webContents.on('devtools-opened', () => win.webContents.closeDevTools())
 
     // Safe window management behaviors
     const originalManagers = {

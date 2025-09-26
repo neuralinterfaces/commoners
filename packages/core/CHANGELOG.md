@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file.
 - Properly handle bundled pages in built Electron applications as a result of the previous change.
 - Enable security features by default in Electron applications.
     - Properly code-sign on Windows and MacOS.
+    - Allow feature-by-feature security configuration.
 - Allow loading pages using files (instead of live Vite URLs) in Electron development mode.
 
 ## Fixes
