@@ -1,24 +1,24 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "type": "module",
   "license": "MIT",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/main.mjs",
-      "require": "./dist/main.cjs",
-      "types": "./dist/types/index.d.ts"
+      "require": "./dist/main.cjs"
     },
     "./services": {
+      "types": "./dist/types/services/index.d.ts",
       "import": "./dist/services.mjs",
-      "require": "./dist/services.cjs",
-      "types": "./dist/types/services/index.d.ts"
+      "require": "./dist/services.cjs"
     },
     "./config": {
+      "types": "./dist/types/config.d.ts",
       "import": "./dist/config.mjs",
-      "require": "./dist/config.cjs",
-      "types": "./dist/types/config.d.ts"
+      "require": "./dist/config.cjs"
     }
   },
   "engines": {
@@ -31,7 +31,8 @@
     "build": "vite build",
     "watch": "vite build --watch",
     "test": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
@@ -49,7 +50,7 @@
     "open": "^9.1.0",
     "pkg": "^5.8.1",
     "plist": "^3.1.0",
-    "vite": "^7.1.5",
+    "vite": "^7.1.7",
     "vite-plugin-dts": "^4.5.3",
     "vite-plugin-node-polyfills": "^0.24.0",
     "vite-plugin-pwa": "^1.0.3",
@@ -58,7 +59,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.15",
-    "typescript": "^4.9.5",
+    "typescript": "^5.0.0",
     "vite-plugin-static-copy": "^3.1.2"
   },
   "peerDependencies": {

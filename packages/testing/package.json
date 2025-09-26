@@ -1,30 +1,29 @@
 {
-    "name": "@commoners/testing",
-    "version": "1.0.0-alpha.1",
-    "description": "Commoners Testing Library",
-    "license": "MIT",
-    "type": "module",
-    "main": "./dist/main.cjs",
-    "module": "./dist/main.mjs",
-    "exports": {
-        ".": {
-            "import": "./dist/main.mjs",
-            "require": "./dist/main.cjs"
-        },
-        "./plugin": {
-            "import": "./dist/plugin.mjs",
-            "require": "./dist/plugin.cjs"
-        }
+  "name": "@commoners/testing",
+  "version": "1.0.0-alpha.2",
+  "description": "Commoners Testing Library",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/main.cjs",
+  "module": "./dist/main.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/main.mjs",
+      "require": "./dist/main.cjs"
     },
-    
-    "scripts": {
-        "build": "vite build",
-        "postinstall": "pnpm exec playwright install chromium"
-    },
-    "dependencies": {
-        "@commoners/solidarity": "1.0.0-alpha.1 || >=1.0.0 <2.0.0",
-        "playwright": "^1.48.0",
-        "vite": "^7.1.5",
-        "vitest": "^2.0.3"
+    "./plugin": {
+      "import": "./dist/plugin.mjs",
+      "require": "./dist/plugin.cjs"
     }
+  },
+  "scripts": {
+    "build": "vite build",
+    "postinstall": "pnpm exec playwright install chromium"
+  },
+  "dependencies": {
+    "@commoners/solidarity": "1.0.0-alpha.2 || >=1.0.0 <2.0.0",
+    "playwright": "^1.48.0",
+    "vite": "^7.1.7",
+    "vitest": "^2.1.9"
+  }
 }

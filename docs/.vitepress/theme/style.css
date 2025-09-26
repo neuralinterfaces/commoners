@@ -43,7 +43,7 @@
  *   in custom container, badges, etc.
  * -------------------------------------------------------------------------- */
 
- :root {
+:root {
   --vp-c-default-1: var(--vp-c-gray-1);
   --vp-c-default-2: var(--vp-c-gray-2);
   --vp-c-default-3: var(--vp-c-gray-3);
@@ -89,11 +89,10 @@
 /**
  * Component: Home
  * -------------------------------------------------------------------------- */
- 
- :root {
 
+:root {
   --vp-home-hero-name-color: var(--vp-c-text-1);
-  
+
   --vp-home-hero-image-filter: blur(44px);
 }
 
@@ -131,4 +130,3 @@
 .DocSearch {
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
-

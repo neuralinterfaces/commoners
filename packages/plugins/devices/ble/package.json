@@ -1,23 +1,23 @@
 {
-    "name": "@commoners/bluetooth",
-    "version": "1.0.0-alpha.1",
-    "main": "./dist/index.cjs",
-    "module": "./dist/index.mjs",
-    "license": "MIT",
-    "type": "module",
-    "scripts": {
-        "build": "vite build"
-    },
-    "devDependencies": {
-        "vite": "^7.1.5"
-    },
-    "peerDependencies": {
-        "@capacitor-community/bluetooth-le": "^6.0.0",
-        "@commoners/solidarity": "1.0.0-alpha.1 || >=1.0.0 <2.0.0"
-    },
-    "peerDependenciesMeta": {
-        "@capacitor-community/bluetooth-le": {
-            "optional": true
-        }
+  "name": "@commoners/bluetooth",
+  "version": "1.0.0-alpha.2",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  },
+  "peerDependencies": {
+    "@capacitor-community/bluetooth-le": "^6.0.0",
+    "@commoners/solidarity": "1.0.0-alpha.2 || >=1.0.0 <2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@capacitor-community/bluetooth-le": {
+      "optional": true
     }
+  }
 }

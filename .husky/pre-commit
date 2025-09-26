@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Pre-commit hook disabled
+exit 0
+pnpm exec lint-staged

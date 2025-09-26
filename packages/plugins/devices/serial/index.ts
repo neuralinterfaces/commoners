@@ -1,4 +1,4 @@
-import createModal from '../modal.js';
+import createModal from '../modal.js'
 
 export const isSupported = {
   load: ({ WEB, MOBILE }) => {
@@ -12,39 +12,33 @@ export const ready = function () {
 }
 
 export const desktop = {
-  load: function ( win ) {
-
+  load: function (win) {
     const { __id } = win
     const { session } = win.webContents
-  
 
-    this.on(`${__id}:select`, (_, port) =>  this.CALLBACKS[__id]?.(port));
-    session.on('serial-port-added', (_, port) =>  this.send(`${__id}:added`, port))
+    this.on(`${__id}:select`, (_, port) => this.CALLBACKS[__id]?.(port))
+    session.on('serial-port-added', (_, port) => this.send(`${__id}:added`, port))
     session.on('serial-port-removed', (_, port) => this.send(`${__id}:removed`, port))
 
     session.on('select-serial-port', (event, portList, webContents, callback) => {
-
-      const window = this.electron.BrowserWindow.fromWebContents(webContents);
+      const window = this.electron.BrowserWindow.fromWebContents(webContents)
       if (__id !== window.__id) return // Skip if the attached window did not trigger the request
 
-
-      this.send(`${__id}:request`, portList);
+      this.send(`${__id}:request`, portList)
 
       event.preventDefault()
-      this.CALLBACKS[__id] = (port) => {
+      this.CALLBACKS[__id] = port => {
         this.CALLBACKS[__id] = null // Ensures this is only called once
         callback(port)
       }
-
     })
-  
+
     session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
-    session.setDevicePermissionHandler((details) => true)
-  }
+    session.setDevicePermissionHandler(details => true)
+  },
 }
 
 export function load() {
-
   const { DESKTOP } = commoners
 
   if (!DESKTOP) return
@@ -52,7 +46,7 @@ export function load() {
   const { __id } = DESKTOP
 
   const callbacks: Record<string, Function[]> = {}
-  
+
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`
     if (!callbacks[fullId]) return
@@ -68,27 +62,27 @@ export function load() {
     if (!callbacks[fullId]) callbacks[fullId] = []
     callbacks[fullId].push(callback)
   }
-  
-  const added = (callback) => addCallback("added", callback)
-  const removed = (callback) => addCallback("removed", callback)
-  const select = (port) => this.send(`${__id}:select`, port)
-  const onRequest =(callback) => addCallback("request", callback)
+
+  const added = callback => addCallback('added', callback)
+  const removed = callback => addCallback('removed', callback)
+  const select = port => this.send(`${__id}:select`, port)
+  const onRequest = callback => addCallback('request', callback)
 
   const modal = createModal({
     headerText: 'Available Serial Ports',
     added,
     removed,
-    mapDeviceToInfo: (o) => {
+    mapDeviceToInfo: o => {
       return {
         name: o.displayName ?? o.portName,
         info: o.displayName ? o.portName : '',
-        id: o.portId
+        id: o.portId,
       }
     },
-    onClose: (port) => select(port)
+    onClose: port => select(port),
   })
 
-  onRequest((devices) => {
+  onRequest(devices => {
     modal.update(devices)
     modal.showModal()
   }) // Open on each request
@@ -98,10 +92,9 @@ export function load() {
   return {
     modal,
 
-    added, 
+    added,
     removed,
     select,
-    onRequest
+    onRequest,
   }
-
 }

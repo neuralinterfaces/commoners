@@ -1,17 +1,17 @@
 {
-    "name": "@commoners/serial",
-    "version": "1.0.0-alpha.1",
-    "license": "MIT",
-    "type": "module",
-    "main": "./dist/index.cjs",
-    "module": "./dist/index.mjs",
-    "scripts": {
-        "build": "vite build"
-    },
-    "devDependencies": {
-        "vite": "^7.1.5"
-    },
-    "peerDependencies": {
-        "@commoners/solidarity": "1.0.0-alpha.1 || >=1.0.0 <2.0.0"
-    }
+  "name": "@commoners/serial",
+  "version": "1.0.0-alpha.2",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  },
+  "peerDependencies": {
+    "@commoners/solidarity": "1.0.0-alpha.2 || >=1.0.0 <2.0.0"
+  }
 }

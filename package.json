@@ -14,22 +14,47 @@
     "publish": "pnpm publish -F \"./packages/**\" --access public",
     "demo": "commoners tests/demo",
     "demo:build": "commoners build tests/demo",
-    "demo:launch": "commoners launch tests/demo"
+    "demo:launch": "commoners launch tests/demo",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r run typecheck",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
-    "@commoners/bluetooth": "1.0.0-alpha.1",
+    "@commoners/bluetooth": "1.0.0-alpha.2",
     "@commoners/local-services": "0.0.62",
-    "@commoners/serial": "1.0.0-alpha.1",
-    "@commoners/solidarity": "1.0.0-alpha.1",
+    "@commoners/serial": "1.0.0-alpha.2",
+    "@commoners/solidarity": "1.0.0-alpha.2",
     "@commoners/splash-screen": "0.0.62",
-    "@commoners/testing": "1.0.0-alpha.1",
-    "@commoners/windows": "1.0.0-alpha.1",
-    "@vitest/coverage-v8": "^2.0.3",
+    "@commoners/testing": "1.0.0-alpha.2",
+    "@commoners/windows": "1.0.0-alpha.2",
+    "@eslint/js": "^9.36.0",
+    "@typescript-eslint/eslint-plugin": "^8.44.1",
+    "@typescript-eslint/parser": "^8.44.1",
+    "@vitest/coverage-v8": "^2.1.9",
+    "commoners": "1.0.0-alpha.2",
+    "eslint": "^9.36.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.1",
+    "prettier": "^3.6.2",
     "search-insights": "^2.15.0",
-    "commoners": "1.0.0-alpha.1",
-    "vite": "^7.1.5",
-    "vitepress": "^1.3.1",
-    "vitest": "^2.0.3"
+    "typescript": "^5.0.0",
+    "vite": "^7.1.7",
+    "vitepress": "^1.6.4",
+    "vitest": "^2.1.9"
   },
   "packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b"
 }

@@ -1,10 +1,10 @@
 import { URL } from 'node:url'
 
-export const isValidURL = (s) => {
+export const isValidURL = s => {
   try {
-    new URL(s);
-    return true;
+    new URL(s)
+    return true
   } catch (err) {
-    return false;
+    return false
   }
-};
+}

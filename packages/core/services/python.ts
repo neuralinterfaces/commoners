@@ -1,55 +1,47 @@
-import { Service } from "./types";
+import { Service } from './types.js'
 
-const defaultBuildArgs = "--hiddenimport pkg_resources.extern";
+const defaultBuildArgs = '--hiddenimport pkg_resources.extern'
 
-type BuildConfiguration = { buildSpec?: string } | {  buildArgs?: string }
+type BuildConfiguration = { buildSpec?: string } | { buildArgs?: string }
 export type PyInstallerServiceProperties = Service & BuildConfiguration
 
-
 export class PyInstallerService {
+  src: string
+  publish: Service['publish']
 
-    src: string
-    publish: Service['publish']
+  constructor(
+    service: Service,
+    outDir: string = `./build` // Can't have the exact same name
+  ) {
+    const out = `${outDir}/_${service.name}`
 
-    constructor(
-        service: Service, 
-        outDir: string = `./build` // Can't have the exact same name
-    ) {
+    const { name, src, publish } = service
 
-        const out = `${outDir}/_${service.name}`
+    const sharedOptions = `-y --clean --distpath ${out}`
 
-        const { name, src, publish } = service
+    const { buildSpec, buildArgs = '' } = service
 
-        const sharedOptions = `-y --clean --distpath ${out}`;
+    const build = buildSpec
+      ? `python -m PyInstaller ${buildSpec} ${sharedOptions}`
+      : `python -m PyInstaller ${service.src} --name ${service.name} --onedir ${sharedOptions} ${defaultBuildArgs}  ${buildArgs}`
 
-        const { buildSpec, buildArgs = "" } = service
+    this.src = src
 
-        const build = buildSpec
-        ? `python -m PyInstaller ${buildSpec} ${sharedOptions}`
-        : `python -m PyInstaller ${service.src} --name ${service.name} --onedir ${sharedOptions} ${defaultBuildArgs}  ${buildArgs}`
-
-        this.src = src
-
-        this.publish = publish ?? {
-            src: name,
-            base: `${out}/${name}`, // The whole folder will be copied
-            build // Only run build command when publishing
-        }
-
-        Object.entries(service).forEach(([key, value]) => {
-            if (!(key in this)) this[key] = value;
-        });
-      
+    this.publish = publish ?? {
+      src: name,
+      base: `${out}/${name}`, // The whole folder will be copied
+      build, // Only run build command when publishing
     }
+
+    Object.entries(service).forEach(([key, value]) => {
+      if (!(key in this)) this[key] = value
+    })
+  }
 }
 
-export const createPyInstallerServices  = (
-    services: Service[],
-    outDir?: string
-) => {
-    
+export const createPyInstallerServices = (services: Service[], outDir?: string) => {
   return services.reduce((acc, service, i) => {
     acc[service.name] = new PyInstallerService(service, outDir)
-    return acc;
-  }, {});
-};
+    return acc
+  }, {})
+}

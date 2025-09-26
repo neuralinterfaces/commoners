@@ -1,22 +1,21 @@
 name: Comprehensive Test Suite
 on:
   schedule:
-    - cron: "0 16 * * *"  # Daily at noon EST
+    - cron: '0 16 * * *' # Daily at noon EST
   push:
-    branches: ["main"]
+    branches: ['main']
   pull_request:
   workflow_dispatch:
 
-concurrency:  # Cancel previous workflows on the same pull request
+concurrency: # Cancel previous workflows on the same pull request
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  CACHE_NUMBER: 2  # increase to reset cache manually
+  CACHE_NUMBER: 2 # increase to reset cache manually
 
 permissions:
   contents: write # Allow publishing releases from this workflow
-
 
 jobs:
   testing:
@@ -29,11 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [
-          ubuntu-latest,
-          macos-latest, 
-          windows-latest
-        ]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +37,7 @@ jobs:
       - name: Install Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install Conda Environment
         uses: conda-incubator/setup-miniconda@v3
@@ -50,7 +45,7 @@ jobs:
           activate-environment: commoners-demo
           environment-file: tests/demo/src/services/python/environment.yml
           auto-activate-base: false
-      
+
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:

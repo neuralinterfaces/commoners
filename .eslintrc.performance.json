@@ -1,0 +1,15 @@
+{
+  "extends": ["./eslint.config.js"],
+  "rules": {
+    "no-console": ["warn", { "allow": ["error", "warn"] }],
+    "prefer-const": "error",
+    "no-var": "error",
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "no-duplicate-imports": "error",
+    "prefer-template": "warn",
+    "object-shorthand": "warn",
+    "no-useless-concat": "error",
+    "prefer-arrow-callback": "warn"
+  }
+}

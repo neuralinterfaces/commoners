@@ -1,17 +1,17 @@
 {
-    "name": "@commoners/splash-screen",
-    "version": "0.0.62",
-    "main": "./dist/index.cjs",
-    "module": "./dist/index.mjs",
-    "license": "MIT",
-    "type": "module",
-    "scripts": {
-        "build": "vite build"
-    },
-    "devDependencies": {
-        "vite": "^7.1.5"
-    },
-    "peerDependencies": {
-        "@commoners/solidarity": ">=0.0.62 <0.1.0"
-    }
+  "name": "@commoners/splash-screen",
+  "version": "0.0.62",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
+  },
+  "peerDependencies": {
+    "@commoners/solidarity": ">=0.0.62 <0.1.0"
+  }
 }
