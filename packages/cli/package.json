@@ -1,7 +1,7 @@
 {
   "name": "commoners",
   "description": "Cross-Platform Development for the Rest of Us",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@commoners/solidarity": "1.0.0-alpha.1",
+    "@commoners/solidarity": "1.0.0-alpha.2",
     "boxen": "^8.0.1",
     "cac": "^6.7.14",
     "chalk": "^5.2.0",
