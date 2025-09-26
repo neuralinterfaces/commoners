@@ -45,15 +45,15 @@ const DEFAULT_SECURITY_SETTINGS: ElectronSecuritySettings = {
   devTools: !isProduction, // Disable devTools in production
 }
 
+const __userSecuritySetting = electronOptions.security || true
+
 const securitySettings: ElectronSecuritySettings = {}
-if (electronOptions.security) {
-  const { security } = electronOptions
-  if (security) {
+if (__userSecuritySetting) {
+  if (__userSecuritySetting) {
     Object.assign(securitySettings, DEFAULT_SECURITY_SETTINGS)
-    if (typeof security === 'object') Object.assign(securitySettings, security) // Merge with custom security settings if provided
+    if (typeof __userSecuritySetting === 'object') Object.assign(securitySettings, __userSecuritySetting) // Merge with custom security settings if provided
   }
 }
-
 
 const globals: {
   firstInitialized: boolean
@@ -459,7 +459,7 @@ runVerification().then(isValid => {
 
     windowCount++
 
-    copy.webPreferences.additionalArguments.push(
+    webPreferences.additionalArguments.push(
       ...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`)
     )
 
@@ -478,7 +478,7 @@ runVerification().then(isValid => {
 
     win.webContents.on('crashed', () => console.error('[RENDERER CRASHED]'))
 
-    const { devTools } = copy.webPreferences ?? {}
+    const { devTools } = webPreferences
     if (devTools === false) win.webContents.on('devtools-opened', () => win.webContents.closeDevTools())
 
     // Safe window management behaviors
