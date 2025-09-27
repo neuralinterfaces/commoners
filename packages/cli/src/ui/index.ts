@@ -56,13 +56,17 @@ export class CommonersUI {
   // Enhanced Headers
   header(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
-
     const title = chalk.hex(this.theme.primary).bold(message)
-
     console.log('\n' + title)
-
     if (subtitle) console.log(chalk.hex(this.theme.muted)(subtitle))
-
+    console.log()
+  }
+  
+  sectionHeader(message: string, options?: { subtitle?: string }) {
+    const { subtitle } = options || {}
+    const title = chalk.hex(this.theme.secondary).bold(message)
+    console.log('\n' + chalk.underline(title))  
+    if (subtitle) console.log(chalk.hex(this.theme.muted)(subtitle))
     console.log()
   }
 
@@ -122,6 +126,11 @@ export class CommonersUI {
       console.log(chalk.hex(this.theme.muted)(`  ${details}`))
     }
     console.log()
+  }
+
+  details(message: string) {
+    // Subtle details without emphasis
+    console.log(chalk.hex(this.theme.muted)(message))
   }
 
   // Service messages with colored labels

@@ -2,6 +2,9 @@
 import type { HookEvent, HooksInterface } from '@commoners/solidarity/types'
 import { ui } from './ui/index.js'
 
+import _chalk from 'chalk'
+const chalk = _chalk.default || _chalk // Handle both ESM and CJS imports
+
 export class CLIHooks implements HooksInterface {
   private handlers = new Map<string, Set<(event: HookEvent) => void>>()
 
@@ -69,13 +72,13 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:start') {
         switch (event.phase) {
           case 'frontend':
-            ui.info('Building frontend assets')
+            ui.sectionHeader('Frontend Assets')
             break
           case 'services':
-            ui.info('Building all services')
+            ui.sectionHeader('Services')
             break
           case 'packaging':
-            ui.info('Packaging application')
+            ui.sectionHeader('App Packaging')
             break
         }
       }
@@ -85,20 +88,20 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:complete') {
         switch (event.phase) {
           case 'frontend':
-            ui.success('Frontend built successfully')
+            // ui.success('Frontend built successfully')
             break
           case 'services':
-            ui.success('Services built successfully')
+            // ui.success('Services built successfully')
             break
           case 'packaging':
-            ui.success('Application packaged successfully')
+            // ui.success('Application packaged successfully')
             break
         }
       }
     })
 
     this.on('build:electron:start', () => {
-      ui.info('Running Electron Builder')
+      ui.sectionHeader('Electron Builder')
     })
 
     this.on('build:mobile:start', (event) => {
@@ -109,10 +112,17 @@ export class CLIHooks implements HooksInterface {
 
     this.on('build:complete', (event) => {
       if (event.type === 'build:complete') {
-        const targetName = this.getTargetDisplayName(event.target)
-        ui.success(
-          `${targetName} build complete!`,
-          `${event.outDir}${event.duration ? ` (${event.duration}ms)` : ''}`
+        const { config, outDir } = event
+        const { name, target } = config
+        const targetName = this.getTargetDisplayName(target)
+
+        ui.box(
+          `${name} (${targetName}) was built successfully!\n${chalk.gray(outDir)}`,
+          {
+            title: chalk.bold(`✨ Build Successful`),
+            borderColor: 'success',
+            align: 'center',
+          }
         )
       }
     })
@@ -195,19 +205,25 @@ export class CLIHooks implements HooksInterface {
     
     this.on('service:build:end', (event) => {
       if (event.type === 'service:build:end') {
-        ui.success(`[${event.service}] Built successfully`, `${event.out}`)
+        ui.service(event.service, `Build completed`, 'success')
+        if (event.out) ui.details(`${event.out}`)
+        console.log()
       }
     })
 
     this.on('service:build:error', (event) => {
       if (event.type === 'service:build:error') {
-        ui.error(`[${event.service}] Build failed`, event.error.message)
+        ui.service(event.service, `Build failed`, 'error')
+        if (event.error) ui.details(event.error.message)
+        console.log()
       }
     })
 
     this.on('service:build:cached', (event) => {
       if (event.type === 'service:build:cached') {
-        ui.info(`[${event.service}] Using cached build`, `${event.out}`)
+        ui.service(event.service, `Using cached build`, 'info')
+        if (event.out) ui.details(`${event.out}`)
+        console.log()
       }
     })
 

@@ -48,15 +48,12 @@ export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } 
     if (opts.log !== false) {
       proc.stdout.on('data', (data) => hooks.emit({ type: 'service:stdout', data, service: label }))
       proc.stderr.on('data', (data) => hooks.emit({ type: 'service:stderr', data, service: label }))
-      proc.on('error', (error) => {
-        console.log(`Error in process ${label}:`, error)
-        hooks.emit({ type: 'service:error', error, service: label })
-      })
+      proc.on('error', (error) => hooks.emit({ type: 'service:error', error, service: label }))
     }
 
     proc.on('exit', res => {
       delete children[proc.pid]
-      hooks.emit({ type: 'service:exit', code: res, service: label })
+      // hooks.emit({ type: 'service:exit', code: res, service: label })
       resolve(res)
     })
   })

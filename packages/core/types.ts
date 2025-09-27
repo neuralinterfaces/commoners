@@ -28,7 +28,7 @@ export type BuildEvent =
   | { type: 'build:assets:complete'; phase: 'frontend' | 'services' | 'packaging'; duration?: number }
   | { type: 'build:electron:start' }
   | { type: 'build:mobile:start'; mobileTarget: 'ios' | 'android' }
-  | { type: 'build:complete'; target: string; outDir: string; duration?: number }
+  | { type: 'build:complete'; config: ResolvedConfig; outDir: string; duration?: number }
   | { type: 'build:error'; error: Error; phase?: string }
 
 type ServiceBuildMethods = 'pkg' | 'string' | 'function' | 'compile' | 'cached'

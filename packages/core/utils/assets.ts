@@ -374,8 +374,7 @@ export const getServiceAssets = (
         const toCopy = output === null ? null : (output ?? base ?? filepath)
 
         if (!existsSync(toCopy)) {
-          // Service build file missing - this is a critical error
-          throw new Error(`Missing ${name} build file: Could not find ${toCopy}`)
+          hooks.emit({ type: 'service:build:error', service: name, src, out, error: new Error(`Missing build file: ${toCopy}`) })
           return null // Do not try to copy or bundle the missing file
         }
 

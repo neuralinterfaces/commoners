@@ -176,6 +176,7 @@ export async function buildApp(
     if (isMobileBuild) await mobile.prebuild(configCopy) // Run mobile prebuild command
 
     // Build the standard output files using Vite. Force recognition as build
+    hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
     await _vite.build(await resolveViteConfig(configCopy, { dev }))
 
     // Emit build event
@@ -458,7 +459,7 @@ export async function buildApp(
     }
 
     // Emit build complete event
-    hooks.emit({ type: 'build:complete', target, outDir: selectedOutDir })
+    hooks.emit({ type: 'build:complete', config: resolvedConfig, outDir: selectedOutDir })
 
     return outDir // Return the temporary output directory
 
