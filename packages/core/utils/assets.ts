@@ -14,7 +14,7 @@ import {
 } from 'node:path'
 
 // Internal Imports
-import { resolveConfigPath } from '../index.js'
+import { createNoOpHooks, resolveConfigPath } from '../index.js'
 import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from './encode.js'
 import { chalk, isDesktop, rootDir, vite } from '../globals.js'
@@ -26,7 +26,6 @@ import {
   ServiceRebuildOption,
 } from '../types.js'
 import { withExternalBuiltins } from '../vite/plugins/electron/inbuilt.js'
-import { printSubtle } from './formatting.js'
 import { getAllIcons } from '../assets/utils/icons.js'
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from './esbuild/plugins.js'
@@ -111,8 +110,7 @@ export const getAssetLinkPath = (path, outDir, root = outDir) => {
   return result
 }
 
-export const packageFile = async (info: PackageBuildInfo) => {
-  const _chalk = await chalk
+export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHooks()) => {
 
   const { name, src, out, force } = info
 
@@ -124,8 +122,8 @@ export const packageFile = async (info: PackageBuildInfo) => {
   const shouldBuild = mustBuild({ out: outDir, force })
 
   if (!shouldBuild) {
-    printSubtle(`Using cached ${_chalk.bold(name)} build`)
-    return outDir
+    hooks.emit({ type: 'service:build:cached', service: name, src, out })
+    return outDir // Cached Build: Skipping with explicit path returned
   }
 
   const esbuild = await import('esbuild')
@@ -161,36 +159,52 @@ async function buildService(
     root: ResolvedConfig['root']
   },
   name,
-  force = false
+  force = false,
+  hooks = createNoOpHooks()
 ) {
   out = resolve(out)
   const buildInfo = { name, src, out, force }
 
-  // Dynamic Configuration
-  if (typeof build === 'function') {
-    const ctx = { package: packageFile }
-    build = await build.call(ctx, buildInfo)
-    if (!build) return // No file emitted
-  }
+  let buildMethod: 'function' | 'string' = 'string'
 
-  // Handle string build commands
-  if (typeof build === 'string') {
-    // Output path
-    if (existsSync(build)) return build // NOTE: Can be resolved by the above build function
+  hooks.emit({ type: 'service:build:start', service: name, src, out })
 
-    // Stop if the build is not required
-    if (!mustBuild({ out, force })) {
-      const _chalk = await chalk
-      await printSubtle(`Using cached ${_chalk.bold(name)} build`)
-      return // Skipping without a specific path returned
+  try {
+
+    // Dynamic Configuration
+    if (typeof build === 'function') {
+      buildMethod = 'function'
+      const ctx = { package: (arg) => packageFile(arg, hooks) }
+
+      build = await build.call(ctx, buildInfo)
+      if (!build) return // No file emitted
     }
 
-    // Terminal Command
-    await spawnProcess(build, [], { cwd: root })
-  }
+    // Handle string build commands
+    if (typeof build === 'string') {
 
-  // Auto Build Configuration
-  else return await packageFile(buildInfo)
+      // Output path
+      if (existsSync(build)) {
+        hooks.emit({ type: 'service:build:end', service: name, src, out: build })
+        return build // NOTE: Can be resolved by the above build function
+      }
+
+      // Stop if the build is not required
+      if (!mustBuild({ out, force })) return hooks.emit({ type: 'service:build:cached', service: name, src, out })
+
+      // Terminal Command
+      await spawnProcess(build, [], { cwd: root, label: name }, hooks)
+    }
+
+    // Auto Build Configuration
+    else await packageFile(buildInfo, hooks)
+
+    hooks.emit({ type: 'service:build:end', service: name, src, out })
+
+  } catch (error) {
+    hooks.emit({ type: 'service:build:error', service: name, src, out, error })
+    throw error // Re-throw the error for further handling
+  }
 }
 
 // Derive assets to be transferred to the Commoners folder
@@ -304,7 +318,8 @@ const resolveAssetInfo = (info, outDir, root) => {
 export const getServiceAssets = (
   resolvedConfig: ResolvedConfig,
   dev = false,
-  rebuildServices: ServiceRebuildOption = true
+  rebuildServices: ServiceRebuildOption = true,
+  hooks = createNoOpHooks()
 ) => {
   const { root } = resolvedConfig
 
@@ -337,9 +352,8 @@ export const getServiceAssets = (
     // Compile service when not in development mode or when the service is not autobuilt
     if (allowCompilation) {
       bundleConfig.compile = async function ({ src, out }) {
-        const _chalk = await chalk
 
-        if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
+        hooks.emit({ type: 'service:build', service: name, src, out, method: 'compile' })
 
         const rebuild =
           typeof rebuildServices === 'boolean' ? rebuildServices : rebuildServices.includes(name)
@@ -353,15 +367,15 @@ export const getServiceAssets = (
             root,
           },
           name,
-          rebuild // Force rebuild if specified
+          rebuild, // Force rebuild if specified
+          hooks
         )
 
         const toCopy = output === null ? null : (output ?? base ?? filepath)
 
         if (!existsSync(toCopy)) {
-          console.warn(
-            `${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`
-          )
+          // Service build file missing - this is a critical error
+          throw new Error(`Missing ${name} build file: Could not find ${toCopy}`)
           return null // Do not try to copy or bundle the missing file
         }
 

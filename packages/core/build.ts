@@ -20,7 +20,9 @@ import {
   ServiceRebuildOption,
   UserConfig,
   WritableElectronBuilderConfig,
+  HooksInterface,
 } from './types.js'
+import { createNoOpHooks } from './hooks.js'
 
 // Internal Utilities
 import { getAppAssets, getServiceAssets, buildAssets, getAssetBuildPath } from './utils/assets.js'
@@ -53,7 +55,19 @@ const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,
 const convertToBaseRegexString = (str: string) =>
   new RegExp(str).toString().split('/').slice(1, -1).join('/')
 
-export const buildAllAssets = async (config, dev, rebuildServices: ServiceRebuildOption = true) => {
+type BuildAllAssetOptions = {
+  dev?: boolean,
+  rebuild?: ServiceRebuildOption,
+  hooks?: HooksInterface
+}
+export const buildAllAssets = async (
+  config, 
+  opts = {} as BuildAllAssetOptions
+) => {
+
+  const { dev, rebuild = true, hooks = createNoOpHooks() } = opts
+
+
   const { outDir, root, target } = config
   const appAssets = await getAppAssets(config, dev)
 
@@ -67,7 +81,8 @@ export const buildAllAssets = async (config, dev, rebuildServices: ServiceRebuil
     const _outputs = await buildServices(config, {
       dev,
       outDir,
-      rebuild: rebuildServices,
+      rebuild,
+      hooks
     }) // Only build when in development, or during desktop builds
     outputs.push(..._outputs)
   }
@@ -78,17 +93,17 @@ export const buildAllAssets = async (config, dev, rebuildServices: ServiceRebuil
 // ------------------------ Main Exports ------------------------
 
 export const buildServices = async (config: UserConfig = {}, options: ServiceBuildOptions = {}) => {
-  const { dev = false, services, rebuild = true } = options
+  const { dev = false, services, rebuild = true, hooks = createNoOpHooks() } = options
 
   const { outDir } = options
 
-  // if (!dev) await printHeader(`${name} – ${buildOnlyServices ? 'Building Selected Services' : `${printTarget(target)} Build`}`)
+  // if (!dev) await printHeader(`${name} – ${buildOnlyServices ? 'Building Selected Services' : `${getTargetDisplayName(target)} Build`}`)
 
   const resolvedConfig = await resolveConfig(config, { services, build: true })
 
   const { root, target } = resolvedConfig
 
-  const assets = await getServiceAssets(resolvedConfig, dev, rebuild)
+  const assets = await getServiceAssets(resolvedConfig, dev, rebuild, hooks)
   return await buildAssets(assets, {
     root,
     outDir: outDir ?? resolve(join(root, globalWorkspacePath, 'services')), // Default service output directory
@@ -106,338 +121,354 @@ export async function buildApp(
     dev = false, // Default to a production build
     rebuildServices = true, // Rebuild services by default
     overwrite = false, // Overwrite existing files
+    hooks = createNoOpHooks(), // Hooks interface for CLI integration
   }: BuildHooks = {}
 ) {
   const _vite = await vite
 
-  const _chalk = await chalk
+  try {
 
-  // ---------------- Proper Configuration Resolution ----------------
-  const resolvedConfig = await resolveConfig(config, { build: true })
+    // ---------------- Proper Configuration Resolution ----------------
+    const resolvedConfig = await resolveConfig(config, { build: true })
+    const { root, target, build = {} } = resolvedConfig
 
-  const { root, target, build = {} } = resolvedConfig
-  const { publish, sign } = build
+    // Emit build start event
+    hooks.emit({ type: 'build:start', config: resolvedConfig, dev })
 
-  const isElectronBuild = target === 'electron'
-  const isDesktopBuild = isDesktop(target)
-  const isMobileBuild = isMobile(target)
+    const { publish, sign } = build
 
-  // ---------------- Output Directory Resolution ----------------
-  const defaultOutDir = join(root, globalWorkspacePath, target)
-  let { outDir = defaultOutDir } = config
+    const isElectronBuild = target === 'electron'
+    const isDesktopBuild = isDesktop(target)
+    const isMobileBuild = isMobile(target)
 
-  const selectedOutDir = outDir // This is used for the actual build output
+    // ---------------- Output Directory Resolution ----------------
+    const defaultOutDir = join(root, globalWorkspacePath, target)
+    let { outDir = defaultOutDir } = config
 
-  const customTempDir = isDesktopBuild || isMobileBuild
+    const selectedOutDir = outDir // This is used for the actual build output
 
-  let wasOverwritten = false
-  if (customTempDir) {
-    outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
-    const { overwrite: __wasOverwritten } = await handleTemporaryDirectories(
-      dirname(outDir),
-      overwrite
-    ) // Queue removal of temporary directories
-    wasOverwritten = __wasOverwritten
-  }
+    const customTempDir = isDesktopBuild || isMobileBuild
 
-  outDir = resolve(outDir) // Ensure absolute path
-
-  const name = resolvedConfig.name
-
-  if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
-
-  // ---------------- Clear Previous Builds ----------------
-  if (isDesktopBuild && !dev) removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
-  await removeDirectory(outDir)
-
-  // ------------------ Set Resolved Configuration ------------------
-  const configCopy = { ...resolvedConfig, target, outDir } // Replace with internal target representation
-
-  // ---------------- Build App Assets ----------------
-  if (isMobileBuild) await mobile.prebuild(configCopy) // Run mobile prebuild command
-
-  // Build the standard output files using Vite. Force recognition as build
-  await _vite.build(await resolveViteConfig(configCopy, { dev }))
-
-  // Log build success
-  if (!wasOverwritten)
-    console.log(
-      `${dev ? '' : '\n'}🚀 ${_chalk.bold(_chalk.greenBright('Frontend'))} built successfully\n`
-    )
-
-  // ---------------- Create Standard Output Files ----------------
-  const assets = await buildAllAssets(configCopy, dev, rebuildServices)
-
-  if (onBuildAssets) {
-    const result = onBuildAssets(outDir)
-    if (result === null) return // Skip packaging if requested
-  }
-
-  // ------------------------- Target-Specific Build Steps -------------------------
-  if (isElectronBuild && !dev) {
-    console.log(`\n🛠️ Running ${_chalk.bold(_chalk.cyanBright('electron-builder'))}\n`)
-
-    // Load environment into the app
-    const env = loadEnvironmentVariables('production', root)
-
-    Object.assign(process.env, env) // Merge environment variables into process.env
-
-    const cwdRelativeOutDir = relative(process.cwd(), outDir)
-    const relativeOutDir = relative(root, cwdRelativeOutDir)
-
-    // Configure package.json for proper Electron build
-    configureForDesktop(cwdRelativeOutDir, root, {
-      name: name.toLowerCase().split(' ').join('-'),
-      version: '0.0.0',
-    })
-
-    const { electron, appId, icon } = configCopy
-
-    let { security } = electron
-    security = security ?? true // Default to secure options
-
-    const buildConfig = merge(
-      electron.build ?? {},
-      getBuildConfig()
-    ) as WritableElectronBuilderConfig
-
-    buildConfig.productName = name
-    buildConfig.appId = appId
-
-    const actualOutDir = isAbsolute(selectedOutDir)
-      ? selectedOutDir
-      : join(process.cwd(), selectedOutDir)
-
-    buildConfig.directories.output = actualOutDir
-
-    const files = (buildConfig.files = [`${relativeOutDir}/**`])
-
-    // Ensure platform-specific configs exist
-    const platforms = ['mac', 'win', 'linux']
-    for (const platform of platforms) {
-      if (!buildConfig[platform]) buildConfig[platform] = {}
+    let wasOverwritten = false
+    if (customTempDir) {
+      outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
+      const { overwrite: __wasOverwritten } = await handleTemporaryDirectories(
+        dirname(outDir),
+        overwrite
+      ) // Queue removal of temporary directories
+      wasOverwritten = __wasOverwritten
     }
 
-    // Set strong code-signing algorithm (Windows)
-    if (!buildConfig.win.signingHashAlgorithms) buildConfig.win.signingHashAlgorithms = ['sha256']
+    outDir = resolve(outDir) // Ensure absolute path
 
-    // Ensure proper linux configuration
-    buildConfig.linux.executableName = buildConfig.productName
-    Object.assign(buildConfig.linux, {
-      executableName: buildConfig.productName,
-      artifactName: '${productName}-${version}.${ext}',
-    })
+    const name = resolvedConfig.name
 
-    // Handle extra resources and code signing
-    const extraResources = (buildConfig.extraResources = [])
-    const signIgnore = (buildConfig.mac.signIgnore = [])
+    if (devServices) resolvedConfig.services = devServices // Ensure local services are resolved with the same information
 
-    const resolveFileLocation = file => {
-      const relPath = relative(cwdRelativeOutDir, file)
-      return join(relativeOutDir, relPath)
+    // ---------------- Clear Previous Builds ----------------
+    if (isDesktopBuild && !dev) removeDirectory(join(globalWorkspacePath, 'services')) // Clear default service directory
+    await removeDirectory(outDir)
+
+    // ------------------ Set Resolved Configuration ------------------
+    const configCopy = { ...resolvedConfig, target, outDir } // Replace with internal target representation
+
+    // ---------------- Build App Assets ----------------
+    if (isMobileBuild) await mobile.prebuild(configCopy) // Run mobile prebuild command
+
+    // Build the standard output files using Vite. Force recognition as build
+    await _vite.build(await resolveViteConfig(configCopy, { dev }))
+
+    // Emit build event
+    if (!wasOverwritten) hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })
+
+    // ---------------- Create Standard Output Files ----------------
+    hooks.emit({ type: 'build:assets:start', phase: 'services' })
+    const assets = await buildAllAssets(configCopy, { dev, rebuild: rebuildServices, hooks })
+    hooks.emit({ type: 'build:assets:complete', phase: 'services' })
+
+    if (onBuildAssets) {
+      const result = onBuildAssets(outDir)
+      if (result === null) return // Skip packaging if requested
     }
 
-    assets.forEach(({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
-      const location = resolveFileLocation(file)
+    // ------------------------- Target-Specific Build Steps -------------------------
+    if (isElectronBuild && !dev) {
+      hooks.emit({ type: 'build:electron:start' })
 
-      if (extraResource) {
-        const glob = isDirectory ? join(location, '**') : location
-        extraResources.push(glob)
-        files.push(`!${glob}`)
+      // Load environment into the app
+      const env = loadEnvironmentVariables('production', root)
+
+      Object.assign(process.env, env) // Merge environment variables into process.env
+
+      const cwdRelativeOutDir = relative(process.cwd(), outDir)
+      const relativeOutDir = relative(root, cwdRelativeOutDir)
+
+      // Configure package.json for proper Electron build
+      configureForDesktop(cwdRelativeOutDir, root, {
+        name: name.toLowerCase().split(' ').join('-'),
+        version: '0.0.0',
+      })
+
+      const { electron, appId, icon } = configCopy
+
+      let { security } = electron
+      security = security ?? true // Default to secure options
+
+      const buildConfig = merge(
+        electron.build ?? {},
+        getBuildConfig()
+      ) as WritableElectronBuilderConfig
+
+      buildConfig.productName = name
+      buildConfig.appId = appId
+
+      const actualOutDir = isAbsolute(selectedOutDir)
+        ? selectedOutDir
+        : join(process.cwd(), selectedOutDir)
+
+      buildConfig.directories.output = actualOutDir
+
+      const files = (buildConfig.files = [`${relativeOutDir}/**`])
+
+      // Ensure platform-specific configs exist
+      const platforms = ['mac', 'win', 'linux']
+      for (const platform of platforms) {
+        if (!buildConfig[platform]) buildConfig[platform] = {}
       }
 
-      // Ignore Code Signing for Certain Files (NOTE: "Failed to staple your application with code: 65" error)
-      if (sign === false)
-        signIgnore.push(convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`))
-    })
+      // Set strong code-signing algorithm (Windows)
+      if (!buildConfig.win.signingHashAlgorithms) buildConfig.win.signingHashAlgorithms = ['sha256']
 
-    // TODO: Get platform-specific icon
-    const preferredMacIcon = getIcon(icon, { preferredFormats: ELECTRON_PREFERENCE })
-    const preferredWinIcon = getIcon(icon, { preferredFormats: ELECTRON_WINDOWS_PREFERENCE })
+      // Ensure proper linux configuration
+      buildConfig.linux.executableName = buildConfig.productName
+      Object.assign(buildConfig.linux, {
+        executableName: buildConfig.productName,
+        artifactName: '${productName}-${version}.${ext}',
+      })
 
-    const resolveIconPath = path => {
-      const resolved = isAbsolute(path) ? path : join(root, path)
-      return resolved ? getAssetBuildPath(resolved, outDir) : resolved
-    }
+      // Handle extra resources and code signing
+      const extraResources = (buildConfig.extraResources = [])
+      const signIgnore = (buildConfig.mac.signIgnore = [])
 
-    if (preferredMacIcon) buildConfig.mac.icon = resolveIconPath(preferredMacIcon)
-    if (preferredWinIcon) buildConfig.win.icon = resolveIconPath(preferredWinIcon)
+      const resolveFileLocation = file => {
+        const relPath = relative(cwdRelativeOutDir, file)
+        return join(relativeOutDir, relPath)
+      }
 
-    // Ensure proper absolute paths are provided for Electron build
-    const electronTemplateDir = path.join(templateDir, 'electron')
+      assets.forEach(({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
+        const location = resolveFileLocation(file)
 
-    buildConfig.directories.buildResources = path.join(
-      electronTemplateDir,
-      buildConfig.directories.buildResources
-    )
+        if (extraResource) {
+          const glob = isDirectory ? join(location, '**') : location
+          extraResources.push(glob)
+          files.push(`!${glob}`)
+        }
 
-    const pathOptions = {
-      afterSign: path.join(electronTemplateDir, 'build/notarize.cjs'),
-      artifactBuildCompleted: undefined,
-      sign: undefined,
-      // afterPack: undefined
-    }
+        // Ignore Code Signing for Certain Files (NOTE: "Failed to staple your application with code: 65" error)
+        if (sign === false)
+          signIgnore.push(convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`))
+      })
 
-    // strongly recommended: force electron-builder to use ASAR (it's default, but be explicit)
-    if (buildConfig.asar === undefined) buildConfig.asar = true
+      // TODO: Get platform-specific icon
+      const preferredMacIcon = getIcon(icon, { preferredFormats: ELECTRON_PREFERENCE })
+      const preferredWinIcon = getIcon(icon, { preferredFormats: ELECTRON_WINDOWS_PREFERENCE })
 
-    for (const key in pathOptions) {
-      if (!buildConfig[key]) {
-        const defaultValue = pathOptions[key]
-        if (defaultValue !== undefined) buildConfig[key] = defaultValue
-      } else if (typeof buildConfig[key] === 'string' && !isAbsolute(buildConfig[key]))
-        buildConfig[key] = path.join(root, buildConfig[key]) // Resolve paths relative to the root
-    }
+      const resolveIconPath = path => {
+        const resolved = isAbsolute(path) ? path : join(root, path)
+        return resolved ? getAssetBuildPath(resolved, outDir) : resolved
+      }
 
-    // // Ensure electron-builder runs our integrity injector first, then flips fuses
-    // if (buildConfig.asar && security.integrity) {
+      if (preferredMacIcon) buildConfig.mac.icon = resolveIconPath(preferredMacIcon)
+      if (preferredWinIcon) buildConfig.win.icon = resolveIconPath(preferredWinIcon)
 
-    //     // Create debugged hook functions
-    //     const debuggedAfterPackFlipFuses = async (context: any) => {
-    //         const asarPath = join(context.appOutDir, 'resources', 'app.asar');
-    //         logAsarState('BEFORE_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' });
+      // Ensure proper absolute paths are provided for Electron build
+      const electronTemplateDir = path.join(templateDir, 'electron')
 
-    //         await afterPackFlipFuses(context);
-
-    //         logAsarState('AFTER_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' });
-    //     };
-
-    //     // Add this after your signing step
-    //     const verifyIntegrityAfterSigning = async (config: any, fail = true) => {
-    //         const exePath = path.resolve(config.file);
-
-    //         // Log ASAR state during artifact build completion
-    //         const artifactDir = path.dirname(exePath);
-    //         const possibleAsarPaths = [
-    //             path.join(artifactDir, 'win-unpacked', 'resources', 'app.asar'),
-    //             path.join(path.dirname(artifactDir), 'win-unpacked', 'resources', 'app.asar'),
-    //         ];
-
-    //         for (const asarPath of possibleAsarPaths) {
-    //             if (existsSync(asarPath)) {
-    //                 logAsarState('ARTIFACT_BUILD_COMPLETED_VERIFICATION', asarPath, {
-    //                     artifact: path.basename(exePath),
-    //                     hook: 'verifyIntegrityAfterSigning'
-    //                 });
-    //                 break;
-    //             }
-    //         }
-
-    //         const embedded = readIntegrityResource(exePath);
-    //         if (!embedded.length) {
-    //             const message = `⚠️\tNo integrity resource found in ${exePath}. This may indicate a problem with the signing process.`;
-    //             if (fail)  throw new Error(message);
-    //             console.warn(message);
-    //             return;
-    //         }
-    //     };
-
-    //     // OPTIONAL: if you still patch app.asar (e.g., your test blocker), do it here.
-    //     // Ensure it modifies the ASAR at `${appOutDir}/resources/app.asar` (Win/Linux) or
-    //     // `${appOutDir}/${product}.app/Contents/Resources/app.asar` (macOS).
-    //     const mutateAsar = async ({ appOutDir, productName }) => {
-    //         // Track ASAR state before mutation
-    //         const asarPath = join(appOutDir, 'resources', 'app.asar');
-    //         logAsarState('MUTATE_ASAR_START', asarPath, { hook: 'mutateAsar' });
-
-    //         // Example: run your patcher here so the final hash matches what ships.
-    //         // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
-    //         console.log('🔧 ASAR mutation step (currently no-op)');
-
-    //         logAsarState('MUTATE_ASAR_END', asarPath, { hook: 'mutateAsar' });
-    //     };
-
-    //     // Hook setup with comprehensive debugging
-    //     buildConfig.afterPack = chainAfterPack(
-    //         buildConfig.afterPack,
-    //         debugAfterPack,
-    //         debuggedAfterPackFlipFuses,                            // flip fuses first
-    //         makeAfterPackEmbedAsarIntegrity(mutateAsar)           // then embed integrity LAST
-    //     );
-
-    //     buildConfig.artifactBuildCompleted = chainArtifactBuildCompleted(
-    //         buildConfig.artifactBuildCompleted,
-    //         (config) => {
-    //             // Add comprehensive logging for artifact build completion
-    //             const exePath = path.resolve(config.file);
-    //             console.log(`\n🔍 Artifact Build Completed: ${path.basename(exePath)}`);
-
-    //             // Find and log the associated unpacked directory
-    //             const artifactDir = path.dirname(exePath);
-    //             const possibleUnpackedDirs = [
-    //                 path.join(artifactDir, 'win-unpacked'),
-    //                 path.join(path.dirname(artifactDir), 'win-unpacked'),
-    //             ];
-
-    //             for (const unpackedDir of possibleUnpackedDirs) {
-    //                 if (existsSync(unpackedDir)) {
-    //                     const asarPath = path.join(unpackedDir, 'resources', 'app.asar');
-    //                     if (existsSync(asarPath)) {
-    //                         logAsarState('ARTIFACT_BUILD_COMPLETED', asarPath, {
-    //                             artifact: path.basename(exePath),
-    //                             unpackedDir,
-    //                             hook: 'artifactBuildCompleted'
-    //                         });
-    //                     }
-    //                 }
-    //             }
-
-    //             return verifyIntegrityAfterSigning(config, false);
-    //         }
-    //     );
-    // }
-
-    buildConfig.mac.entitlementsInherit = path.join(
-      electronTemplateDir,
-      buildConfig.mac.entitlementsInherit
-    )
-
-    // Only enable code signing if publishing or explicitly requested
-    const toSign = publish || sign
-    if (!toSign) {
-      // Disable code signing for Mac
-      buildConfig.mac.identity = null
-
-      // Disable signing on Windows
-      buildConfig.win.sign = async () => {}
-      buildConfig.win.forceCodeSigning = false
-
-      // Remove any environment variables that may interfere with signing
-      const envVariablePrefixes = ['CSC_', 'WIN_CSC_']
-
-      const matchedEnvVariables = Object.keys(process.env).filter(key =>
-        envVariablePrefixes.some(prefix => key.startsWith(prefix))
+      buildConfig.directories.buildResources = path.join(
+        electronTemplateDir,
+        buildConfig.directories.buildResources
       )
 
-      matchedEnvVariables.forEach(key => delete process.env[key])
+      const pathOptions = {
+        afterSign: path.join(electronTemplateDir, 'build/notarize.cjs'),
+        artifactBuildCompleted: undefined,
+        sign: undefined,
+        // afterPack: undefined
+      }
+
+      // strongly recommended: force electron-builder to use ASAR (it's default, but be explicit)
+      if (buildConfig.asar === undefined) buildConfig.asar = true
+
+      for (const key in pathOptions) {
+        if (!buildConfig[key]) {
+          const defaultValue = pathOptions[key]
+          if (defaultValue !== undefined) buildConfig[key] = defaultValue
+        } else if (typeof buildConfig[key] === 'string' && !isAbsolute(buildConfig[key]))
+          buildConfig[key] = path.join(root, buildConfig[key]) // Resolve paths relative to the root
+      }
+
+      // // Ensure electron-builder runs our integrity injector first, then flips fuses
+      // if (buildConfig.asar && security.integrity) {
+
+      //     // Create debugged hook functions
+      //     const debuggedAfterPackFlipFuses = async (context: any) => {
+      //         const asarPath = join(context.appOutDir, 'resources', 'app.asar');
+      //         logAsarState('BEFORE_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' });
+
+      //         await afterPackFlipFuses(context);
+
+      //         logAsarState('AFTER_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' });
+      //     };
+
+      //     // Add this after your signing step
+      //     const verifyIntegrityAfterSigning = async (config: any, fail = true) => {
+      //         const exePath = path.resolve(config.file);
+
+      //         // Log ASAR state during artifact build completion
+      //         const artifactDir = path.dirname(exePath);
+      //         const possibleAsarPaths = [
+      //             path.join(artifactDir, 'win-unpacked', 'resources', 'app.asar'),
+      //             path.join(path.dirname(artifactDir), 'win-unpacked', 'resources', 'app.asar'),
+      //         ];
+
+      //         for (const asarPath of possibleAsarPaths) {
+      //             if (existsSync(asarPath)) {
+      //                 logAsarState('ARTIFACT_BUILD_COMPLETED_VERIFICATION', asarPath, {
+      //                     artifact: path.basename(exePath),
+      //                     hook: 'verifyIntegrityAfterSigning'
+      //                 });
+      //                 break;
+      //             }
+      //         }
+
+      //         const embedded = readIntegrityResource(exePath);
+      //         if (!embedded.length) {
+      //             const message = `⚠️\tNo integrity resource found in ${exePath}. This may indicate a problem with the signing process.`;
+      //             if (fail)  throw new Error(message);
+      //             console.warn(message);
+      //             return;
+      //         }
+      //     };
+
+      //     // OPTIONAL: if you still patch app.asar (e.g., your test blocker), do it here.
+      //     // Ensure it modifies the ASAR at `${appOutDir}/resources/app.asar` (Win/Linux) or
+      //     // `${appOutDir}/${product}.app/Contents/Resources/app.asar` (macOS).
+      //     const mutateAsar = async ({ appOutDir, productName }) => {
+      //         // Track ASAR state before mutation
+      //         const asarPath = join(appOutDir, 'resources', 'app.asar');
+      //         logAsarState('MUTATE_ASAR_START', asarPath, { hook: 'mutateAsar' });
+
+      //         // Example: run your patcher here so the final hash matches what ships.
+      //         // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
+      //         console.log('🔧 ASAR mutation step (currently no-op)');
+
+      //         logAsarState('MUTATE_ASAR_END', asarPath, { hook: 'mutateAsar' });
+      //     };
+
+      //     // Hook setup with comprehensive debugging
+      //     buildConfig.afterPack = chainAfterPack(
+      //         buildConfig.afterPack,
+      //         debugAfterPack,
+      //         debuggedAfterPackFlipFuses,                            // flip fuses first
+      //         makeAfterPackEmbedAsarIntegrity(mutateAsar)           // then embed integrity LAST
+      //     );
+
+      //     buildConfig.artifactBuildCompleted = chainArtifactBuildCompleted(
+      //         buildConfig.artifactBuildCompleted,
+      //         (config) => {
+      //             // Add comprehensive logging for artifact build completion
+      //             const exePath = path.resolve(config.file);
+      //             console.log(`\n🔍 Artifact Build Completed: ${path.basename(exePath)}`);
+
+      //             // Find and log the associated unpacked directory
+      //             const artifactDir = path.dirname(exePath);
+      //             const possibleUnpackedDirs = [
+      //                 path.join(artifactDir, 'win-unpacked'),
+      //                 path.join(path.dirname(artifactDir), 'win-unpacked'),
+      //             ];
+
+      //             for (const unpackedDir of possibleUnpackedDirs) {
+      //                 if (existsSync(unpackedDir)) {
+      //                     const asarPath = path.join(unpackedDir, 'resources', 'app.asar');
+      //                     if (existsSync(asarPath)) {
+      //                         logAsarState('ARTIFACT_BUILD_COMPLETED', asarPath, {
+      //                             artifact: path.basename(exePath),
+      //                             unpackedDir,
+      //                             hook: 'artifactBuildCompleted'
+      //                         });
+      //                     }
+      //                 }
+      //             }
+
+      //             return verifyIntegrityAfterSigning(config, false);
+      //         }
+      //     );
+      // }
+
+      buildConfig.mac.entitlementsInherit = path.join(
+        electronTemplateDir,
+        buildConfig.mac.entitlementsInherit
+      )
+
+      // Only enable code signing if publishing or explicitly requested
+      const toSign = publish || sign
+      if (!toSign) {
+        // Disable code signing for Mac
+        buildConfig.mac.identity = null
+
+        // Disable signing on Windows
+        buildConfig.win.sign = async () => {}
+        buildConfig.win.forceCodeSigning = false
+
+        // Remove any environment variables that may interfere with signing
+        const envVariablePrefixes = ['CSC_', 'WIN_CSC_']
+
+        const matchedEnvVariables = Object.keys(process.env).filter(key =>
+          envVariablePrefixes.some(prefix => key.startsWith(prefix))
+        )
+
+        matchedEnvVariables.forEach(key => delete process.env[key])
+      }
+
+      buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
+
+      // Correct for different project roots
+      if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
+
+      const electronBuilderOpts: CliOptions = {
+        config: buildConfig as Record<string, any>,
+      }
+
+      if (root) electronBuilderOpts.projectDir = root
+
+      if (publish) electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
+      else buildConfig.publish = null
+
+      // Use electron-builder to package the app
+      const { build } = await import('electron-builder')
+      await build(electronBuilderOpts)
+    } else if (isMobileBuild) {
+      const mobileOpts = { target, outDir }
+
+      // @ts-expect-error
+      await mobile.init(mobileOpts, resolvedConfig)
+
+      // @ts-expect-error
+      await mobile.open(mobileOpts, resolvedConfig)
     }
 
-    buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
+    // Emit build complete event
+    hooks.emit({ type: 'build:complete', target, outDir: selectedOutDir })
 
-    // Correct for different project roots
-    if (!('electronVersion' in buildConfig)) buildConfig.electronVersion = electronVersion
+    return outDir // Return the temporary output directory
 
-    const electronBuilderOpts: CliOptions = {
-      config: buildConfig as Record<string, any>,
-    }
+  } catch (error) {
 
-    if (root) electronBuilderOpts.projectDir = root
+    hooks.emit({
+      type: 'build:error',
+      error: error as Error
+    })
 
-    if (publish) electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
-    else buildConfig.publish = null
-
-    // Use electron-builder to package the app
-    const { build } = await import('electron-builder')
-    await build(electronBuilderOpts)
-  } else if (isMobileBuild) {
-    const mobileOpts = { target, outDir }
-
-    // @ts-expect-error
-    await mobile.init(mobileOpts, resolvedConfig)
-
-    // @ts-expect-error
-    await mobile.open(mobileOpts, resolvedConfig)
+    throw error // Re-throw the error for further handling
   }
-
-  return outDir // Return the temporary output directory
 }

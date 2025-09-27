@@ -21,6 +21,63 @@ export function tuple<T extends string[]>(...o: T) {
 export type PortType = number
 export type LocalHostType = 'localhost' | '0.0.0.0'
 
+// Event types for hooks-based logging system
+export type BuildEvent =
+  | { type: 'build:start'; config: ResolvedConfig; dev: boolean }
+  | { type: 'build:assets:start'; phase: 'frontend' | 'services' | 'packaging' }
+  | { type: 'build:assets:complete'; phase: 'frontend' | 'services' | 'packaging'; duration?: number }
+  | { type: 'build:electron:start' }
+  | { type: 'build:mobile:start'; mobileTarget: 'ios' | 'android' }
+  | { type: 'build:complete'; target: string; outDir: string; duration?: number }
+  | { type: 'build:error'; error: Error; phase?: string }
+
+type ServiceBuildMethods = 'pkg' | 'string' | 'function' | 'compile' | 'cached'
+export type ServiceEvent =
+  | { type: 'service:start'; service: string; url: string }
+  | { type: 'service:ready'; service: string; port: number }
+
+  | { type: 'service:stdout'; data: string; service: string }
+  | { type: 'service:stderr'; data: string; service: string }
+  | { type: 'service:error'; error: Error; service: string }
+  | { type: 'service:exit'; service: string; code: number | null }
+  | { type: 'service:restart'; service: string }
+  | { type: 'service:build:start'; service: string; src: string; out: string; }
+  | { type: 'service:build:end'; service: string; src: string; out: string; }
+  | { type: 'service:build:error'; service: string; src: string; out: string; error: Error }
+  | { type: 'service:build:cached'; service: string; src: string; out: string; }
+  
+  | { type: 'service:launch:start'; service: string; filepath: string }
+  | { type: 'service:launch:complete'; service: string; filepath: string, url: string }
+  | { type: 'service:launch:error'; service: string; filepath: string; error: Error }
+
+export type SecurityEvent =
+  | { type: 'security:warning'; message: string; context?: string }
+  | { type: 'security:integrity:start'; asarPath: string }
+  | { type: 'security:integrity:complete'; asarPath: string; success: boolean }
+
+export type DevServerEvent =
+  | { type: 'dev:server:start'; config: ResolvedConfig; }
+  | { type: 'dev:server:ready'; target: string; url: string }
+  | { type: 'dev:server:error'; error: Error }
+  | { type: 'dev:reload:unavailable'; target: string; reason: string }
+
+export type LaunchEvent =
+  | { type: 'launch:start'; outDir: string, target: string }
+  | { type: 'launch:ready'; }
+  | { type: 'launch:error'; error: Error; target?: string }
+
+
+export type HookEvent = BuildEvent | LaunchEvent | ServiceEvent | SecurityEvent | DevServerEvent
+
+// Hook function type
+export type HookFunction = (event: HookEvent) => void | Promise<void>
+
+// Hooks interface for core-CLI communication
+export interface HooksInterface {
+  emit: (event: HookEvent) => void
+  on: (eventType: HookEvent['type'] | 'all', handler: HookFunction) => () => void
+}
+
 export type ServiceOptions = string | string[]
 
 export type ServiceCreationOptions = {
@@ -29,7 +86,8 @@ export type ServiceCreationOptions = {
   services?: string | string[] | boolean
   build?: boolean
   onLog?: Function
-  onClosed?: Function
+  onClosed?: Function,
+  hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> }
@@ -309,7 +367,9 @@ export type LaunchConfig = {
 
   // Server + Service Options
   public?: BaseConfig['public']
-  port?: BaseConfig['port']
+  port?: BaseConfig['port'],
+
+  hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
 export type ServiceRebuildOption = boolean | string[]
@@ -320,6 +380,7 @@ export type BuildHooks = {
   dev?: boolean
   rebuildServices?: ServiceRebuildOption
   overwrite?: boolean // Overwrite existing files
+  hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
 export type ServiceBuildOptions = {
@@ -327,6 +388,7 @@ export type ServiceBuildOptions = {
   outDir?: string
   services?: ServiceSelection
   rebuild?: ServiceRebuildOption
+  hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
 type ResolvedServices = { [x: string]: ResolvedService }

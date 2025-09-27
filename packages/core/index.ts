@@ -22,7 +22,7 @@ import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
-import { printFailure, printSubtle } from './utils/formatting.js'
+// Removed printFailure and printSubtle imports - using direct console calls
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
 
@@ -37,6 +37,7 @@ export * as format from './utils/formatting.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
 export { app as start, services as startServices } from './start.js'
+export { CoreHooks, coreHooks, createNoOpHooks } from './hooks.js'
 export { merge } // Other Helpers
 
 // ------------------ Configuration File Handling ------------------
@@ -57,8 +58,8 @@ const isCommonersProject = async (root: string = process.cwd()) => {
     failMessage = `This directory does not contain an index.html file.`
 
   if (failMessage) {
-    await printFailure(`Invalid Commoners project`)
-    await printSubtle(failMessage)
+    console.error('Invalid Commoners project')
+    console.error(failMessage)
     return false
   }
 
@@ -177,9 +178,8 @@ export async function resolveConfig(
     const allServices = Object.keys(copy.services)
     if (selectedServices) {
       if (!selectedServices.every(name => allServices.includes(name))) {
-        await printFailure(`Invalid service selection`)
-        await printSubtle(`Available services: ${allServices.join(', ')}`) // Print actual services as a nice list
-
+        console.error('Invalid service selection')
+        console.error(`Available services: ${allServices.join(', ')}`)
         process.exit(1)
       }
     }

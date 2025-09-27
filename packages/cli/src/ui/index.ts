@@ -132,6 +132,8 @@ export class CommonersUI {
       success: this.theme.success,
     }
 
+    if (!serviceName) console.log(message) // If no service name, just log the message
+
     const label = chalk.hex(colors[type]).bold(`[${serviceName}]`)
     console.log(`${label} ${message}`)
   }

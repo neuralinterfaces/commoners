@@ -222,8 +222,7 @@ runVerification().then(isValid => {
   async function makeSingleInstance() {
     if (process.mas) return
     if (!app.requestSingleInstanceLock()) {
-      const _chalk = await chalk
-      console.error(_chalk.yellow('Another instance of this application is already running.'))
+      console.error('Another instance of this application is already running.')
       app.exit() // Skip quit callbacks
     } else app.on('second-instance', () => restoreWindow())
   }
@@ -695,7 +694,7 @@ runVerification().then(isValid => {
       const output = await services.createAll(resolvedServices, {
         ...baseServiceOptions,
         onClosed: (id, code) => serviceSend(id, 'closed', code),
-        onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
+        onLog: (id, msg) => serviceSend(id, 'log', msg.toString())
       })
 
       const { active = {}, resolved = {}, close: closeService } = output

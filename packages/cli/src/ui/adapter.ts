@@ -1,28 +1,21 @@
-// Adapter to gradually replace @commoners/solidarity formatting
-// This allows us to maintain compatibility while enhancing the CLI experience
+// Legacy adapter - deprecated in favor of hooks-based approach
+// This file is kept for backwards compatibility but should not be used in new code
 
 import { ui } from './index.js'
 
-// Enhanced wrapper functions that provide richer experience than core
+// Legacy wrapper functions - use cliHooks for new code
 export const printHeader = (message: string, subtitle?: string) => ui.header(message, { subtitle })
-
 export const printTarget = (target: string) => ui.target(target)
-
 export const printFailure = (message: string, details?: string) => ui.error(message, details)
-
 export const printSubtle = (message: string) => ui.subtle(message)
-
 export const printSuccess = (message: string, details?: string) => ui.success(message, details)
-
 export const printWarning = (message: string, details?: string) => ui.warning(message, details)
-
 export const printServiceMessage = (
   serviceName: string,
   message: string,
   type: 'info' | 'error' | 'success' = 'info'
 ) => ui.service(serviceName, message, type)
 
-// Development server feedback
 export const devServer = {
   starting: (target: string, port?: number) => {
     const spinner = ui.spinner(
@@ -31,7 +24,6 @@ export const devServer = {
     )
     return spinner
   },
-
   ready: (target: string, url?: string) => {
     return ui.success(
       `${target} development server ready!`,
@@ -40,7 +32,6 @@ export const devServer = {
   },
 }
 
-// Command feedback
 export const commandFeedback = {
   launched: (message: string, details?: string) => {
     ui.box(`${message}${details ? `\n\n${details}` : ''}`, {

@@ -1,5 +1,4 @@
 import * as cleanup from '../../../cleanup.js'
-import { printServiceMessage } from '../../../utils/formatting.js'
 import { treeKillGracefully } from './processes.js'
 
 type ChildProcess = import('node:child_process').ChildProcess
@@ -13,7 +12,10 @@ const ansiRegex = new RegExp(
 const log = async (data, method = 'log') => {
   const message = data.toString()
   if (labelRegexp.test(message.replace(ansiRegex, ''))) console[method](message)
-  else await printServiceMessage('commoners-electron-process', message, method)
+  else {
+    // Electron process output is handled by service management
+    // Individual process logs are no longer logged to console
+  }
 }
 
 const cleanupElectronApp = async () => {

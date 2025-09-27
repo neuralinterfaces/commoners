@@ -3,20 +3,24 @@ import { getFreePorts } from './network.js'
 
 import { spawn, fork } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { ResolvedService, ActiveServices, ActiveService } from '../../types.js'
+import { ResolvedService, ActiveServices, ActiveService, HooksInterface } from '../../types.js'
 
 import { loadEnvironmentVariables } from './env/index.js'
 
 import { getLocalIP } from './ip.js'
+
+const createNoOpHooks = (): HooksInterface => ({
+  emit: () => {},
+  on: () => () => {}
+})
 
 type ServiceOptions = {
   root: string
   target?: string // For desktop check
   services?: any // Truthy
   build?: boolean // Default: true
+  hooks?: HooksInterface
 }
-
-const chalk = import('chalk').then(m => m.default)
 
 const WINDOWS = process.platform === 'win32'
 
@@ -43,10 +47,10 @@ const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(r
 const isDesktop = target => target === 'desktop' || target === 'electron'
 const isMobile = target => target === 'mobile' || target === 'ios' || target === 'android'
 
-const printServiceMessage = async (id, message, type = 'log') => {
-  const _chalk = await chalk
-  console[type](`${_chalk.bold(_chalk.greenBright(`[${id}]`))} ${message}`)
-}
+// const printServiceMessage = async (id, message, type = 'log') => {
+//   const _chalk = await chalk
+//   console[type](`${_chalk.bold(_chalk.greenBright(`[${id}]`))} ${message}`)
+// }
 
 // ------------------------------------ COPIED ---------------------------------------
 
@@ -312,8 +316,14 @@ export async function resolveService(config, name, opts: ServiceOptions) {
 const isExecutable = ext => ext === '.exe' || !ext
 
 // Create and monitor arbitary processes
-export async function start(config, id, opts) {
+export async function start(
+  config, 
+  id, 
+  opts
+) {
   const label = id ?? 'commoners-service'
+
+  const { hooks = createNoOpHooks() } = opts
 
   config = await resolveService(config, id, opts)
 
@@ -333,6 +343,8 @@ export async function start(config, id, opts) {
 
     // const host = getLocalIP() // Constrain to local IP address if not public
     resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
+
+    hooks.emit({ type: 'service:launch:start',  service: label, filepath })
 
     try {
       const _cwd = process.cwd()
@@ -354,12 +366,17 @@ export async function start(config, id, opts) {
         isExecutable(ext) && !ext && existsSync(filepath + '.exe') ? filepath + '.exe' : filepath
       )
 
-      if (!existsSync(resolvedFilepath))
-        return await printServiceMessage(
-          label,
-          `File does not exist at ${resolvedFilepath}`,
-          'warn'
-        )
+      if (!existsSync(resolvedFilepath)) return hooks.emit({
+        type: 'service:launch:error',
+        error: new Error(`File does not exist at ${resolvedFilepath}`),
+        service: label,
+      })
+
+        // return await printServiceMessage(
+        //   label,
+        //   `File does not exist at ${resolvedFilepath}`,
+        //   'warn'
+        // )
 
       const resolvedProcessOptions = {
         cwd,
@@ -383,25 +400,33 @@ export async function start(config, id, opts) {
     }
 
     if (childProcess) {
-      const _chalk = await chalk
-      printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
+
+      hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
+      // printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
 
       if (childProcess.stdout && monitor.stdout !== false)
         childProcess.stdout.on('data', data => {
           config.status = true
           if (opts.onLog) opts.onLog(id, data)
-          printServiceMessage(label, data)
+          hooks.emit({
+            type: 'service:stdout',
+            service: label,
+            data,
+          })
         })
 
-      if (childProcess.stderr && monitor.stderr !== false)
-        childProcess.stderr.on('data', data => printServiceMessage(label, data, 'error'))
+      if (childProcess.stderr && monitor.stderr !== false) {
+        // childProcess.stderr.on('data', data => printServiceMessage(label, data, 'error'))
+        childProcess.stderr.on('data', data => hooks.emit({ type: 'service:stderr', service: label, data }))
+      }
 
+        
       // Notify of process closure gracefully
       childProcess.on('close', code => {
         config.status = false
         if (opts.onClosed) opts.onClosed(id, code)
         delete processes[id]
-        if (code !== null) printServiceMessage(label, `Exited with code ${code}`, 'error')
+        hooks.emit({ type: 'service:exit', service: label, code  })
       })
 
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`)));
@@ -410,11 +435,7 @@ export async function start(config, id, opts) {
 
       return { ...config, process: childProcess } as ActiveService
     } else {
-      await printServiceMessage(
-        label,
-        `Failed to create service from ${filepath}: ${error}`,
-        'warn'
-      )
+      hooks.emit({ type: 'service:launch:error', service: label, filepath, error })
     }
   }
 }

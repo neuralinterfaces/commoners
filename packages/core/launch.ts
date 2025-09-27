@@ -12,12 +12,12 @@ import {
   vite,
 } from './globals.js'
 import { ConfigResolveOptions, LaunchConfig } from './types.js'
-import { printFailure, printSubtle } from './utils/formatting.js'
+// Removed printFailure and printSubtle imports - using direct console calls
 import { spawnProcess } from './utils/processes.js'
 
 import * as mobile from './mobile/index.js'
 import { createAll } from './assets/services/index.js'
-import { resolveConfig } from './index.js'
+import { createNoOpHooks, resolveConfig } from './index.js'
 
 type ViteServerOptions = import('vite').ServerOptions
 
@@ -69,7 +69,10 @@ export const launchServices = async (
   const { target, root, services } = resolvedConfig
 
   const serviceNames = Object.keys(services)
-  if (!serviceNames.length) return await printFailure(`No services specified.`)
+  if (!serviceNames.length) {
+    console.error('No services specified.')
+    process.exit(1)
+  }
 
   // Ensure users can access the created services
   return await createAll(services, {
@@ -89,79 +92,85 @@ export const resolveAppToLaunch = (config: LaunchConfig) => {
 }
 
 export const launchApp = async (config: LaunchConfig, args = []) => {
-  const _chalk = await chalk
 
-  let { target } = config
-  const { outDir: originalOutDir } = config
+  const { outDir: originalOutDir, hooks = createNoOpHooks() } = config
 
-  const { port, public: isPublic } = config
+  try {
+    let { target } = config
 
-  if (originalOutDir && getDesktopPath(originalOutDir)) target = 'electron' // Autodetect Electron target
+    const { port, public: isPublic } = config
 
-  target = await ensureTargetConsistent(target)
-  const outDir = resolveAppToLaunch(config)
+    if (originalOutDir && getDesktopPath(originalOutDir)) target = 'electron' // Autodetect Electron target
 
-  if (!existsSync(outDir)) {
-    await printFailure(`The expected output directory was not found`)
-    await printSubtle(`Attempting to launch from ${outDir}`)
-    return
-  }
+    target = await ensureTargetConsistent(target)
+    const outDir = resolveAppToLaunch(config)
 
-  if (isMobile(target)) {
-    process.chdir(outDir)
-    await mobile.launch(target)
-    await printSubtle(`Opening native launcher for ${target}...`)
-  } else if (isDesktop(target)) {
-    const fullPath = getDesktopPath(outDir)
+    hooks.emit({ type: 'launch:start', outDir, target })
 
-    if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
+    if (!existsSync(outDir)) throw new Error(`The expected output directory does not exist`)
 
-    let runExecutableCommand = 'open' // Default to macOS command
+    if (isMobile(target)) {
+      process.chdir(outDir)
+      await mobile.launch(target)
+      // Opening native launcher silently
+    } else if (isDesktop(target)) {
+      const fullPath = getDesktopPath(outDir)
 
-    const resolvedArgs = [`"${fullPath}"`] // The path to the executable file
-    const userArgs = new Set([...args]) // User-provided arguments
+      if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
 
-    // Set the appropriate command based on the platform
-    if (PLATFORM === 'windows' || PLATFORM === 'linux') runExecutableCommand = resolvedArgs.shift() // Run executable directly
-    if (PLATFORM === 'linux') userArgs.add('--no-sandbox') // Ensure No Sandbox
-    if (PLATFORM === 'mac' && userArgs.size) resolvedArgs.push('--args') // macOS-specific flag to pass additional arguments
-    resolvedArgs.push(...userArgs) // Add any additional arguments
+      let runExecutableCommand = 'open' // Default to macOS command
 
-    printSubtle([runExecutableCommand, ...resolvedArgs].join(' '))
+      const resolvedArgs = [`"${fullPath}"`] // The path to the executable file
+      const userArgs = new Set([...args]) // User-provided arguments
 
-    await spawnProcess(runExecutableCommand, resolvedArgs, { env: process.env }) // Share the same environment variables
-  } else {
-    const __vite = await vite
+      // Set the appropriate command based on the platform
+      if (PLATFORM === 'windows' || PLATFORM === 'linux') runExecutableCommand = resolvedArgs.shift() // Run executable directly
+      if (PLATFORM === 'linux') userArgs.add('--no-sandbox') // Ensure No Sandbox
+      if (PLATFORM === 'mac' && userArgs.size) resolvedArgs.push('--args') // macOS-specific flag to pass additional arguments
+      resolvedArgs.push(...userArgs) // Add any additional arguments
 
-    const serverConfig = {
-      port,
+      // Command execution details omitted from core output
+      await spawnProcess(runExecutableCommand, resolvedArgs, { env: process.env, label: "commoners-electron-launcher" }, hooks) // Share the same environment variables
+   
+    } else {
+      const __vite = await vite
 
-      open: !process.env.VITEST,
-    } as ViteServerOptions
+      const serverConfig = {
+        port,
 
-    if (isPublic) serverConfig.host = '0.0.0.0'
+        open: !process.env.VITEST,
+      } as ViteServerOptions
 
-    const server = await __vite.createServer({
-      configFile: false,
-      root: outDir,
-      server: serverConfig,
-    })
+      if (isPublic) serverConfig.host = '0.0.0.0'
 
-    await server.listen()
+      const server = await __vite.createServer({
+        configFile: false,
+        root: outDir,
+        server: serverConfig,
+      })
 
-    // Print out the URL if everything was initialized here (i.e. dev mode)
-    const { port: resolvedPort, host: resolvedHost } = server.config.server
-    const protocol = server.config.server.https ? 'https' : 'http'
-    const url = `${protocol}://localhost:${resolvedPort}`
-    printSubtle(
-      `Server is running on ${_chalk.cyan(url)}${resolvedHost !== 'localhost' ? ` (${resolvedHost})` : ''}`
-    )
+      await server.listen()
 
-    return {
-      url,
-      server,
+      // Print out the URL if everything was initialized here (i.e. dev mode)
+      const { port: resolvedPort, host: resolvedHost } = server.config.server
+      const protocol = server.config.server.https ? 'https' : 'http'
+      const url = `${protocol}://localhost:${resolvedPort}`
+      // Server URL details omitted from core output
+
+      return {
+        url,
+        server,
+      }
     }
+
+    return {}
   }
 
-  return {}
+  catch (error) {
+    hooks.emit({ type: 'launch:error', error })
+  }
+
+  finally {
+    hooks.emit({ type: 'launch:ready' }) // Emit ready event with empty URL
+  }
 }

@@ -16,6 +16,7 @@ import {
 
 import pkg from './package.json' assert { type: 'json' }
 import { ui } from './src/ui/index.js'
+import { cliHooks } from './src/hooks.js'
 
 // Utilities
 import cac from 'cac'
@@ -82,8 +83,6 @@ cli
     if (!config) return failed('Configuration not found')
     const resolvedConfig = await resolveConfig(reconcile(config, overrides))
 
-    const { target } = resolvedConfig
-
     let launchSpinner
     const start = message => {
       // launchSpinner = ui.spinner(message, { type: 'dots' })
@@ -100,9 +99,10 @@ cli
       if (launchSpinner) launchSpinner.fail(`${message}${details ? `: ${details}` : ''}`)
     }
 
-    start(`Launching ${isOnlyServices ? 'Services' : ui.target(target, { plain: true })} Build`)
-
     if (isOnlyServices) {
+
+      start(`Launching ${isOnlyServices ? 'Services' : ui.target(target, { plain: true })} Build`)
+
       delete resolvedConfig.target
 
       // NOTE: If passed, this simply wouldn't take effect
@@ -142,16 +142,7 @@ cli
     else if (service) return failed(`Cannot specify both services and a launch target`)
 
     // Enhanced launch feedback
-    const outDir = resolveAppToLaunch(resolvedConfig)
-
-    try {
-      await launch({ ...resolvedConfig, outDir })
-      succeed(`${ui.target(target, { plain: true })} successfully launched!`)
-    } catch (error) {
-      failedHere(` ${ui.target(target, { plain: true })} failed to launch`, error.message)
-
-      process.exit(1)
-    }
+    await launch({ ...resolvedConfig, hooks: cliHooks })
   })
 
 // Build the application using the specified settings
@@ -182,7 +173,7 @@ cli
     if (!manualTarget && servicesToBuild) {
       ui.header('Building Services')
       try {
-        await buildServices(config, { services: servicesToBuild })
+        await buildServices(config, { services: servicesToBuild, hooks: cliHooks })
         ui.success('All services ready for deployment!')
       } catch (error) {
         ui.error('Failed to build services', error.message)
@@ -192,20 +183,9 @@ cli
       return
     }
 
-    const resolvedConfig = await resolveConfig(reconcile(config, overrides), { build: true })
-    const { name, target: resolvedTarget } = resolvedConfig
+    const resolvedConfig = reconcile(config, overrides)
+    await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks: cliHooks })
 
-    // Enhanced build experience
-    const buildTitle = `${name} ${ui.target(resolvedTarget, { plain: true })} Build`
-    ui.header(buildTitle)
-
-    try {
-      await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false })
-      ui.success(`${buildTitle} completed successfully!`)
-    } catch (error) {
-      ui.error(`${buildTitle} failed`, error.message)
-      process.exit(1)
-    }
   })
 
 // Start the application in development mode
@@ -224,15 +204,8 @@ cli
     preprocessTarget(overrides.target)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
     if (!config) return failed('Configuration not found')
-    const resolvedConfig = await resolveConfig(reconcile(config, overrides))
-    const { name, target: resolvedTarget } = resolvedConfig
-    ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
-    try {
-      await start(resolvedConfig)
-    } catch (error) {
-      ui.error('Failed to start application', error)
-      process.exit(1)
-    }
+    const resolvedConfig = reconcile(config, overrides)
+    await start(resolvedConfig, { hooks: cliHooks })
   })
 
 cli.help()

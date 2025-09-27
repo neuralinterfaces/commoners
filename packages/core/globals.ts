@@ -14,7 +14,7 @@ export { cleanup } from './cleanup.js'
 import * as yaml from 'js-yaml'
 
 // Internal Imports
-import { printFailure, printSubtle } from './utils/formatting.js'
+
 import {
   TargetType,
   WritableElectronBuilderConfig,
@@ -52,9 +52,9 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwr
 
   // NOTE: Ensure that the single temporary directory is not overwritten for different targets
   if (!canOverwrite && existsSync(tempDir)) {
-    await printFailure('An active development build was detected for this project.')
-    await printSubtle('Shut down the active build and try again.')
-    await printSubtle(`To reset this error, you may also delete the ${resolve(tempDir)} directory.`)
+    console.error('An active development build was detected for this project.')
+    console.error('Shut down the active build and try again.')
+    console.error(`To reset this error, you may also delete the ${resolve(tempDir)} directory.`)
     process.exit(1)
   }
 
@@ -104,11 +104,9 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
   if (allow.includes(target)) return target
   target = getSpecificTarget(target)
 
-  const _chalk = await chalk
-
   // Provide a custom warning message for tauri
   if (target === 'tauri') {
-    console.error(_chalk.yellow(`Tauri is not yet supported.`))
+    console.error('Tauri is not yet supported.')
     process.exit(1)
   }
 
@@ -117,7 +115,7 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
   else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android'))
     return target // Linux and Windows can build for android
 
-  console.error(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
+  console.error(`No commoners command for ${target} on ${PLATFORM}`)
   process.exit(1)
 }
 

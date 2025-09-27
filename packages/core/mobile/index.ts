@@ -193,10 +193,7 @@ const checkPlaformConfigExists = async (platform, root) => {
     platform === 'ios' ? 'App/App/info.plist' : 'app/src/main/AndroidManifest.xml'
   )
   if (!existsSync(configFilePath)) {
-    const _chalk = await chalk
-    console.log(
-      `Please ensure that ${_chalk.bold(`@capacitor/${platform}`)} is installed at the base of your project.`
-    )
+    console.error(`@capacitor/${platform} is not installed at the base of your project.`)
     process.exit(1)
   }
   return configFilePath
@@ -204,7 +201,6 @@ const checkPlaformConfigExists = async (platform, root) => {
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (config: ResolvedConfig) => {
-  const _chalk = await chalk
 
   const notInstalled = new Set()
 
@@ -223,10 +219,8 @@ export const checkDepsInstalled = async (config: ResolvedConfig) => {
 
   if (notInstalled.size > 0) {
     const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
-    console.log(
-      _chalk.bold('\nEnsure the following packages are installed at the base of your project:')
-    )
-    console.log(installationCommand, '\n')
+    console.error('\nThe following packages must be installed at the base of your project:')
+    console.error(installationCommand)
     process.exit(1)
   }
 }

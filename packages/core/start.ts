@@ -13,7 +13,8 @@ import {
 import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile } from './globals.js'
 import { onCleanup } from './cleanup.js'
 
-import { Plugin, ResolvedConfig, UserConfig } from './types.js'
+import { Plugin, ResolvedConfig, UserConfig, HooksInterface } from './types.js'
+import { createNoOpHooks } from './hooks.js'
 import { createServer } from './vite/index.js'
 
 // Internal Utilities
@@ -31,15 +32,15 @@ const wsContexts = {
   },
 }
 
-const createAllServices = (services, { root, target }) =>
-  createServices(services, { root, target, services: true, build: false }) // Run services in parallel
+const createAllServices = (services, { root, target, hooks }) =>
+  createServices(services, { root, target, services: true, build: false, hooks }) // Run services in parallel
 
 const initializeWebsocketPort = async () => {
   const { env } = process
   return env[wsPortEnvVar] || (env[wsPortEnvVar] = (await getFreePorts(1))[0]) // Initialize WebSocket Development Server
 }
 
-const runDevelopmentPlugins = async (config: ResolvedConfig) => {
+const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterface) => {
   const { target, services } = config
   const { env } = process
 
@@ -60,7 +61,13 @@ const runDevelopmentPlugins = async (config: ResolvedConfig) => {
       const { context, id, channel, args } = data
       const matchedContext = wsContexts[context]
 
-      if (!matchedContext) return console.error(`Unknown WS message context: ${context}`)
+      if (!matchedContext) {
+        hooks.emit({
+          type: 'dev:server:error',
+          error: new Error(`Unknown WS message context: ${context}`)
+        })
+        return
+      }
       const pluginCallbacks = matchedContext.callbacks[id]?.[channel] ?? {}
       const evtObject = {}
       Object.getOwnPropertySymbols(pluginCallbacks).forEach(symbol =>
@@ -122,95 +129,122 @@ const runDevelopmentPlugins = async (config: ResolvedConfig) => {
 
   onCleanup(() => boundRunAppPlugins([], 'quit')) // Cleanup on exit
   await boundRunAppPlugins([services]) // Run the init event before creating services
-  const serviceManager = await startServices(config, services)
+  const serviceManager = await startServices(config, services, hooks) // Start the services
   const { active } = serviceManager
   await boundRunAppPlugins([active], 'ready') // Run the ready event after all services are created
   return serviceManager // Return the active services
 }
 
-export const services = async (config: UserConfig, resolvedServices) => {
+export const services = async (config: UserConfig, resolvedServices, hooks: HooksInterface = createNoOpHooks()) => {
   const dev = true
   const resolvedConfig = await resolveConfig(config)
   const { root, target, services } = resolvedConfig
-  await buildServices(resolvedConfig, { services: resolvedServices, dev }) // Build service outputs
+  await buildServices(resolvedConfig, { services: resolvedServices, dev, hooks }) // Build service outputs
   resolvedServices = resolvedServices || services // Use all services if none are provided
 
-  return await createAllServices(resolvedServices, { root, target }) // Create services
+  return await createAllServices(resolvedServices, { root, target, hooks }) // Create services
 }
 
 const startServices = services
 
-export const app = async function (config: UserConfig) {
-  const resolvedConfig = await resolveConfig(config)
-  const { root, target, services, electron } = resolvedConfig
+export const app = async function (config: UserConfig, options: { hooks?: HooksInterface } = {}) {
 
-  const outDir = join(root, globalTempDir) // Temporary directory for the build
-  const filesystemManager = await handleTemporaryDirectories(outDir)
-  const scopedConfig = { ...resolvedConfig, outDir }
+  const { hooks = createNoOpHooks() } = options
 
-  let closed
+  try {
 
-  const startManager = {
-    close: function () {
-      filesystemManager.close()
-      if (closed) return
-      closed = true
-      const { frontend, services } = this
-      frontend?.close()
-      services?.close()
-    },
-  } as {
-    url?: string
-    frontend?: Awaited<ReturnType<typeof createServer>>
-    services?: Awaited<ReturnType<typeof createAllServices>>
-    close: () => void
-  }
+    const resolvedConfig = await resolveConfig(config)
 
-  onCleanup(() => startManager.close())
+    // Emit dev server start event
+    hooks.emit({ type: 'dev:server:start', config: resolvedConfig })
 
-  // ------------------------------- Mobile -------------------------------
-  if (isMobile(target)) {
+
+    const { root, target, services, electron } = resolvedConfig
+
+    const outDir = join(root, globalTempDir) // Temporary directory for the build
+    const filesystemManager = await handleTemporaryDirectories(outDir)
+    const scopedConfig = { ...resolvedConfig, outDir }
+
+    let closed
+
+    const startManager = {
+      close: function () {
+        filesystemManager.close()
+        if (closed) return
+        closed = true
+        const { frontend, services } = this
+        frontend?.close()
+        services?.close()
+      },
+    } as {
+      url?: string
+      frontend?: Awaited<ReturnType<typeof createServer>>
+      services?: Awaited<ReturnType<typeof createAllServices>>
+      close: () => void
+    }
+
+    onCleanup(() => startManager.close())
+
+    // ------------------------------- Mobile -------------------------------
+    if (isMobile(target)) {
+      await initializeWebsocketPort()
+      await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
+      startManager.services = await runDevelopmentPlugins(scopedConfig, hooks)
+      return startManager
+    }
+
+    // ------------------------------- Desktop -------------------------------
+    if (isDesktop(target)) {
+      const electronDevOptions = electron?.dev || {}
+      const { load = 'url' } = electronDevOptions // Default to loading from URL
+
+      // Load Files in Dev Mode
+      if (load === 'file') {
+        const outDir = await build(scopedConfig, { services, dev: true })
+        configureForDesktop(outDir, root)
+        await startElectronInstance(root) // Start the Electron instance
+
+        hooks.emit({
+          type: 'dev:reload:unavailable',
+          target,
+          reason: `Electron is running in ${load} mode`
+        })
+        // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
+      }
+
+      // Use Vite to Load URLs in Dev Mode
+      else {
+        await buildAllAssets(scopedConfig, { dev: true, hooks }) // Build the assets for desktop
+        configureForDesktop(outDir, root)
+        const frontend = (startManager.frontend = await createServer(scopedConfig))
+        startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
+      }
+
+      // reset() // Reset the package.json to the original state
+
+      return startManager
+    }
+
+    // ------------------------------- Web -------------------------------
     await initializeWebsocketPort()
-    await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
-    startManager.services = await runDevelopmentPlugins(scopedConfig)
-    return startManager
-  }
+    await buildAllAssets(scopedConfig, { dev: true, hooks }) // Build the assets for web
+    startManager.services = await runDevelopmentPlugins(scopedConfig, hooks) // Run the development plugins
+    const frontend = (startManager.frontend = await createServer(scopedConfig))
+    startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
 
-  // ------------------------------- Desktop -------------------------------
-  if (isDesktop(target)) {
-    const electronDevOptions = electron?.dev || {}
-    const { load = 'url' } = electronDevOptions // Default to loading from URL
+    // Emit dev server ready event
+    const { port, host } = frontend.config.server
+    const protocol = frontend.config.server.https ? 'https' : 'http'
+    const url = `${protocol}://${host || 'localhost'}:${port}`
+    hooks.emit({ type: 'dev:server:ready', target, url  })
 
-    // Load Files in Dev Mode
-    if (load === 'file') {
-      const outDir = await build(scopedConfig, { services, dev: true })
-      configureForDesktop(outDir, root)
-      await startElectronInstance(root) // Start the Electron instance
-
-      console.warn(`⚠️  Electron is running in ${load} mode. Hot reloading is not available.\n`)
-      // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
-    }
-
-    // Use Vite to Load URLs in Dev Mode
-    else {
-      await buildAllAssets(scopedConfig, true) // Build the assets for desktop
-      configureForDesktop(outDir, root)
-      const frontend = (startManager.frontend = await createServer(scopedConfig, {
-        printUrls: false,
-      }))
-      startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
-    }
-
-    // reset() // Reset the package.json to the original state
 
     return startManager
-  }
 
-  // ------------------------------- Web -------------------------------
-  await initializeWebsocketPort()
-  await buildAllAssets(scopedConfig, true) // Build the assets for web
-  startManager.services = await runDevelopmentPlugins(scopedConfig)
-  const frontend = (startManager.frontend = await createServer(scopedConfig, { printUrls: true }))
-  startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
-  return startManager
+  } catch (error) {
+    hooks.emit({
+      type: 'dev:server:error',
+      error: error as Error
+    })
+  }
 }

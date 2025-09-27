@@ -10,7 +10,6 @@ import electronPlugin from './plugins/electron/index.js'
 import commonersPlugin from './plugins/commoners.js'
 
 // Internal Imports
-import { printServiceMessage } from '../utils/formatting.js'
 import { getAssetBuildPath } from '../utils/assets.js'
 
 import { getAllIcons, getIcon } from '../assets/utils/icons.js'
@@ -25,22 +24,12 @@ type ViteServerOptions = import('vite').ServerOptions
 const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path))
 
 // Run a development server
-export const createServer = async (config: ResolvedConfig, opts: ServerOptions) => {
+export const createServer = async (config: ResolvedConfig) => {
   const _vite = await vite
-  const _chalk = await chalk
 
   // Create the frontend server
   const server = await _vite.createServer(await resolveViteConfig(config, {}, false))
   await server.listen()
-
-  // Print out the URL if everything was initialized here (i.e. dev mode)
-  if (opts.printUrls !== false) {
-    const { port, host } = server.config.server
-    const protocol = server.config.server.https ? 'https' : 'http'
-    const url = `${protocol}://${host || 'localhost'}:${port}`
-    await printServiceMessage('Commoners Development Server', _chalk.cyanBright(url))
-  }
-
   return server
 }
 
