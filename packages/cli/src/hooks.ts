@@ -280,11 +280,10 @@ export class CLIHooks implements HooksInterface {
 
     // Dev server events
     this.on('dev:server:start', (event) => {
-      // if (event.type === 'dev:server:start') {
-      //     const { name, target: resolvedTarget } = event.config
-      //     ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
-      //     ui.info(`Starting development server`)
-      // }
+      if (event.type === 'dev:server:start') {
+          const { name, target: resolvedTarget } = event.config
+          ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
+      }
     })
 
     this.on('dev:server:ready', (event) => {
