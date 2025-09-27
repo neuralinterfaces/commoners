@@ -112,7 +112,7 @@ export const getAssetLinkPath = (path, outDir, root = outDir) => {
 
 export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHooks()) => {
 
-  const { name, src, out, force } = info
+  const { src, out, force } = info
 
   const outDir = dirname(out)
   const outName = basename(out, extname(out))
@@ -121,10 +121,7 @@ export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHook
 
   const shouldBuild = mustBuild({ out: outDir, force })
 
-  if (!shouldBuild) {
-    hooks.emit({ type: 'service:build:cached', service: name, src, out })
-    return outDir // Cached Build: Skipping with explicit path returned
-  }
+  if (!shouldBuild) return { built: false, outDir }
 
   const esbuild = await import('esbuild')
   const pkg = await import('pkg')
@@ -143,7 +140,7 @@ export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHook
 
   rmSync(tempOut, { force: true })
 
-  return outDir
+  return { built: true, outDir } // Return the output directory
 }
 
 async function buildService(
@@ -165,16 +162,18 @@ async function buildService(
   out = resolve(out)
   const buildInfo = { name, src, out, force }
 
-  let buildMethod: 'function' | 'string' = 'string'
-
   hooks.emit({ type: 'service:build:start', service: name, src, out })
 
   try {
 
     // Dynamic Configuration
     if (typeof build === 'function') {
-      buildMethod = 'function'
-      const ctx = { package: (arg) => packageFile(arg, hooks) }
+      const ctx = { 
+        package: async (arg) => { 
+          const result = await packageFile(arg, hooks)
+          return result.outDir
+        } 
+    }
 
       build = await build.call(ctx, buildInfo)
       if (!build) return // No file emitted
@@ -194,12 +193,15 @@ async function buildService(
 
       // Terminal Command
       await spawnProcess(build, [], { cwd: root, label: name }, hooks)
+      hooks.emit({ type: 'service:build:end', service: name, src, out })
     }
 
     // Auto Build Configuration
-    else await packageFile(buildInfo, hooks)
-
-    hooks.emit({ type: 'service:build:end', service: name, src, out })
+    else {
+      const { built } = await packageFile(buildInfo, hooks)
+      if (built) hooks.emit({ type: 'service:build:end', service: name, src, out })
+      else hooks.emit({ type: 'service:build:cached', service: name, src, out })
+    }
 
   } catch (error) {
     hooks.emit({ type: 'service:build:error', service: name, src, out, error })
@@ -315,6 +317,23 @@ const resolveAssetInfo = (info, outDir, root) => {
   }
 }
 
+export const getServicesToBuild = (
+  resolvedConfig: ResolvedConfig,
+  dev = false
+) => {
+
+  const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+  const servicesToBuild = Object.keys(resolvedServices).filter((name) => {
+    const { __src, __compile, __autobuild } = resolvedServices[name]
+    if (dev && !__compile && !__autobuild) return false // Skip services that don't have an original source or final filepath
+    if (!__src) return false // Skip if source is undefined
+    return true
+  })
+
+  return servicesToBuild
+}
+
+
 export const getServiceAssets = (
   resolvedConfig: ResolvedConfig,
   dev = false,
@@ -332,17 +351,8 @@ export const getServiceAssets = (
 
   // Handle Provided Services
   const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
-
-  const servicesToBuild = Object.keys(resolvedServices).filter((name) => {
-    const { __src, __compile, __autobuild } = resolvedServices[name]
-    if (dev && !__compile && !__autobuild) return false // Skip services that don't have an original source or final filepath
-    if (!__src) return false // Skip if source is undefined
-    return true
-  })
-
+  const servicesToBuild = getServicesToBuild(resolvedConfig, dev)
   if (servicesToBuild.length === 0) return assets // No services to build
-
-  hooks.emit({ type: 'build:assets:start', phase: 'services', services: servicesToBuild }) // Emit start event for service assets build
 
   for (const name of servicesToBuild) {
 
@@ -396,8 +406,6 @@ export const getServiceAssets = (
 
     assets.bundle.push(bundleConfig)
   }
-
-  hooks.emit({ type: 'build:assets:complete', phase: 'services' }) // Emit completion event for service assets build
 
   return assets
 }

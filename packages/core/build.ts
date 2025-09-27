@@ -25,7 +25,7 @@ import {
 import { createNoOpHooks } from './hooks.js'
 
 // Internal Utilities
-import { getAppAssets, getServiceAssets, buildAssets, getAssetBuildPath } from './utils/assets.js'
+import { getAppAssets, getServiceAssets, buildAssets, getAssetBuildPath, getServicesToBuild } from './utils/assets.js'
 import { lstatSync } from './utils/lstat.js'
 import { removeDirectory } from './utils/files.js'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from './assets/utils/icons.js'
@@ -47,6 +47,7 @@ import { configureForDesktop, resolveConfig } from './index.js'
 import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
 import { loadEnvironmentVariables } from './assets/services/env/index.js'
+import { ScopedLogger } from './vite/logger.js'
 
 type CliOptions = import('electron-builder').CliOptions
 
@@ -67,12 +68,23 @@ export const buildServices = async (config: UserConfig = {}, options: ServiceBui
 
   const { root, target } = resolvedConfig
 
+  const servicesToBuild = getServicesToBuild(resolvedConfig, dev)
+  if (servicesToBuild.length === 0) return [] // No services to build 
+
+  hooks.emit({ type: 'build:assets:start', phase: 'services', services: servicesToBuild }) // Emit start event for service assets build
+
   const assets = await getServiceAssets(resolvedConfig, dev, rebuild, hooks)
-  return await buildAssets(assets, {
+  
+  const results = await buildAssets(assets, {
     root,
     outDir: outDir ?? resolve(join(root, globalWorkspacePath, 'services')), // Default service output directory
     target,
   })
+
+  hooks.emit({ type: 'build:assets:complete', phase: 'services' }) // Emit completion event for service assets build
+
+
+  return results
 }
 
 export async function buildApp(
@@ -141,7 +153,9 @@ export async function buildApp(
 
     // Build the standard output files using Vite. Force recognition as build
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
-    await _vite.build(await resolveViteConfig(configCopy, { dev }))
+    const resoledViteConfig = await resolveViteConfig(configCopy, { dev })
+    const customViteLogger = new ScopedLogger((...args) => customViteLogger.call(() => hooks.emit({ type: 'log', args })))
+    await _vite.build({ ...resoledViteConfig, customLogger: customViteLogger })
 
     // Emit build event
     if (!wasOverwritten) hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })
@@ -416,6 +430,7 @@ export async function buildApp(
       // Use electron-builder to package the app
       const { build } = await import('electron-builder')
       await build(electronBuilderOpts)
+
       hooks.emit({ type: 'build:electron:complete' })
     } else if (isMobileBuild) {
       const mobileOpts = { target, outDir }

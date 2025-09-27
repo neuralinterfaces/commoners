@@ -47,6 +47,7 @@
     "electron-builder-squirrel-windows": "^24.0.0",
     "esbuild": "^0.23.0",
     "js-yaml": "^4.1.0",
+    "node-pty": "^1.0.0",
     "open": "^9.1.0",
     "pkg": "^5.8.1",
     "plist": "^3.1.0",

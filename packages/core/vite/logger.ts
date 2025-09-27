@@ -1,39 +1,57 @@
-import { createLogger, type Logger, type LogOptions, type LogErrorOptions, type LogType } from 'vite';
+import { createLogger, type Logger, type LogOptions, type LogErrorOptions } from 'vite';
 
-export function makeScopedLogger(scope = 'UB') : Logger {
+  const LOG_LEVELS = ['log', 'warn', 'error', 'info', 'debug'] as const;
 
-  const vite = createLogger('info', { prefix: '' }); // Vite’s default logger
-  
-  const forward = (level: 'info'|'warn'|'error', msg: string) => {
-    return // <-- Your sink: write to pino/winston/file/UI/etc.
-  };
+  export class ScopedLogger implements Logger {
+    #active = false
+    #__levels = {}
+    #logger = createLogger('info', { prefix: '' }); // Vite’s default logger
 
-  return {
+
+    constructor(customLoggingFunction: Function) {
+        LOG_LEVELS.forEach(level => {
+            this.#__levels[level] = console[level].bind(console);
+            console[level] = (...args) => {
+                const ogLevel = this.#__levels[level]
+                if (this.#active) customLoggingFunction.call(this, ...args); // Forward to original console method
+                else ogLevel(...args); // Forward to original console method
+            }
+        })
+    }
+
+    // Call original function safely
+    call (callback) {  
+        const currentState = this.#active;
+        this.#active = false; // Set active state to true
+        try { callback() } finally { this.#active = currentState; } // Restore original state
+    } 
+
+    #log(callback: any) {
+        this.#active = true;
+        try { callback() } finally { this.#active = false }
+    }
+
     info(msg: string, opts?: LogOptions) {
-      forward('info', msg);
-      vite.info(msg, opts);
-    //   vite.info(`[${scope}] ${msg}`, opts);        // remove this line to suppress Vite’s own printing
-    },
+      this.#log(() => this.#logger.info(msg, opts));
+    }
+
     warn(msg: string, opts?: LogOptions) {
-      forward('warn', msg);
-        vite.warn(msg, opts);
-    //   vite.warn(`[${scope}] ${msg}`, opts);
-    },
+        this.#log(() => this.#logger.warn(msg, opts));
+    }
+
     warnOnce(msg: string, opts?: LogOptions) {
-      // optional: de-dupe with your own logic
-      forward('warn', msg);
-      vite.warnOnce(msg, opts);
-    //   vite.warnOnce(`[${scope}] ${msg}`, opts);
-    },
+        this.#log(() => this.#logger.warnOnce(msg, opts));
+    }
+
     error(msg: string, opts?: LogErrorOptions) {
-      forward('error', msg);
-        vite.error(msg, opts);
-    //   vite.error(`[${scope}] ${msg}`, opts);
-    },
-    clearScreen() {}, // No-op so it doesn't clear the console
+        this.#log(() => this.#logger.error(msg, opts));
+    }
+
+    clearScreen() {} // No-op so it doesn't clear the console
+
     hasErrorLogged(e) {
-      return vite.hasErrorLogged(e);
-    },
-    hasWarned: false,
-  };
-}
+      return this.#logger.hasErrorLogged(e);
+    }
+
+    hasWarned = false;
+  }

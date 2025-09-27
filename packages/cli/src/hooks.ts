@@ -58,6 +58,13 @@ export class CLIHooks implements HooksInterface {
   }
 
   private setupDefaultHandlers(): void {
+
+    // Generic events
+    this.on('log', (event) => {
+      if (event.type === 'log') ui.add(...event.args)
+    })
+
+
     // Build events
     this.on('build:start', (event) => {
       if (event.type === 'build:start') {
@@ -72,13 +79,13 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:start') {
         switch (event.phase) {
           case 'frontend':
-            ui.pushSection('Frontend Assets')
+            ui.pushBoxedSection('Frontend Assets')
             break
           case 'services':
-            ui.pushSection('Services')
+            ui.pushBoxedSection('Services')
             break
           case 'packaging':
-            ui.pushSection('App Packaging')
+            ui.pushBoxedSection('App Packaging')
             break
         }
       }
@@ -211,7 +218,7 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'service:build:end') {
         ui.service(event.service, `Build completed`, 'success')
         if (event.out) ui.details(`${event.out}`)
-        console.log()
+        ui.add()
       }
     })
 
@@ -219,7 +226,7 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'service:build:error') {
         ui.service(event.service, `Build failed`, 'error')
         if (event.error) ui.details(event.error.message)
-        console.log()
+        ui.add()
       }
     })
 
@@ -227,7 +234,7 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'service:build:cached') {
         ui.service(event.service, `Using cached build`, 'info')
         if (event.out) ui.details(`${event.out}`)
-        console.log()
+        ui.add()
       }
     })
 
@@ -273,11 +280,11 @@ export class CLIHooks implements HooksInterface {
 
     // Dev server events
     this.on('dev:server:start', (event) => {
-      if (event.type === 'dev:server:start') {
-          const { name, target: resolvedTarget } = event.config
-          ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
-          ui.info(`Starting development server`)
-      }
+      // if (event.type === 'dev:server:start') {
+      //     const { name, target: resolvedTarget } = event.config
+      //     ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
+      //     ui.info(`Starting development server`)
+      // }
     })
 
     this.on('dev:server:ready', (event) => {

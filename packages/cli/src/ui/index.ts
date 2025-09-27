@@ -37,6 +37,10 @@ interface SectionContext {
   subtitle?: string
   level: number
   items: string[]
+  boxed?: boolean
+  contentLines?: string[]
+  boxStartLine?: number
+  boxWidth?: number
 }
 
 export class CommonersUI {
@@ -61,53 +65,224 @@ export class CommonersUI {
     this.activeSpinners.clear()
   }
 
+  // Helper method to strip ANSI codes for accurate text length calculation
+  private stripAnsi(text: string): string {
+    // More comprehensive ANSI escape sequence removal
+    return text.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
+  }
+
+  // Helper method to wrap text while preserving ANSI codes
+  private wrapText(text: string, maxWidth: number): string[] {
+    const lines: string[] = []
+    let currentLine = ''
+    let currentLength = 0
+
+    // Split by words while preserving ANSI codes
+    const words = text.split(' ')
+
+    for (const word of words) {
+      const cleanWord = this.stripAnsi(word)
+      const wordLength = cleanWord.length
+
+      // Check if adding this word would exceed the line width
+      const spaceNeeded = currentLine ? 1 : 0 // space before word if not first word
+
+      if (currentLength + spaceNeeded + wordLength > maxWidth) {
+        // Current line would overflow, start a new line
+        if (currentLine) {
+          lines.push(currentLine)
+        }
+
+        // Handle very long words that don't fit on a single line
+        if (wordLength > maxWidth) {
+          // Split the word, preserving ANSI codes as much as possible
+          let remainingWord = word
+          while (remainingWord.length > 0) {
+            const cleanRemaining = this.stripAnsi(remainingWord)
+            if (cleanRemaining.length <= maxWidth) {
+              lines.push(remainingWord)
+              break
+            } else {
+              // Find a good break point
+              let breakPoint = maxWidth
+              // Try to break at a reasonable point, avoiding breaking ANSI sequences
+              while (breakPoint > 0 && remainingWord[breakPoint] === '\u001b') {
+                breakPoint--
+              }
+              if (breakPoint === 0) breakPoint = maxWidth
+
+              lines.push(remainingWord.substring(0, breakPoint))
+              remainingWord = remainingWord.substring(breakPoint)
+            }
+          }
+          currentLine = ''
+          currentLength = 0
+        } else {
+          // Word fits on new line
+          currentLine = word
+          currentLength = wordLength
+        }
+      } else {
+        // Word fits on current line
+        if (currentLine) {
+          currentLine += ' ' + word
+          currentLength += 1 + wordLength
+        } else {
+          currentLine = word
+          currentLength = wordLength
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine)
+    }
+
+    return lines.length > 0 ? lines : ['']
+  }
+
   // Enhanced Headers
   header(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
     const title = chalk.hex(this.theme.primary).bold(message)
-    console.log('\n' + title)
-    if (subtitle) console.log(chalk.hex(this.theme.muted)(subtitle))
-    console.log()
+    this.add('\n' + title)
+    if (subtitle) this.add(chalk.hex(this.theme.muted)(subtitle))
+    this.add()
   }
   
   sectionHeader(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
     const title = chalk.hex(this.theme.secondary).bold(message)
-    console.log('\n' + chalk.underline(title))
-    if (subtitle) console.log(chalk.hex(this.theme.muted)(subtitle))
-    console.log()
+    this.add('\n' + chalk.underline(title))
+    if (subtitle) this.add(chalk.hex(this.theme.muted)(subtitle))
+    this.add()
   }
 
   // Section Context Management
-  pushSection(title: string, options?: { subtitle?: string }) {
+  pushSection(title: string, options?: { subtitle?: string; boxed?: boolean }) {
     const level = this.sectionStack.length
     const section: SectionContext = {
       title,
       subtitle: options?.subtitle,
       level,
-      items: []
+      items: [],
+      boxed: options?.boxed,
+      contentLines: []
     }
 
     this.sectionStack.push(section)
 
-    // Display section header with proper indentation
-    const indent = '  '.repeat(level)
-    const formattedTitle = chalk.hex(this.theme.secondary).bold(title)
-    console.log(`\n${indent}${chalk.underline(formattedTitle)}`)
-    if (options?.subtitle) {
-      console.log(`${indent}${chalk.hex(this.theme.muted)(options.subtitle)}`)
+    if (options?.boxed) {
+      // Calculate box width
+      const terminalWidth = process.stdout.columns || 80
+      const boxWidth = Math.max(60, terminalWidth - 4)
+      section.boxWidth = boxWidth
+
+      // Render box header
+      this.renderBoxHeader(title, options?.subtitle, boxWidth)
+    } else {
+      // Display section header with proper indentation
+      const indent = '  '.repeat(level)
+      const formattedTitle = chalk.hex(this.theme.secondary).bold(title)
+      console.log(`\n${indent}${chalk.underline(formattedTitle)}`)
+      if (options?.subtitle) {
+        console.log(`${indent}${chalk.hex(this.theme.muted)(options.subtitle)}`)
+      }
+      this.add()
     }
-    console.log()
 
     return section
   }
 
+  private renderBoxHeader(title: string, subtitle?: string, boxWidth?: number) {
+    const width = boxWidth || Math.max(60, (process.stdout.columns || 80) - 4)
+    const padding = 2
+    const contentWidth = width - 2 - (padding * 2) // Account for borders and padding
+
+    // Top border
+    const topBorder = '╭' + '─'.repeat(width - 2) + '╮'
+    console.log(' ' + topBorder)
+
+    // Empty line
+    console.log(' │' + ' '.repeat(width - 2) + '│')
+
+    // Title line
+    const titleText = chalk.hex(this.theme.secondary).bold(title)
+    const createLine = (text) => ' │' + this.padToWidth(text, contentWidth, padding) + '│'
+    console.log(createLine(titleText))
+    console.log(createLine(''))
+    
+    // Subtitle if provided
+    if (subtitle) {
+      const subtitleText = chalk.hex(this.theme.muted)(subtitle)
+      const subtitleLine = this.padToWidth(subtitleText, contentWidth, padding)
+      console.log(' │' + subtitleLine + '│')
+    }
+  }
+
+  private renderBoxContent(content: string | string[], boxWidth?: number) {
+    const width = boxWidth || Math.max(60, (process.stdout.columns || 80) - 4)
+    const padding = 2
+    const contentWidth = width - 2 - (padding * 2)
+
+    // Handle both string and array input
+    const contentLines = Array.isArray(content) ? content : content.split('\n')
+
+    // Process each line and wrap as needed
+    const allLines: string[] = []
+    contentLines.forEach(line => {
+      // Wrap each individual line to ensure it fits properly
+      const wrappedLines = this.wrapText(line, contentWidth)
+      allLines.push(...wrappedLines)
+    })
+
+    // Render all processed lines
+    allLines.forEach(line => {
+      // Double-check that each line fits within the content width
+      const cleanLine = this.stripAnsi(line)
+      if (cleanLine.length > contentWidth) {
+        // If line is still too long, truncate it as last resort
+        const truncated = line.substring(0, contentWidth - 3) + '...'
+        const contentLine = this.padToWidth(truncated, contentWidth, padding)
+        console.log(' │' + contentLine + '│')
+      } else {
+        const contentLine = this.padToWidth(line, contentWidth, padding)
+        console.log(' │' + contentLine + '│')
+      }
+    })
+  }
+
+  private renderBoxFooter(boxWidth?: number) {
+    const width = boxWidth || Math.max(60, (process.stdout.columns || 80) - 4)
+
+    // Empty line
+    console.log(' │' + ' '.repeat(width - 2) + '│')
+
+    // Bottom border
+    const bottomBorder = '╰' + '─'.repeat(width - 2) + '╯'
+    console.log(' ' + bottomBorder)
+    this.add()
+  }
+
+  private padToWidth(text: string, contentWidth: number, padding: number): string {
+    const paddingStr = ' '.repeat(padding)
+    // Remove all ANSI escape sequences for accurate length calculation
+    const cleanText = this.stripAnsi(text)
+    const remainingSpace = Math.max(0, contentWidth - cleanText.length)
+    return paddingStr + text + ' '.repeat(remainingSpace) + paddingStr
+  }
+
   popSection() {
     const section = this.sectionStack.pop()
-    if (section && section.items.length > 0) {
-      // Optional: Display section summary or completion
-      const indent = '  '.repeat(section.level)
-      console.log(`${indent}${chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`)
+    if (section) {
+      if (section.boxed) {
+        // Render the box footer to close the live box
+        this.renderBoxFooter(section.boxWidth)
+      } else if (section.items.length > 0) {
+        // Optional: Display section summary or completion
+        const indent = '  '.repeat(section.level)
+        console.log(`${indent}${chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`)
+      }
     }
     return section
   }
@@ -116,18 +291,33 @@ export class CommonersUI {
     return this.sectionStack[this.sectionStack.length - 1]
   }
 
-  private addToCurrentSection(message: string) {
+  // Convenience method for boxed sections
+  pushBoxedSection(title: string, options?: { subtitle?: string }) {
+    return this.pushSection(title, { ...options, boxed: true })
+  }
+
+  private addToCurrentSection(message: string | string[]) {
     const currentSection = this.getCurrentSection()
     if (currentSection) {
-      currentSection.items.push(message)
+      const messageStr = Array.isArray(message) ? message.join('\n') : message
+      currentSection.items.push(messageStr)
+      if (currentSection.boxed) {
+        // Render content immediately within the box
+        this.renderBoxContent(message, currentSection.boxWidth)
+      }
     }
   }
 
   private formatWithSectionContext(message: string): string {
     const currentSection = this.getCurrentSection()
     if (currentSection) {
-      const indent = '  '.repeat(currentSection.level + 1)
-      return `${indent}${message}`
+      if (currentSection.boxed) {
+        // For boxed sections, don't return formatted text since we handle it in addToCurrentSection
+        return ''
+      } else {
+        const indent = '  '.repeat(currentSection.level + 1)
+        return `${indent}${message}`
+      }
     }
     return message
   }
@@ -162,79 +352,148 @@ export class CommonersUI {
 
   // Success messages with celebration
   success(message: string, details?: string) {
-    const formattedMessage = this.formatWithSectionContext(`${figures.tick} ${chalk.hex(this.theme.success).bold(message)}`)
-    console.log(`\n${formattedMessage}`)
-    if (details) {
-      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
-      console.log(formattedDetails)
+    const currentSection = this.getCurrentSection()
+    const fullMessage = `${figures.tick} ${chalk.hex(this.theme.success).bold(message)}`
+
+    if (currentSection?.boxed) {
+      // Render content immediately in the live box
+      this.addToCurrentSection(fullMessage)
+      if (details) {
+        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+      }
+    } else {
+      // Render immediately for non-boxed sections
+      const formattedMessage = this.formatWithSectionContext(fullMessage)
+      console.log(`\n${formattedMessage}`)
+      if (details) {
+        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        console.log(formattedDetails)
+      }
+      this.addToCurrentSection(message)
+      this.add()
     }
-    this.addToCurrentSection(message)
-    console.log()
   }
 
   // Enhanced error messages
   error(message: string, details?: string) {
-    const formattedMessage = this.formatWithSectionContext(`${figures.cross} ${chalk.hex(this.theme.error).bold(message)}`)
-    console.log(`\n${formattedMessage}`)
-    if (details) {
-      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
-      console.log(formattedDetails)
+    const currentSection = this.getCurrentSection()
+    const fullMessage = `${figures.cross} ${chalk.hex(this.theme.error).bold(message)}`
+
+    if (currentSection?.boxed) {
+      // Render content immediately in the live box
+      this.addToCurrentSection(fullMessage)
+      if (details) {
+        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+      }
+    } else {
+      // Render immediately for non-boxed sections
+      const formattedMessage = this.formatWithSectionContext(fullMessage)
+      console.log(`\n${formattedMessage}`)
+      if (details) {
+        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        console.log(formattedDetails)
+      }
+      this.addToCurrentSection(message)
+      this.add()
     }
-    this.addToCurrentSection(message)
-    console.log()
   }
 
   // Warning messages
   warning(message: string, details?: string) {
-    const formattedMessage = this.formatWithSectionContext(`${figures.warning} ${chalk.hex(this.theme.warning)(message)}`)
-    console.log(`\n${formattedMessage}`)
-    if (details) {
-      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
-      console.log(formattedDetails)
+    const currentSection = this.getCurrentSection()
+    const fullMessage = `${figures.warning} ${chalk.hex(this.theme.warning)(message)}`
+
+    if (currentSection?.boxed) {
+      // Render content immediately in the live box
+      this.addToCurrentSection(fullMessage)
+      if (details) {
+        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+      }
+    } else {
+      // Render immediately for non-boxed sections
+      const formattedMessage = this.formatWithSectionContext(fullMessage)
+      console.log(`\n${formattedMessage}`)
+      if (details) {
+        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        console.log(formattedDetails)
+      }
+      this.addToCurrentSection(message)
+      this.add()
     }
-    this.addToCurrentSection(message)
-    console.log()
   }
 
   // Info messages
   info(message: string, details?: string) {
-    const formattedMessage = this.formatWithSectionContext(`${figures.info} ${chalk.hex(this.theme.info)(message)}`)
-    console.log(`\n${formattedMessage}`)
-    if (details) {
-      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
-      console.log(formattedDetails)
+    const currentSection = this.getCurrentSection()
+    const fullMessage = `${figures.info} ${chalk.hex(this.theme.info)(message)}`
+
+    if (currentSection?.boxed) {
+      // Render content immediately in the live box
+      this.addToCurrentSection(fullMessage)
+      if (details) {
+        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+      }
+    } else {
+      // Render immediately for non-boxed sections
+      const formattedMessage = this.formatWithSectionContext(fullMessage)
+      this.add(`\n${formattedMessage}`)
+      if (details) {
+        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        this.add(formattedDetails)
+      }
+      this.addToCurrentSection(message)
+      this.add()
     }
-    this.addToCurrentSection(message)
-    console.log()
   }
 
   details(message: string) {
-    // Subtle details without emphasis
-    const formattedMessage = this.formatWithSectionContext(chalk.hex(this.theme.muted)(message))
-    console.log(formattedMessage)
-    this.addToCurrentSection(message)
+    const currentSection = this.getCurrentSection()
+    const fullMessage = chalk.hex(this.theme.muted)(message)
+
+    if (currentSection?.boxed) {
+      // Render content immediately in the live box
+      this.addToCurrentSection(fullMessage)
+    } else {
+      // Render immediately for non-boxed sections
+      const formattedMessage = this.formatWithSectionContext(fullMessage)
+      this.add(formattedMessage)
+      this.addToCurrentSection(message)
+    }
   }
 
   // Service messages with colored labels
   service(serviceName: string, message: string, type: 'info' | 'error' | 'success' = 'info') {
+    const currentSection = this.getCurrentSection()
     const colors = {
       info: this.theme.info,
       error: this.theme.error,
       success: this.theme.success,
     }
 
+
     if (!serviceName) {
-      const formattedMessage = this.formatWithSectionContext(message)
-      console.log(formattedMessage)
-      this.addToCurrentSection(message)
+      if (currentSection?.boxed) {
+        this.addToCurrentSection(message)
+      } else {
+        const formattedMessage = this.formatWithSectionContext(message)
+        this.add(formattedMessage)
+        this.addToCurrentSection(message)
+      }
       return
     }
 
     const label = chalk.hex(colors[type]).bold(`[${serviceName}]`)
     const fullMessage = `${label} ${message}`
-    const formattedMessage = this.formatWithSectionContext(fullMessage)
-    console.log(formattedMessage)
-    this.addToCurrentSection(`[${serviceName}] ${message}`)
+
+    if (currentSection?.boxed) {
+      // Render content immediately in the live box
+      this.addToCurrentSection(fullMessage)
+    } else {
+      // Render immediately for non-boxed sections
+      const formattedMessage = this.formatWithSectionContext(fullMessage)
+      this.add(formattedMessage)
+      this.addToCurrentSection(`[${serviceName}] ${message}`)
+    }
   }
 
   // Interactive spinners
@@ -306,6 +565,10 @@ export class CommonersUI {
       align = 'center',
     } = options || {}
 
+    const terminalWidth = process.stdout.columns || 80
+    const boxWidth = Math.max(terminalWidth - 4, 60) // Ensure minimum width
+    const leftMargin = Math.floor((terminalWidth - boxWidth) / 2)
+
     console.log(
       boxen(content, {
         title,
@@ -314,7 +577,8 @@ export class CommonersUI {
         borderStyle,
         borderColor: this.theme[borderColor] || borderColor,
         padding: 1,
-        margin: 1,
+        margin: { left: leftMargin, right: 0, top: 1, bottom: 1 },
+        width: boxWidth,
       })
     )
   }
@@ -323,12 +587,12 @@ export class CommonersUI {
   command(cmd: string, description: string) {
     const cmdFormatted = chalk.hex(this.theme.primary).bold(cmd)
     const descFormatted = chalk.hex(this.theme.muted)(description)
-    console.log(`  ${cmdFormatted}  ${descFormatted}`)
+    this.add(`  ${cmdFormatted}  ${descFormatted}`)
   }
 
   // Subtle contextual messages
   subtle(message: string) {
-    console.log(chalk.hex(this.theme.muted)(message))
+    this.add(chalk.hex(this.theme.muted)(message))
   }
 
   // Quick one-liners
@@ -340,6 +604,44 @@ export class CommonersUI {
       info: this.info.bind(this),
     }
     methods[type](message)
+  }
+
+  add(...args: string[]) {
+    const currentSection = this.getCurrentSection()
+    const message = args.join(' ')
+
+    if (currentSection) {
+      if (currentSection.boxed) {
+        // Render content immediately in the live box
+        this.addToCurrentSection(message)
+      } else {
+        const formattedMessage = this.formatWithSectionContext(message)
+        console.log(formattedMessage)
+        this.addToCurrentSection(message)
+      }
+    } else {
+      console.log(message)
+    }
+  }
+
+  // Add multi-line content to the current section (especially useful for boxed sections)
+  addLines(lines: string[]) {
+    const currentSection = this.getCurrentSection()
+
+    if (currentSection) {
+      if (currentSection.boxed) {
+        // Render content immediately in the live box
+        this.addToCurrentSection(lines)
+      } else {
+        lines.forEach(line => {
+          const formattedMessage = this.formatWithSectionContext(line)
+          console.log(formattedMessage)
+        })
+        this.addToCurrentSection(lines)
+      }
+    } else {
+      lines.forEach(line => console.log(line))
+    }
   }
 }
 

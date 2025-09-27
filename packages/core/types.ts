@@ -21,6 +21,9 @@ export function tuple<T extends string[]>(...o: T) {
 export type PortType = number
 export type LocalHostType = 'localhost' | '0.0.0.0'
 
+type LogEvent = { type: "log", args: any[] }
+export type GenericEvent = LogEvent
+
 // Event types for hooks-based logging system
 export type BuildEvent =
   | { type: 'build:start'; config: ResolvedConfig; dev: boolean }
@@ -33,7 +36,6 @@ export type BuildEvent =
   | { type: 'build:complete'; config: ResolvedConfig; outDir: string; duration?: number }
   | { type: 'build:error'; error: Error; phase?: string }
 
-type ServiceBuildMethods = 'pkg' | 'string' | 'function' | 'compile' | 'cached'
 export type ServiceEvent =
   | { type: 'service:start'; service: string; url: string }
   | { type: 'service:ready'; service: string; port: number }
@@ -69,7 +71,7 @@ export type LaunchEvent =
   | { type: 'launch:error'; error: Error; target?: string }
 
 
-export type HookEvent = BuildEvent | LaunchEvent | ServiceEvent | SecurityEvent | DevServerEvent
+export type HookEvent = GenericEvent | BuildEvent | LaunchEvent | ServiceEvent | SecurityEvent | DevServerEvent
 
 // Hook function type
 export type HookFunction = (event: HookEvent) => void | Promise<void>
