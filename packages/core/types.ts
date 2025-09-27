@@ -24,9 +24,11 @@ export type LocalHostType = 'localhost' | '0.0.0.0'
 // Event types for hooks-based logging system
 export type BuildEvent =
   | { type: 'build:start'; config: ResolvedConfig; dev: boolean }
-  | { type: 'build:assets:start'; phase: 'frontend' | 'services' | 'packaging' }
+  | { type: 'build:assets:start', phase: 'services', services?: string[] }
+  | { type: 'build:assets:start'; phase: 'frontend' | 'packaging' }
   | { type: 'build:assets:complete'; phase: 'frontend' | 'services' | 'packaging'; duration?: number }
   | { type: 'build:electron:start' }
+  | { type: 'build:electron:complete'; duration?: number }
   | { type: 'build:mobile:start'; mobileTarget: 'ios' | 'android' }
   | { type: 'build:complete'; config: ResolvedConfig; outDir: string; duration?: number }
   | { type: 'build:error'; error: Error; phase?: string }

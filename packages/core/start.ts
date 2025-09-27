@@ -23,6 +23,7 @@ import { runAppPlugins } from './assets/plugins/index.js'
 import { getFreePorts } from './assets/services/network.js'
 
 import { startElectronInstance } from './vite/plugins/electron/index.js'
+import { buildAssets, getAppAssets } from './utils/assets.js'
 
 const wsPortEnvVar = 'COMMONERS_WEBSOCKET_PORT'
 
@@ -141,7 +142,6 @@ export const services = async (config: UserConfig, resolvedServices, hooks: Hook
   const { root, target, services } = resolvedConfig
   await buildServices(resolvedConfig, { services: resolvedServices, dev, hooks }) // Build service outputs
   resolvedServices = resolvedServices || services // Use all services if none are provided
-
   return await createAllServices(resolvedServices, { root, target, hooks }) // Create services
 }
 
@@ -214,7 +214,8 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
       // Use Vite to Load URLs in Dev Mode
       else {
-        await buildAllAssets(scopedConfig, { dev: true, hooks }) // Build the assets for desktop
+        await buildAssets(await getAppAssets(scopedConfig, true), { outDir, root, target })
+        if (isDesktop(target)) await buildServices(config, { dev: true, outDir, rebuild: true, hooks })
         configureForDesktop(outDir, root)
         const frontend = (startManager.frontend = await createServer(scopedConfig))
         startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
@@ -227,18 +228,18 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     // ------------------------------- Web -------------------------------
     await initializeWebsocketPort()
-    await buildAllAssets(scopedConfig, { dev: true, hooks }) // Build the assets for web
-    startManager.services = await runDevelopmentPlugins(scopedConfig, hooks) // Run the development plugins
+    await buildAssets(await getAppAssets(scopedConfig, true), { outDir, root, target })
     const frontend = (startManager.frontend = await createServer(scopedConfig))
     startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
+
+    startManager.services = await runDevelopmentPlugins(scopedConfig, hooks) // Run the development plugins
+
 
     // Emit dev server ready event
     const { port, host } = frontend.config.server
     const protocol = frontend.config.server.https ? 'https' : 'http'
     const url = `${protocol}://${host || 'localhost'}:${port}`
     hooks.emit({ type: 'dev:server:ready', target, url  })
-
-
     return startManager
 
   } catch (error) {

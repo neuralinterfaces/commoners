@@ -4,6 +4,7 @@ import { extname, isAbsolute, join, relative } from 'node:path'
 // General Internal Imports
 import { isDesktop, vite, chalk } from '../globals.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
+import { makeScopedLogger } from './logger.js'
 
 // Internal Plugins
 import electronPlugin from './plugins/electron/index.js'
@@ -189,6 +190,7 @@ export const resolveViteConfig = async (
     plugins,
     server: serverConfig, // Open the browser unless testing / building for desktop
     clearScreen: false,
+    customLogger: makeScopedLogger('ViteLogger'),
     envPrefix: ['VITE_', 'COMMONERS_'], // Allow for Commoners-specific environment variables
   })
 

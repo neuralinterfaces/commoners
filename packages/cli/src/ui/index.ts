@@ -32,9 +32,17 @@ const defaultTheme: UITheme = {
   muted: '#9CA3AF', // Gray
 }
 
+interface SectionContext {
+  title: string
+  subtitle?: string
+  level: number
+  items: string[]
+}
+
 export class CommonersUI {
   private theme: UITheme
   private activeSpinners: Set<Ora> = new Set()
+  private sectionStack: SectionContext[] = []
 
   constructor(theme: UITheme = defaultTheme) {
     this.theme = theme
@@ -65,9 +73,63 @@ export class CommonersUI {
   sectionHeader(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
     const title = chalk.hex(this.theme.secondary).bold(message)
-    console.log('\n' + chalk.underline(title))  
+    console.log('\n' + chalk.underline(title))
     if (subtitle) console.log(chalk.hex(this.theme.muted)(subtitle))
     console.log()
+  }
+
+  // Section Context Management
+  pushSection(title: string, options?: { subtitle?: string }) {
+    const level = this.sectionStack.length
+    const section: SectionContext = {
+      title,
+      subtitle: options?.subtitle,
+      level,
+      items: []
+    }
+
+    this.sectionStack.push(section)
+
+    // Display section header with proper indentation
+    const indent = '  '.repeat(level)
+    const formattedTitle = chalk.hex(this.theme.secondary).bold(title)
+    console.log(`\n${indent}${chalk.underline(formattedTitle)}`)
+    if (options?.subtitle) {
+      console.log(`${indent}${chalk.hex(this.theme.muted)(options.subtitle)}`)
+    }
+    console.log()
+
+    return section
+  }
+
+  popSection() {
+    const section = this.sectionStack.pop()
+    if (section && section.items.length > 0) {
+      // Optional: Display section summary or completion
+      const indent = '  '.repeat(section.level)
+      console.log(`${indent}${chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`)
+    }
+    return section
+  }
+
+  getCurrentSection(): SectionContext | undefined {
+    return this.sectionStack[this.sectionStack.length - 1]
+  }
+
+  private addToCurrentSection(message: string) {
+    const currentSection = this.getCurrentSection()
+    if (currentSection) {
+      currentSection.items.push(message)
+    }
+  }
+
+  private formatWithSectionContext(message: string): string {
+    const currentSection = this.getCurrentSection()
+    if (currentSection) {
+      const indent = '  '.repeat(currentSection.level + 1)
+      return `${indent}${message}`
+    }
+    return message
   }
 
   // Target-specific styling
@@ -100,37 +162,57 @@ export class CommonersUI {
 
   // Success messages with celebration
   success(message: string, details?: string) {
-    console.log(`\n${figures.tick} ${chalk.hex(this.theme.success).bold(message)}`)
-    if (details) console.log(chalk.hex(this.theme.muted)(`  ${details}`))
+    const formattedMessage = this.formatWithSectionContext(`${figures.tick} ${chalk.hex(this.theme.success).bold(message)}`)
+    console.log(`\n${formattedMessage}`)
+    if (details) {
+      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+      console.log(formattedDetails)
+    }
+    this.addToCurrentSection(message)
     console.log()
   }
 
   // Enhanced error messages
   error(message: string, details?: string) {
-    console.log(`\n${figures.cross} ${chalk.hex(this.theme.error).bold(message)}`)
-    if (details) console.log(chalk.hex(this.theme.muted)(`  ${details}`))
+    const formattedMessage = this.formatWithSectionContext(`${figures.cross} ${chalk.hex(this.theme.error).bold(message)}`)
+    console.log(`\n${formattedMessage}`)
+    if (details) {
+      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+      console.log(formattedDetails)
+    }
+    this.addToCurrentSection(message)
     console.log()
   }
 
   // Warning messages
   warning(message: string, details?: string) {
-    console.log(`\n${figures.warning} ${chalk.hex(this.theme.warning)(message)}`)
-    if (details) console.log(chalk.hex(this.theme.muted)(`  ${details}`))
+    const formattedMessage = this.formatWithSectionContext(`${figures.warning} ${chalk.hex(this.theme.warning)(message)}`)
+    console.log(`\n${formattedMessage}`)
+    if (details) {
+      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+      console.log(formattedDetails)
+    }
+    this.addToCurrentSection(message)
     console.log()
   }
 
   // Info messages
   info(message: string, details?: string) {
-    console.log(`\n${figures.info} ${chalk.hex(this.theme.info)(message)}`)
+    const formattedMessage = this.formatWithSectionContext(`${figures.info} ${chalk.hex(this.theme.info)(message)}`)
+    console.log(`\n${formattedMessage}`)
     if (details) {
-      console.log(chalk.hex(this.theme.muted)(`  ${details}`))
+      const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+      console.log(formattedDetails)
     }
+    this.addToCurrentSection(message)
     console.log()
   }
 
   details(message: string) {
     // Subtle details without emphasis
-    console.log(chalk.hex(this.theme.muted)(message))
+    const formattedMessage = this.formatWithSectionContext(chalk.hex(this.theme.muted)(message))
+    console.log(formattedMessage)
+    this.addToCurrentSection(message)
   }
 
   // Service messages with colored labels
@@ -141,10 +223,18 @@ export class CommonersUI {
       success: this.theme.success,
     }
 
-    if (!serviceName) console.log(message) // If no service name, just log the message
+    if (!serviceName) {
+      const formattedMessage = this.formatWithSectionContext(message)
+      console.log(formattedMessage)
+      this.addToCurrentSection(message)
+      return
+    }
 
     const label = chalk.hex(colors[type]).bold(`[${serviceName}]`)
-    console.log(`${label} ${message}`)
+    const fullMessage = `${label} ${message}`
+    const formattedMessage = this.formatWithSectionContext(fullMessage)
+    console.log(formattedMessage)
+    this.addToCurrentSection(`[${serviceName}] ${message}`)
   }
 
   // Interactive spinners

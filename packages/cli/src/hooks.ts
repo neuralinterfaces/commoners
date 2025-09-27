@@ -72,13 +72,13 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:start') {
         switch (event.phase) {
           case 'frontend':
-            ui.sectionHeader('Frontend Assets')
+            ui.pushSection('Frontend Assets')
             break
           case 'services':
-            ui.sectionHeader('Services')
+            ui.pushSection('Services')
             break
           case 'packaging':
-            ui.sectionHeader('App Packaging')
+            ui.pushSection('App Packaging')
             break
         }
       }
@@ -88,20 +88,24 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:complete') {
         switch (event.phase) {
           case 'frontend':
-            // ui.success('Frontend built successfully')
+            ui.popSection()
             break
           case 'services':
-            // ui.success('Services built successfully')
+            ui.popSection()
             break
           case 'packaging':
-            // ui.success('Application packaged successfully')
+            ui.popSection()
             break
         }
       }
     })
 
     this.on('build:electron:start', () => {
-      ui.sectionHeader('Electron Builder')
+      ui.pushSection('Electron Builder')
+    })
+
+    this.on('build:electron:complete', () => {
+      ui.popSection()
     })
 
     this.on('build:mobile:start', (event) => {

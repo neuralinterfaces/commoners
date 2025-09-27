@@ -321,6 +321,7 @@ export const getServiceAssets = (
   rebuildServices: ServiceRebuildOption = true,
   hooks = createNoOpHooks()
 ) => {
+
   const { root } = resolvedConfig
 
   // Transfer configuration file and related services
@@ -332,14 +333,25 @@ export const getServiceAssets = (
   // Handle Provided Services
   const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
 
-  for (const [name, resolvedService] of Object.entries(resolvedServices)) {
+  const servicesToBuild = Object.keys(resolvedServices).filter((name) => {
+    const { __src, __compile, __autobuild } = resolvedServices[name]
+    if (dev && !__compile && !__autobuild) return false // Skip services that don't have an original source or final filepath
+    if (!__src) return false // Skip if source is undefined
+    return true
+  })
+
+  if (servicesToBuild.length === 0) return assets // No services to build
+
+  hooks.emit({ type: 'build:assets:start', phase: 'services', services: servicesToBuild }) // Emit start event for service assets build
+
+  for (const name of servicesToBuild) {
+
+    const resolvedService = resolvedServices[name] as ResolvedService
+
     // @ts-ignore
-    const { build, base, filepath, __src, __compile, __autobuild } = resolvedService
+    const { build, base, filepath, __src, __autobuild } = resolvedService
 
     // if (!dev && !publish) continue // Avoid building unpublished services
-
-    if (dev && !__compile && !__autobuild) continue // Skip services that don't have an original source or final filepath
-    if (!__src) continue // Skip if source is undefined
 
     const allowCompilation = !(dev && __autobuild)
 
@@ -384,6 +396,8 @@ export const getServiceAssets = (
 
     assets.bundle.push(bundleConfig)
   }
+
+  hooks.emit({ type: 'build:assets:complete', phase: 'services' }) // Emit completion event for service assets build
 
   return assets
 }

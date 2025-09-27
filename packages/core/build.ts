@@ -52,43 +52,7 @@ type CliOptions = import('electron-builder').CliOptions
 
 const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 
-const convertToBaseRegexString = (str: string) =>
-  new RegExp(str).toString().split('/').slice(1, -1).join('/')
-
-type BuildAllAssetOptions = {
-  dev?: boolean,
-  rebuild?: ServiceRebuildOption,
-  hooks?: HooksInterface
-}
-export const buildAllAssets = async (
-  config, 
-  opts = {} as BuildAllAssetOptions
-) => {
-
-  const { dev, rebuild = true, hooks = createNoOpHooks() } = opts
-
-
-  const { outDir, root, target } = config
-  const appAssets = await getAppAssets(config, dev)
-
-  const outputs = await buildAssets(appAssets, {
-    outDir,
-    root,
-    target,
-  })
-
-  if (dev || isDesktop(target)) {
-    const _outputs = await buildServices(config, {
-      dev,
-      outDir,
-      rebuild,
-      hooks
-    }) // Only build when in development, or during desktop builds
-    outputs.push(..._outputs)
-  }
-
-  return outputs
-}
+const convertToBaseRegexString = (str: string) => new RegExp(str).toString().split('/').slice(1, -1).join('/')
 
 // ------------------------ Main Exports ------------------------
 
@@ -183,9 +147,13 @@ export async function buildApp(
     if (!wasOverwritten) hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })
 
     // ---------------- Create Standard Output Files ----------------
-    hooks.emit({ type: 'build:assets:start', phase: 'services' })
-    const assets = await buildAllAssets(configCopy, { dev, rebuild: rebuildServices, hooks })
-    hooks.emit({ type: 'build:assets:complete', phase: 'services' })
+
+    const assets = await buildAssets(await getAppAssets(configCopy, dev), { outDir, root, target })
+
+    if (isDesktop(target)) {
+      const _outputs = await buildServices(config, { dev, outDir, rebuild: rebuildServices, hooks })
+      assets.push(..._outputs)
+    }
 
     if (onBuildAssets) {
       const result = onBuildAssets(outDir)
@@ -448,6 +416,7 @@ export async function buildApp(
       // Use electron-builder to package the app
       const { build } = await import('electron-builder')
       await build(electronBuilderOpts)
+      hooks.emit({ type: 'build:electron:complete' })
     } else if (isMobileBuild) {
       const mobileOpts = { target, outDir }
 
