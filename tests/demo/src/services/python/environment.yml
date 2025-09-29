@@ -7,4 +7,3 @@ dependencies:
   - numpy
   - pip:
       - pyinstaller==6.0.0
-prefix: /opt/anaconda3/envs/commoners-demo
