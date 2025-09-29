@@ -32,21 +32,26 @@ const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
-const failed = (message, submessage?: string) => {
-  ui.error(message, submessage)
-
+function failed (message, submessage?: string) {
+  this.ui.error(message, submessage)
   process.exit(1)
 }
 
-function preprocessTarget(target) {
+function preprocessTarget(target, hooks) {
   if (typeof target === 'string') {
     if (!allTargets.includes(target)) {
       const resolvedTargets = []
-      for (const t of allTargets) resolvedTargets.push(ui.target(t))
+      for (const t of allTargets) resolvedTargets.push(hooks.ui.target(t))
 
-      failed(`Invalid target: ${ui.target(target)}`, `Valid targets: ${resolvedTargets.join(', ')}`)
+      failed.call(hooks, `Invalid target: ${hooks.ui.target(target)}`, `Valid targets: ${resolvedTargets.join(', ')}`)
     }
   }
+}
+
+function resolveHooksForCLI(...args) {
+  const hooks = resolveHooks(...args)
+  if (!hooks.ui) hooks.ui = ui // Ensure UI is always available
+  return hooks
 }
 
 type ConfigOpts = {
@@ -80,29 +85,28 @@ cli
     const { config: configPath, service, public: isPublic, port, ...overrides } = options
     const isOnlyServices = !overrides.target && service // Services take priority if specified
 
-    preprocessTarget(overrides.target)
-
+    preprocessTarget(overrides.target, cliHooks)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return failed('Configuration not found')
+    if (!config) return failed.call(cliHooks, 'Configuration not found')
     const resolvedConfig = await resolveConfig(reconcile(config, overrides))
+    const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
 
     let launchSpinner
     const start = message => {
       // launchSpinner = ui.spinner(message, { type: 'dots' })
-      ui.header(message)
+      hooks.ui.header(message)
     }
 
     const succeed = (message: string, details?: string) => {
-      ui.success(message, details)
+      hooks.ui.success(message, details)
       if (launchSpinner) launchSpinner.succeed(`${message}${details ? `: ${details}` : ''}`)
     }
 
     const failedHere = (message: string, details?: string) => {
-      ui.error(message, details)
+      hooks.ui.error(message, details)
       if (launchSpinner) launchSpinner.fail(`${message}${details ? `: ${details}` : ''}`)
     }
 
-    const hooks = await resolveHooks(config.hooks, cliHooks)
 
     if (isOnlyServices) {
 
@@ -111,13 +115,12 @@ cli
       delete resolvedConfig.target
 
       // NOTE: If passed, this simply wouldn't take effect
-      if (options.outDir)
-        return failed(`Cannot specify an output directory when launching services`)
+      if (options.outDir) return failed.call(hooks, `Cannot specify an output directory when launching services`, `Services are built in a private directory`)
 
       const resolvedServices = typeof service === 'string' ? [service] : service
       const nServices = Object.keys(resolvedServices).length
       if (nServices > 1 && (port || isPublic))
-        return failed(`Cannot specify port or public when launching multiple services`)
+        return failed.call(hooks, `Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
       if (nServices === 1) {
         const serviceName = resolvedServices[0]
         if (serviceName in resolvedConfig.services) {
@@ -130,12 +133,12 @@ cli
       try {
         await launchServices(resolvedConfig, { services: service })
         succeed(
-          `${renderCommaSeparatedList(resolvedServices.map(s => `${ui.target(s, { plain: true })} Service`))} successfully launched!`
+          `${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))} successfully launched!`
         )
         return
       } catch (error) {
         failedHere(
-          `Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${ui.target(s, { plain: true })} Service`))}`,
+          `Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))}`,
           error.message
         )
 
@@ -144,7 +147,7 @@ cli
     }
 
     // Ensure services are not specified with a target
-    else if (service) return failed(`Cannot specify both services and a launch target`)
+    else if (service) return failed.call(hooks, `Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
 
     // Enhanced launch feedback
     await launch({ ...resolvedConfig, hooks })
@@ -167,23 +170,20 @@ cli
     const { target: manualTarget } = overrides
     overrides.build = { sign, publish }
 
-    preprocessTarget(manualTarget)
-
-    // Load the configuration file
+    preprocessTarget(manualTarget, cliHooks)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return failed('Configuration not found')
-
-    const hooks = await resolveHooks(config.hooks, cliHooks)
+    if (!config) return failed.call(cliHooks, 'Configuration not found')
+    const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
 
     // Build Services Only
     const servicesToBuild = services ? Object.keys(config.services) : service
     if (!manualTarget && servicesToBuild) {
-      ui.header('Building Services')
+      hooks.ui.header('Building Services')
       try {
         await buildServices(config, { services: servicesToBuild, hooks })
-        ui.success('All services ready for deployment!')
+        hooks.ui.success('All services ready for deployment!')
       } catch (error) {
-        ui.error('Failed to build services', error.message)
+        hooks.ui.error('Failed to build services', error.message)
 
         process.exit(1)
       }
@@ -208,10 +208,10 @@ cli
 
   .action(async (root, options) => {
     const { config: configPath, ...overrides } = options
-    preprocessTarget(overrides.target)
+    preprocessTarget(overrides.target, cliHooks)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return failed('Configuration not found')
-    const hooks = await resolveHooks(config.hooks, cliHooks)
+    if (!config) return failed.call(cliHooks, 'Configuration not found')
+    const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
     const resolvedConfig = reconcile(config, overrides)
     await start(resolvedConfig, { hooks })
   })
