@@ -99,9 +99,11 @@ cli
       if (launchSpinner) launchSpinner.fail(`${message}${details ? `: ${details}` : ''}`)
     }
 
+    const hooks = config.hooks || cliHooks // Use CLI hooks if not specified in config
+
     if (isOnlyServices) {
 
-      start(`Launching ${isOnlyServices ? 'Services' : ui.target(target, { plain: true })} Build`)
+      start(`Launching Services Build`)
 
       delete resolvedConfig.target
 
@@ -142,7 +144,7 @@ cli
     else if (service) return failed(`Cannot specify both services and a launch target`)
 
     // Enhanced launch feedback
-    await launch({ ...resolvedConfig, hooks: cliHooks })
+    await launch({ ...resolvedConfig, hooks })
   })
 
 // Build the application using the specified settings
@@ -168,12 +170,14 @@ cli
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
     if (!config) return failed('Configuration not found')
 
+    const hooks = config.hooks || cliHooks // Use CLI hooks if not specified in config
+
     // Build Services Only
     const servicesToBuild = services ? Object.keys(config.services) : service
     if (!manualTarget && servicesToBuild) {
       ui.header('Building Services')
       try {
-        await buildServices(config, { services: servicesToBuild, hooks: cliHooks })
+        await buildServices(config, { services: servicesToBuild, hooks })
         ui.success('All services ready for deployment!')
       } catch (error) {
         ui.error('Failed to build services', error.message)
@@ -184,7 +188,7 @@ cli
     }
 
     const resolvedConfig = reconcile(config, overrides)
-    await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks: cliHooks })
+    await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks })
 
   })
 
@@ -203,9 +207,10 @@ cli
     const { config: configPath, ...overrides } = options
     preprocessTarget(overrides.target)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
+    const hooks = config.hooks || cliHooks // Use CLI hooks if not specified in config
     if (!config) return failed('Configuration not found')
     const resolvedConfig = reconcile(config, overrides)
-    await start(resolvedConfig, { hooks: cliHooks })
+    await start(resolvedConfig, { hooks })
   })
 
 cli.help()

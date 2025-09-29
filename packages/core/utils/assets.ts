@@ -14,7 +14,8 @@ import {
 } from 'node:path'
 
 // Internal Imports
-import { createNoOpHooks, resolveConfigPath } from '../index.js'
+import { resolveConfigPath } from '../index.js'
+import { createNoOpHooks } from '../hooks.js'
 import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from './encode.js'
 import { chalk, isDesktop, rootDir, vite } from '../globals.js'
@@ -487,7 +488,9 @@ export const buildAssets = async (
           build: {
             emptyOutDir: false, // Ensure assets already built are maintained
             outDir, // Configure the output directory of the linked build assets
-            rollupOptions: { input },
+            rollupOptions: { 
+              input
+            },
           },
         })
       }

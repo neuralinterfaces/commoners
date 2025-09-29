@@ -16,6 +16,7 @@ import { hasSignature, verifySignature } from './security'
 import { createInterface } from 'node:readline'
 
 import { session } from 'electron'
+import { createNoOpHooks } from '../../hooks'
 
 const isProduction = !utils.is.dev
 
@@ -35,6 +36,8 @@ const protocolOptions = electronOptions.protocol
     ? { scheme: electronOptions.protocol }
     : electronOptions.protocol
   : {}
+
+const hooks = electronOptions.hooks || config.hooks || createNoOpHooks() // Use hooks from the config or default to no-op hooks
 const windowOptions = electronOptions.window ?? {}
 
 
@@ -136,8 +139,6 @@ runVerification().then(isValid => {
   // Custom Window Flags
   // __main: Is Main Window
   // __show: Used to block show behavior
-
-  const chalk = import('chalk').then(m => m.default)
 
   function send(this: BrowserWindow, channel: string, ...args: any[]) {
     try {
@@ -694,7 +695,8 @@ runVerification().then(isValid => {
       const output = await services.createAll(resolvedServices, {
         ...baseServiceOptions,
         onClosed: (id, code) => serviceSend(id, 'closed', code),
-        onLog: (id, msg) => serviceSend(id, 'log', msg.toString())
+        onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
+        hooks
       })
 
       const { active = {}, resolved = {}, close: closeService } = output

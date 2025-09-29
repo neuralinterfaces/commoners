@@ -37,7 +37,6 @@ export * as format from './utils/formatting.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
 export { app as start, services as startServices } from './start.js'
-export { CoreHooks, coreHooks, createNoOpHooks } from './hooks.js'
 export { merge } // Other Helpers
 
 // ------------------ Configuration File Handling ------------------
@@ -134,8 +133,12 @@ export async function resolveConfig(
   const userPkg = getJSON(join(root, 'package.json'))
 
   // Merge Config and package.json (transformed name)
+  const { 
+    hooks, // Do not copy
+    ...rest 
+  } = temp
 
-  const copy = merge(structuredClone(temp), {
+  const copy = merge(structuredClone(rest), {
     ...userPkg,
     name: userPkg.name
       ? userPkg.name
@@ -144,6 +147,8 @@ export async function resolveConfig(
           .join(' ')
       : 'Commoners App',
   }) as Partial<ResolvedConfig>
+
+  // copy.hooks = hooks
 
   if (copy.outDir && !isAbsolute(copy.outDir)) copy.outDir = join(copy.root, copy.outDir)
 

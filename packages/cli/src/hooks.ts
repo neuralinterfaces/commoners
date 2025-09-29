@@ -243,7 +243,7 @@ export class CLIHooks implements HooksInterface {
     })
 
     this.on('service:launch:complete', (event) => {
-      if (event.type === 'service:launch:complete') return
+      if (event.type === 'service:launch:complete') return ui.service(event.service, `Service launched successfully: ${chalk.cyanBright(event.url)}`, 'success')
     })
 
     this.on('service:launch:error', (event) => {

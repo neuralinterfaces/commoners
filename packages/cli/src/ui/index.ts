@@ -463,6 +463,7 @@ export class CommonersUI {
 
   // Service messages with colored labels
   service(serviceName: string, message: string, type: 'info' | 'error' | 'success' = 'info') {
+
     const currentSection = this.getCurrentSection()
     const colors = {
       info: this.theme.info,

@@ -155,7 +155,10 @@ export async function buildApp(
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
     const resoledViteConfig = await resolveViteConfig(configCopy, { dev })
     const customViteLogger = new ScopedLogger((...args) => customViteLogger.call(() => hooks.emit({ type: 'log', args })))
-    await _vite.build({ ...resoledViteConfig, customLogger: customViteLogger })
+    await _vite.build({ 
+      ...resoledViteConfig, 
+      customLogger: customViteLogger 
+    })
 
     // Emit build event
     if (!wasOverwritten) hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })
@@ -165,7 +168,7 @@ export async function buildApp(
     const assets = await buildAssets(await getAppAssets(configCopy, dev), { outDir, root, target })
 
     if (isDesktop(target)) {
-      const _outputs = await buildServices(config, { dev, outDir, rebuild: rebuildServices, hooks })
+      const _outputs = await buildServices(configCopy, { dev, outDir, rebuild: rebuildServices, hooks })
       assets.push(..._outputs)
     }
 

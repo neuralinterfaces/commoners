@@ -317,6 +317,8 @@ export type BaseConfig = {
   target: TargetType // Specify the default target platform
   outDir: string // Specify the default output directory
 
+  hooks?: HooksInterface // Hooks interface for CLI integration
+
   public?: boolean
   port?: PortType // Specify the port for Start and Launch commands
 

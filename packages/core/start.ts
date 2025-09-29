@@ -18,7 +18,6 @@ import { createNoOpHooks } from './hooks.js'
 import { createServer } from './vite/index.js'
 
 // Internal Utilities
-import { buildAllAssets } from './build.js'
 import { runAppPlugins } from './assets/plugins/index.js'
 import { getFreePorts } from './assets/services/network.js'
 
@@ -215,7 +214,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       // Use Vite to Load URLs in Dev Mode
       else {
         await buildAssets(await getAppAssets(scopedConfig, true), { outDir, root, target })
-        if (isDesktop(target)) await buildServices(config, { dev: true, outDir, rebuild: true, hooks })
+        if (isDesktop(target)) await buildServices(scopedConfig, { dev: true, outDir, rebuild: true, hooks })
         configureForDesktop(outDir, root)
         const frontend = (startManager.frontend = await createServer(scopedConfig))
         startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
@@ -233,7 +232,6 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
 
     startManager.services = await runDevelopmentPlugins(scopedConfig, hooks) // Run the development plugins
-
 
     // Emit dev server ready event
     const { port, host } = frontend.config.server

@@ -17,6 +17,12 @@ import * as serialPlugin from '@commoners/serial'
 import * as services from '@commoners/solidarity/services'
 import { defineConfig } from '@commoners/solidarity/config'
 
+const hooks = null; // Default hooks
+
+// import { Hooks } from '@commoners/solidarity/hooks'
+// const hooks = new Hooks()
+// hooks.on('service:launch:complete', (ev) => console.log('Service launch complete:', ev)) // Custom hook example
+
 // NOTE: I have not been able to get tree-shaking to work and support the following import style
 // import { defineConfig, services } from '@commoners/solidarity';
 
@@ -46,6 +52,8 @@ async function manualBuildCommand(info) {
 const config = defineConfig({
   public: true, // Public Vite server host (NOTE: registered as insecure)
   port: 3000, // Hardcoded Vite server port
+
+  hooks, // Create a new hooks instance for the configuration
 
   // // NOTE: Attempt to enable these for Commoners package testing
   // target: 'desktop' // Default target

@@ -15,6 +15,11 @@
       "import": "./dist/services.mjs",
       "require": "./dist/services.cjs"
     },
+    "./hooks": {
+      "types": "./dist/types/hooks.d.ts",
+      "import": "./dist/hooks.mjs",
+      "require": "./dist/hooks.cjs"
+    },
     "./config": {
       "types": "./dist/types/config.d.ts",
       "import": "./dist/config.mjs",
