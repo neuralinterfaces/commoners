@@ -10,6 +10,13 @@
   "bin": {
     "commoners": "./dist/index.cjs"
   },
+  "exports": {
+    "./hooks": {
+      "types": "./dist/types/hooks.d.ts",
+      "import": "./dist/hooks.mjs",
+      "require": "./dist/hooks.cjs"
+    }
+  },
   "files": [
     "dist"
   ],

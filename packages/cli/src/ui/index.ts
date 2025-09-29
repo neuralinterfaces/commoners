@@ -2,15 +2,8 @@
 // Modern CLI UI Library for Commoners
 // Provides rich, interactive styling decoupled from core functionality
 
-import chalkModule from 'chalk'
-import oraModule, { Ora } from 'ora'
-import boxenModule from 'boxen'
-import figuresModule from 'figures'
-
-const chalk = chalkModule.default || chalkModule
-const ora = oraModule.default || oraModule
-const boxen = boxenModule.default || boxenModule
-const figures = figuresModule.default || figuresModule
+import { Ora } from 'ora'
+import { createRequire } from 'module'
 
 export interface UITheme {
   primary: string
@@ -52,9 +45,14 @@ export class CommonersUI {
     this.theme = theme
 
     // Cleanup spinners on exit
+    const require = createRequire(import.meta.url)
+    this._chalk = require('chalk').default // Ensure compatibility with both ESM and CJS
+    this._ora = require('ora').default // Ensure compatibility with both ESM and CJS
+    this._boxen = require('boxen').default // Ensure compatibility with both ESM and CJS
+    this._figures = require('figures').default // Ensure compatibility with both ESM and CJS
+
 
     process.on('exit', () => this.cleanup())
-
     process.on('SIGINT', () => this.cleanup())
   }
 
@@ -144,17 +142,18 @@ export class CommonersUI {
   // Enhanced Headers
   header(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
-    const title = chalk.hex(this.theme.primary).bold(message)
+    console.log(this.chalk)
+    const title = this._chalk.hex(this.theme.primary).bold(message)
     this.add('\n' + title)
-    if (subtitle) this.add(chalk.hex(this.theme.muted)(subtitle))
+    if (subtitle) this.add(this._chalk.hex(this.theme.muted)(subtitle))
     this.add()
   }
   
   sectionHeader(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
-    const title = chalk.hex(this.theme.secondary).bold(message)
-    this.add('\n' + chalk.underline(title))
-    if (subtitle) this.add(chalk.hex(this.theme.muted)(subtitle))
+    const title = this._chalk.hex(this.theme.secondary).bold(message)
+    this.add('\n' + this._chalk.underline(title))
+    if (subtitle) this.add(this._chalk.hex(this.theme.muted)(subtitle))
     this.add()
   }
 
@@ -183,10 +182,10 @@ export class CommonersUI {
     } else {
       // Display section header with proper indentation
       const indent = '  '.repeat(level)
-      const formattedTitle = chalk.hex(this.theme.secondary).bold(title)
-      console.log(`\n${indent}${chalk.underline(formattedTitle)}`)
+      const formattedTitle = this._chalk.hex(this.theme.secondary).bold(title)
+      console.log(`\n${indent}${this._chalk.underline(formattedTitle)}`)
       if (options?.subtitle) {
-        console.log(`${indent}${chalk.hex(this.theme.muted)(options.subtitle)}`)
+        console.log(`${indent}${this._chalk.hex(this.theme.muted)(options.subtitle)}`)
       }
       this.add()
     }
@@ -207,14 +206,14 @@ export class CommonersUI {
     console.log(' │' + ' '.repeat(width - 2) + '│')
 
     // Title line
-    const titleText = chalk.hex(this.theme.secondary).bold(title)
+    const titleText = this._chalk.hex(this.theme.secondary).bold(title)
     const createLine = (text) => ' │' + this.padToWidth(text, contentWidth, padding) + '│'
     console.log(createLine(titleText))
     console.log(createLine(''))
     
     // Subtitle if provided
     if (subtitle) {
-      const subtitleText = chalk.hex(this.theme.muted)(subtitle)
+      const subtitleText = this._chalk.hex(this.theme.muted)(subtitle)
       const subtitleLine = this.padToWidth(subtitleText, contentWidth, padding)
       console.log(' │' + subtitleLine + '│')
     }
@@ -281,7 +280,7 @@ export class CommonersUI {
       } else if (section.items.length > 0) {
         // Optional: Display section summary or completion
         const indent = '  '.repeat(section.level)
-        console.log(`${indent}${chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`)
+        console.log(`${indent}${this._chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`)
       }
     }
     return section
@@ -347,26 +346,26 @@ export class CommonersUI {
     const title = titled[lower] || targetName.charAt(0).toUpperCase() + targetName.slice(1)
 
     // Return plain text if requested, or use chalk for coloring
-    return plain ? title : `${chalk.hex(color).bold(title)}`
+    return plain ? title : `${this._chalk.hex(color).bold(title)}`
   }
 
   // Success messages with celebration
   success(message: string, details?: string) {
     const currentSection = this.getCurrentSection()
-    const fullMessage = `${figures.tick} ${chalk.hex(this.theme.success).bold(message)}`
+    const fullMessage = `${this._figures.tick} ${this._chalk.hex(this.theme.success).bold(message)}`
 
     if (currentSection?.boxed) {
       // Render content immediately in the live box
       this.addToCurrentSection(fullMessage)
       if (details) {
-        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+        this.addToCurrentSection(this._chalk.hex(this.theme.muted)(`  ${details}`))
       }
     } else {
       // Render immediately for non-boxed sections
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       console.log(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
         console.log(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -377,20 +376,20 @@ export class CommonersUI {
   // Enhanced error messages
   error(message: string, details?: string) {
     const currentSection = this.getCurrentSection()
-    const fullMessage = `${figures.cross} ${chalk.hex(this.theme.error).bold(message)}`
+    const fullMessage = `${this._figures.cross} ${this._chalk.hex(this.theme.error).bold(message)}`
 
     if (currentSection?.boxed) {
       // Render content immediately in the live box
       this.addToCurrentSection(fullMessage)
       if (details) {
-        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+        this.addToCurrentSection(this._chalk.hex(this.theme.muted)(`  ${details}`))
       }
     } else {
       // Render immediately for non-boxed sections
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       console.log(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
         console.log(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -401,20 +400,20 @@ export class CommonersUI {
   // Warning messages
   warning(message: string, details?: string) {
     const currentSection = this.getCurrentSection()
-    const fullMessage = `${figures.warning} ${chalk.hex(this.theme.warning)(message)}`
+    const fullMessage = `${this._figures.warning} ${this._chalk.hex(this.theme.warning)(message)}`
 
     if (currentSection?.boxed) {
       // Render content immediately in the live box
       this.addToCurrentSection(fullMessage)
       if (details) {
-        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+        this.addToCurrentSection(this._chalk.hex(this.theme.muted)(`  ${details}`))
       }
     } else {
       // Render immediately for non-boxed sections
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       console.log(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
         console.log(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -425,20 +424,20 @@ export class CommonersUI {
   // Info messages
   info(message: string, details?: string) {
     const currentSection = this.getCurrentSection()
-    const fullMessage = `${figures.info} ${chalk.hex(this.theme.info)(message)}`
+    const fullMessage = `${this._figures.info} ${this._chalk.hex(this.theme.info)(message)}`
 
     if (currentSection?.boxed) {
       // Render content immediately in the live box
       this.addToCurrentSection(fullMessage)
       if (details) {
-        this.addToCurrentSection(chalk.hex(this.theme.muted)(`  ${details}`))
+        this.addToCurrentSection(this._chalk.hex(this.theme.muted)(`  ${details}`))
       }
     } else {
       // Render immediately for non-boxed sections
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       this.add(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
         this.add(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -448,7 +447,7 @@ export class CommonersUI {
 
   details(message: string) {
     const currentSection = this.getCurrentSection()
-    const fullMessage = chalk.hex(this.theme.muted)(message)
+    const fullMessage = this._chalk.hex(this.theme.muted)(message)
 
     if (currentSection?.boxed) {
       // Render content immediately in the live box
@@ -483,7 +482,7 @@ export class CommonersUI {
       return
     }
 
-    const label = chalk.hex(colors[type]).bold(`[${serviceName}]`)
+    const label = this._chalk.hex(colors[type]).bold(`[${serviceName}]`)
     const fullMessage = `${label} ${message}`
 
     if (currentSection?.boxed) {
@@ -518,7 +517,7 @@ export class CommonersUI {
       muted: 'gray',
     }
 
-    const spinner = ora({
+    const spinner = this._ora({
       text: message,
       spinner: type,
       color: oraColorMap[color] || 'blue',
@@ -571,7 +570,7 @@ export class CommonersUI {
     const leftMargin = Math.floor((terminalWidth - boxWidth) / 2)
 
     console.log(
-      boxen(content, {
+      this._boxen(content, {
         title,
         titleAlignment: 'center',
         textAlignment: align,
@@ -586,14 +585,14 @@ export class CommonersUI {
 
   // Command palette style
   command(cmd: string, description: string) {
-    const cmdFormatted = chalk.hex(this.theme.primary).bold(cmd)
-    const descFormatted = chalk.hex(this.theme.muted)(description)
+    const cmdFormatted = this._chalk.hex(this.theme.primary).bold(cmd)
+    const descFormatted = this._chalk.hex(this.theme.muted)(description)
     this.add(`  ${cmdFormatted}  ${descFormatted}`)
   }
 
   // Subtle contextual messages
   subtle(message: string) {
-    this.add(chalk.hex(this.theme.muted)(message))
+    this.add(this._chalk.hex(this.theme.muted)(message))
   }
 
   // Quick one-liners

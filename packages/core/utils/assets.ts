@@ -423,7 +423,7 @@ export const buildAssets = async (
     target
   }
 ) => {
-  const _chalk = await chalk
+
   const _vite = await vite
 
   const isDesktopTarget = isDesktop(target)
@@ -540,6 +540,9 @@ export const buildAssets = async (
       }
     })
   )
+  .catch(error => {
+    throw new Error(`Failed to build assets: ${error.message}`)
+  })
 
   // Copy static assets
   assets.copy.map(info => {

@@ -148,11 +148,10 @@ const startServices = services
 
 export const app = async function (config: UserConfig, options: { hooks?: HooksInterface } = {}) {
 
-  const { hooks = createNoOpHooks() } = options
-
   try {
 
-    const resolvedConfig = await resolveConfig(config)
+    const resolvedConfig = await resolveConfig(config, { hooks: options.hooks })
+    const hooks = resolvedConfig.hooks
 
     // Emit dev server start event
     hooks.emit({ type: 'dev:server:start', config: resolvedConfig })
@@ -201,7 +200,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       if (load === 'file') {
         const outDir = await build(scopedConfig, { services, dev: true })
         configureForDesktop(outDir, root)
-        await startElectronInstance(root) // Start the Electron instance
+        await startElectronInstance(root, hooks) // Start the Electron instance
 
         hooks.emit({
           type: 'dev:reload:unavailable',
@@ -213,7 +212,8 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
       // Use Vite to Load URLs in Dev Mode
       else {
-        await buildAssets(await getAppAssets(scopedConfig, true), { outDir, root, target })
+        const assets = await getAppAssets(scopedConfig, true)
+        await buildAssets(assets, { outDir, root, target })
         if (isDesktop(target)) await buildServices(scopedConfig, { dev: true, outDir, rebuild: true, hooks })
         configureForDesktop(outDir, root)
         const frontend = (startManager.frontend = await createServer(scopedConfig))
@@ -227,7 +227,9 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     // ------------------------------- Web -------------------------------
     await initializeWebsocketPort()
-    await buildAssets(await getAppAssets(scopedConfig, true), { outDir, root, target })
+    const webAssets = await getAppAssets(scopedConfig, true)
+    await buildAssets(webAssets, { outDir, root, target })
+
     const frontend = (startManager.frontend = await createServer(scopedConfig))
     startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
 

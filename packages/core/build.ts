@@ -22,7 +22,6 @@ import {
   WritableElectronBuilderConfig,
   HooksInterface,
 } from './types.js'
-import { createNoOpHooks } from './hooks.js'
 
 // Internal Utilities
 import { getAppAssets, getServiceAssets, buildAssets, getAssetBuildPath, getServicesToBuild } from './utils/assets.js'
@@ -43,7 +42,7 @@ import merge from './utils/merge.js'
 // import { logAsarState } from "./utils/asar/debug.js";
 
 // Core Internal Imports
-import { configureForDesktop, resolveConfig } from './index.js'
+import { configureForDesktop, resolveConfig, resolveHooks } from './index.js'
 import * as mobile from './mobile/index.js'
 import { resolveViteConfig } from './vite/index.js'
 import { loadEnvironmentVariables } from './assets/services/env/index.js'
@@ -58,7 +57,8 @@ const convertToBaseRegexString = (str: string) => new RegExp(str).toString().spl
 // ------------------------ Main Exports ------------------------
 
 export const buildServices = async (config: UserConfig = {}, options: ServiceBuildOptions = {}) => {
-  const { dev = false, services, rebuild = true, hooks = createNoOpHooks() } = options
+  const { dev = false, services, rebuild = true  } = options
+  const hooks = await resolveHooks(config.hooks, options.hooks)
 
   const { outDir } = options
 
@@ -97,16 +97,20 @@ export async function buildApp(
     dev = false, // Default to a production build
     rebuildServices = true, // Rebuild services by default
     overwrite = false, // Overwrite existing files
-    hooks = createNoOpHooks(), // Hooks interface for CLI integration
+    hooks: optHooks, // Hooks interface for CLI integration
   }: BuildHooks = {}
 ) {
   const _vite = await vite
+
+
+  const hooks = config.hooks = await resolveHooks(config.hooks, optHooks)
+
 
   try {
 
     // ---------------- Proper Configuration Resolution ----------------
     const resolvedConfig = await resolveConfig(config, { build: true })
-    const { root, target, build = {} } = resolvedConfig
+    const { root, target, build = {}, hooks } = resolvedConfig
 
     // Emit build start event
     hooks.emit({ type: 'build:start', config: resolvedConfig, dev })
@@ -153,7 +157,7 @@ export async function buildApp(
 
     // Build the standard output files using Vite. Force recognition as build
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
-    const resoledViteConfig = await resolveViteConfig(configCopy, { dev })
+    const resoledViteConfig = await resolveViteConfig(configCopy, { dev, hooks })
     const customViteLogger = new ScopedLogger((...args) => customViteLogger.call(() => hooks.emit({ type: 'log', args })))
     await _vite.build({ 
       ...resoledViteConfig, 

@@ -1,6 +1,8 @@
 // Simple event emitter for hooks-based communication between core and CLI
 import type { HookEvent, HookFunction, HooksInterface } from './types.js'
 
+export { createNoOpHooks } from './assets/utils/hooks.js'
+
 export class Hooks implements HooksInterface {
   private handlers = new Map<string, Set<HookFunction>>()
 
@@ -47,9 +49,3 @@ export class Hooks implements HooksInterface {
     }
   }
 }
-
-// Helper function to create a no-op hooks instance when none is provided
-export const createNoOpHooks = (): HooksInterface => ({
-  emit: () => {},
-  on: () => () => {}
-})

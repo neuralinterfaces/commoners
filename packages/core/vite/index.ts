@@ -27,9 +27,10 @@ const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path
 // Run a development server
 export const createServer = async (config: ResolvedConfig) => {
   const _vite = await vite
+  const { hooks } = config
 
   // Create the frontend server
-  const server = await _vite.createServer(await resolveViteConfig(config, {}, false))
+  const server = await _vite.createServer(await resolveViteConfig(config, { hooks }, false))
   await server.listen()
   return server
 }
@@ -89,7 +90,7 @@ const resolvePWAOptions = (
 
 export const resolveViteConfig = async (
   commonersConfig: ResolvedConfig,
-  { dev = true }: ViteOptions,
+  { dev = true, hooks }: ViteOptions,
   build = true
 ) => {
   const _vite = await vite
@@ -120,7 +121,7 @@ export const resolveViteConfig = async (
 
   // Desktop Build
   if (isDesktopTarget) {
-    const plugin = await electronPlugin({ build, root, outDir, electron })
+    const plugin = await electronPlugin({ build, root, outDir, electron, hooks })
     plugins.push(...plugin)
   }
 

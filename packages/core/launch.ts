@@ -18,7 +18,7 @@ import { spawnProcess } from './utils/processes.js'
 import * as mobile from './mobile/index.js'
 import { createAll } from './assets/services/index.js'
 import { createNoOpHooks } from './hooks.js'
-import { resolveConfig } from './index.js'
+import { resolveConfig, resolveHooks } from './index.js'
 
 type ViteServerOptions = import('vite').ServerOptions
 
@@ -94,7 +94,9 @@ export const resolveAppToLaunch = (config: LaunchConfig) => {
 
 export const launchApp = async (config: LaunchConfig, args = []) => {
 
-  const { outDir: originalOutDir, hooks = createNoOpHooks() } = config
+  const { outDir: originalOutDir } = config
+  
+  const hooks = await resolveHooks(config.hooks)
 
   try {
     let { target } = config

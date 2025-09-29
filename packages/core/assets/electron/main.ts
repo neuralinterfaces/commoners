@@ -16,7 +16,7 @@ import { hasSignature, verifySignature } from './security'
 import { createInterface } from 'node:readline'
 
 import { session } from 'electron'
-import { createNoOpHooks } from '../../hooks'
+import { resolveHooks } from '../utils/hooks'
 
 const isProduction = !utils.is.dev
 
@@ -37,7 +37,6 @@ const protocolOptions = electronOptions.protocol
     : electronOptions.protocol
   : {}
 
-const hooks = electronOptions.hooks || config.hooks || createNoOpHooks() // Use hooks from the config or default to no-op hooks
 const windowOptions = electronOptions.window ?? {}
 
 
@@ -110,7 +109,10 @@ const runVerification = async () => {
 }
 
 // Block application startup until verification is complete
-runVerification().then(isValid => {
+runVerification().then(async isValid => {
+
+  const hooks = await resolveHooks(electronOptions.hooks, config.hooks)
+
   if (!isValid) return
 
   const decodePath = path => {

@@ -26,6 +26,11 @@ import { bundleConfig } from './utils/assets.js'
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
 
+
+import { resolveHooks } from './assets/utils/hooks.js'
+export { resolveHooks }
+
+
 const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path))
 
 // Top-Level Package Exports
@@ -107,6 +112,8 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   return config
 }
 
+
+
 export async function resolveConfig(
   o: UserConfig = {},
   {
@@ -116,6 +123,8 @@ export async function resolveConfig(
 
     // Advanced Service Configuration
     services,
+
+    hooks: hooksOverride
   }: ConfigResolveOptions = {}
 ) {
   if ((o as Record<string, any>).__resolved) return o as ResolvedConfig
@@ -148,7 +157,7 @@ export async function resolveConfig(
       : 'Commoners App',
   }) as Partial<ResolvedConfig>
 
-  // copy.hooks = hooks
+  copy.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
 
   if (copy.outDir && !isAbsolute(copy.outDir)) copy.outDir = join(copy.root, copy.outDir)
 

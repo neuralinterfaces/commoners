@@ -1,22 +1,10 @@
 import * as cleanup from '../../../cleanup.js'
+import { createNoOpHooks } from '../../../hooks.js'
+import { HooksInterface } from '../../../types.js'
 import { treeKillGracefully } from './processes.js'
 
 type ChildProcess = import('node:child_process').ChildProcess
 
-const labelRegexp = /\[.*\] /
-const ansiRegex = new RegExp(
-  '[\\u001b\\x1b][[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]',
-  'g'
-)
-
-const log = async (data, method = 'log') => {
-  const message = data.toString()
-  if (labelRegexp.test(message.replace(ansiRegex, ''))) console[method](message)
-  else {
-    // Electron process output is handled by service management
-    // Individual process logs are no longer logged to console
-  }
-}
 
 const cleanupElectronApp = async () => {
   const { app } = electronGlobalStates
@@ -32,7 +20,8 @@ export const electronGlobalStates: { app?: ChildProcess } = {}
 let cleanupPromise = null
 const onExit = async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()) // Ensure cleanup is only done once
 
-export async function startup(root) {
+export async function startup(root, hooks: HooksInterface = createNoOpHooks()) {
+
   const argv = ['.', '--no-sandbox']
 
   const { spawn } = await import('node:child_process')
@@ -51,8 +40,8 @@ export async function startup(root) {
   }))
 
   app.once('exit', cleanup.exit) // Kill the process after Electron.app exits
-  app.stdout.on('data', data => log(data)) // Print out any messages from Electron.app
-  app.stderr.on('data', data => log(data, 'error')) // Print out any errors from Electron.app
+  app.stdout.on('data', data => hooks.emit({ type: 'dev:electron:stdout', data })) // Print out any output from Electron.app
+  app.stderr.on('data', data => hooks.emit({ type: 'dev:electron:stderr', data })) // Print out any errors from Electron.app
   cleanup.onCleanup(onExit) // Kill the process after the process exits
 
   return app

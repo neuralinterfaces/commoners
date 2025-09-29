@@ -1,9 +1,8 @@
 // Hook handlers for CLI - handles all text output from core events
 import type { HookEvent, HooksInterface } from '@commoners/solidarity/types'
-import { ui } from './ui/index.js'
 
-import _chalk from 'chalk'
-const chalk = _chalk.default || _chalk // Handle both ESM and CJS imports
+import { ui } from './ui/index.js'
+import { createRequire } from 'module'
 
 export class CLIHooks implements HooksInterface {
   private handlers = new Map<string, Set<(event: HookEvent) => void>>()
@@ -127,6 +126,9 @@ export class CLIHooks implements HooksInterface {
         const { name, target } = config
         const targetName = this.getTargetDisplayName(target)
 
+        const require = createRequire(import.meta.url)
+        const chalk = require('chalk').default
+
         ui.box(
           `${name} (${targetName}) was built successfully!\n${chalk.gray(outDir)}`,
           {
@@ -242,8 +244,12 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'service:launch:start') return
     })
 
-    this.on('service:launch:complete', (event) => {
-      if (event.type === 'service:launch:complete') return ui.service(event.service, `Service launched successfully: ${chalk.cyanBright(event.url)}`, 'success')
+    this.on('service:launch:complete', async (event) => {
+      if (event.type === 'service:launch:complete') {
+        const require = createRequire(import.meta.url)
+        const chalk = require('chalk').default
+        return ui.service(event.service, `Service launched successfully: ${chalk.cyanBright(event.url)}`, 'success')
+      }
     })
 
     this.on('service:launch:error', (event) => {
@@ -310,6 +316,15 @@ export class CLIHooks implements HooksInterface {
         )
       }
     })
+
+    const ELECTRON_PROCESS_NAME = 'commoners-electron-process'
+    this.on('dev:electron:stdout', (event) => {
+      if (event.type === 'dev:electron:stdout') ui.service(ELECTRON_PROCESS_NAME, event.data, 'info')
+    })
+
+    this.on('dev:electron:stderr', (event) => {
+      if (event.type === 'dev:electron:stderr') ui.service(ELECTRON_PROCESS_NAME, event.data, 'error')
+    })
   }
 
   private getTargetDisplayName(target: string): string {
@@ -325,6 +340,3 @@ export class CLIHooks implements HooksInterface {
     }
   }
 }
-
-// Global CLI hooks instance
-export const cliHooks = new CLIHooks()

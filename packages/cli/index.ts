@@ -11,12 +11,14 @@ import {
 
   // Types
   resolveConfig,
+  resolveHooks,
   resolveAppToLaunch,
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
 import { ui } from './src/ui/index.js'
-import { cliHooks } from './src/hooks.js'
+import { CLIHooks } from './src/hooks.js'
+const cliHooks = new CLIHooks()
 
 // Utilities
 import cac from 'cac'
@@ -99,7 +101,7 @@ cli
       if (launchSpinner) launchSpinner.fail(`${message}${details ? `: ${details}` : ''}`)
     }
 
-    const hooks = config.hooks || cliHooks // Use CLI hooks if not specified in config
+    const hooks = await resolveHooks(config.hooks, cliHooks)
 
     if (isOnlyServices) {
 
@@ -170,7 +172,7 @@ cli
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
     if (!config) return failed('Configuration not found')
 
-    const hooks = config.hooks || cliHooks // Use CLI hooks if not specified in config
+    const hooks = await resolveHooks(config.hooks, cliHooks)
 
     // Build Services Only
     const servicesToBuild = services ? Object.keys(config.services) : service
@@ -207,7 +209,7 @@ cli
     const { config: configPath, ...overrides } = options
     preprocessTarget(overrides.target)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    const hooks = config.hooks || cliHooks // Use CLI hooks if not specified in config
+    const hooks = await resolveHooks(config.hooks, cliHooks)
     if (!config) return failed('Configuration not found')
     const resolvedConfig = reconcile(config, overrides)
     await start(resolvedConfig, { hooks })

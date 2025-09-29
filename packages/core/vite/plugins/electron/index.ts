@@ -5,6 +5,8 @@ import { rootDir } from '../../../globals.js'
 import { withExternalBuiltins } from './inbuilt.js'
 import { resolveServerUrl } from './server.js'
 import { electronGlobalStates, startup } from './electron.js'
+import { createNoOpHooks, Hooks } from '../../../hooks.js'
+import { HooksInterface } from '../../../types.js'
 
 type UserConfig = import('vite').UserConfig
 type ConfigEnv = import('vite').ConfigEnv
@@ -53,7 +55,7 @@ async function resolveViteConfig(options: ElectronOptions): Promise<InlineConfig
 
 export const buildWithVite = async (options: ElectronOptions) => {
   const _vite = await vite
-  const resolvedConfig = await resolveViteConfig(options)
+  const resolvedConfig = await resolveViteConfig(options) // NOTE: Could have hooks
   return _vite.build(withExternalBuiltins(resolvedConfig))
 }
 
@@ -101,18 +103,20 @@ export const buildElectronAssets = async (
   }
 }
 
-export const startElectronInstance = root => startup(root)
+export const startElectronInstance = (root, hooks: HooksInterface = createNoOpHooks()) => startup(root, hooks)
 
 export default async function commonersElectronPlugin({
   build,
   root,
   outDir,
   electron,
+  hooks = createNoOpHooks(),
 }: {
   build: boolean
   root: string
   outDir: string
   electron: any
+  hooks?: HooksInterface
 }): Promise<Plugin[]> {
   let userConfig: UserConfig
   let configEnv: ConfigEnv
@@ -151,13 +155,14 @@ export default async function commonersElectronPlugin({
 
                   if (options.onstart) {
                     options.onstart.call(this, {
-                      startup: () => startElectronInstance(root),
+                      startup: () => startElectronInstance(root, hooks),
                       reload() {
+                        // hooks.emit({ type: 'electron:reload', config: userConfig })
                         if (electronGlobalStates.app) server.ws.send({ type: 'full-reload' })
-                        else startElectronInstance(root)
+                        else startElectronInstance(root, hooks)
                       },
                     })
-                  } else startElectronInstance(root)
+                  } else startElectronInstance(root, hooks)
                 },
               },
             ]

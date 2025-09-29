@@ -64,6 +64,8 @@ export type DevServerEvent =
   | { type: 'dev:server:ready'; target: string; url: string }
   | { type: 'dev:server:error'; error: Error }
   | { type: 'dev:reload:unavailable'; target: string; reason: string }
+  | { type: 'dev:electron:stdout'; data: string }
+  | { type: 'dev:electron:stderr'; data: string }
 
 export type LaunchEvent =
   | { type: 'launch:start'; outDir: string, target: string }
@@ -118,7 +120,7 @@ export const valid = {
   icon: tuple('light', 'dark'),
 }
 
-export type ViteOptions = { dev?: boolean }
+export type ViteOptions = { dev?: boolean, hooks?: HooksInterface }
 export type ServerOptions = { printUrls?: boolean }
 
 export type TargetType = (typeof valid.target)[number]
@@ -317,7 +319,7 @@ export type BaseConfig = {
   target: TargetType // Specify the default target platform
   outDir: string // Specify the default output directory
 
-  hooks?: HooksInterface // Hooks interface for CLI integration
+  hooks?: HooksInterface | (() => HooksInterface) // Hooks interface for CLI integration
 
   public?: boolean
   port?: PortType // Specify the port for Start and Launch commands
@@ -362,6 +364,7 @@ export type ConfigResolveOptions = {
   services?: ServiceSelection
   build?: boolean
   dev?: boolean
+  hooks?: HooksInterface | (() => HooksInterface) // Hooks interface for CLI integration
 }
 
 // NOTE: No need for configuration-related options
@@ -374,8 +377,7 @@ export type LaunchConfig = {
   // Server + Service Options
   public?: BaseConfig['public']
   port?: BaseConfig['port'],
-
-  hooks?: HooksInterface // Hooks interface for CLI integration
+  hooks?: BaseConfig['hooks'] // Hooks interface for CLI integration
 }
 
 export type ServiceRebuildOption = boolean | string[]
@@ -400,6 +402,7 @@ export type ServiceBuildOptions = {
 type ResolvedServices = { [x: string]: ResolvedService }
 export type ResolvedConfig = BaseConfig & {
   build?: BuildOptions
+  hooks: HooksInterface // Resolved hooks interface
 
   services: ResolvedServices
 
