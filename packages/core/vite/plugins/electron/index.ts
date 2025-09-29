@@ -5,7 +5,7 @@ import { rootDir } from '../../../globals.js'
 import { withExternalBuiltins } from './inbuilt.js'
 import { resolveServerUrl } from './server.js'
 import { electronGlobalStates, startup } from './electron.js'
-import { createNoOpHooks, Hooks } from '../../../hooks.js'
+import { createNoOpHooks, Hooks } from '../../../ui.js'
 import { HooksInterface } from '../../../types.js'
 
 type UserConfig = import('vite').UserConfig

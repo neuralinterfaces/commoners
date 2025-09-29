@@ -14,7 +14,7 @@ import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile } from '
 import { onCleanup } from './cleanup.js'
 
 import { Plugin, ResolvedConfig, UserConfig, HooksInterface } from './types.js'
-import { createNoOpHooks } from './hooks.js'
+import { createNoOpHooks } from './ui.js'
 import { createServer } from './vite/index.js'
 
 // Internal Utilities

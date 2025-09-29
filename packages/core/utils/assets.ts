@@ -15,7 +15,7 @@ import {
 
 // Internal Imports
 import { resolveConfigPath } from '../index.js'
-import { createNoOpHooks } from '../hooks.js'
+import { createNoOpHooks } from '../ui.js'
 import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from './encode.js'
 import { chalk, isDesktop, rootDir, vite } from '../globals.js'

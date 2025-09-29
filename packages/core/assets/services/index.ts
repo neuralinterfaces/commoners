@@ -47,11 +47,6 @@ const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(r
 const isDesktop = target => target === 'desktop' || target === 'electron'
 const isMobile = target => target === 'mobile' || target === 'ios' || target === 'android'
 
-// const printServiceMessage = async (id, message, type = 'log') => {
-//   const _chalk = await chalk
-//   console[type](`${_chalk.bold(_chalk.greenBright(`[${id}]`))} ${message}`)
-// }
-
 // ------------------------------------ COPIED ---------------------------------------
 
 // NOTE: From core/utils/url.js to remove the need to copy this asset...
@@ -372,12 +367,6 @@ export async function start(
         service: label,
       })
 
-        // return await printServiceMessage(
-        //   label,
-        //   `File does not exist at ${resolvedFilepath}`,
-        //   'warn'
-        // )
-
       const resolvedProcessOptions = {
         cwd,
         env,
@@ -402,7 +391,6 @@ export async function start(
     if (childProcess) {
 
       hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
-      // printServiceMessage(label, _chalk.cyanBright(resolvedURL.href))
 
       if (childProcess.stdout && monitor.stdout !== false)
         childProcess.stdout.on('data', data => {
@@ -415,10 +403,7 @@ export async function start(
           })
         })
 
-      if (childProcess.stderr && monitor.stderr !== false) {
-        // childProcess.stderr.on('data', data => printServiceMessage(label, data, 'error'))
-        childProcess.stderr.on('data', data => hooks.emit({ type: 'service:stderr', service: label, data }))
-      }
+      if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', data => hooks.emit({ type: 'service:stderr', service: label, data }))
 
         
       // Notify of process closure gracefully

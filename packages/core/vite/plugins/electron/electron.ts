@@ -1,5 +1,5 @@
 import * as cleanup from '../../../cleanup.js'
-import { createNoOpHooks } from '../../../hooks.js'
+import { createNoOpHooks } from '../../../ui.js'
 import { HooksInterface } from '../../../types.js'
 import { treeKillGracefully } from './processes.js'
 

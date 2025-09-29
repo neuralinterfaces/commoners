@@ -16,9 +16,10 @@ import {
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
-import { ui } from './src/ui/index.js'
-import { CLIHooks } from './src/hooks.js'
-const cliHooks = new CLIHooks()
+
+import { DefaultHooks, CommonersUI } from '@commoners/solidarity/ui'
+const ui = new CommonersUI()
+const cliHooks = new DefaultHooks(ui)
 
 // Utilities
 import cac from 'cac'
@@ -209,8 +210,8 @@ cli
     const { config: configPath, ...overrides } = options
     preprocessTarget(overrides.target)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    const hooks = await resolveHooks(config.hooks, cliHooks)
     if (!config) return failed('Configuration not found')
+    const hooks = await resolveHooks(config.hooks, cliHooks)
     const resolvedConfig = reconcile(config, overrides)
     await start(resolvedConfig, { hooks })
   })

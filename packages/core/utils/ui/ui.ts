@@ -4,26 +4,7 @@
 
 import { Ora } from 'ora'
 import { createRequire } from 'node:module'
-
-export interface UITheme {
-  primary: string
-  secondary: string
-  success: string
-  warning: string
-  error: string
-  info: string
-  muted: string
-}
-
-const defaultTheme: UITheme = {
-  primary: '#A7C6ED',
-  secondary: '#B8D6F0',
-  success: '#34D399', // Green
-  warning: '#FBBF24', // Yellow
-  error: '#EF4444', // Red
-  info: '#60A5FA', // Blue
-  muted: '#9CA3AF', // Gray
-}
+import { defaultTheme, getTheme, UITheme } from './themes.js'
 
 interface SectionContext {
   title: string
@@ -37,13 +18,15 @@ interface SectionContext {
 }
 
 export class CommonersUI {
-  private theme: UITheme
+  private theme: UITheme = structuredClone(defaultTheme)
   private activeSpinners: Set<Ora> = new Set()
   private sectionStack: SectionContext[] = []
 
-  constructor(theme: UITheme = defaultTheme) {
-    this.theme = theme
+  constructor(theme: Partial<UITheme> | string = {}) {
 
+    if (typeof theme === 'string') this.theme = getTheme(theme)
+    else if (typeof theme === 'object' && theme !== null) this.theme = { ...defaultTheme, ...theme } // Merge provided theme with default theme
+    
     // Cleanup spinners on exit
     const require = createRequire(import.meta.url)
     this._chalk = require('chalk').default // Ensure compatibility with both ESM and CJS
@@ -643,6 +626,3 @@ export class CommonersUI {
     }
   }
 }
-
-// Singleton instance for consistent theming
-export const ui = new CommonersUI()

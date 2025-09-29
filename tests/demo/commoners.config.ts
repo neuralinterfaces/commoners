@@ -47,17 +47,23 @@ async function manualBuildCommand(info) {
 const customHooks = async () => {
   const { createRequire } = await import('node:module')
   const require = createRequire(import.meta.url)
-  const { CLIHooks } = require('commoners/hooks')
-  return new CLIHooks()
 
-  //   const chalk = require('chalk').default // Import chalk for colored console output
-  //  const { Hooks } = await import('@commoners/solidarity/hooks')
-  //   const hooks = new Hooks()
-  //   hooks.on('service:launch:start', (ev) => console.log(chalk.blue(`[${ev.service}] Launching service...`))) // Custom hook example
-  //   hooks.on('service:launch:complete', (ev) => console.log(chalk.green(`[${ev.service}] Service launched successfully!`))) // Custom hook example
-  //   hooks.on('dev:electron:stderr', (ev) => console.error(ev.data.toString())) // Custom hook example
-  //   hooks.on('dev:electron:stdout', (ev) => console.log(ev.data.toString())) // Custom hook example
-  //   return hooks
+  const { Hooks, DefaultHooks, CommonersUI } = require('@commoners/solidarity/ui')
+
+    // const ui = new CommonersUI('dark') // Included Theme 
+    // return new DefaultHooks(ui)
+    
+    // const ui = new CommonersUI( { primary: '#ff5050ff', muted: '#81858bff' }) // Custom Theme
+    // return new DefaultHooks(ui)
+
+    // // Bespoke UI Hooks
+    // const chalk = require('chalk').default // Import chalk for colored console output
+    // const hooks = new Hooks()
+    // hooks.on('service:launch:start', (ev) => console.log(chalk.blue(`[${ev.service}] Launching service...`))) // Custom hook example
+    // hooks.on('service:launch:complete', (ev) => console.log(chalk.green(`[${ev.service}] Service launched successfully!`))) // Custom hook example
+    // hooks.on('dev:electron:stderr', (ev) => console.error(ev.data.toString())) // Custom hook example
+    // hooks.on('dev:electron:stdout', (ev) => console.log(ev.data.toString())) // Custom hook example
+    // return hooks
 }
 
 const config = defineConfig({

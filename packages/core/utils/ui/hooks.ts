@@ -1,16 +1,12 @@
 // Hook handlers for CLI - handles all text output from core events
-import type { HookEvent, HooksInterface } from '@commoners/solidarity/types'
+import type { HookEvent, HookFunction, HooksInterface } from '../../types.js'
 
-import { ui } from './ui/index.js'
 import { createRequire } from 'module'
+import { CommonersUI } from './ui.js'
 
-export class CLIHooks implements HooksInterface {
-  private handlers = new Map<string, Set<(event: HookEvent) => void>>()
 
-  constructor() {
-    // Set up default CLI handlers for all core events
-    this.setupDefaultHandlers()
-  }
+export class Hooks implements HooksInterface {
+  private handlers = new Map<string, Set<HookFunction>>()
 
   emit(event: HookEvent): void {
     // Emit to specific event type handlers
@@ -20,8 +16,7 @@ export class CLIHooks implements HooksInterface {
         try {
           handler(event)
         } catch (error) {
-          // Log handler errors but don't break execution
-          console.error('Hook handler error:', error)
+          // Silently ignore handler errors to prevent breaking core functionality
         }
       })
     }
@@ -33,13 +28,13 @@ export class CLIHooks implements HooksInterface {
         try {
           handler(event)
         } catch (error) {
-          console.error('Hook handler error:', error)
+          // Silently ignore handler errors to prevent breaking core functionality
         }
       })
     }
   }
 
-  on(eventType: HookEvent['type'] | 'all', handler: (event: HookEvent) => void): () => void {
+  on(eventType: HookEvent['type'] | 'all', handler: HookFunction): () => void {
     if (!this.handlers.has(eventType)) {
       this.handlers.set(eventType, new Set())
     }
@@ -55,12 +50,23 @@ export class CLIHooks implements HooksInterface {
       }
     }
   }
+}
+
+export class DefaultHooks extends Hooks {
+
+  private ui: CommonersUI
+
+  constructor(ui: CommonersUI = new CommonersUI()) {
+    super()
+    this.ui = ui
+    this.setupDefaultHandlers() // Set up default CLI handlers for all core events
+  }
 
   private setupDefaultHandlers(): void {
 
     // Generic events
     this.on('log', (event) => {
-      if (event.type === 'log') ui.add(...event.args)
+      if (event.type === 'log') this.ui.add(...event.args)
     })
 
 
@@ -69,8 +75,8 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:start') {
           if (event.dev) return 
           const { name, target } = event.config
-          const buildTitle = `${name} ${ui.target(target, { plain: true })} Build`
-          ui.header(buildTitle)
+          const buildTitle = `${name} ${this.ui.target(target, { plain: true })} Build`
+          this.ui.header(buildTitle)
       }
     })
 
@@ -78,13 +84,13 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:start') {
         switch (event.phase) {
           case 'frontend':
-            ui.pushBoxedSection('Frontend Assets')
+            this.ui.pushBoxedSection('Frontend Assets')
             break
           case 'services':
-            ui.pushBoxedSection('Services')
+            this.ui.pushBoxedSection('Services')
             break
           case 'packaging':
-            ui.pushBoxedSection('App Packaging')
+            this.ui.pushBoxedSection('App Packaging')
             break
         }
       }
@@ -94,29 +100,29 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'build:assets:complete') {
         switch (event.phase) {
           case 'frontend':
-            ui.popSection()
+            this.ui.popSection()
             break
           case 'services':
-            ui.popSection()
+            this.ui.popSection()
             break
           case 'packaging':
-            ui.popSection()
+            this.ui.popSection()
             break
         }
       }
     })
 
     this.on('build:electron:start', () => {
-      ui.pushSection('Electron Builder')
+      this.ui.pushSection('Electron Builder')
     })
 
     this.on('build:electron:complete', () => {
-      ui.popSection()
+      this.ui.popSection()
     })
 
     this.on('build:mobile:start', (event) => {
       if (event.type === 'build:mobile:start') {
-        ui.info(`Initializing ${event.mobileTarget} build...`)
+        this.ui.info(`Initializing ${event.mobileTarget} build...`)
       }
     })
 
@@ -129,7 +135,7 @@ export class CLIHooks implements HooksInterface {
         const require = createRequire(import.meta.url)
         const chalk = require('chalk').default
 
-        ui.box(
+        this.ui.box(
           `${name} (${targetName}) was built successfully!\n${chalk.gray(outDir)}`,
           {
             title: chalk.bold(`✨ Build Successful`),
@@ -142,7 +148,7 @@ export class CLIHooks implements HooksInterface {
 
     this.on('build:error', (event) => {
       if (event.type === 'build:error') {
-        ui.error(
+        this.ui.error(
           `Build failed${event.phase ? ` during ${event.phase}` : ''}`,
           event.error.message
         )
@@ -151,64 +157,64 @@ export class CLIHooks implements HooksInterface {
 
     this.on('launch:start', (event) => {
       if (event.type === 'launch:start') {
-        ui.header(`Launching ${ui.target(event.target, { plain: true })} Application`)
-        ui.info(`Output Directory: ${event.outDir}`)
+        this.ui.header(`Launching ${this.ui.target(event.target, { plain: true })} Application`)
+        this.ui.info(`Output Directory: ${event.outDir}`)
       }
     })
 
     this.on('launch:ready', (event) => {
       if (event.type === 'launch:ready') {
-        ui.success('Application launched successfully!')
+        this.ui.success('Application launched successfully!')
       }
     })
 
     this.on('launch:error', (event) => {
       if (event.type === 'launch:error') {
-        ui.error('Launch failed', event.error.message)
+        this.ui.error('Launch failed', event.error.message)
       }
     })
 
     // Service events
     this.on('service:start', (event) => {
       if (event.type === 'service:start') {
-        ui.service(event.service, `Starting service at ${event.url}`, 'info')
+        this.ui.service(event.service, `Starting service at ${event.url}`, 'info')
       }
     })
 
     this.on('service:ready', (event) => {
       if (event.type === 'service:ready') {
-        ui.service(event.service, `Ready on port ${event.port}`, 'success')
+        this.ui.service(event.service, `Ready on port ${event.port}`, 'success')
       }
     })
 
     this.on('service:stdout', (event) => {
-      if (event.type === 'service:stdout') ui.service(event.service, event.data, 'info')
+      if (event.type === 'service:stdout') this.ui.service(event.service, event.data, 'info')
     })
 
     this.on('service:stderr', (event) => {
-      if (event.type === 'service:stderr') ui.service(event.service, event.data, 'info')
+      if (event.type === 'service:stderr') this.ui.service(event.service, event.data, 'info')
     })
 
     this.on('service:error', (event) => {
       if (event.type === 'service:error') {
-        ui.service(event.service, `Error: ${event.error.message}`, 'error')
+        this.ui.service(event.service, `Error: ${event.error.message}`, 'error')
       }
     })
 
 
     this.on('service:exit', (event) => {
       if (event.type === 'service:exit') {
-        if (event.code === null) ui.service(event.service, 'Restarting...', 'info')
+        if (event.code === null) this.ui.service(event.service, 'Restarting...', 'info')
         else {
           const type = event.code === 0 ? 'success' : 'error'
-          ui.service(event.service, `Exited with code ${event.code}`,type)
+          this.ui.service(event.service, `Exited with code ${event.code}`,type)
         }
       }
     })
 
     this.on('service:restart', (event) => {
       if (event.type === 'service:restart') {
-        ui.service(event.service, 'Restarting...', 'info')
+        this.ui.service(event.service, 'Restarting...', 'info')
       }
     })
 
@@ -218,25 +224,25 @@ export class CLIHooks implements HooksInterface {
     
     this.on('service:build:end', (event) => {
       if (event.type === 'service:build:end') {
-        ui.service(event.service, `Build completed`, 'success')
-        if (event.out) ui.details(`${event.out}`)
-        ui.add()
+        this.ui.service(event.service, `Build completed`, 'success')
+        if (event.out) this.ui.details(`${event.out}`)
+        this.ui.add()
       }
     })
 
     this.on('service:build:error', (event) => {
       if (event.type === 'service:build:error') {
-        ui.service(event.service, `Build failed`, 'error')
-        if (event.error) ui.details(event.error.message)
-        ui.add()
+        this.ui.service(event.service, `Build failed`, 'error')
+        if (event.error) this.ui.details(event.error.message)
+        this.ui.add()
       }
     })
 
     this.on('service:build:cached', (event) => {
       if (event.type === 'service:build:cached') {
-        ui.service(event.service, `Using cached build`, 'info')
-        if (event.out) ui.details(`${event.out}`)
-        ui.add()
+        this.ui.service(event.service, `Using cached build`, 'info')
+        if (event.out) this.ui.details(`${event.out}`)
+        this.ui.add()
       }
     })
 
@@ -248,20 +254,20 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'service:launch:complete') {
         const require = createRequire(import.meta.url)
         const chalk = require('chalk').default
-        return ui.service(event.service, `${chalk.cyanBright(event.url)}`, 'success')
+        return this.ui.service(event.service, `${chalk.cyanBright(event.url)}`, 'success')
       }
     })
 
     this.on('service:launch:error', (event) => {
       if (event.type === 'service:launch:error') {
-        ui.service(event.service, `Failed to launch service`, 'error')
+        this.ui.service(event.service, `Failed to launch service`, 'error')
       }
     })
 
     // Security events
     this.on('security:warning', (event) => {
       if (event.type === 'security:warning') {
-        ui.warning(
+        this.ui.warning(
           event.message,
           event.context ? `Context: ${event.context}` : undefined
         )
@@ -270,16 +276,16 @@ export class CLIHooks implements HooksInterface {
 
     this.on('security:integrity:start', (event) => {
       if (event.type === 'security:integrity:start') {
-        ui.info(`Embedding integrity data for ${event.asarPath}`)
+        this.ui.info(`Embedding integrity data for ${event.asarPath}`)
       }
     })
 
     this.on('security:integrity:complete', (event) => {
       if (event.type === 'security:integrity:complete') {
         if (event.success) {
-          ui.success(`Integrity data embedded successfully`)
+          this.ui.success(`Integrity data embedded successfully`)
         } else {
-          ui.error(`Failed to embed integrity data for ${event.asarPath}`)
+          this.ui.error(`Failed to embed integrity data for ${event.asarPath}`)
         }
       }
     })
@@ -288,26 +294,26 @@ export class CLIHooks implements HooksInterface {
     this.on('dev:start', (event) => {
       if (event.type === 'dev:start') {
           const { name, target: resolvedTarget } = event.config
-          ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
+          this.ui.header(`${name} ${this.ui.target(resolvedTarget, { plain: true })} Development`)
       }
     })
 
     this.on('dev:server:ready', (event) => {
       if (event.type === 'dev:server:ready') {
-        ui.success( `Development server ready!`, `Available at: ${event.url}` )
+        this.ui.success( `Development server ready!`, `Available at: ${event.url}` )
       }
     })
 
     this.on('dev:server:error', (event) => {
       if (event.type === 'dev:server:error') {
-        ui.error('Development server error', event.error.message)
+        this.ui.error('Development server error', event.error.message)
       }
     })
 
     this.on('dev:reload:unavailable', (event) => {
       if (event.type === 'dev:reload:unavailable') {
         const targetName = this.getTargetDisplayName(event.target)
-        ui.warning(
+        this.ui.warning(
           `${targetName} hot reloading is not available`,
           event.reason
         )
@@ -318,23 +324,23 @@ export class CLIHooks implements HooksInterface {
     const ELECTRON_PROCESS_NAME = 'commoners-electron-process'
 
     const labelRegexp = /\[.*\] /
-  const ansiRegex = new RegExp(
-    '[\\u001b\\x1b][[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]',
-    'g'
-  )
+    const ansiRegex = new RegExp(
+      '[\\u001b\\x1b][[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]',
+      'g'
+    )
+
     const logForElectron =  (ev, type = 'info') => {
       const { data } = ev
       const message = data.toString()
       if (labelRegexp.test(message.replace(ansiRegex, ''))) return console.log(message)
-      else ui.service(ELECTRON_PROCESS_NAME, data, type)
+      else this.ui.service(ELECTRON_PROCESS_NAME, data, type)
     }
 
     this.on('dev:electron:ready', (event) => {
-      if (event.type === 'dev:electron:ready') ui.success(`Electron app is ready!`, `Process ID: ${event.app.pid}`)
+      if (event.type === 'dev:electron:ready') this.ui.success(`Electron app is ready!`, `Process ID: ${event.app.pid}`)
     })
 
     this.on('dev:electron:stdout', (event) => {
-
       if (event.type === 'dev:electron:stdout') logForElectron(event, 'info')
     })
 

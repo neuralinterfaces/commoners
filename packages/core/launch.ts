@@ -8,16 +8,13 @@ import {
   isMobile,
   isDesktop,
   globalWorkspacePath,
-  chalk,
   vite,
 } from './globals.js'
 import { ConfigResolveOptions, LaunchConfig } from './types.js'
-// Removed printFailure and printSubtle imports - using direct console calls
 import { spawnProcess } from './utils/processes.js'
 
 import * as mobile from './mobile/index.js'
 import { createAll } from './assets/services/index.js'
-import { createNoOpHooks } from './hooks.js'
 import { resolveConfig, resolveHooks } from './index.js'
 
 type ViteServerOptions = import('vite').ServerOptions

@@ -22,7 +22,6 @@ import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
 import { bundleConfig } from './utils/assets.js'
-// Removed printFailure and printSubtle imports - using direct console calls
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
 

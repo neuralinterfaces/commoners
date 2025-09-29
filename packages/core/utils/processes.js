@@ -1,6 +1,6 @@
 
 import { spawn } from 'node:child_process'
-import { createNoOpHooks } from '../hooks.js'
+import { createNoOpHooks } from '../ui.js'
 
 const children = {}
 
