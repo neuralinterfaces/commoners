@@ -43,6 +43,7 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks()) {
   app.stdout.on('data', data => hooks.emit({ type: 'dev:electron:stdout', data })) // Print out any output from Electron.app
   app.stderr.on('data', data => hooks.emit({ type: 'dev:electron:stderr', data })) // Print out any errors from Electron.app
   cleanup.onCleanup(onExit) // Kill the process after the process exits
+  hooks.emit({ type: 'dev:electron:ready', app }) // Emit the start event
 
   return app
 }

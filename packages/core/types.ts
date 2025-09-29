@@ -60,12 +60,13 @@ export type SecurityEvent =
   | { type: 'security:integrity:complete'; asarPath: string; success: boolean }
 
 export type DevServerEvent =
-  | { type: 'dev:server:start'; config: ResolvedConfig; }
+  | { type: 'dev:start'; config: ResolvedConfig; }
   | { type: 'dev:server:ready'; target: string; url: string }
   | { type: 'dev:server:error'; error: Error }
   | { type: 'dev:reload:unavailable'; target: string; reason: string }
   | { type: 'dev:electron:stdout'; data: string }
   | { type: 'dev:electron:stderr'; data: string }
+  | { type: 'dev:electron:ready'; app: ChildProcess }
 
 export type LaunchEvent =
   | { type: 'launch:start'; outDir: string, target: string }

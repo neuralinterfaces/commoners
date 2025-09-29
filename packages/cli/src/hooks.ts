@@ -285,8 +285,8 @@ export class CLIHooks implements HooksInterface {
     })
 
     // Dev server events
-    this.on('dev:server:start', (event) => {
-      if (event.type === 'dev:server:start') {
+    this.on('dev:start', (event) => {
+      if (event.type === 'dev:start') {
           const { name, target: resolvedTarget } = event.config
           ui.header(`${name} ${ui.target(resolvedTarget, { plain: true })} Development`)
       }
@@ -294,10 +294,7 @@ export class CLIHooks implements HooksInterface {
 
     this.on('dev:server:ready', (event) => {
       if (event.type === 'dev:server:ready') {
-        ui.success(
-          `Development server ready!`,
-          `Available at: ${event.url}`
-        )
+        ui.success( `Development server ready!`, `Available at: ${event.url}` )
       }
     })
 
@@ -331,6 +328,10 @@ export class CLIHooks implements HooksInterface {
       if (labelRegexp.test(message.replace(ansiRegex, ''))) return console.log(message)
       else ui.service(ELECTRON_PROCESS_NAME, data, type)
     }
+
+    this.on('dev:electron:ready', (event) => {
+      if (event.type === 'dev:electron:ready') ui.success(`Electron app is ready!`, `Process ID: ${event.app.pid}`)
+    })
 
     this.on('dev:electron:stdout', (event) => {
 

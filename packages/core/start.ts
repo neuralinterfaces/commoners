@@ -154,7 +154,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     const hooks = resolvedConfig.hooks
 
     // Emit dev server start event
-    hooks.emit({ type: 'dev:server:start', config: resolvedConfig })
+    hooks.emit({ type: 'dev:start', config: resolvedConfig })
 
 
     const { root, target, services, electron } = resolvedConfig
