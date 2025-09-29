@@ -3,7 +3,7 @@
 // Provides rich, interactive styling decoupled from core functionality
 
 import { Ora } from 'ora'
-import { createRequire } from 'module'
+import { createRequire } from 'node:module'
 
 export interface UITheme {
   primary: string
@@ -142,7 +142,6 @@ export class CommonersUI {
   // Enhanced Headers
   header(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
-    console.log(this.chalk)
     const title = this._chalk.hex(this.theme.primary).bold(message)
     this.add('\n' + title)
     if (subtitle) this.add(this._chalk.hex(this.theme.muted)(subtitle))

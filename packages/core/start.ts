@@ -214,6 +214,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       else {
         const assets = await getAppAssets(scopedConfig, true)
         await buildAssets(assets, { outDir, root, target })
+        .catch(err => {
+          console.log('Error building assets:', err)
+          throw err
+        })
         if (isDesktop(target)) await buildServices(scopedConfig, { dev: true, outDir, rebuild: true, hooks })
         configureForDesktop(outDir, root)
         const frontend = (startManager.frontend = await createServer(scopedConfig))
@@ -229,6 +233,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     await initializeWebsocketPort()
     const webAssets = await getAppAssets(scopedConfig, true)
     await buildAssets(webAssets, { outDir, root, target })
+    .catch(err => {
+      console.log('Error building assets:', err)
+      throw err
+    })
 
     const frontend = (startManager.frontend = await createServer(scopedConfig))
     startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server

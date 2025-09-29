@@ -248,7 +248,7 @@ export class CLIHooks implements HooksInterface {
       if (event.type === 'service:launch:complete') {
         const require = createRequire(import.meta.url)
         const chalk = require('chalk').default
-        return ui.service(event.service, `Service launched successfully: ${chalk.cyanBright(event.url)}`, 'success')
+        return ui.service(event.service, `${chalk.cyanBright(event.url)}`, 'success')
       }
     })
 
@@ -316,14 +316,29 @@ export class CLIHooks implements HooksInterface {
         )
       }
     })
+    
 
     const ELECTRON_PROCESS_NAME = 'commoners-electron-process'
+
+    const labelRegexp = /\[.*\] /
+  const ansiRegex = new RegExp(
+    '[\\u001b\\x1b][[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]',
+    'g'
+  )
+    const logForElectron =  (ev, type = 'info') => {
+      const { data } = ev
+      const message = data.toString()
+      if (labelRegexp.test(message.replace(ansiRegex, ''))) return console.log(message)
+      else ui.service(ELECTRON_PROCESS_NAME, data, type)
+    }
+
     this.on('dev:electron:stdout', (event) => {
-      if (event.type === 'dev:electron:stdout') ui.service(ELECTRON_PROCESS_NAME, event.data, 'info')
+
+      if (event.type === 'dev:electron:stdout') logForElectron(event, 'info')
     })
 
     this.on('dev:electron:stderr', (event) => {
-      if (event.type === 'dev:electron:stderr') ui.service(ELECTRON_PROCESS_NAME, event.data, 'error')
+      if (event.type === 'dev:electron:stderr') logForElectron(event, 'error')
     })
   }
 

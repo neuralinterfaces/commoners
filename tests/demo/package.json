@@ -24,11 +24,14 @@
     "@commoners/windows": "1.0.0-alpha.2"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
     "@capacitor/android": "^6.2.0",
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.2.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/ios": "^6.2.0"
   },
-  "main": ".commoners/.temp/main.cjs"
+  "main": ".commoners/.temp/main.cjs",
+  "dependencies": {
+    "chalk": "^5.2.0"
+  }
 }

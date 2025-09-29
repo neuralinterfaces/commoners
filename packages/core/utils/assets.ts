@@ -499,8 +499,7 @@ export const buildAssets = async (
       else {
         const outputExtension = extname(output)
 
-        if (basename(input, extname(input)) == 'commoners.config')
-          await bundleConfig(input, output) // Bundle config file differently using Rollup
+        if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output, { node: outputExtension === '.cjs' })
         else {
           const baseConfig: ESBuildBuildOptions = {
             entryPoints: [input],

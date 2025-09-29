@@ -144,10 +144,16 @@ export async function resolveConfig(
   // Merge Config and package.json (transformed name)
   const { 
     hooks, // Do not copy
+    electron = {},
     ...rest 
   } = temp
 
-  const copy = merge(structuredClone(rest), {
+  const { 
+    hooks: electronHooks, // Do not copy
+    ...electronRest 
+  } = electron
+
+  const copy = merge(structuredClone({ ...rest, electron: electronRest }), {
     ...userPkg,
     name: userPkg.name
       ? userPkg.name

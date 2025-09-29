@@ -44,24 +44,25 @@ async function manualBuildCommand(info) {
   }
 }
 
+const customHooks = async () => {
+  const { createRequire } = await import('node:module')
+  const require = createRequire(import.meta.url)
+  const { CLIHooks } = require('commoners/hooks')
+  return new CLIHooks()
+
+  //   const chalk = require('chalk').default // Import chalk for colored console output
+  //  const { Hooks } = await import('@commoners/solidarity/hooks')
+  //   const hooks = new Hooks()
+  //   hooks.on('service:launch:start', (ev) => console.log(chalk.blue(`[${ev.service}] Launching service...`))) // Custom hook example
+  //   hooks.on('service:launch:complete', (ev) => console.log(chalk.green(`[${ev.service}] Service launched successfully!`))) // Custom hook example
+  //   hooks.on('dev:electron:stderr', (ev) => console.error(ev.data.toString())) // Custom hook example
+  //   hooks.on('dev:electron:stdout', (ev) => console.log(ev.data.toString())) // Custom hook example
+  //   return hooks
+}
+
 const config = defineConfig({
   public: true, // Public Vite server host (NOTE: registered as insecure)
   port: 3000, // Hardcoded Vite server port
-
-  hooks: async () => {
-
-    // const { Hooks } = await import('@commoners/solidarity/hooks')
-    // const hooks = new Hooks()
-    // hooks.on('service:launch:start', (ev) => console.log('Service launch started:', ev)) // Custom hook example
-    // hooks.on('service:launch:complete', (ev) => console.log('Service launch complete:', ev)) // Custom hook example
-    // hooks.on('dev:electron:stderr', (ev) => console.error('Electron stderr:', ev.data.toString())) // Custom hook example
-    // hooks.on('dev:electron:stdout', (ev) => console.log('Electron stdout:', ev.data.toString())) // Custom hook example
-    // return hooks
-
-    // const { CLIHooks } = await import('commoners/hooks')
-    // const cliHooks = new CLIHooks()
-    // return cliHooks // Use the CLI hooks defined in the Commoners CLI package
-  },
 
   // // NOTE: Attempt to enable these for Commoners package testing
   // target: 'desktop' // Default target
@@ -71,9 +72,12 @@ const config = defineConfig({
   //     sign: false, // Disable code signing
   // },
 
+  hooks: customHooks,
+
   // NOTE: Protocol definition is not yet tested...
   electron: {
     protocol: { scheme: 'commoners', privileges: { supportFetchAPI: true } },
+    // hooks: customHooks
   },
 
   pwa: {
