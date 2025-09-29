@@ -58,13 +58,13 @@ const convertToBaseRegexString = (str: string) => new RegExp(str).toString().spl
 
 export const buildServices = async (config: UserConfig = {}, options: ServiceBuildOptions = {}) => {
   const { dev = false, services, rebuild = true  } = options
-  const hooks = await resolveHooks(config.hooks, options.hooks)
 
   const { outDir } = options
 
   // if (!dev) await printHeader(`${name} – ${buildOnlyServices ? 'Building Selected Services' : `${getTargetDisplayName(target)} Build`}`)
 
   const resolvedConfig = await resolveConfig(config, { services, build: true })
+  const { hooks } = resolvedConfig
 
   const { root, target } = resolvedConfig
 

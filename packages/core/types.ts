@@ -401,7 +401,8 @@ export type ServiceBuildOptions = {
 }
 
 type ResolvedServices = { [x: string]: ResolvedService }
-export type ResolvedConfig = BaseConfig & {
+
+export type ResolvedConfig =Omit<BaseConfig, 'hooks'> & {
   build?: BuildOptions
   hooks: HooksInterface // Resolved hooks interface
 
