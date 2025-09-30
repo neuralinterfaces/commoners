@@ -163,18 +163,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
 
-                        if (on) {
-                          console.log("Setting up main process ready event listener", __id)
-                          on("commoners:window:ready:main:ping", () => {
-                            console.log("Main prcess is ready. Sending pong", __id)
-                            send("commoners:window:ready:main:pong", __id) // Respond to the main process that the window is ready
-                          })
-                        }
-
-                        if (send) {
-                          console.log("Sending ready event to main process", __id)  
-                          send("commoners:window:ready:renderer:pong", __id) // Notify the main process that the window is ready
-                        }
+                        if (on) on("commoners:window:ready:main:ping", () => send("commoners:window:ready:main:pong", __id)) // Respond to the main process ping
+                        if (send) send("commoners:window:ready:renderer:pong", __id) // Notify the main process that the window is ready
                     }
                 })  
 

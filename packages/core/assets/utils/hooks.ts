@@ -1,5 +1,6 @@
+import { HooksInterface } from "../../types.js"
 
-export const createNoOpHooks = () => ({ emit: () => {}, on: () => () => {} })
+export const createNoOpHooks = (): HooksInterface => ({ emit: () => {}, on: () => () => {} })
 
 export async function resolveHooks(...priority) {
   const filtered = priority.filter(hook => hook) // Remove falsy values

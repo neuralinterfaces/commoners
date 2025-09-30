@@ -46,7 +46,7 @@ export type ServiceEvent =
   | { type: 'service:exit'; service: string; code: number | null }
   | { type: 'service:restart'; service: string }
   | { type: 'service:build:start'; service: string; src: string; out: string; }
-  | { type: 'service:build:end'; service: string; src: string; out: string; }
+  | { type: 'service:build:end'; service: string; src: string; out: string; duration?: number }
   | { type: 'service:build:error'; service: string; src: string; out: string; error: Error }
   | { type: 'service:build:cached'; service: string; src: string; out: string; }
   

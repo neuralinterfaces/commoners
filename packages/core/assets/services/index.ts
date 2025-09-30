@@ -78,6 +78,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
   // MOVED HERE
   const { root, target, services, build: isBuildProcess = true } = opts
 
+
   const isServicesOnlyBuild = !!services
   const isDesktopTarget = isDesktop(target)
   const isLocalMode = !!(isDesktopTarget || isServicesOnlyBuild)
@@ -200,6 +201,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
   // Resolve filepath
   const fullFile = filepath && resolvePath(root, filepath)
   const willBeBuilt = isBuildProcess || __compile || __autobuild
+
   const file =
     fullFile && willBeBuilt
       ? isDesktopTarget
@@ -246,7 +248,8 @@ async function getServiceUrl(service) {
 }
 
 export async function resolveService(config, name, opts: ServiceOptions) {
-  if (config.__src) return config // Ensures that references are maintained throughout the application
+  const isResolved = config.__src
+  if (isResolved) return config // Ensures that references are maintained throughout the application
 
   const { root, target } = opts
 

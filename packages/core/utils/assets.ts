@@ -116,30 +116,24 @@ export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHook
   const { src, out, force } = info
 
   const outDir = dirname(out)
-  const outName = basename(out, extname(out))
-
-  const tempOut = join(outDir, outName) + '.js'
 
   const shouldBuild = mustBuild({ out: outDir, force })
 
   if (!shouldBuild) return { built: false, outDir }
 
-  const esbuild = await import('esbuild')
-  const pkg = await import('pkg')
+  // Use Node.js Single Executable Application (SEA) instead of pkg
+  const { createSEA } = await import('./sea.js')
 
-  await esbuild.build({
-    entryPoints: [src],
-    bundle: true,
-    logLevel: 'silent',
-    outfile: tempOut,
-    format: 'cjs',
-    platform: 'node',
-    external: ['*.node'],
+  const result = await createSEA({
+    src,
+    out,
+    force,
+    sign: true,
   })
 
-  await pkg.exec([tempOut, '--target', 'node16', '--out-path', outDir])
-
-  rmSync(tempOut, { force: true })
+  if (!result.success) {
+    throw new Error(`Failed to create SEA executable: ${result.error}`)
+  }
 
   return { built: true, outDir } // Return the output directory
 }
@@ -167,6 +161,8 @@ async function buildService(
 
   try {
 
+    const startTime = performance.now()
+
     // Dynamic Configuration
     if (typeof build === 'function') {
       const ctx = { 
@@ -185,7 +181,8 @@ async function buildService(
 
       // Output path
       if (existsSync(build)) {
-        hooks.emit({ type: 'service:build:end', service: name, src, out: build })
+        const endTime = performance.now()
+        hooks.emit({ type: 'service:build:end', service: name, src, out: build, duration: endTime - startTime })
         return build // NOTE: Can be resolved by the above build function
       }
 
@@ -194,13 +191,15 @@ async function buildService(
 
       // Terminal Command
       await spawnProcess(build, [], { cwd: root, label: name }, hooks)
-      hooks.emit({ type: 'service:build:end', service: name, src, out })
+      const endTime = performance.now()
+      hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
     }
 
     // Auto Build Configuration
     else {
       const { built } = await packageFile(buildInfo, hooks)
-      if (built) hooks.emit({ type: 'service:build:end', service: name, src, out })
+      const endTime = performance.now()
+      if (built) hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
       else hooks.emit({ type: 'service:build:cached', service: name, src, out })
     }
 

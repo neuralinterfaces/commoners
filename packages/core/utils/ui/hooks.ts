@@ -5,6 +5,12 @@ import { createRequire } from 'module'
 import { CommonersUI } from './ui.js'
 
 
+const prettyPrintDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms.toFixed(2)} ms`
+  const seconds = (ms / 1000).toFixed(2)
+  return `${seconds} seconds`
+}
+
 export class Hooks implements HooksInterface {
   private handlers = new Map<string, Set<HookFunction>>()
 
@@ -224,7 +230,7 @@ export class DefaultHooks extends Hooks {
     
     this.on('service:build:end', (event) => {
       if (event.type === 'service:build:end') {
-        this.ui.service(event.service, `Build completed`, 'success')
+        this.ui.service(event.service, `Build completed${event.duration ? ` in ${prettyPrintDuration(event.duration)}` : ''}`, 'success')
         if (event.out) this.ui.details(`${event.out}`)
         this.ui.add()
       }

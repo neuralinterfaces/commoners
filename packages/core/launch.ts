@@ -86,6 +86,8 @@ export const resolveAppToLaunch = (config: LaunchConfig) => {
 
 export const launchApp = async (config: LaunchConfig, args = []) => {
 
+  config = await resolveConfig(config) // Ensure config is resolved
+
   const { outDir: originalOutDir } = config
   
   const hooks = await resolveHooks(config.hooks)
@@ -128,6 +130,7 @@ export const launchApp = async (config: LaunchConfig, args = []) => {
       await spawnProcess(runExecutableCommand, resolvedArgs, { env: process.env, label: "commoners-electron-launcher" }, hooks) // Share the same environment variables
    
     } else {
+
       const __vite = await vite
 
       const serverConfig = {
@@ -162,6 +165,7 @@ export const launchApp = async (config: LaunchConfig, args = []) => {
   }
 
   catch (error) {
+    console.log(error)
     hooks.emit({ type: 'launch:error', error })
   }
 

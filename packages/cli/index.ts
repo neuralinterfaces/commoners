@@ -13,6 +13,7 @@ import {
   resolveConfig,
   resolveHooks,
   resolveAppToLaunch,
+  UserConfig,
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
@@ -88,8 +89,8 @@ cli
     preprocessTarget(overrides.target, cliHooks)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
     if (!config) return failed.call(cliHooks, 'Configuration not found')
-    const reconciledConfig = reconcile(config, overrides)
-    const hooks = await resolveHooks(config.hooks, cliHooks) // Default hooks
+    const reconciledConfig = reconcile(config, overrides) as UserConfig
+    const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
 
     let launchSpinner
     const start = message => {
@@ -150,7 +151,7 @@ cli
     else if (service) return failed.call(hooks, `Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
 
     // Enhanced launch feedback
-    await launch({ ...resolvedConfig, hooks })
+    await launch({ ...reconciledConfig, hooks })
   })
 
 // Build the application using the specified settings
@@ -182,7 +183,6 @@ cli
       hooks.ui.header(`Building Service${nServices > 1 ? 's' : ` (${servicesToBuild})`}`)
       try {
         await buildServices(config, { services: servicesToBuild, hooks })
-
         hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
       } catch (error) {
         hooks.ui.error('Failed to build services', error.message)
