@@ -41,6 +41,7 @@ export * as format from './utils/formatting.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
 export { app as start, services as startServices } from './start.js'
+export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers
 
 // ------------------ Configuration File Handling ------------------

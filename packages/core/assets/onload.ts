@@ -58,8 +58,7 @@ if (__PLUGINS) {
 
   const registerPluginAsLoaded = id => {
     if (!DESKTOP) return
-    const identifier = ['commoners:loaded', DESKTOP.__id, id].join(':')
-    return TEMP_COMMONERS.send(identifier) // Notify the main process that the plugin is loaded
+    return TEMP_COMMONERS.send('commoners:plugins:loaded', DESKTOP.__id, id) // Notify the main process that the plugin is loaded
   }
 
   asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {

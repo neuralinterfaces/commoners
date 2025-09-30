@@ -162,7 +162,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                     GLOBAL.__READY = (value) => {
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
-                        const readyChannel = "commoners:ready:" + __id
+                        const readyChannel = "commoners:window:ready:" + __id
                         const sendReady = () => send(readyChannel)
                         if (on) on(readyChannel, sendReady)
                         if (send) sendReady() // Notify the main process that the electron process is ready

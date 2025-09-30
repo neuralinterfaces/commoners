@@ -429,6 +429,72 @@ runVerification().then(async isValid => {
     }
   }
 
+  const windowRefs = { location: {}, window: {} }
+
+  const callbacks = {
+    ready: {},
+    loaded: {}
+  }
+
+  const addCallback = (type, callback, ...levels) => {
+    const lastId = levels.pop() // Get the last level as the id
+    let ref = callbacks[type]
+    for (const level of levels) {
+      if (!ref[level]) ref = ref[level] = {} // Create the level if it doesn't exist
+      else ref = ref[level] // Traverse down the levels
+    }
+    if (!ref[lastId]) ref[lastId] = [] // Create the id if it doesn't exist
+    ref[lastId].push(callback) // Add the callback to the id
+  }
+
+  const onReady = (id, callback) => addCallback('ready', callback, ...(typeof id === 'string' ? id.split(':') : [ id ]))
+  const onLoaded = (id, callback) => addCallback('loaded', callback, ...id.split(':'))
+
+  const runCallbacks = (type, ...refLevels) => { 
+    
+    let ref = callbacks[type]
+    const lastLevel = refLevels.pop() // Get the last level to run callbacks for
+
+    for  (const level of refLevels) {
+      if (!ref[level]) return
+      ref = ref[level] // Traverse down the levels
+    }
+
+    const resolvedCallbacks = ref[lastLevel] // Get the id to run callbacks for
+    if (!resolvedCallbacks) return // No callbacks to run
+    resolvedCallbacks.forEach(callback => callback()) // Run all callbacks for the id
+    delete ref[lastLevel] // Clear the callbacks after running them
+  }
+
+  ipcMain.on(`commoners:close`, (_, _id) => {
+    const win = windowRefs.window[_id]
+    if (win && !win.isDestroyed()) win.close() // Close the window if it exists and is not destroyed
+    delete windowRefs.window[_id] // Remove the window from the maps
+  })
+
+  ipcMain.on(`commoners:location`, (ev, id) => ev.returnValue = windowRefs.location[id]) // Return the location for the window
+
+  // ipcMain.on(`commoners:window:ready`, (_, id) => {
+
+  //   console.log("Window ready event for", id)
+  //   const win = windowRefs.window[id]
+  //   const isMain = win && win.__main
+
+  //   // Handle certain behaviors once the main window is ready
+  //   if (isMain) {
+  //       globals.mainWindow = win
+  //       globals.firstInitialized = true
+  //       readyQueue.forEach(f => f(win))
+  //       readyQueue = []
+  //   }
+
+  //   return runCallbacks('ready', id, win) // Run all ready callbacks for the window
+  // })
+
+  ipcMain.on(`commoners:plugins:loaded`, (_, pageId, pluginId) => {
+    runCallbacks('loaded', pageId, pluginId)
+  })
+
   async function createWindow(
     page,
     options: ElectronWindowOptions = {},
@@ -502,6 +568,8 @@ runVerification().then(async isValid => {
       hash: undefined,
     }
 
+    windowRefs.location[__id] = __location // Store the location in the window maps
+     
     // Catch all navigation events
     win.webContents.on('will-navigate', async (event, url) => {
       event.preventDefault()
@@ -518,6 +586,7 @@ runVerification().then(async isValid => {
 
       __location.search = urlObj.search
       __location.hash = urlObj.hash
+
       await loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..")
 
       // // NOTE: This does not work when using loadFile
@@ -534,18 +603,21 @@ runVerification().then(async isValid => {
       configurable: false,
     })
 
-    ipcMain.once(`commoners:close:${__id}`, () => win.close())
+    windowRefs.window[__id] = win // Store the window in the window maps
 
-    ipcMain.on(`commoners:location:${__id}`, event => (event.returnValue = __location))
+    // ipcMain.once(`commoners:close:${__id}`, () => win.close())
+    // ipcMain.on(`commoners:location:${__id}`, event => (event.returnValue = __location))
 
     // ------------------------ Main Window Default Behaviors ------------------------
     if (isMainWindow) {
+
       ipcMain.once(`commoners:ready:${__id}`, () => {
         globals.mainWindow = win
         globals.firstInitialized = true
         readyQueue.forEach(f => f(win))
         readyQueue = []
       })
+
 
       // De-register the main window
       win.once('close', () => {
@@ -569,7 +641,8 @@ runVerification().then(async isValid => {
     })
 
     // ------------------------ Window Load Behavior ------------------------
-    win.__ready = new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, () => resolve())) // Wait for the window to be ready to show
+    // win.__ready = new Promise(resolve => onReady(__id, () => resolve())) // Wait for the window to be ready to show
+    win.__ready = new Promise(resolve => ipcMain.once(`commoners:window:ready:${__id}`, () => resolve()))
 
     // Synchronously run all plugin load callbacks
     const called = Object.keys(PLUGINS).reduce((acc, id) => {
@@ -577,10 +650,15 @@ runVerification().then(async isValid => {
       return acc
     }, {})
 
-    // Then asyncronously load the plugin results. Allow for accessing the load status of each plugin
-    win.__loading = Object.entries(called).reduce((acc, [id, promise]) => {
-      const listener = `commoners:loaded:${__id}:${id}`
-      acc[id] = new Promise(resolve => ipcMain.once(listener, async () => resolve(await promise)))
+    // // Then asyncronously load the plugin results. Allow for accessing the load status of each plugin
+    // win.__loading = Object.entries(called).reduce((acc, [id, promise]) => {
+    //   const listener = `commoners:loaded:${__id}:${id}`
+    //   acc[id] = new Promise(resolve => ipcMain.once(listener, async () => resolve(await promise)))
+    //   return acc
+    // }, {})
+    
+    win.__loading = Object.entries(called).reduce((acc, [ id, promise ]) => {
+      acc[id] = new Promise(resolve =>  onLoaded(`${__id}:${id}`, async () => resolve(await promise)))
       return acc
     }, {})
 
@@ -593,6 +671,8 @@ runVerification().then(async isValid => {
     // ------------------------ Window Creation Callback ------------------------
     if (onInitialized) onInitialized.call(electron, win)
 
+      // win.show()
+      
     // ------------------------ Show Window after Global Variables are Set ------------------------
     await loadPromise
       .then(async location => {
@@ -601,7 +681,10 @@ runVerification().then(async isValid => {
         // Load all commoners plugins before showing the asset window
         if (isAsset)
           await new Promise(resolve => {
-            const readyChannel = `commoners:ready:${__id}`
+            // onReady(__id, () => resolve(true)) // Wait for the window to be ready
+            // send.call(win, `commoners:window:ready`, __id) // Notify the window that it is ready
+
+            const readyChannel = `commoners:window:ready:${__id}`
             ipcMain.once(readyChannel, () => resolve(true))
             send.call(win, readyChannel) // Notify the main process that the window is loading
           })
