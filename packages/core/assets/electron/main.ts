@@ -144,6 +144,7 @@ runVerification().then(async isValid => {
 
   function send(this: BrowserWindow, channel: string, ...args: any[]) {
     try {
+      if (this.isDestroyed()) return // Do not send messages to destroyed windows
       return this.webContents.send(channel, ...args)
     } catch (e) {} // Catch in case messages are registered as sendable for a window that has been closed
   }

@@ -360,8 +360,10 @@ export async function start(
       const resolvedFilepath = resolve(
         isExecutable(ext) && !ext && existsSync(filepath + '.exe') ? filepath + '.exe' : filepath
       )
+      
+      const fileExists = existsSync(resolvedFilepath)
 
-      if (!existsSync(resolvedFilepath)) return hooks.emit({
+      if (!fileExists) return hooks.emit({
         type: 'service:launch:error',
         error: new Error(`File does not exist at ${resolvedFilepath}`),
         service: label,
@@ -376,21 +378,15 @@ export async function start(
         detached: false,
       }
 
-      // Node Support
-      if (jsExtensions.includes(ext))
-        childProcess = fork(resolvedFilepath, [], { ...resolvedProcessOptions, silent: true })
-      // Python Support
-      else if (ext === '.py')
-        childProcess = spawn('python', [resolvedFilepath], resolvedProcessOptions)
-      // Executable Support
-      else if (isExecutable(ext)) childProcess = spawn(resolvedFilepath, [], resolvedProcessOptions)
+      if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [], { ...resolvedProcessOptions, silent: true }) // Node Support
+      else if (ext === '.py') childProcess = spawn('python', [resolvedFilepath], resolvedProcessOptions)  // Python Support
+      else if (isExecutable(ext)) childProcess = spawn(resolvedFilepath, [], resolvedProcessOptions) // Executable Support
     } catch (e) {
       error = e
     }
+    
 
     if (childProcess) {
-
-      hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
 
       if (childProcess.stdout && monitor.stdout !== false)
         childProcess.stdout.on('data', data => {
@@ -416,6 +412,7 @@ export async function start(
 
       // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`)));
 
+      hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
       processes[id] = childProcess
 
       return { ...config, process: childProcess } as ActiveService

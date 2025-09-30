@@ -73,12 +73,7 @@ export const launchServices = async (
   }
 
   // Ensure users can access the created services
-  return await createAll(services, {
-    root,
-    target,
-    services: true,
-    build: true,
-  })
+  return await createAll(services, { root, target, services: true, build: true })
 }
 
 export const resolveAppToLaunch = (config: LaunchConfig) => {

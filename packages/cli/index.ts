@@ -88,8 +88,8 @@ cli
     preprocessTarget(overrides.target, cliHooks)
     const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
     if (!config) return failed.call(cliHooks, 'Configuration not found')
-    const resolvedConfig = await resolveConfig(reconcile(config, overrides))
-    const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
+    const reconciledConfig = reconcile(config, overrides)
+    const hooks = await resolveHooks(config.hooks, cliHooks) // Default hooks
 
     let launchSpinner
     const start = message => {
@@ -112,7 +112,7 @@ cli
 
       start(`Launching Services Build`)
 
-      delete resolvedConfig.target
+      delete reconciledConfig.target
 
       // NOTE: If passed, this simply wouldn't take effect
       if (options.outDir) return failed.call(hooks, `Cannot specify an output directory when launching services`, `Services are built in a private directory`)
@@ -123,15 +123,15 @@ cli
         return failed.call(hooks, `Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
       if (nServices === 1) {
         const serviceName = resolvedServices[0]
-        if (serviceName in resolvedConfig.services) {
-          const service = resolveServiceConfiguration(resolvedConfig.services[serviceName])
+        if (serviceName in reconciledConfig.services) {
+          const service = resolveServiceConfiguration(reconciledConfig.services[serviceName])
           Object.assign(service, { public: isPublic, port }) // Set host and port on single service
-          resolvedConfig.services[serviceName] = service
+          reconciledConfig.services[serviceName] = service
         }
       }
 
       try {
-        await launchServices(resolvedConfig, { services: service })
+        await launchServices(reconciledConfig, { services: resolvedServices })
         succeed(
           `${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))} successfully launched!`
         )
@@ -178,13 +178,14 @@ cli
     // Build Services Only
     const servicesToBuild = services ? Object.keys(config.services) : service
     if (!manualTarget && servicesToBuild) {
-      hooks.ui.header('Building Services')
+      const nServices = Array.isArray(servicesToBuild) ? Object.keys(servicesToBuild).length : 1
+      hooks.ui.header(`Building Service${nServices > 1 ? 's' : ` (${servicesToBuild})`}`)
       try {
         await buildServices(config, { services: servicesToBuild, hooks })
-        hooks.ui.success('All services ready for deployment!')
+
+        hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
       } catch (error) {
         hooks.ui.error('Failed to build services', error.message)
-
         process.exit(1)
       }
       return

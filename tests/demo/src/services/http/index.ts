@@ -1,10 +1,16 @@
-import http from 'node:http'
+const http = require('node:http')
 
 const host = process.env.HOST
 const port = process.env.PORT
+
+if (!host || !port) {
+  console.error('Environment variables HOST and PORT must be set.')
+  process.exit(1)
+}
+
 const SECRET_VARIABLE = process.env.SECRET_VARIABLE || ''
 
-const server = http.createServer((req: http.IncomingMessage, res: http.ServerResponse) => {
+const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type')

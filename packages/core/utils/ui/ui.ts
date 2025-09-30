@@ -320,7 +320,7 @@ export class CommonersUI {
 
     const titled = {
       pwa: 'PWA',
-      ios: 'iOS',
+      ios: 'iOS'
     }
 
     const lower = targetName.toLowerCase()

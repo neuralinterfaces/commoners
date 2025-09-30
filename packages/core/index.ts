@@ -127,75 +127,82 @@ export async function resolveConfig(
     hooks: hooksOverride
   }: ConfigResolveOptions = {}
 ) {
-  if ((o as Record<string, any>).__resolved) return o as ResolvedConfig
+  
 
-  // Mobile commands must always run from the root of the specified project
-  if (isMobile(o.target) && o.root) {
-    process.chdir(o.root)
-    delete o.root
+
+  if (!(o as Record<string, any>).__resolved) {
+
+    // Mobile commands must always run from the root of the specified project
+    if (isMobile(o.target) && o.root) {
+      process.chdir(o.root)
+      delete o.root
+    }
+
+    const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
+
+    const { services: ogServices, plugins, vite, ...temp } = o
+
+    const userPkg = getJSON(join(root, 'package.json'))
+
+    // Merge Config and package.json (transformed name)
+    const { 
+      hooks, // Do not copy
+      electron = {},
+      ...rest 
+    } = temp
+
+    const { 
+      hooks: electronHooks, // Do not copy
+      ...electronRest 
+    } = electron
+
+    o = merge(structuredClone({ ...rest, electron: electronRest }), {
+      ...userPkg,
+      name: userPkg.name
+        ? userPkg.name
+            .split('-')
+            .map(str => str[0].toUpperCase() + str.slice(1))
+            .join(' ')
+        : 'Commoners App',
+    }) as Partial<ResolvedConfig>
+
+    o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
+
+    if (o.outDir && !isAbsolute(o.outDir)) o.outDir = join(o.root, o.outDir)
+
+    o.plugins = plugins ?? {} // Transfer the original plugins
+    o.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish
+    o.vite = vite ?? {} // Transfer the original Vite config
+
+    o.target = await ensureTargetConsistent(o.target)
+
+    if (!o.electron) o.electron = {}
+
+    // Set default values for certain properties shared across config and package.json
+    if (!o.icon) o.icon = join(templateDir, 'icon.png')
+
+    if (!o.version) o.version = '0.0.0'
+
+    if (!o.appId) o.appId = `com.${o.name.replace(/\s/g, '').toLowerCase()}.app`
+
+    // Always have a build options object
+    if (!o.build) o.build = {}
+
+    // Resolve pages
+    if (!o.pages) o.pages = {}
+
+    o.pages = Object.entries(o.pages).reduce((acc, [id, filepath]) => {
+      acc[id] = getAbsolutePath(root, filepath)
+      return acc
+    }, {})
   }
 
-  const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
+  const { target } = o
 
-  const { services: ogServices, plugins, vite, ...temp } = o
-
-  const userPkg = getJSON(join(root, 'package.json'))
-
-  // Merge Config and package.json (transformed name)
-  const { 
-    hooks, // Do not copy
-    electron = {},
-    ...rest 
-  } = temp
-
-  const { 
-    hooks: electronHooks, // Do not copy
-    ...electronRest 
-  } = electron
-
-  const copy = merge(structuredClone({ ...rest, electron: electronRest }), {
-    ...userPkg,
-    name: userPkg.name
-      ? userPkg.name
-          .split('-')
-          .map(str => str[0].toUpperCase() + str.slice(1))
-          .join(' ')
-      : 'Commoners App',
-  }) as Partial<ResolvedConfig>
-
-  copy.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
-
-  if (copy.outDir && !isAbsolute(copy.outDir)) copy.outDir = join(copy.root, copy.outDir)
-
-  copy.plugins = plugins ?? {} // Transfer the original plugins
-  copy.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish
-  copy.vite = vite ?? {} // Transfer the original Vite config
-
-  const target = (copy.target = await ensureTargetConsistent(copy.target))
-
-  if (!copy.electron) copy.electron = {}
-
-  // Set default values for certain properties shared across config and package.json
-  if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
-
-  if (!copy.version) copy.version = '0.0.0'
-
-  if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '').toLowerCase()}.app`
-
-  // Always have a build options object
-  if (!copy.build) copy.build = {}
-
-  // Resolve pages
-  if (!copy.pages) copy.pages = {}
-
-  copy.pages = Object.entries(copy.pages).reduce((acc, [id, filepath]) => {
-    acc[id] = getAbsolutePath(root, filepath)
-    return acc
-  }, {})
-
+  // Allow filtering services whenever resolveConfig is called
   if (services) {
     const selectedServices = typeof services === 'string' ? [services] : services
-    const allServices = Object.keys(copy.services)
+    const allServices = Object.keys(o.services)
     if (selectedServices) {
       if (!selectedServices.every(name => allServices.includes(name))) {
         console.error('Invalid service selection')
@@ -205,15 +212,9 @@ export async function resolveConfig(
     }
   }
 
-  copy.services = await resolveAll(copy.services, { target, build, services, root: copy.root }) // Resolve selected services
-
-  // Resolution flag
-  Object.defineProperty(copy, '__resolved', {
-    value: true,
-    writable: false,
-  })
-
-  return copy as ResolvedConfig
+  o.services = await resolveAll(o.services, { target, build, services, root: o.root }) // Resolve selected services
+  Object.defineProperty(o, '__resolved', { value: true, writable: false }) // Resolution flag
+  return o as ResolvedConfig
 }
 
 const writePackageJSON = (o, root = '') =>
