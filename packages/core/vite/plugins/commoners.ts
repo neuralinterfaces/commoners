@@ -162,10 +162,19 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                     GLOBAL.__READY = (value) => {
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
-                        const readyChannel = "commoners:window:ready:" + __id
-                        const sendReady = () => send(readyChannel)
-                        if (on) on(readyChannel, sendReady)
-                        if (send) sendReady() // Notify the main process that the electron process is ready
+
+                        if (on) {
+                          console.log("Setting up main process ready event listener", __id)
+                          on("commoners:window:ready:main:ping", () => {
+                            console.log("Main prcess is ready. Sending pong", __id)
+                            send("commoners:window:ready:main:pong", __id) // Respond to the main process that the window is ready
+                          })
+                        }
+
+                        if (send) {
+                          console.log("Sending ready event to main process", __id)  
+                          send("commoners:window:ready:renderer:pong", __id) // Notify the main process that the window is ready
+                        }
                     }
                 })  
 
