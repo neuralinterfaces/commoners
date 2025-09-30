@@ -231,7 +231,6 @@ export class DefaultHooks extends Hooks {
     this.on('service:build:end', (event) => {
       if (event.type === 'service:build:end') {
         this.ui.service(event.service, `Build completed${event.duration ? ` in ${prettyPrintDuration(event.duration)}` : ''}`, 'success')
-        if (event.out) this.ui.details(`${event.out}`)
         this.ui.add()
       }
     })
@@ -239,15 +238,16 @@ export class DefaultHooks extends Hooks {
     this.on('service:build:error', (event) => {
       if (event.type === 'service:build:error') {
         this.ui.service(event.service, `Build failed`, 'error')
-        if (event.error) this.ui.details(event.error.message)
+        if (event.error) {
+          this.ui.details(event.error.message)
+        }
         this.ui.add()
       }
     })
 
     this.on('service:build:cached', (event) => {
       if (event.type === 'service:build:cached') {
-        this.ui.service(event.service, `Using cached build`, 'info')
-        if (event.out) this.ui.details(`${event.out}`)
+        this.ui.service(event.service, `Using cached build artifact`, 'info')
         this.ui.add()
       }
     })

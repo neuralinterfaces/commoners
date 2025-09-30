@@ -164,10 +164,12 @@ async function buildService(
     const startTime = performance.now()
 
     // Dynamic Configuration
+    let wasBuilt = null
     if (typeof build === 'function') {
       const ctx = { 
         package: async (arg) => { 
           const result = await packageFile(arg, hooks)
+          wasBuilt = result.built
           return result.outDir
         } 
     }
@@ -182,7 +184,8 @@ async function buildService(
       // Output path
       if (existsSync(build)) {
         const endTime = performance.now()
-        hooks.emit({ type: 'service:build:end', service: name, src, out: build, duration: endTime - startTime })
+        if (typeof wasBuilt === 'boolean' && !wasBuilt) hooks.emit({ type: 'service:build:cached', service: name, src, out: build })
+        else hooks.emit({ type: 'service:build:end', service: name, src, out: build, duration: endTime - startTime })
         return build // NOTE: Can be resolved by the above build function
       }
 
