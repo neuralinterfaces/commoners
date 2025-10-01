@@ -141,8 +141,8 @@ export const resolveViteConfig = async (
 
     const VitePWAPlugin = await import('vite-plugin-pwa').then(m => m.VitePWA)
 
-    // @ts-ignore
-    plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate', ...opts }))
+    const pwaPlugins = VitePWAPlugin({ registerType: 'autoUpdate', ...opts })
+    plugins.push(...(Array.isArray(pwaPlugins) ? pwaPlugins : [pwaPlugins]))
   }
 
   // Get html files from plugins

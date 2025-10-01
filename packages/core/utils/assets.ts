@@ -363,9 +363,11 @@ export const getServiceAssets = (
 
   for (const name of servicesToBuild) {
 
-    const resolvedService = resolvedServices[name] as ResolvedService
+    const resolvedService = resolvedServices[name] as ResolvedService & {
+      __src?: string
+      __autobuild?: boolean
+    }
 
-    // @ts-ignore
     const { build, base, filepath, __src, __autobuild } = resolvedService
 
     const allowCompilation = !(dev && __autobuild)

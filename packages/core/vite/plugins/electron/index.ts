@@ -42,8 +42,7 @@ async function resolveViteConfig(options: ElectronOptions): Promise<InlineConfig
       emptyOutDir: false,
     },
     resolve: {
-      // @ts-ignore
-      browserField: false,
+      browserField: false as const,
       conditions: ['node'],
       mainFields: ['module', 'jsnext:main', 'jsnext'],
     },

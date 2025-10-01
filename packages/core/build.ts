@@ -341,12 +341,9 @@ export async function buildApp(
 
       hooks.emit({ type: 'build:electron:complete' })
     } else if (isMobileBuild) {
-      const mobileOpts = { target, outDir }
+      const mobileOpts = { target: target as 'ios' | 'android', outDir }
 
-      // @ts-expect-error
       await mobile.init(mobileOpts, resolvedConfig)
-
-      // @ts-expect-error
       await mobile.open(mobileOpts, resolvedConfig)
     }
 

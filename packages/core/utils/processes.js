@@ -42,18 +42,27 @@ export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } 
 
     children[proc.pid] = proc
 
+    // Cleanup function to remove process and listeners
+    const cleanup = (res) => {
+      delete children[proc.pid]
+      // Remove all listeners to prevent memory leaks
+      proc.removeAllListeners()
+      if (proc.stdout) proc.stdout.removeAllListeners()
+      if (proc.stderr) proc.stderr.removeAllListeners()
+      resolve(res)
+    }
+
     // Process output is handled by the service management system
     // Individual process logs are no longer logged to console
     if (opts.log !== false) {
-      proc.stdout.on('data', (data) => hooks.emit({ type: 'service:stdout', data, service: label }))
-      proc.stderr.on('data', (data) => hooks.emit({ type: 'service:stderr', data, service: label }))
+      proc.stdout?.on('data', (data) => hooks.emit({ type: 'service:stdout', data, service: label }))
+      proc.stderr?.on('data', (data) => hooks.emit({ type: 'service:stderr', data, service: label }))
       proc.on('error', (error) => hooks.emit({ type: 'service:error', error, service: label }))
     }
 
-    proc.on('exit', res => {
-      delete children[proc.pid]
-      // hooks.emit({ type: 'service:exit', code: res, service: label })
-      resolve(res)
-    })
+    // Handle both exit and close to ensure cleanup
+    proc.once('exit', cleanup)
+    proc.once('close', cleanup)
+    proc.once('error', cleanup)
   })
 }
