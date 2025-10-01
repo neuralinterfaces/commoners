@@ -14,37 +14,53 @@ import {
   resolveHooks,
   resolveAppToLaunch,
   UserConfig,
+  valid
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
 
 import { DefaultHooks, CommonersUI } from '@commoners/solidarity/ui'
-const ui = new CommonersUI()
+
+// Parse early to check for --no-color flag
+const hasNoColor = process.argv.includes('--no-color')
+const ui = new CommonersUI({}, { noColor: hasNoColor })
 const cliHooks = new DefaultHooks(ui)
 
 // Utilities
 import cac from 'cac'
 import { join } from 'path'
-const desktopTargets = ['desktop', 'electron', 'tauri']
-const mobileTargets = ['mobile', 'android', 'ios']
-const webTargets = ['web', 'pwa']
-const allTargets = [...desktopTargets, ...mobileTargets, ...webTargets]
+import didYouMeanModule from 'didyoumean2'
+const didYouMean = didYouMeanModule.default || didYouMeanModule // Handle both named and default exports
 
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
-function failed (message, submessage?: string) {
-  this.ui.error(message, submessage)
+function failed (message: string, submessage?: string) {
+  ui.error(message, submessage)
   process.exit(1)
 }
 
 function preprocessTarget(target, hooks) {
   if (typeof target === 'string') {
-    if (!allTargets.includes(target)) {
-      const resolvedTargets = []
-      for (const t of allTargets) resolvedTargets.push(hooks.ui.target(t))
+    if (!valid.target.includes(target)) {
 
-      failed.call(hooks, `Invalid target: ${hooks.ui.target(target)}`, `Valid targets: ${resolvedTargets.join(', ')}`)
+      // Suggest closest match for typos
+      const suggestion = didYouMean(target, valid.target)
+
+
+
+      if (suggestion) {
+        const allTargetsWithoutSuggestion = valid.target.filter(t => t !== suggestion)
+        failed(
+          `"${target}" is an invalid target`,
+          `Did you mean ${ui._chalk.bold(suggestion)}? Other valid targets include ${renderCommaSeparatedList(allTargetsWithoutSuggestion)}`
+        )
+      } else {
+        failed(
+          `"${target}" is an invalid target`,
+          `Valid targets include ${renderCommaSeparatedList(valid.target)}`
+        )
+      }
     }
   }
 }
@@ -63,7 +79,48 @@ type ConfigOpts = {
 const getConfigPathFromOpts = ({ root, config }: ConfigOpts) =>
   root ? (config ? join(root, config) : root) : config
 
+// Read configuration from STDIN
+async function readStdin(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (process.stdin.isTTY) {
+      reject(new Error('No input provided via STDIN'))
+      return
+    }
+
+    let data = ''
+    process.stdin.setEncoding('utf8')
+    process.stdin.on('data', chunk => data += chunk)
+    process.stdin.on('end', () => resolve(data))
+    process.stdin.on('error', reject)
+  })
+}
+
+// Load config from STDIN or file
+async function getConfig(opts: { root?: string; config?: string; stdin?: boolean }) {
+  if (opts.stdin) {
+    try {
+      const stdinData = await readStdin()
+      const parsed = JSON.parse(stdinData)
+      return parsed
+    } catch (error) {
+      ui.error(`Failed to parse config from STDIN`, error.message)
+      process.exit(1)
+    }
+  }
+  return loadConfigFromFile(getConfigPathFromOpts({ root: opts.root, config: opts.config }))
+}
+
 const cli = cac()
+
+// Add global --no-color option
+cli.option('--target <target>', 'Choose a target for the application')
+cli.option('--config <path>', 'Specify a configuration file')
+cli.option('--stdin', 'Read configuration from STDIN')
+cli.option('--no-color', 'Disable colored output')
+
+// Add example usage
+cli.example('cat config.json | commoners build --stdin  # Use STDIN config')
+
 
 function renderCommaSeparatedList(list: string[]) {
   if (list.length === 0) return ''
@@ -74,21 +131,24 @@ function renderCommaSeparatedList(list: string[]) {
 // Launch the specified build
 cli
   .command('launch [root]', 'Launch your build application in the specified directory')
-  .option('--target <target>', 'Choose a target build to launch')
+
+  .example('commoners launch')
+  .example('commoners launch --target desktop')
+  .example('commoners launch --service api')
+
   .option('--outDir <path>', 'Choose an output directory for your build files')
   .option('--service <name>', 'Launch service(s)')
-  .option('--config <path>', 'Specify a configuration file')
 
   .option('--port <port>', 'Choose a port to launch on')
   .option('--public', 'Launch your service as public (services only)')
 
   .action(async (root, options) => {
-    const { config: configPath, service, public: isPublic, port, ...overrides } = options
+    const { config: configPath, service, public: isPublic, port, stdin, ...overrides } = options
     const isOnlyServices = !overrides.target && service // Services take priority if specified
 
     preprocessTarget(overrides.target, cliHooks)
-    const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return failed.call(cliHooks, 'Configuration not found')
+    const config = await getConfig({ root, config: configPath, stdin })
+    if (!config) return failed('Configuration not found')
     const reconciledConfig = reconcile(config, overrides) as UserConfig
     const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
 
@@ -116,12 +176,12 @@ cli
       delete reconciledConfig.target
 
       // NOTE: If passed, this simply wouldn't take effect
-      if (options.outDir) return failed.call(hooks, `Cannot specify an output directory when launching services`, `Services are built in a private directory`)
+      if (options.outDir) return failed(`Cannot specify an output directory when launching services`, `Services are built in a private directory`)
 
       const resolvedServices = typeof service === 'string' ? [service] : service
       const nServices = Object.keys(resolvedServices).length
       if (nServices > 1 && (port || isPublic))
-        return failed.call(hooks, `Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
+        return failed(`Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
       if (nServices === 1) {
         const serviceName = resolvedServices[0]
         if (serviceName in reconciledConfig.services) {
@@ -148,7 +208,7 @@ cli
     }
 
     // Ensure services are not specified with a target
-    else if (service) return failed.call(hooks, `Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
+    else if (service) return failed(`Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
 
     // Enhanced launch feedback
     await launch({ ...reconciledConfig, hooks })
@@ -159,21 +219,26 @@ cli
   .command('build [root]', 'Build the application in the specified directory', {
     ignoreOptionDefaultValue: true,
   })
-  .option('--target <target>', 'Choose a build target', { default: 'web' })
+
+  .example('commoners build')
+  .example('commoners build --target desktop')
+  .example('commoners build --service api')
+  .example('commoners build --services') // Force rebuild all services
+
+
   .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
   .option('--service <name>', 'Build service(s)')
   .option('--services', 'Force all services to rebuild')
   .option('--publish [type]', 'Publish the application', { default: 'always' })
   .option('--sign', 'Enable code signing (desktop target on Mac only)')
-  .option('--config <path>', 'Specify a configuration file')
   .action(async (root, options) => {
-    const { config: configPath, service, services, sign, publish, ...overrides } = options
+    const { config: configPath, service, services, sign, publish, stdin, ...overrides } = options
     const { target: manualTarget } = overrides
     overrides.build = { sign, publish }
 
     preprocessTarget(manualTarget, cliHooks)
-    const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return failed.call(cliHooks, 'Configuration not found')
+    const config = await getConfig({ root, config: configPath, stdin })
+    if (!config) return failed('Configuration not found')
     const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
 
     // Build Services Only
@@ -201,17 +266,21 @@ cli
   .command('[root]', 'Start the application in the specified directory', {
     ignoreOptionDefaultValue: true,
   })
+
+  .example('commoners')
+  .example('commoners --target desktop')
+  .example('commoners --no-color')
+  .example('cat config.json | commoners --stdin') // Use STDIN config
+
   .alias('start')
   .alias('dev')
   .alias('run')
-  .option('--target <target>', 'Choose a development target', { default: 'web' })
-  .option('--config <path>', 'Specify a configuration file')
 
   .action(async (root, options) => {
-    const { config: configPath, ...overrides } = options
+    const { config: configPath, stdin, ...overrides } = options
     preprocessTarget(overrides.target, cliHooks)
-    const config = await loadConfigFromFile(getConfigPathFromOpts({ root, config: configPath }))
-    if (!config) return failed.call(cliHooks, 'Configuration not found')
+    const config = await getConfig({ root, config: configPath, stdin })
+    if (!config) return failed('Configuration not found')
     const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
     const resolvedConfig = reconcile(config, overrides)
     await start(resolvedConfig, { hooks })

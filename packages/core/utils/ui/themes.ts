@@ -8,6 +8,8 @@ export interface UITheme {
   muted: string
 }
 
+export type ThemeName = 'default' | 'dark' | 'light'  
+
 export const defaultTheme: UITheme = {
   primary: '#A7C6ED',
   secondary: '#B8D6F0',
@@ -39,7 +41,7 @@ export const lightTheme: UITheme = {
   muted: '#9CA3AF', // Light Gray
 }
 
-export const getTheme = (theme: 'default' | 'dark' | 'light'): UITheme => {
+export const getTheme = (theme: ThemeName): UITheme => {
   switch (theme) {
     case 'dark':
       return darkTheme

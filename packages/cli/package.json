@@ -16,20 +16,25 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@commoners/solidarity": "1.0.0-alpha.2",
     "boxen": "^8.0.1",
     "cac": "^6.7.14",
     "chalk": "^5.2.0",
+    "didyoumean2": "^7.0.4",
     "figures": "^6.1.0",
     "ora": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.15",
+    "execa": "^9.6.0",
     "typescript": "^5.0.0",
     "vite": "^7.1.7",
-    "vite-plugin-static-copy": "^3.1.2"
+    "vite-plugin-static-copy": "^3.1.2",
+    "vitest": "^3.2.4"
   }
 }

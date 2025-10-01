@@ -1,5 +1,3 @@
-**/examples/**
-
 # macOS
 .DS_Store
 
@@ -17,6 +15,7 @@ dist-ssr
 
 # AI
 CLAUDE.md
+.claude 
 
 # Testing Resources
 .vite-templates

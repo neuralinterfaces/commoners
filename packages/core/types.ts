@@ -108,11 +108,11 @@ export const validDesktopTargets = ['desktop', 'electron', 'tauri']
 
 export const universalTargetTypes = ['desktop', 'mobile', 'pwa', 'web']
 
+const allTargets = Array.from(new Set([...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets]))
+
 export const valid = {
   // Derived
-  target: tuple(
-    ...Array.from(new Set(...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets))
-  ), // NOTE: Really these should transform to the relevant universal type
+  target: tuple(...allTargets.sort((a, b) => a.localeCompare(b))), // NOTE: Really these should transform to the relevant universal type
 
   // Internal
   command: tuple('start', 'dev', 'build', 'launch'),

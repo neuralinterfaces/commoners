@@ -4,7 +4,7 @@
 
 import { Ora } from 'ora'
 import { createRequire } from 'node:module'
-import { defaultTheme, getTheme, UITheme } from './themes.js'
+import { defaultTheme, getTheme, ThemeName, UITheme } from './themes.js'
 
 interface SectionContext {
   title: string
@@ -21,15 +21,25 @@ export class CommonersUI {
   private theme: UITheme = structuredClone(defaultTheme)
   private activeSpinners: Set<Ora> = new Set()
   private sectionStack: SectionContext[] = []
+  private colorsEnabled: boolean = true
 
-  constructor(theme: Partial<UITheme> | string = {}) {
+  constructor(theme: Partial<UITheme> | ThemeName = {}, options: { noColor?: boolean } = {}) {
 
     if (typeof theme === 'string') this.theme = getTheme(theme)
     else if (typeof theme === 'object' && theme !== null) this.theme = { ...defaultTheme, ...theme } // Merge provided theme with default theme
-    
+
+    // Respect NO_COLOR environment variable and --no-color flag
+    // See: https://no-color.org/
+    this.colorsEnabled = !process.env.NO_COLOR && !options.noColor
+
     // Cleanup spinners on exit
     const require = createRequire(import.meta.url)
-    this._chalk = require('chalk').default // Ensure compatibility with both ESM and CJS
+    const chalk = require('chalk')
+
+    // Disable colors if requested
+    if (!this.colorsEnabled) this._chalk = new chalk.Chalk({ level: 0 })
+    else this._chalk = chalk.default
+
     this._ora = require('ora').default // Ensure compatibility with both ESM and CJS
     this._boxen = require('boxen').default // Ensure compatibility with both ESM and CJS
     this._figures = require('figures').default // Ensure compatibility with both ESM and CJS
