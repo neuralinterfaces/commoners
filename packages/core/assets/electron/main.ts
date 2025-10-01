@@ -146,7 +146,10 @@ runVerification().then(async isValid => {
     try {
       if (this.isDestroyed()) return // Do not send messages to destroyed windows
       return this.webContents.send(channel, ...args)
-    } catch (e) {} // Catch in case messages are registered as sendable for a window that has been closed
+    } catch (e) {
+      // Window may have been closed - this is expected and safe to ignore
+      console.debug(`Failed to send message to channel ${channel}:`, e instanceof Error ? e.message : e)
+    }
   }
 
   type ReadyFunction = (win: BrowserWindow) => any
@@ -593,10 +596,6 @@ runVerification().then(async isValid => {
       __location.hash = urlObj.hash
 
       await loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..")
-
-      // // NOTE: This does not work when using loadFile
-      // const pageIdentifier = urlObj.pathname + urlObj.search + urlObj.hash
-      // loadPage(win, pageIdentifier) // Required for successful navigation relative to the root (e.g. "../..")
     })
 
     Object.defineProperty(win, '__show', {
@@ -731,15 +730,6 @@ runVerification().then(async isValid => {
     await boundRunAppPlugins([resolvedServices]) // Run plugins on start with resolved services
 
     app.whenReady().then(async () => {
-      // session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      //   console.log(`[CSP] Headers received for ${details.url}`)
-      //   callback({
-      //     responseHeaders: {
-      //       ...details.responseHeaders
-      //     }
-      //   })
-      // })
-
       // ------------------------ STDIN Commands ------------------------
 
       const rl = createInterface({
@@ -791,8 +781,6 @@ runVerification().then(async isValid => {
         const { scheme } = protocolOptions
         const { protocol, net } = electron
         app.setAppUserModelId(`com.${scheme}`)
-
-        // console.log("Registered protocol", protocolOptions)
 
         protocol.handle(scheme, req => {
           const loadedURL = new URL(req.url)

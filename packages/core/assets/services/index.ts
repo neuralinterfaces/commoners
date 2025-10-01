@@ -339,7 +339,6 @@ export async function start(
 
     const resolvedURL = new URL(config.url)
 
-    // const host = getLocalIP() // Constrain to local IP address if not public
     resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
 
     hooks.emit({ type: 'service:launch:start',  service: label, filepath })
@@ -413,7 +412,6 @@ export async function start(
         hooks.emit({ type: 'service:exit', service: label, code  })
       })
 
-      // process.on('close', (code) => code === null ? console.log(chalk.gray(`Restarting ${label}...`)) : console.error(chalk.red(`[${label}] exited with code ${code}`)));
 
       hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
       processes[id] = childProcess
@@ -429,7 +427,7 @@ const killProcess = p => {
   try {
     return p.kill()
   } catch (e) {
-    console.error(e)
+    console.error(`Failed to kill process ${p.pid}:`, e instanceof Error ? e.message : e)
   }
 }
 

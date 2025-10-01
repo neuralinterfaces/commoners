@@ -16,6 +16,8 @@ import { spawnProcess } from './utils/processes.js'
 import * as mobile from './mobile/index.js'
 import { createAll } from './assets/services/index.js'
 import { resolveConfig, resolveHooks } from './index.js'
+import { ValidationError, BuildError } from './errors.js'
+import { TARGET_ELECTRON } from './constants.js'
 
 type ViteServerOptions = import('vite').ServerOptions
 
@@ -68,8 +70,10 @@ export const launchServices = async (
 
   const serviceNames = Object.keys(services)
   if (!serviceNames.length) {
-    console.error('No services specified.')
-    process.exit(1)
+    throw new ValidationError(
+      'No services specified',
+      'You must specify at least one service to launch. Check your configuration.'
+    )
   }
 
   // Ensure users can access the created services
@@ -97,14 +101,19 @@ export const launchApp = async (config: LaunchConfig, args = []) => {
 
     const { port, public: isPublic } = config
 
-    if (originalOutDir && getDesktopPath(originalOutDir)) target = 'electron' // Autodetect Electron target
+    if (originalOutDir && getDesktopPath(originalOutDir)) target = TARGET_ELECTRON // Autodetect Electron target
 
     target = await ensureTargetConsistent(target)
     const outDir = resolveAppToLaunch(config)
 
     hooks.emit({ type: 'launch:start', outDir, target })
 
-    if (!existsSync(outDir)) throw new Error(`The expected output directory does not exist`)
+    if (!existsSync(outDir)) {
+      throw new BuildError(
+        'Output directory not found',
+        `The expected output directory does not exist: ${outDir}. Run build command first.`
+      )
+    }
 
     if (isMobile(target)) {
       process.chdir(outDir)
@@ -113,7 +122,12 @@ export const launchApp = async (config: LaunchConfig, args = []) => {
     } else if (isDesktop(target)) {
       const fullPath = getDesktopPath(outDir)
 
-      if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
+      if (!fullPath) {
+        throw new BuildError(
+          'Platform executable not found',
+          `This application has not been built for ${PLATFORM} yet. Build output directory: ${outDir}`
+        )
+      }
 
       let runExecutableCommand = 'open' // Default to macOS command
 
@@ -167,6 +181,7 @@ export const launchApp = async (config: LaunchConfig, args = []) => {
   catch (error) {
     console.log(error)
     hooks.emit({ type: 'launch:error', error })
+    throw error
   }
 
   finally {

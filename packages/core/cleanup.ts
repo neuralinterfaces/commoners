@@ -21,6 +21,7 @@ export const cleanup = (code = 0) => {
   }
 
   for (const cb of callbacks) __runCleanupCallback(cb, code)
+  return true
 }
 
 const originalExit = process.exit.bind(process)
@@ -34,13 +35,14 @@ const __exit = (code, force = true) => {
   const normalized = typeof code === 'number' ? code : (code === 'SIGINT' ? 0 : 1);
 
   if (isAsync) {
-    return cleanup(code)
+    const promise = cleanup(code) as Promise<unknown>
+    return promise
     .catch(error => console.error(`Async Cleanup Error: ${error.message}`))
     .finally(() => {
       if (willExit) runOriginalExit(normalized) // Do not force exit on SIGINT
     })
   }
-  
+
   try {
     cleanup(code)
   } catch (error) {
@@ -48,6 +50,7 @@ const __exit = (code, force = true) => {
   }
 
   if (willExit) runOriginalExit(normalized) // Exit with original code
+  return undefined
 }
 
 let __EXITING = {
@@ -63,4 +66,4 @@ export const exit = (code, force = true) => {
 
 const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
 exitEvents.forEach(event => process.on(event, (code) => exit(code, false))) // Register exit events, do not force exit though
-process.exit = exit
+process.exit = exit as any

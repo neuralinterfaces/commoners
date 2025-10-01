@@ -9,6 +9,8 @@ import { chalk } from '../globals.js'
 import { onCleanup } from '../cleanup.js'
 
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfiguration } from '../types.js'
+import { DependencyError, PlatformError } from '../errors.js'
+import { TARGET_IOS, TARGET_ANDROID, MOBILE_IOS_PLIST_PATH, MOBILE_ANDROID_MANIFEST_PATH } from '../constants.js'
 
 // Internal Utilities
 import { runCommand } from '../utils/processes.js'
@@ -37,7 +39,10 @@ const getBaseConfig = ({ name, appId, outDir }) => {
 const isCapacitorConfig = (o: CapacitorConfig) =>
   o && typeof o === 'object' && 'name' in o && 'plugin' in o
 
-const getCapacitorConfig = (o: Plugin) => o.isSupported?.capacitor
+const getCapacitorConfig = (o: Plugin) => {
+  const support = o.isSupported
+  return (typeof support === 'object' && 'capacitor' in support) ? support.capacitor : undefined
+}
 
 const getCapacitorPluginAccessor = (plugin: Plugin) => {
   const capacitorPlugin = getCapacitorConfig(plugin)
@@ -46,7 +51,7 @@ const getCapacitorPluginAccessor = (plugin: Plugin) => {
   return {
     ref: capacitorPlugin,
     setParent: (v: boolean) => {
-      const supportObj = plugin.isSupported as SupportConfiguration
+      const supportObj = plugin.isSupported as { capacitor?: CapacitorConfig | false }
       if (v === false) supportObj.capacitor = false // Disable plugin for mobile
     },
   }
@@ -68,7 +73,7 @@ export const prebuild = ({ plugins, root }: ResolvedConfig) => {
 }
 
 type MobileOptions = {
-  target: 'ios' | 'android'
+  target: typeof TARGET_IOS | typeof TARGET_ANDROID
   outDir: string
 }
 
@@ -145,11 +150,14 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
   const installedPlugins = commonersPlugins.filter(({ plugin }) => {
     if (isInstalled(plugin, require.resolve)) return true
-    else ignored.push(plugin)
+    else {
+      ignored.push(plugin)
+      return false
+    }
   })
 
   // Inject the appropriate permissions into the info.plist file (iOS only)
-  if (target === 'ios') {
+  if (target === TARGET_IOS) {
     const xml = plist.parse(readFileSync(platformConfigPath, 'utf8')) as any
     installedPlugins.forEach(({ plist = {} }) =>
       Object.entries(plist).forEach(([key, value]) => (xml[key] = value))
@@ -158,18 +166,13 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
   }
 
   // Inject the appropriate permissions into the AndroidManifest.xml file (Android only) (UNTESTED)
-  else if (target === 'android') {
+  else if (target === TARGET_ANDROID) {
     const xml = readFileSync(platformConfigPath, 'utf8')
     const result = await xml2js.parseStringPromise(xml)
     const androidManifest = result.manifest
 
-    // console.log('Original', androidManifest)
-    // installedPlugins.forEach(({ manifest = {}}) =>{
-    //     console.log('Adding', manifest)
-    //     Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value)
-    // })
-
-    // console.log('Final', androidManifest)
+    // TODO: Implement Android manifest injection for plugins
+    // See: https://github.com/commoners/commoners/issues/XXX
 
     writeFileSync(platformConfigPath, new xml2js.Builder().buildObject(result))
   }
@@ -190,11 +193,13 @@ const checkPlaformConfigExists = async (platform, root) => {
   const projectBase = resolvePath(root, platform)
   const configFilePath = join(
     projectBase,
-    platform === 'ios' ? 'App/App/info.plist' : 'app/src/main/AndroidManifest.xml'
+    platform === TARGET_IOS ? MOBILE_IOS_PLIST_PATH : MOBILE_ANDROID_MANIFEST_PATH
   )
   if (!existsSync(configFilePath)) {
-    console.error(`@capacitor/${platform} is not installed at the base of your project.`)
-    process.exit(1)
+    throw new DependencyError(
+      `@capacitor/${platform} is not installed`,
+      `Platform-specific files not found at: ${configFilePath}. Run 'npx cap add ${platform}' to initialize.`
+    )
   }
   return configFilePath
 }
@@ -219,9 +224,10 @@ export const checkDepsInstalled = async (config: ResolvedConfig) => {
 
   if (notInstalled.size > 0) {
     const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
-    console.error('\nThe following packages must be installed at the base of your project:')
-    console.error(installationCommand)
-    process.exit(1)
+    throw new DependencyError(
+      'Missing required Capacitor dependencies',
+      `The following packages must be installed:\n  ${installationCommand}`
+    )
   }
 }
 
@@ -242,11 +248,13 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 export const launch = async target => {
   const _chalk = await chalk
 
-  throw new Error(`Cannot launch for ${target} yet...`)
+  throw new PlatformError(
+    'Mobile launch not implemented',
+    `Cannot launch for ${target} yet. This feature is under development.`
+  )
 
-  // if (existsSync(platform))  {
-  //     console.log(_chalk.red(`This project is not initialized for ${platform}`))
-  //     process.exit()
+  // TODO: Implement mobile launch detection
+  // See: https://github.com/commoners/commoners/issues/XXX
   // }
 
   // await checkDepsInstalled(platform)

@@ -259,6 +259,8 @@ export type SupportConfiguration =
     }
   | SupportQuery
 
+export type SupportConfigurationWithCapacitor = Extract<SupportConfiguration, { capacitor?: any }>
+
 // Runs with special behaviors on desktop
 type HybridPlugin = {
   isSupported?: SupportConfiguration
@@ -300,7 +302,7 @@ export type ElectronSecuritySettings = {
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
 }
 
-type ElectronOptions = {
+export type ElectronOptions = {
   splash?: string
   window?: BrowserWindowConstructorOptions
   protocol?: string | CustomScheme
@@ -309,6 +311,7 @@ type ElectronOptions = {
   dev?: {
     load?: 'url' | 'file' // Load the Electron pages from a file or URL
   }
+  hooks?: HooksInterface
 }
 
 type RawPlugins = { [id: string]: Plugin }

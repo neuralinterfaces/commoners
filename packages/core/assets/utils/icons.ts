@@ -1,13 +1,14 @@
 import { safePath } from './paths.js'
 
 // Copied types
+import type { IconType as ImportedIconType } from '../../types.js'
 type BaseIconType = string | string[]
 function tuple<T extends string[]>(...o: T) {
   return o
 }
 
 const valid = tuple('light', 'dark')
-type IconType = BaseIconType | Record<(typeof valid)[number], BaseIconType>
+type IconType = ImportedIconType
 
 const isIconValue = o => typeof o === 'string' || Array.isArray(o)
 
@@ -34,7 +35,7 @@ const getPreferredIcon = (
 
 // Get icon safely
 type IconOptions = {
-  type?: (typeof valid.icon)[number]
+  type?: (typeof valid)[number]
   preferredFormats?: string[]
 }
 
@@ -57,7 +58,7 @@ export const getIcon = (icon: IconType, options: IconOptions = {}) => {
   }
 
   // Get first valid icon
-  const found = valid.icon.find(str => isIconValue(icon[str]))
+  const found = valid.find(str => isIconValue(icon[str]))
   const resolved = found ? icon[found] : Object.values(icon).find(isIconValue)
   return resolved ? getPreferredIcon(resolved, preferredFormats) : resolved
 }

@@ -14,6 +14,7 @@ import {
   vite,
   electronVersion,
 } from './globals.js'
+import { TARGET_ELECTRON, DIR_ELECTRON, DIR_MOBILE } from './constants.js'
 import {
   BuildHooks,
   ServiceBuildOptions,
@@ -35,11 +36,8 @@ import merge from './utils/merge.js'
 //     chainArtifactBuildCompleted,
 //     debugAfterPack,
 //     makeAfterPackEmbedAsarIntegrity,
-//     readIntegrityResource,
-//     afterPackFlipFuses
-// } from "./utils/asar/security.js";
-
-// import { logAsarState } from "./utils/asar/debug.js";
+// ASAR security features - commented out pending future implementation
+// See: https://github.com/commoners/commoners/issues/XXX
 
 // Core Internal Imports
 import { configureForDesktop, resolveConfig, resolveHooks } from './index.js'
@@ -60,8 +58,6 @@ export const buildServices = async (config: UserConfig = {}, options: ServiceBui
   const { dev = false, services, rebuild = true  } = options
 
   const { outDir } = options
-
-  // if (!dev) await printHeader(`${name} – ${buildOnlyServices ? 'Building Selected Services' : `${getTargetDisplayName(target)} Build`}`)
 
   const resolvedConfig = await resolveConfig(config, { services, build: true })
   const { hooks } = resolvedConfig
@@ -117,7 +113,7 @@ export async function buildApp(
 
     const { publish, sign } = build
 
-    const isElectronBuild = target === 'electron'
+    const isElectronBuild = target === TARGET_ELECTRON
     const isDesktopBuild = isDesktop(target)
     const isMobileBuild = isMobile(target)
 
@@ -131,7 +127,7 @@ export async function buildApp(
 
     let wasOverwritten = false
     if (customTempDir) {
-      outDir = join(root, globalTempDir, isElectronBuild ? 'electron' : 'mobile')
+      outDir = join(root, globalTempDir, isElectronBuild ? DIR_ELECTRON : DIR_MOBILE)
       const { overwrite: __wasOverwritten } = await handleTemporaryDirectories(
         dirname(outDir),
         overwrite
@@ -178,7 +174,7 @@ export async function buildApp(
 
     if (onBuildAssets) {
       const result = onBuildAssets(outDir)
-      if (result === null) return // Skip packaging if requested
+      if (result === null) return undefined // Skip packaging if requested
     }
 
     // ------------------------- Target-Specific Build Steps -------------------------
@@ -272,7 +268,7 @@ export async function buildApp(
       if (preferredWinIcon) buildConfig.win.icon = resolveIconPath(preferredWinIcon)
 
       // Ensure proper absolute paths are provided for Electron build
-      const electronTemplateDir = path.join(templateDir, 'electron')
+      const electronTemplateDir = path.join(templateDir, DIR_ELECTRON)
 
       buildConfig.directories.buildResources = path.join(
         electronTemplateDir,
@@ -297,103 +293,8 @@ export async function buildApp(
           buildConfig[key] = path.join(root, buildConfig[key]) // Resolve paths relative to the root
       }
 
-      // // Ensure electron-builder runs our integrity injector first, then flips fuses
-      // if (buildConfig.asar && security.integrity) {
-
-      //     // Create debugged hook functions
-      //     const debuggedAfterPackFlipFuses = async (context: any) => {
-      //         const asarPath = join(context.appOutDir, 'resources', 'app.asar');
-      //         logAsarState('BEFORE_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' });
-
-      //         await afterPackFlipFuses(context);
-
-      //         logAsarState('AFTER_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' });
-      //     };
-
-      //     // Add this after your signing step
-      //     const verifyIntegrityAfterSigning = async (config: any, fail = true) => {
-      //         const exePath = path.resolve(config.file);
-
-      //         // Log ASAR state during artifact build completion
-      //         const artifactDir = path.dirname(exePath);
-      //         const possibleAsarPaths = [
-      //             path.join(artifactDir, 'win-unpacked', 'resources', 'app.asar'),
-      //             path.join(path.dirname(artifactDir), 'win-unpacked', 'resources', 'app.asar'),
-      //         ];
-
-      //         for (const asarPath of possibleAsarPaths) {
-      //             if (existsSync(asarPath)) {
-      //                 logAsarState('ARTIFACT_BUILD_COMPLETED_VERIFICATION', asarPath, {
-      //                     artifact: path.basename(exePath),
-      //                     hook: 'verifyIntegrityAfterSigning'
-      //                 });
-      //                 break;
-      //             }
-      //         }
-
-      //         const embedded = readIntegrityResource(exePath);
-      //         if (!embedded.length) {
-      //             const message = `⚠️\tNo integrity resource found in ${exePath}. This may indicate a problem with the signing process.`;
-      //             if (fail)  throw new Error(message);
-      //             console.warn(message);
-      //             return;
-      //         }
-      //     };
-
-      //     // OPTIONAL: if you still patch app.asar (e.g., your test blocker), do it here.
-      //     // Ensure it modifies the ASAR at `${appOutDir}/resources/app.asar` (Win/Linux) or
-      //     // `${appOutDir}/${product}.app/Contents/Resources/app.asar` (macOS).
-      //     const mutateAsar = async ({ appOutDir, productName }) => {
-      //         // Track ASAR state before mutation
-      //         const asarPath = join(appOutDir, 'resources', 'app.asar');
-      //         logAsarState('MUTATE_ASAR_START', asarPath, { hook: 'mutateAsar' });
-
-      //         // Example: run your patcher here so the final hash matches what ships.
-      //         // await cp.execFile('node', ['utilities/patch-electron-asar.js', '--app', appOutDir]);
-      //         console.log('🔧 ASAR mutation step (currently no-op)');
-
-      //         logAsarState('MUTATE_ASAR_END', asarPath, { hook: 'mutateAsar' });
-      //     };
-
-      //     // Hook setup with comprehensive debugging
-      //     buildConfig.afterPack = chainAfterPack(
-      //         buildConfig.afterPack,
-      //         debugAfterPack,
-      //         debuggedAfterPackFlipFuses,                            // flip fuses first
-      //         makeAfterPackEmbedAsarIntegrity(mutateAsar)           // then embed integrity LAST
-      //     );
-
-      //     buildConfig.artifactBuildCompleted = chainArtifactBuildCompleted(
-      //         buildConfig.artifactBuildCompleted,
-      //         (config) => {
-      //             // Add comprehensive logging for artifact build completion
-      //             const exePath = path.resolve(config.file);
-      //             console.log(`\n🔍 Artifact Build Completed: ${path.basename(exePath)}`);
-
-      //             // Find and log the associated unpacked directory
-      //             const artifactDir = path.dirname(exePath);
-      //             const possibleUnpackedDirs = [
-      //                 path.join(artifactDir, 'win-unpacked'),
-      //                 path.join(path.dirname(artifactDir), 'win-unpacked'),
-      //             ];
-
-      //             for (const unpackedDir of possibleUnpackedDirs) {
-      //                 if (existsSync(unpackedDir)) {
-      //                     const asarPath = path.join(unpackedDir, 'resources', 'app.asar');
-      //                     if (existsSync(asarPath)) {
-      //                         logAsarState('ARTIFACT_BUILD_COMPLETED', asarPath, {
-      //                             artifact: path.basename(exePath),
-      //                             unpackedDir,
-      //                             hook: 'artifactBuildCompleted'
-      //                         });
-      //                     }
-      //                 }
-      //             }
-
-      //             return verifyIntegrityAfterSigning(config, false);
-      //         }
-      //     );
-      // }
+      // TODO: Implement ASAR integrity checking
+      // See: https://github.com/commoners/commoners/issues/XXX
 
       buildConfig.mac.entitlementsInherit = path.join(
         electronTemplateDir,

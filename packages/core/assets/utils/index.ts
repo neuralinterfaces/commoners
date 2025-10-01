@@ -36,24 +36,6 @@ export function isPluginLoadable(plugin) {
   return isPluginFeatureSupported.call(this, plugin, 'load')
 }
 
-// const commonPluginFeatures = [ 'load', 'start', 'ready', 'quit' ]
-
-// export async function isPluginSupported (plugin, target) {
-
-//     const isDesktopBuild = target === 'desktop'
-
-//     let { desktop } = plugin
-//     if (desktop && isDesktopBuild) return true // Desktop plugins are always supported in desktop builds
-
-//     const supported = []
-//     for (const feature of commonPluginFeatures) {
-//         const supported = await isPluginFeatureSupported.call(this, plugin, feature)
-//         supported.push(supported)
-//     }
-
-//     return supported.some(supported => supported) // Support if any feature is supported
-// }
-
 export const sanitizePluginProperties = (plugin, target) => {
   const copy = { ...plugin }
 

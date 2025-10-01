@@ -25,9 +25,24 @@ import { bundleConfig } from './utils/assets.js'
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
 
+// Error classes
+import { ConfigurationError, ValidationError } from './errors.js'
+
+// Security utilities
+import { validatePath } from './utils/security.js'
 
 import { resolveHooks } from './assets/utils/hooks.js'
 export { resolveHooks }
+
+// Export error classes for consumers
+export {
+  CommonersError,
+  ConfigurationError,
+  ValidationError,
+  DependencyError,
+  PlatformError,
+  BuildError,
+} from './errors.js'
 
 
 const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path))
@@ -80,7 +95,12 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
 
   const isValidProject = await isCommonersProject(root)
 
-  if (!isValidProject) process.exit(1)
+  if (!isValidProject) {
+    throw new ConfigurationError(
+      'Invalid Commoners project',
+      `This directory does not contain an index.html file: ${root}`
+    )
+  }
 
   const configPath = resolveConfigPath(
     rootExists
@@ -169,7 +189,10 @@ export async function resolveConfig(
 
   o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
 
-  if (o.outDir && !isAbsolute(o.outDir)) o.outDir = join(o.root, o.outDir)
+  if (o.outDir && !isAbsolute(o.outDir)) {
+    // Validate outDir to prevent path traversal
+    o.outDir = validatePath(o.outDir, o.root, 'output directory')
+  }
 
   o.plugins = plugins ?? {} // Transfer the original plugins
   o.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish
@@ -193,7 +216,9 @@ export async function resolveConfig(
   if (!o.pages) o.pages = {}
 
   o.pages = Object.entries(o.pages).reduce((acc, [id, filepath]) => {
-    acc[id] = getAbsolutePath(root, filepath)
+    // Validate page paths to prevent traversal
+    const absolutePath = getAbsolutePath(root, filepath)
+    acc[id] = validatePath(absolutePath, root, `page "${id}"`)
     return acc
   }, {})
 
@@ -205,9 +230,11 @@ export async function resolveConfig(
     const allServices = Object.keys(o.services)
     if (selectedServices) {
       if (!selectedServices.every(name => allServices.includes(name))) {
-        console.error('Invalid service selection')
-        console.error(`Available services: ${allServices.join(', ')}`)
-        process.exit(1)
+        const invalidServices = selectedServices.filter(name => !allServices.includes(name))
+        throw new ValidationError(
+          'Invalid service selection',
+          `Unknown services: ${invalidServices.join(', ')}. Available services: ${allServices.join(', ')}`
+        )
       }
     }
   }

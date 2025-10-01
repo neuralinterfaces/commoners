@@ -148,10 +148,10 @@ const startServices = services
 
 export const app = async function (config: UserConfig, options: { hooks?: HooksInterface } = {}) {
 
-  try {
+  const resolvedConfig = await resolveConfig(config, { hooks: options.hooks })
+  const hooks = resolvedConfig.hooks
 
-    const resolvedConfig = await resolveConfig(config, { hooks: options.hooks })
-    const hooks = resolvedConfig.hooks
+  try {
 
     // Emit dev server start event
     hooks.emit({ type: 'dev:start', config: resolvedConfig })
@@ -255,5 +255,6 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       type: 'dev:server:error',
       error: error as Error
     })
+    throw error
   }
 }

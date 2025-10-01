@@ -20,6 +20,7 @@ import { copyAsset, copyAssetOld } from './copy.js'
 import { encodePath } from './encode.js'
 import { chalk, isDesktop, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
+import { BuildError } from '../errors.js'
 import {
   ResolvedConfig,
   ResolvedService,
@@ -132,7 +133,10 @@ export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHook
   })
 
   if (!result.success) {
-    throw new Error(`Failed to create SEA executable: ${result.error}`)
+    throw new BuildError(
+      'SEA executable creation failed',
+      `Failed to create Single Executable Application: ${result.error}. Source: ${src}, Output: ${out}`
+    )
   }
 
   return { built: true, outDir } // Return the output directory
@@ -364,8 +368,6 @@ export const getServiceAssets = (
     // @ts-ignore
     const { build, base, filepath, __src, __autobuild } = resolvedService
 
-    // if (!dev && !publish) continue // Avoid building unpublished services
-
     const allowCompilation = !(dev && __autobuild)
 
     const bundleConfig = {
@@ -542,7 +544,10 @@ export const buildAssets = async (
     })
   )
   .catch(error => {
-    throw new Error(`Failed to build assets: ${error.message}`)
+    throw new BuildError(
+      'Asset build failed',
+      `Failed to build assets: ${error.message}. Stack: ${error.stack}`
+    )
   })
 
   // Copy static assets

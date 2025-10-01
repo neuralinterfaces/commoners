@@ -8,6 +8,7 @@
 import { execSync } from 'node:child_process'
 import { copyFileSync, writeFileSync, existsSync, mkdirSync, rmSync, chmodSync, statSync } from 'node:fs'
 import { dirname, basename, join, extname } from 'node:path'
+import { PlatformError } from '../errors.js'
 
 export type SEAConfig = {
   main: string
@@ -102,10 +103,11 @@ export async function createSEA(options: SEABuildOptions): Promise<SEABuildResul
       size,
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? `${error.message}\nStack: ${error.stack}` : String(error)
     return {
       success: false,
       executablePath: out,
-      error: error instanceof Error ? error.message : String(error),
+      error: `SEA build failed for ${src}: ${errorMessage}`,
     }
   }
 }
@@ -161,7 +163,10 @@ async function injectSEABlob(
     const injectCmd = `npx postject "${executablePath}" NODE_SEA_BLOB "${blobPath}" --sentinel-fuse ${sentinelFuse}`
     execSync(injectCmd, { stdio: 'pipe' })
   } else {
-    throw new Error(`Unsupported platform: ${platform}`)
+    throw new PlatformError(
+      'SEA not supported on platform',
+      `Single Executable Application creation is not supported on platform: ${platform}. Supported: darwin, linux, win32`
+    )
   }
 }
 

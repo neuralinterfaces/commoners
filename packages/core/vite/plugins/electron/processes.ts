@@ -17,7 +17,10 @@ export async function treeKillGracefully(pid: number) {
       const output = execSync(`tasklist /FI "PID eq ${pid}"`, { encoding: 'utf8' })
       if (!output.includes(`${pid}`)) return
       execSync(`taskkill /PID ${pid} /T /F`) // Kill the whole process tree forcibly
-    } catch (err) {}
+    } catch (err) {
+      // Process may already be dead, which is fine
+      console.debug(`Failed to kill process ${pid}:`, err instanceof Error ? err.message : err)
+    }
   } else {
     const tree = pidTree({ pid, ppid: process.pid })
     await killTreeGracefully(tree)

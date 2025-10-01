@@ -14,7 +14,10 @@ import {
   resolveHooks,
   resolveAppToLaunch,
   UserConfig,
-  valid
+  valid,
+
+  // Errors
+  CommonersError,
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
@@ -143,14 +146,15 @@ cli
   .option('--public', 'Launch your service as public (services only)')
 
   .action(async (root, options) => {
-    const { config: configPath, service, public: isPublic, port, stdin, ...overrides } = options
-    const isOnlyServices = !overrides.target && service // Services take priority if specified
+    try {
+      const { config: configPath, service, public: isPublic, port, stdin, ...overrides } = options
+      const isOnlyServices = !overrides.target && service // Services take priority if specified
 
-    preprocessTarget(overrides.target, cliHooks)
-    const config = await getConfig({ root, config: configPath, stdin })
-    if (!config) return failed('Configuration not found')
-    const reconciledConfig = reconcile(config, overrides) as UserConfig
-    const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
+      preprocessTarget(overrides.target, cliHooks)
+      const config = await getConfig({ root, config: configPath, stdin })
+      if (!config) return failed('Configuration not found')
+      const reconciledConfig = reconcile(config, overrides) as UserConfig
+      const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
 
     let launchSpinner
     const start = message => {
@@ -207,11 +211,18 @@ cli
       }
     }
 
-    // Ensure services are not specified with a target
-    else if (service) return failed(`Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
+      // Ensure services are not specified with a target
+      else if (service) return failed(`Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
 
-    // Enhanced launch feedback
-    await launch({ ...reconciledConfig, hooks })
+      // Enhanced launch feedback
+      await launch({ ...reconciledConfig, hooks })
+    } catch (error) {
+      if (error instanceof CommonersError) {
+        ui.error(error.message, error.details)
+        process.exit(1)
+      }
+      throw error // Re-throw unexpected errors
+    }
   })
 
 // Build the application using the specified settings

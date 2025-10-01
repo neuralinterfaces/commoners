@@ -19,7 +19,7 @@ export class PyInstallerService {
 
     const sharedOptions = `-y --clean --distpath ${out}`
 
-    const { buildSpec, buildArgs = '' } = service
+    const { buildSpec, buildArgs = '' } = service as PyInstallerServiceProperties
 
     const build = buildSpec
       ? `python -m PyInstaller ${buildSpec} ${sharedOptions}`

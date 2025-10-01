@@ -10,6 +10,20 @@ import { SpecificTargetType } from './types.js'
 import { onCleanup } from './cleanup.js'
 export { cleanup } from './cleanup.js'
 
+// Error classes
+import { BuildError, PlatformError } from './errors.js'
+
+// Constants
+import {
+  TARGET_ELECTRON,
+  TARGET_DESKTOP,
+  TARGET_MOBILE,
+  TARGET_IOS,
+  TARGET_ANDROID,
+  PLATFORM_MAC,
+  DIR_ELECTRON,
+} from './constants.js'
+
 // External Packages
 import * as yaml from 'js-yaml'
 
@@ -52,10 +66,10 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwr
 
   // NOTE: Ensure that the single temporary directory is not overwritten for different targets
   if (!canOverwrite && existsSync(tempDir)) {
-    console.error('An active development build was detected for this project.')
-    console.error('Shut down the active build and try again.')
-    console.error(`To reset this error, you may also delete the ${resolve(tempDir)} directory.`)
-    process.exit(1)
+    throw new BuildError(
+      'Active development build detected',
+      `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
+    )
   }
 
   let removed = false
@@ -88,15 +102,15 @@ export const isMobile = (target: TargetType) => validMobileTargets.includes(targ
 export const getNormalizedTarget = (target: TargetType) => {
   const isDesktopTarget = isDesktop(target)
   const isMobileTarget = isMobile(target)
-  return isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
+  return isDesktopTarget ? TARGET_DESKTOP : isMobileTarget ? TARGET_MOBILE : 'web'
 }
 
 export const getSpecificTarget = (target: TargetType) => {
   if (!target)
     target = 'web' // Default to web target
-  else if (target === 'mobile')
-    target = PLATFORM === 'mac' ? 'ios' : 'android' // Auto-detect mobile platform
-  else if (target === 'desktop') target = 'electron' // Auto-detect desktop platform
+  else if (target === TARGET_MOBILE)
+    target = PLATFORM === PLATFORM_MAC ? TARGET_IOS : TARGET_ANDROID // Auto-detect mobile platform
+  else if (target === TARGET_DESKTOP) target = TARGET_ELECTRON // Auto-detect desktop platform
   return target as SpecificTargetType
 }
 
@@ -106,17 +120,21 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
 
   // Provide a custom warning message for tauri
   if (target === 'tauri') {
-    console.error('Tauri is not yet supported.')
-    process.exit(1)
+    throw new PlatformError(
+      'Tauri is not yet supported',
+      'Tauri support is planned for a future release. Use electron or web targets instead.'
+    )
   }
 
   if (universalTargetTypes.includes(target)) return target
   if (isDesktop(target)) return target
-  else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android'))
+  else if (isMobile(target) && (PLATFORM === PLATFORM_MAC || target === TARGET_MOBILE || target === TARGET_ANDROID))
     return target // Linux and Windows can build for android
 
-  console.error(`No commoners command for ${target} on ${PLATFORM}`)
-  process.exit(1)
+  throw new PlatformError(
+    `Target '${target}' not supported on ${PLATFORM}`,
+    `This platform (${PLATFORM}) cannot build for target: ${target}`
+  )
 }
 
 // Get Configuration File and Path
@@ -124,22 +142,4 @@ export const rootDir = dirname(require.resolve(__filename))
 
 export const templateDir = join(rootDir, 'assets')
 export const getBuildConfig = (): WritableElectronBuilderConfig =>
-  yaml.load(readFileSync(join(templateDir, 'electron', 'electron-builder.yml')).toString())
-
-// const resolveKey = (key) => {
-//     if (valid.mode.includes(key)) return MODE
-//     else if (valid.platform.includes(key)) return PLATFORM
-//     else if (valid.target.includes(key)) return TARGET
-//     return
-// }
-
-// export const resolvePlatformSpecificValue = (o) => {
-//     if (o && typeof o === 'object') {
-//         const resolvedKey = Object.keys(o).find(resolveKey)
-//         if (resolvedKey) return resolvePlatformSpecificValue(o[resolvedKey]) // Return resolved value
-//     }
-
-//     else if (typeof o === 'function') return resolvePlatformSpecificValue(o())
-
-//     return o
-// }
+  yaml.load(readFileSync(join(templateDir, DIR_ELECTRON, 'electron-builder.yml')).toString())
