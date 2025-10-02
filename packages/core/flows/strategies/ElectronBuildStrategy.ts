@@ -10,7 +10,6 @@ import { TARGET_ELECTRON, DIR_ELECTRON } from '../../constants.js'
 import { parseOptions } from '../../assets/electron/modules/config.js'
 
 import {
-  globalWorkspacePath,
   globalTempDir,
   getBuildConfig,
   templateDir,

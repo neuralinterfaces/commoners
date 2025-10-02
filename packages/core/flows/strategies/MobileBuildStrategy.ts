@@ -58,11 +58,10 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
 
     const mobileOpts = { target: target as 'ios' | 'android', outDir: __outDir }
 
-    // Initialize Capacitor
-    await mobile.init(mobileOpts, resolvedConfig)
-
-    // Open in native IDE
-    await mobile.open(mobileOpts, resolvedConfig)
+    await mobile.runInRoot(async (config) => {
+      await mobile.init(mobileOpts, config) // Initialize Capacitor
+      await mobile.open(mobileOpts, config) // Open in native IDE
+    }, resolvedConfig)
 
     logger.info(`${this.platform} project ready`, { message: `Open in Xcode/Android Studio to build` })
   }

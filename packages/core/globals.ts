@@ -1,7 +1,7 @@
 // Built-In Modules
 import { join, resolve } from 'node:path'
 import { dirname } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { exists, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 
 import { removeDirectory } from './utils/files.js'
@@ -37,6 +37,10 @@ import {
   validMobileTargets,
 } from './types.js'
 
+import { globalWorkspacePath } from './assets/services/paths.js'
+import { dir } from 'node:console'
+export { globalWorkspacePath }
+
 // Dynamic Imports
 export const chalk = import('chalk').then(m => m.default)
 export const vite = import('vite')
@@ -54,28 +58,37 @@ const require = createRequire(import.meta.url)
 const { version: electronVersion } = require('electron/package.json')
 export { electronVersion }
 
-export const globalWorkspacePath = '.commoners'
-
-export const globalTempDir = join(globalWorkspacePath, '.temp')
+export const globalTempDir = join(globalWorkspacePath, '.tmp')
 
 let __selectedTempDir: string
 export const handleTemporaryDirectories = async (
-  tempDir = globalTempDir,
+  config,
   overwrite = false,
   options: { cleanupOnExit?: boolean } = {}
 ) => {
+
+  const tempDir = config.outDir || globalTempDir
+
   const { cleanupOnExit = true } = options
   const canOverwrite = overwrite && __selectedTempDir === tempDir
-  const hasTempDir = existsSync(tempDir)
-  const isOverWritten = canOverwrite && hasTempDir
+  const runMetadataFile = join(tempDir, '.commoners.metadata.json')
+  const hasTempMetadata = existsSync(runMetadataFile)
+  const isOverWritten = canOverwrite && hasTempMetadata
 
   // NOTE: Ensure that the single temporary directory is not overwritten for different targets
-  if (!canOverwrite && existsSync(tempDir)) {
-    throw new BuildError(
-      'Active development build detected',
-      `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
-    )
+  if (!canOverwrite && hasTempMetadata) {
+      const metadata = JSON.parse(readFileSync(runMetadataFile, 'utf-8'))
+      const { createdAt } = metadata
+      const createdAtDate = new Date(createdAt)
+      throw new BuildError(
+        `Active development build detected (${createdAtDate.toLocaleString()})`,
+        `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
+      )
   }
+
+  // Create a temporary metadata file
+  if (!existsSync(dirname(runMetadataFile))) mkdirSync(dirname(runMetadataFile), { recursive: true })
+  writeFileSync(runMetadataFile, JSON.stringify({ createdAt: new Date().toISOString(), tempDir }), 'utf-8')
 
   let removed = false
 
@@ -88,7 +101,6 @@ export const handleTemporaryDirectories = async (
 
     // Remove the temporary directories
     removeDirectory(tempDir)
-    removeDirectory(`${tempDir}.services`)
   }
 
   // Only register cleanup on exit if cleanupOnExit is true (e.g., for dev builds)

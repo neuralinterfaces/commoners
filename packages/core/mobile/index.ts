@@ -132,6 +132,15 @@ const syncProject = async (config: ResolvedConfig, outDir: string) => {
   close()
 }
 
+export const runInRoot = async (fn: (config: ResolvedConfig) => Promise<void>, config: ResolvedConfig) => {
+    const { root } = config
+    const initialWorkingDirectory = process.cwd()
+    process.chdir(root) // Change to output directory for mobile commands
+    const updatedConfig = { ...config }
+    await fn(updatedConfig)
+    process.chdir(initialWorkingDirectory) // Reset working directory
+}
+
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
   const { plugins, root } = config
 

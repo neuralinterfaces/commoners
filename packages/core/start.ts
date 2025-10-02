@@ -165,8 +165,8 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     const { root, target, services, electron } = resolvedConfig
 
     const outDir = join(root, globalTempDir) // Temporary directory for the build
-    const filesystemManager = await handleTemporaryDirectories(outDir)
     const scopedConfig = { ...resolvedConfig, outDir }
+    const filesystemManager = await handleTemporaryDirectories(scopedConfig)
 
     let closed
 
@@ -191,14 +191,18 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     // ------------------------------- Mobile -------------------------------
     if (isMobile(target)) {
       await initializeWebsocketPort()
-      const outDir = await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
+      
+      const buildMetadata = await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
       startManager.services = await runDevelopmentPlugins(scopedConfig, hooks)
 
       // Initialize and open the native IDE (Xcode for iOS, Android Studio for Android)
       const mobile = await import('./mobile/index.js')
-      const mobileOpts = { target: target as 'ios' | 'android', outDir }
-      await mobile.init(mobileOpts, scopedConfig)
-      await mobile.open(mobileOpts, scopedConfig)
+      const mobileOpts = { target: target as 'ios' | 'android', outDir: buildMetadata.web }
+      
+      await mobile.runInRoot(async (config) => {
+        await mobile.init(mobileOpts, config)
+        await mobile.open(mobileOpts, config)
+      }, scopedConfig)
 
       return startManager
     }

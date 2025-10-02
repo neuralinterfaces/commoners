@@ -9,6 +9,7 @@ import { loadEnvironmentVariables } from './env/index.js'
 
 import { getLocalIP } from './ip.js'
 import { createLogger } from '../utils/logger.js'
+import { globalServiceWorkspacePath, globalTempServiceWorkspacePath } from './paths.js'
 
 const logger = createLogger('services')
 
@@ -26,10 +27,6 @@ type ServiceOptions = {
 }
 
 const WINDOWS = process.platform === 'win32'
-
-const globalWorkspacePath = '.commoners'
-const globalServiceWorkspacePath = join(globalWorkspacePath, 'services')
-const globalTempServiceWorkspacePath = join(globalWorkspacePath, '.temp.services')
 
 const jsExtensions = ['.js', '.cjs', '.mjs']
 
@@ -142,7 +139,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     const { base: publishBase, src: publishSrc } = resolvedPublishConfig
 
     const isConfigured = publishBase || publishSrc
-
+    
     Object.assign(resolvedWithoutSource, {
       base: isConfigured ? publishBase : outLocation,
       src:

@@ -4,11 +4,10 @@ import { existsSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
 import {
-  globalWorkspacePath,
   getDefaultMainLocation,
   templateDir,
   ensureTargetConsistent,
-  isMobile,
+  globalTempDir,
 } from './globals.js'
 import { onCleanup } from './cleanup.js'
 
@@ -117,7 +116,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   let config = {} as UserConfig // No user-defined configuration found
 
   if (configPath) {
-    const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
+    const configOutputPath = join(resolvedRoot, globalTempDir, `commoners.config.mjs`)
     const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
 
     const fileURL = pathToFileURL(configOutputPath).href
@@ -155,13 +154,6 @@ export async function resolveConfig(
 
   if (isResolved) return o as ResolvedConfig
   
-
-  // Mobile commands must always run from the root of the specified project
-  if (isMobile(o.target) && o.root) {
-    process.chdir(o.root)
-    delete o.root
-  }
-
   // Always use absolute root path for consistent path resolution
   const root = o.root ? (isAbsolute(o.root) ? o.root : resolve(o.root)) : process.cwd()
   o.root = root

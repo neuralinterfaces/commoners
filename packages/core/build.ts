@@ -16,6 +16,7 @@ import type {
   UserConfig,
 } from './types.js'
 import type { Logger } from './assets/utils/logger.js'
+import { BuiltAppMetadata } from './flows/BuildFlow.js'
 
 // Lazy logger instance (created on first use)
 let logger: Logger
@@ -94,16 +95,14 @@ export const buildServices = async (
 export async function buildApp(
   config: UserConfig = {},
   options: BuildHooks = {}
-): Promise<string | undefined> {
+): Promise<BuiltAppMetadata> {
   getLogger().debug('Starting app build with flow architecture')
 
   try {
     // Delegate to BuildFlow for orchestration
-    const outDir = await getBuildFlow().buildApp(config, options)
-
-    getLogger().info('App build completed', { outDir })
-
-    return outDir
+    const metadata = await getBuildFlow().buildApp(config, options)
+    getLogger().info('App build completed', metadata)
+    return metadata
   } catch (error) {
     getLogger().error('App build failed', {}, error as Error)
     throw error

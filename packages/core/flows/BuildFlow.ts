@@ -13,7 +13,12 @@ import { ScopedLogger } from '../vite/logger.js'
 import { removeDirectory } from '../utils/files.js'
 import { globalWorkspacePath, globalTempDir, handleTemporaryDirectories, vite } from '../globals.js'
 
-const logger = createLogger('build-flow')
+const resolveOutDir = (context: BuildContext): string => context.__outDir || context.outDir
+
+export interface BuiltAppMetadata {
+  artifact: string
+  web: string
+}
 
 /**
  * Platform-specific build strategy interface
@@ -60,11 +65,11 @@ export interface BuildContext {
   target: string
   root: string
   outDir: string
+  __outDir: string // Temporary output directory during build
   dev: boolean
   overwrite: boolean
   rebuildServices: boolean
   onBuildAssets?: (outDir: string) => void | null
-  __outDir?: string // Temporary output directory during build
 }
 
 /**
@@ -102,7 +107,7 @@ export class BuildFlow {
   async buildApp(
     config: UserConfig = {},
     options: BuildHooks = {}
-  ): Promise<string | undefined> {
+  ): Promise<BuiltAppMetadata> {
     const {
       services: devServices,
       onBuildAssets,
@@ -146,6 +151,7 @@ export class BuildFlow {
         target,
         root,
         outDir: selectedOutDir,
+        __outDir: selectedOutDir, // Temporary output directory
         dev,
         overwrite,
         rebuildServices,
@@ -157,15 +163,15 @@ export class BuildFlow {
 
       // Emit build complete event
       this.logger.debug('Emitting build:complete', { config: resolvedConfig.name, outDir: context.outDir })
-      hooks.emit({
-        type: 'build:complete',
-        config: resolvedConfig,
-        outDir: context.outDir,
-      })
+      hooks.emit({ type: 'build:complete', config: resolvedConfig, outDir: context.outDir })
 
       this.logger.info('Build completed successfully', { outDir: context.outDir })
 
-      return context.outDir
+      return {
+        artifact: context.outDir,
+        web: context.__outDir
+      }
+      
     } catch (error) {
       this.logger.debug('Emitting build:error', { error: (error as Error).message })
       hooks.emit({
@@ -203,7 +209,8 @@ export class BuildFlow {
 
     // Step 5: Execute custom asset callback
     if (context.onBuildAssets) {
-      const result = context.onBuildAssets(context.outDir)
+      const outDir = resolveOutDir(context)
+      const result = context.onBuildAssets(outDir)
       if (result === null) {
         this.logger.info('Build cancelled by onBuildAssets callback')
         return
@@ -223,13 +230,15 @@ export class BuildFlow {
    * Build frontend assets using Vite
    */
   private async buildFrontendAssets(context: BuildContext): Promise<void> {
-    const { resolvedConfig, hooks, dev, outDir, root } = context
+    const { resolvedConfig, hooks, dev, root } = context
 
     this.logger.debug('Emitting build:assets:start', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
 
     // Ensure root is absolute for Vite (Vite expects absolute root)
     const absoluteRoot = isAbsolute(root) ? root : resolve(root)
+
+    const outDir = resolveOutDir(context)
 
     // Create a config with absolute root and relative outDir for Vite
     const viteConfig = {
@@ -255,7 +264,6 @@ export class BuildFlow {
 
     this.logger.debug('Emitting build:assets:complete', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })
-
     this.logger.debug('Frontend assets built', { outDir })
   }
 
@@ -263,11 +271,10 @@ export class BuildFlow {
    * Build app-specific assets
    */
   private async buildAppAssets(context: BuildContext): Promise<void> {
-    const { resolvedConfig, dev, outDir, root, target } = context
-
+    const { resolvedConfig, dev, root, target } = context
+    const outDir = resolveOutDir(context)
     const assets = await getAppAssets(resolvedConfig, dev, outDir)
     await buildAssets(assets, { outDir, root, target })
-
     this.logger.debug('App assets built')
   }
 
@@ -317,31 +324,15 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
   async prepare(context: BuildContext): Promise<void> {
     const { root, dev, overwrite } = context
 
-    // Clean previous builds
-    if (!dev) {
-      await removeDirectory(join(root, globalWorkspacePath, 'services'))
-    }
-
     // Setup temporary directories
     const customTempDir = this.shouldUseTempDir(context.target)
-    if (customTempDir) {
-      const tempDir = this.getTempDir(root, context.target)
-      const { overwrite: wasOverwritten } = await handleTemporaryDirectories(
-        dirname(tempDir),
-        overwrite,
-        { cleanupOnExit: true } // Always cleanup temp directories on exit
-      )
+    if (customTempDir) { 
+      const tempDir = this.getTempDir(root, context.target) // We assume the base tempDir is already set up
+      context.__outDir = resolve(tempDir) // Update context with actual output directory
+      this.logger.debug('Using temporary directory', { tempDir })
+    } 
 
-      // Update context with actual output directory
-      context.__outDir = resolve(tempDir)
-
-      this.logger.debug('Using temporary directory', {
-        tempDir,
-        wasOverwritten,
-      })
-    } else {
-      await removeDirectory(context.outDir)
-    }
+    else await removeDirectory(context.outDir) // Clear output directory if not using temp dir
   }
 
   async build(context: BuildContext): Promise<void> {
