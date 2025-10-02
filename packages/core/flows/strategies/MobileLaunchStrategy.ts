@@ -28,8 +28,8 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
   }
 
   async prepare(context: LaunchContext): Promise<void> {
-    const { resolvedConfig } = context
-    const { root, outDir: configOutDir } = resolvedConfig
+    const { config } = context
+    const { root, outDir: configOutDir } = config
 
     // Resolve output directory
     if (configOutDir) {
@@ -51,8 +51,8 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
   }
 
   async launch(context: LaunchContext): Promise<void> {
-    const { outDir, target, resolvedConfig } = context
-    const { root } = resolvedConfig
+    const { outDir, target, config } = context
+    const { root } = config
 
     logger.info(`Launching ${this.platform} app`, { outDir })
 

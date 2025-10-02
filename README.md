@@ -50,9 +50,10 @@ pnpm build
 ```
 
 ### Testing
+
 #### Initial Setup
 ```bash
-conda env create -f tests/demo/src/services/python/environment.yml
+conda env create -f examples/demo/src/services/python/environment.yml
 ```
 
 #### Running Tests

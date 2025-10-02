@@ -6,7 +6,7 @@ import { build, open } from '@commoners/testing'
 import { checkAssets } from './assets'
 import { verifyAsarIntegrity, printVerificationResult } from './asar/verify'
 
-import config from './demo/commoners.config'
+import config from '../examples/demo/commoners.config'
 
 import { join } from 'node:path'
 import { getLocalIP } from '../packages/core/assets/services/ip'
@@ -19,7 +19,7 @@ const getRandomNumber = () => Math.random().toString(36).substring(7)
 
 const getMinutes = minutes => minutes * 60 * 1000
 
-export const projectBase = join(__dirname, 'demo')
+export const projectBase = join(__dirname, "..", "examples", "demo") // Refer to the demo project base outside of the tests directory
 
 const getServices = async output => {
   if (output.page) {

@@ -75,8 +75,8 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
   }
 
   async prepare(context: LaunchContext): Promise<void> {
-    const { resolvedConfig } = context
-    const { root, outDir: configOutDir } = resolvedConfig
+    const { config } = context
+    const { root, outDir: configOutDir } = config
 
     // Resolve output directory
     if (configOutDir) {

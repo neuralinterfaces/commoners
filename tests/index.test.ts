@@ -12,7 +12,7 @@ import {
 import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 
-import { name } from './demo/commoners.config'
+import { name } from '../examples/demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { buildServices } from '@commoners/testing'
 

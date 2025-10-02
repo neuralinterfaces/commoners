@@ -1,6 +1,6 @@
 packages:
   - packages/**
-  - tests/**
+  - examples/**
   - '!**/dist/**'
   - '!packages/plugins/autoupdate'
 onlyBuiltDependencies:

@@ -64,8 +64,8 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { resolvedConfig, root, outDir, __outDir } = context
-    const { name, appId } = resolvedConfig
+    const { config, root, outDir, __outDir } = context
+    const { name, appId } = config
 
     logger.info('Starting Electron packaging', { name, appId })
 
@@ -125,8 +125,8 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     cwdRelativeOutDir: string,
     relativeOutDir: string
   ): Promise<any> {
-    const { resolvedConfig, root, outDir, __outDir } = context
-    const { name, electron, appId, icon, build: userBuildConfig } = resolvedConfig
+    const { config, root, outDir, __outDir } = context
+    const { name, electron, appId, icon, build: userBuildConfig } = config
 
     const buildConfig = merge(
       electron.build ?? {},
@@ -191,10 +191,10 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     }
 
     // Configure code signing
-    this.configureCodeSigning(buildConfig, resolvedConfig)
+    this.configureCodeSigning(buildConfig, config)
 
     // Configure ASAR integrity
-    await this.configureAsarIntegrity(buildConfig, resolvedConfig)
+    await this.configureAsarIntegrity(buildConfig, config)
 
     // Set Electron version
     if (!('electronVersion' in buildConfig)) {
@@ -210,7 +210,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       electronBuilderOpts.projectDir = root
     }
 
-    const { publish } = resolvedConfig.build ?? {}
+    const { publish } = config.build ?? {}
     if (publish) {
       electronBuilderOpts.publish = typeof publish === 'string' ? publish : 'always'
     } else {
@@ -248,10 +248,10 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     extraResources: string[],
     signIgnore: string[]
   ): Promise<void> {
-    const { resolvedConfig, __outDir, root, target } = context
+    const { config, __outDir, root, target } = context
     const { getAppAssets, buildAssets } = await import('../../utils/assets.js')
 
-    const assetCollection = await getAppAssets(resolvedConfig, false, __outDir)
+    const assetCollection = await getAppAssets(config, false, __outDir)
     const assets = await buildAssets(assetCollection, { outDir: __outDir, root, target })
 
     const resolveFileLocation = (file: string) => {
@@ -346,9 +346,9 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
    */
   private configureCodeSigning(
     buildConfig: WritableElectronBuilderConfig,
-    resolvedConfig: any
+    config: any
   ): void {
-    const { publish, sign } = resolvedConfig.build ?? {}
+    const { publish, sign } = config.build ?? {}
     const toSign = publish || sign
 
     if (!toSign) {
@@ -379,10 +379,10 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
    */
   private async configureAsarIntegrity(
     buildConfig: WritableElectronBuilderConfig,
-    resolvedConfig: any
+    config: any
   ): Promise<void> {
     
-    const { securitySettings } = parseOptions(resolvedConfig, true)
+    const { securitySettings } = parseOptions(config, true)
 
     // Check if security is completely disabled
     if (securitySettings.asarIntegrity !== true) {

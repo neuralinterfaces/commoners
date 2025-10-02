@@ -5,7 +5,7 @@
 
 import { join, resolve, dirname, relative, isAbsolute } from 'node:path'
 import { createLogger } from '../assets/utils/logger.js'
-import type { UserConfig, BuildHooks, HooksInterface } from '../types.js'
+import type { UserConfig, BuildHooks, HooksInterface, ResolvedConfig } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
 import { resolveViteConfig } from '../vite/index.js'
@@ -59,8 +59,7 @@ export interface BuildStrategy {
  * Build context shared across all build steps
  */
 export interface BuildContext {
-  config: UserConfig
-  resolvedConfig: any
+  config: ResolvedConfig
   hooks: HooksInterface
   target: string
   root: string
@@ -141,12 +140,11 @@ export class BuildFlow {
 
       // Determine output directory
       const defaultOutDir = join(root, globalWorkspacePath, target)
-      const selectedOutDir = config.outDir ?? defaultOutDir
+      const selectedOutDir = resolvedConfig.outDir ?? defaultOutDir
 
       // Build context
       const context: BuildContext = {
-        config,
-        resolvedConfig,
+        config: resolvedConfig,
         hooks,
         target,
         root,
@@ -191,7 +189,7 @@ export class BuildFlow {
     context: BuildContext,
     strategy: BuildStrategy
   ): Promise<void> {
-    const { resolvedConfig, hooks, dev } = context
+    const { dev } = context
 
     // Step 1: Prepare build environment
     await strategy.prepare(context)
@@ -230,7 +228,7 @@ export class BuildFlow {
    * Build frontend assets using Vite
    */
   private async buildFrontendAssets(context: BuildContext): Promise<void> {
-    const { resolvedConfig, hooks, dev, root } = context
+    const { config, hooks, dev, root } = context
 
     this.logger.debug('Emitting build:assets:start', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
@@ -242,7 +240,7 @@ export class BuildFlow {
 
     // Create a config with absolute root and relative outDir for Vite
     const viteConfig = {
-      ...resolvedConfig,
+      ...config,
       root: absoluteRoot,
       outDir: relative(absoluteRoot, outDir),
     }
@@ -271,9 +269,9 @@ export class BuildFlow {
    * Build app-specific assets
    */
   private async buildAppAssets(context: BuildContext): Promise<void> {
-    const { resolvedConfig, dev, root, target } = context
+    const { config, dev, root, target } = context
     const outDir = resolveOutDir(context)
-    const assets = await getAppAssets(resolvedConfig, dev, outDir)
+    const assets = await getAppAssets(config, dev, outDir)
     await buildAssets(assets, { outDir, root, target })
     this.logger.debug('App assets built')
   }
@@ -282,9 +280,9 @@ export class BuildFlow {
    * Build services
    */
   private async buildServices(context: BuildContext): Promise<void> {
-    const { resolvedConfig, dev, outDir, hooks } = context
+    const { config, dev, outDir, hooks } = context
 
-    const servicesToBuild = getServicesToBuild(resolvedConfig, dev)
+    const servicesToBuild = getServicesToBuild(config, dev)
     if (servicesToBuild.length === 0) {
       this.logger.debug('No services to build')
       return
@@ -297,7 +295,7 @@ export class BuildFlow {
       services: servicesToBuild,
     })
 
-    const assets = await getServiceAssets(resolvedConfig, dev, true, hooks)
+    const assets = await getServiceAssets(config, dev, true, hooks)
     const results = await buildAssets(assets, {
       root: context.root,
       outDir: outDir ?? resolve(join(context.root, globalWorkspacePath, 'services')),

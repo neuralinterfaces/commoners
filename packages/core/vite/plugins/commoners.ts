@@ -90,6 +90,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
       const _relTo = build ? assetOutDir : root
       const relTo = join(_relTo, parent) // Resolve actual path in the assets
       const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
+      console.log('Updated config URL:', updatedConfigURL)
 
       const services = sanitize(resolvedConfig.services)
 

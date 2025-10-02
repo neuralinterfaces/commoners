@@ -31,8 +31,8 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
   }
 
   async prepare(context: LaunchContext): Promise<void> {
-    const { resolvedConfig } = context
-    const { root, outDir: configOutDir } = resolvedConfig
+    const { config } = context
+    const { root, outDir: configOutDir } = config
 
     // Resolve output directory
     if (configOutDir) {
@@ -54,8 +54,8 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
   }
 
   async launch(context: LaunchContext): Promise<void> {
-    const { outDir, port, host, resolvedConfig } = context
-    const { public: isPublic } = resolvedConfig
+    const { outDir, port, host, config } = context
+    const { public: isPublic } = config
 
     logger.info('Starting Vite dev server', { outDir, port, host })
 

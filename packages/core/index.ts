@@ -186,10 +186,7 @@ export async function resolveConfig(
 
   o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
 
-  if (o.outDir && !isAbsolute(o.outDir)) {
-    // Validate outDir to prevent path traversal
-    o.outDir = validatePath(o.outDir, o.root, 'output directory')
-  }
+  if (o.outDir && !isAbsolute(o.outDir)) o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute
 
   o.plugins = plugins ?? {} // Transfer the original plugins
   o.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish

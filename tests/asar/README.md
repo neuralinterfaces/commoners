@@ -113,10 +113,10 @@ All scripts work natively on macOS. Required tools (included by default):
 **Example:**
 ```bash
 # Verify demo app
-./verify-asar-integrity.sh tests/demo/build/Commoners\ Test\ App.app
+./verify-asar-integrity.sh examples/demo/build/Commoners\ Test\ App.app
 
 # Run full test suite
-./run-all-tests.sh tests/demo/build/Commoners\ Test\ App.app
+./run-all-tests.sh examples/demo/build/Commoners\ Test\ App.app
 ```
 
 ### Windows

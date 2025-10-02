@@ -82,9 +82,6 @@ const config = defineConfig({
 
   // NOTE: Protocol definition is not yet tested...
   electron: {
-    security: {
-      asarIntegrity: true // Check whether ASAR integrity flag works
-    }, 
     protocol: { scheme: 'commoners', privileges: { supportFetchAPI: true } },
     // hooks: customHooks
   },

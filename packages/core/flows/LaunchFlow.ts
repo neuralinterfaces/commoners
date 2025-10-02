@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '../assets/utils/logger.js'
-import type { UserConfig, HooksInterface } from '../types.js'
+import type { UserConfig, HooksInterface, ResolvedConfig } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 
 const logger = createLogger('launch-flow')
@@ -43,8 +43,7 @@ export interface LaunchStrategy {
  * Launch context shared across all launch steps
  */
 export interface LaunchContext {
-  config: UserConfig
-  resolvedConfig: any
+  config: ResolvedConfig
   hooks: HooksInterface
   target: string
   root: string
@@ -121,8 +120,7 @@ export class LaunchFlow {
 
       // Build context
       const context: LaunchContext = {
-        config,
-        resolvedConfig,
+        config: resolvedConfig,
         hooks,
         target,
         root,

@@ -37,19 +37,19 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
   async prepare(context: BuildContext): Promise<void> {
     await super.prepare(context)
 
-    const { resolvedConfig, __outDir } = context
+    const { config, __outDir } = context
 
     logger.info(`Preparing ${this.platform} build`, { outDir: __outDir })
 
     // Run Capacitor prebuild
-    const configCopy = { ...resolvedConfig, target: context.target, outDir: __outDir }
+    const configCopy = { ...config, target: context.target, outDir: __outDir }
     await mobile.prebuild(configCopy)
 
     logger.debug(`${this.platform} prebuild completed`)
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { resolvedConfig, __outDir, target } = context
+    const { config, __outDir, target } = context
 
     logger.info(`Building ${this.platform} app`)
 
@@ -61,7 +61,7 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     await mobile.runInRoot(async (config) => {
       await mobile.init(mobileOpts, config) // Initialize Capacitor
       await mobile.open(mobileOpts, config) // Open in native IDE
-    }, resolvedConfig)
+    }, config)
 
     logger.info(`${this.platform} project ready`, { message: `Open in Xcode/Android Studio to build` })
   }
