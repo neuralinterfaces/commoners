@@ -37,26 +37,26 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
   async prepare(context: BuildContext): Promise<void> {
     await super.prepare(context)
 
-    const { resolvedConfig, outDir } = context
+    const { resolvedConfig, __outDir } = context
 
-    logger.info(`Preparing ${this.platform} build`, { outDir })
+    logger.info(`Preparing ${this.platform} build`, { outDir: __outDir })
 
     // Run Capacitor prebuild
-    const configCopy = { ...resolvedConfig, target: context.target, outDir }
+    const configCopy = { ...resolvedConfig, target: context.target, outDir: __outDir }
     await mobile.prebuild(configCopy)
 
     logger.debug(`${this.platform} prebuild completed`)
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { resolvedConfig, outDir, target } = context
+    const { resolvedConfig, __outDir, target } = context
 
     logger.info(`Building ${this.platform} app`)
 
     logger.debug('Emitting build:mobile:start', { platform: this.platform, target })
-    context.hooks.emit({ type: 'build:mobile:start' })
+    context.hooks.emit({ type: 'build:mobile:start', mobileTarget: this.platform })
 
-    const mobileOpts = { target: target as 'ios' | 'android', outDir }
+    const mobileOpts = { target: target as 'ios' | 'android', outDir: __outDir }
 
     // Initialize Capacitor
     await mobile.init(mobileOpts, resolvedConfig)
@@ -64,9 +64,7 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     // Open in native IDE
     await mobile.open(mobileOpts, resolvedConfig)
 
-    logger.info(`${this.platform} project ready`, {
-      message: `Open in Xcode/Android Studio to build`,
-    })
+    logger.info(`${this.platform} project ready`, { message: `Open in Xcode/Android Studio to build` })
   }
 
   async finalize(context: BuildContext): Promise<void> {

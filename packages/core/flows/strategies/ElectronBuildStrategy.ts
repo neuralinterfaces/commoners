@@ -52,14 +52,6 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     return join(root, globalTempDir, DIR_ELECTRON)
   }
 
-  /**
-   * Get the final output directory for electron-builder artifacts
-   * (different from temp dir where assets are built)
-   */
-  private getFinalOutputDir(root: string): string {
-    return join(root, globalWorkspacePath, DIR_ELECTRON)
-  }
-
   async prepare(context: BuildContext): Promise<void> {
     await super.prepare(context)
 
@@ -73,8 +65,8 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { resolvedConfig, root, outDir } = context
-    const { name, electron, appId, icon, build: buildConfig } = resolvedConfig
+    const { resolvedConfig, root, outDir, __outDir } = context
+    const { name, appId } = resolvedConfig
 
     logger.info('Starting Electron packaging', { name, appId })
 
@@ -82,8 +74,8 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     context.hooks.emit({ type: 'build:electron:start' })
 
     // Configure package.json for Electron
-    const cwdRelativeOutDir = relative(process.cwd(), outDir)
-    const relativeOutDir = relative(root, outDir)
+    const cwdRelativeOutDir = relative(process.cwd(), __outDir)
+    const relativeOutDir = relative(root, __outDir)
 
     configureForDesktop(cwdRelativeOutDir, root, {
       name: name.toLowerCase().split(' ').join('-'),
@@ -92,12 +84,12 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
     // Build Electron main and preload files
     const { buildElectronAssets } = await import('../../vite/plugins/electron/index.js')
-    await buildElectronAssets(root, outDir, true, { command: 'build', mode: 'production' }, {})
+    await buildElectronAssets(root, __outDir, true, { command: 'build', mode: 'production' }, {})
 
     // Copy package.json to the temp directory for electron-builder
     const { copyFileSync, readFileSync, writeFileSync } = await import('node:fs')
     const pkgPath = join(root, 'package.json')
-    const tempPkgPath = join(outDir, 'package.json')
+    const tempPkgPath = join(__outDir, 'package.json')
 
     // Read, modify main field to be relative to temp dir, and write
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
@@ -114,23 +106,15 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Package the app
     const { build } = await import('electron-builder')
     await build(electronBuilderConfig)
-
-    // Update context with final output directory for build:complete event
-    const finalOutputDir = this.getFinalOutputDir(root)
-    context.outDir = finalOutputDir
-
-    logger.debug('Emitting build:electron:complete', { name, outDir: finalOutputDir })
+    
+    logger.debug('Emitting build:electron:complete', { name, outDir })
     context.hooks.emit({ type: 'build:electron:complete' })
 
     logger.info('Electron packaging completed')
   }
 
   async finalize(context: BuildContext): Promise<void> {
-    // Ensure the final output directory is set in context
-    // so that build:complete event reports the correct path
-    const finalOutputDir = this.getFinalOutputDir(context.root)
-    context.outDir = finalOutputDir
-
+    super.finalize(context)
     this.logger.debug('No finalization steps for electron')
   }
 
@@ -142,7 +126,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     cwdRelativeOutDir: string,
     relativeOutDir: string
   ): Promise<any> {
-    const { resolvedConfig, root, outDir } = context
+    const { resolvedConfig, root, outDir, __outDir } = context
     const { name, electron, appId, icon, build: userBuildConfig } = resolvedConfig
 
     const buildConfig = merge(
@@ -158,8 +142,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
     // Set output directory to final location (not temp dir)
     // This is where electron-builder will place the final packages (.app, .dmg, .zip, etc.)
-    const finalOutputDir = this.getFinalOutputDir(root)
-    const actualOutDir = isAbsolute(finalOutputDir) ? finalOutputDir : join(process.cwd(), finalOutputDir)
+    const actualOutDir = isAbsolute(outDir) ? outDir : join(process.cwd(), outDir)
     buildConfig.directories.output = actualOutDir
 
     // App directory is where the built files are (temp dir)
@@ -198,7 +181,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     )
 
     // Configure icons
-    this.configureIcons(buildConfig, icon, root, outDir)
+    this.configureIcons(buildConfig, icon, root, __outDir)
 
     // Configure paths
     this.configurePaths(buildConfig, root)
@@ -266,11 +249,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     extraResources: string[],
     signIgnore: string[]
   ): Promise<void> {
-    const { resolvedConfig, outDir, root, target } = context
+    const { resolvedConfig, __outDir, root, target } = context
     const { getAppAssets, buildAssets } = await import('../../utils/assets.js')
 
-    const assetCollection = await getAppAssets(resolvedConfig, false, outDir)
-    const assets = await buildAssets(assetCollection, { outDir, root, target })
+    const assetCollection = await getAppAssets(resolvedConfig, false, __outDir)
+    const assets = await buildAssets(assetCollection, { outDir: __outDir, root, target })
 
     const resolveFileLocation = (file: string) => {
       const relPath = relative(cwdRelativeOutDir, file)

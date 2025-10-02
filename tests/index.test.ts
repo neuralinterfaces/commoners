@@ -16,9 +16,6 @@ import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { buildServices } from '@commoners/testing'
 
-// Configure global logger for detailed output
-setGlobalLogLevel(LogLevel.DEBUG)
-
 const platforms = {
   windows: process.platform === 'win32',
   mac: process.platform === 'darwin',

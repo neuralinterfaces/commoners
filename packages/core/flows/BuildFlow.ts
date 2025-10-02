@@ -64,6 +64,7 @@ export interface BuildContext {
   overwrite: boolean
   rebuildServices: boolean
   onBuildAssets?: (outDir: string) => void | null
+  __outDir?: string // Temporary output directory during build
 }
 
 /**
@@ -332,7 +333,7 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
       )
 
       // Update context with actual output directory
-      context.outDir = resolve(tempDir)
+      context.__outDir = resolve(tempDir)
 
       this.logger.debug('Using temporary directory', {
         tempDir,
@@ -349,7 +350,6 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
   }
 
   async finalize(context: BuildContext): Promise<void> {
-    // Default: no finalization steps
     this.logger.debug(`No finalization steps for ${this.platform}`)
   }
 
