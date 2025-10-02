@@ -41,9 +41,10 @@ export const build = async (root, overrides: Partial<UserConfig> = {}, hooks: Bu
     join(root, globalWorkspacePath), // All default commoners outputs, including services and temporary files
   ]
 
-  await CommonersBuild(updatedConfig, hooks)
+  const buildMetadata = await CommonersBuild(updatedConfig, hooks)
 
   return {
+    metadata: buildMetadata,
     cleanup: async (relativePathsToRemove = []) => {
       const toRemove = [...AUTOCLEAR, ...relativePathsToRemove.map(path => join(root, path))]
       toRemove.forEach(path => removeDirectory(path))

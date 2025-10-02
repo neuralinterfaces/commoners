@@ -251,7 +251,9 @@ export const registerBuildTest = (
 
   describeCommand(name, () => {
     let triggerAssetsBuilt
+    let triggerBuildComplete
     const assetsBuilt = new Promise(res => (triggerAssetsBuilt = res))
+    const buildComplete = new Promise(res => (triggerBuildComplete = res))
 
     const skipPackageStep = isMobile
 
@@ -282,6 +284,9 @@ export const registerBuildTest = (
 
       const _output = await build(projectBase, opts, hooks)
       Object.assign(output, _output)
+
+      // Store build metadata for later use
+      triggerBuildComplete(_output)
     }, buildWaitTime)
 
     // Cleanup build outputs
@@ -295,18 +300,22 @@ export const registerBuildTest = (
     // Add ASAR integrity verification for Electron builds
     if (isElectron) {
       test('ASAR integrity is properly configured', async () => {
-        const baseDir = (await assetsBuilt) as string
+        // Use the artifact directory (final output), not the web directory (temp build)
+        const builtOutput = (await buildComplete) as any
+        const { metadata = {} } = builtOutput
+        const artifactDir = metadata?.artifact || (await assetsBuilt)
 
         // Find the built .app or .exe
         const { name } = config
         let appPath: string | null = null
 
         if (process.platform === 'darwin') {
-          // macOS - look for .app bundle
-          appPath = join(baseDir, `${name}.app`)
+          // macOS - look for .app bundle in mac-arm64 or mac-x64 subdirectory
+          const macDir = join(artifactDir, 'mac-arm64')
+          appPath = join(macDir, `${name}.app`)
         } else if (process.platform === 'win32') {
           // Windows - look for .exe
-          appPath = join(baseDir, `${name}.exe`)
+          appPath = join(artifactDir, `${name}.exe`)
         }
 
         if (!appPath) {
