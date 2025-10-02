@@ -44,7 +44,7 @@ export class Logger {
 
   constructor(options: LoggerOptions = {}, isChild = false) {
     this.isChild = isChild
-    this.level = options.level ?? (process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG)
+    this.level = options.level ?? LogLevel.SILENT // Default to SILENT if not set (only user-configured logging)
     this.prefix = options.prefix ?? '[commoners]'
     this.enableColors = options.enableColors ?? true
     this.onLog = options.onLog

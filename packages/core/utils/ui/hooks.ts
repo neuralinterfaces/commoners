@@ -140,13 +140,14 @@ export class DefaultHooks extends Hooks {
 
         const require = createRequire(import.meta.url)
         const chalk = require('chalk').default
+        const path = require('path')
 
         this.ui.box(
-          `${name} (${targetName}) was built successfully!\n${chalk.gray(outDir)}`,
+          `${name} (${targetName}) was built successfully!\n${chalk.gray(this.ui.path(outDir))}`,
           {
             title: chalk.bold(`✨ Build Successful`),
             borderColor: 'success',
-            align: 'center',
+            align: 'left',
           }
         )
       }
@@ -231,6 +232,7 @@ export class DefaultHooks extends Hooks {
     this.on('service:build:end', (event) => {
       if (event.type === 'service:build:end') {
         this.ui.service(event.service, `Build completed${event.duration ? ` in ${prettyPrintDuration(event.duration)}` : ''}`, 'success')
+        if (event.out) this.ui.details(this.ui.path(event.out))
         this.ui.add()
       }
     })

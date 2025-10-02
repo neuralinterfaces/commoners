@@ -4,6 +4,7 @@
 
 import { Ora } from 'ora'
 import { createRequire } from 'node:module'
+import { relative } from 'node:path'
 import { defaultTheme, getTheme, ThemeName, UITheme } from './themes.js'
 
 interface SectionContext {
@@ -614,6 +615,12 @@ export class CommonersUI {
     } else {
       console.log(message)
     }
+  }
+
+  // Path formatter
+  path(filePath: string): string {
+    const cwd = process.cwd()
+    return filePath.startsWith(cwd) ? relative(cwd, filePath) : filePath
   }
 
   // Add multi-line content to the current section (especially useful for boxed sections)
