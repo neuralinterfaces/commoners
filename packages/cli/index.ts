@@ -42,6 +42,7 @@ const didYouMean = didYouMeanModule.default || didYouMeanModule // Handle both n
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
+
 class CLIError extends CommonersError {
   constructor(message: string, details?: string) {
     super(message, details)
@@ -49,12 +50,15 @@ class CLIError extends CommonersError {
   }
 }
 
-function failed (message: string, submessage?: string) {
-  ui.error(message, submessage)
-  throw new CLIError(`CLI Error: ${message}`, submessage)
+const handleError = (error: Error) => {
+  if (error instanceof CommonersError) {
+    ui.error(error.message, error.details)
+    process.exit(1) // Exit with error code
+  }
+  throw error // Re-throw unexpected errors
 }
 
-function preprocessTarget(target, hooks) {
+function preprocessTarget(target) {
   if (typeof target === 'string') {
     if (!valid.target.includes(target)) {
 
@@ -65,16 +69,16 @@ function preprocessTarget(target, hooks) {
 
       if (suggestion) {
         const allTargetsWithoutSuggestion = valid.target.filter(t => t !== suggestion)
-        failed(
+        throw new CLIError(
           `"${target}" is an invalid target`,
           `Did you mean ${ui._chalk.bold(suggestion)}? Other valid targets include ${renderCommaSeparatedList(allTargetsWithoutSuggestion)}`
         )
-      } else {
-        failed(
-          `"${target}" is an invalid target`,
-          `Valid targets include ${renderCommaSeparatedList(valid.target)}`
-        )
       }
+
+      throw new CLIError(
+        `"${target}" is an invalid target`,
+        `Valid targets include ${renderCommaSeparatedList(valid.target)}`
+      )
     }
   }
 }
@@ -117,8 +121,7 @@ async function getConfig(opts: { root?: string; config?: string; stdin?: boolean
       const parsed = JSON.parse(stdinData)
       return parsed
     } catch (error) {
-      ui.error(`Failed to parse config from STDIN`, error.message)
-      throw error // Exit with error
+      handleError(new CLIError('Failed to parse configuration from STDIN', error.message))
     }
   }
   return loadConfigFromFile(getConfigPathFromOpts({ root: opts.root, config: opts.config }))
@@ -162,27 +165,13 @@ cli
       const { config: configPath, service, public: isPublic, port, stdin, ...overrides } = options
       const isOnlyServices = !overrides.target && service // Services take priority if specified
 
-      preprocessTarget(overrides.target, cliHooks)
+      preprocessTarget(overrides.target)
       const config = await getConfig({ root, config: configPath, stdin })
-      if (!config) return failed('Configuration not found')
+      if (!config) throw new CLIError('Configuration not found')
       const reconciledConfig = reconcile(config, overrides) as UserConfig
       const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
 
-    let launchSpinner
-    const start = message => {
-      // launchSpinner = ui.spinner(message, { type: 'dots' })
-      hooks.ui.header(message)
-    }
-
-    const succeed = (message: string, details?: string) => {
-      hooks.ui.success(message, details)
-      if (launchSpinner) launchSpinner.succeed(`${message}${details ? `: ${details}` : ''}`)
-    }
-
-    const failedHere = (message: string, details?: string) => {
-      hooks.ui.error(message, details)
-      if (launchSpinner) launchSpinner.fail(`${message}${details ? `: ${details}` : ''}`)
-    }
+    const start = message =>  hooks.ui.header(message)
 
 
     if (isOnlyServices) {
@@ -192,12 +181,12 @@ cli
       delete reconciledConfig.target
 
       // NOTE: If passed, this simply wouldn't take effect
-      if (options.outDir) return failed(`Cannot specify an output directory when launching services`, `Services are built in a private directory`)
+      if (options.outDir) throw new CLIError(`Cannot specify an output directory when launching services`, `Services are built in a private directory`)
 
       const resolvedServices = typeof service === 'string' ? [service] : service
       const nServices = Object.keys(resolvedServices).length
       if (nServices > 1 && (port || isPublic))
-        return failed(`Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
+        throw new CLIError(`Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
       if (nServices === 1) {
         const serviceName = resolvedServices[0]
         if (serviceName in reconciledConfig.services) {
@@ -209,29 +198,24 @@ cli
 
       try {
         await launchServices(reconciledConfig, { services: resolvedServices })
-        succeed(
-          `${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))} successfully launched!`
-        )
+        hooks.ui.success(`${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))} successfully launched!`)
         return
       } catch (error) {
-        failedHere(
-          `Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))}`,
-          error.message
-        )
 
-        return process.exit(1)
+        return handleError(
+          new CLIError(`Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))}`, error.message)
+        )
       }
     }
 
       // Ensure services are not specified with a target
-      else if (service) return failed(`Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
+      else if (service) throw new CLIError(`Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
 
       // Enhanced launch feedback
       await launch({ ...reconciledConfig, hooks })
-    } catch (error) {
-      if (error instanceof CommonersError) ui.error(error.message, error.details)
-      throw error // Re-throw unexpected errors
-    }
+
+    } catch (error) { handleError(error) }
+
   })
 
 // Build the application using the specified settings
@@ -257,9 +241,9 @@ cli
       const { target: manualTarget } = overrides
       overrides.build = { sign, publish }
 
-      preprocessTarget(manualTarget, cliHooks)
+      preprocessTarget(manualTarget)
       const config = await getConfig({ root, config: configPath, stdin })
-      if (!config) return failed('Configuration not found')
+      if (!config) throw new CLIError('Configuration not found')
       const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
 
       // Build Services Only
@@ -270,19 +254,14 @@ cli
         try {
           await buildServices(config, { services: servicesToBuild, hooks })
           hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
-        } catch (error) {
-          ui.error('Failed to build services', error.message)
-          throw error // Re-throw unexpected errors
-        }
+        } catch (error) { handleError(new CLIError(`Failed to build service${nServices > 1 ? 's' : ''}`, error.message)) }
+
         return
       }
 
       const resolvedConfig = reconcile(config, overrides)
       await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks })
-    } catch (error) {
-      if (error instanceof CommonersError) ui.error(error.message, error.details)
-      throw error // Re-throw unexpected errors
-    }
+    } catch (error) { handleError(error) }
   })
 
 // Start the application in development mode
@@ -303,16 +282,13 @@ cli
   .action(async (root, options) => {
     try {
       const { config: configPath, stdin, ...overrides } = options
-      preprocessTarget(overrides.target, cliHooks)
+      preprocessTarget(overrides.target)
       const config = await getConfig({ root, config: configPath, stdin })
-      if (!config) return failed('Configuration not found')
+      if (!config) throw new CLIError('Configuration not found')
       const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
       const resolvedConfig = reconcile(config, overrides)
       await start(resolvedConfig, { hooks })
-    } catch (error) {
-      if (error instanceof CommonersError) ui.error(error.message, error.details)
-      throw error // Re-throw unexpected errors
-    }
+    } catch (error) { handleError(error) }
   })
 
 cli.help()
