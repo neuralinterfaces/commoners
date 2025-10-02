@@ -30,11 +30,6 @@ android
 # Documentation
 cache
 
-# Lock files (PNPM only)
-**/pnpm-lock.yaml
-*.lock
-*/**/*-lock.json
-
 # Logs
 logs
 *.log
