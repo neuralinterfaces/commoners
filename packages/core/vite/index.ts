@@ -119,9 +119,12 @@ export const resolveViteConfig = async (
     electron,
   } = commonersConfig
 
+  // Ensure root is absolute for all operations
+  const absoluteRoot = isAbsolute(root) ? root : resolve(root)
+
   // Desktop Build
   if (isDesktopTarget) {
-    const plugin = await electronPlugin({ build, root, outDir, electron, hooks })
+    const plugin = await electronPlugin({ build, root: absoluteRoot, outDir, electron, hooks })
     plugins.push(...plugin)
   }
 
@@ -134,7 +137,7 @@ export const resolveViteConfig = async (
         appId,
         icon,
         description,
-        root,
+        root: absoluteRoot,
       },
       outDir
     )
@@ -148,7 +151,7 @@ export const resolveViteConfig = async (
   // Get html files from plugins
   const pluginPages = Object.values(commonersPlugins).reduce((acc, plugin) => {
     Object.values(plugin.assets ?? {}).forEach(assetSrc => {
-      if (extname(assetSrc) === '.html') acc[crypto.randomUUID()] = getAbsolutePath(root, assetSrc)
+      if (extname(assetSrc) === '.html') acc[crypto.randomUUID()] = getAbsolutePath(absoluteRoot, assetSrc)
     })
     return acc
   }, {}) as Record<string, string>
@@ -159,7 +162,7 @@ export const resolveViteConfig = async (
 
   // Resolve pages
   if (Object.keys(collectedPages).length) {
-    const rootHTML = getAbsolutePath(root, 'index.html')
+    const rootHTML = getAbsolutePath(absoluteRoot, 'index.html')
     const allPages = Object.values(collectedPages)
     if (allPages.length) {
       if (!allPages.includes(rootHTML)) allPages.push(rootHTML)
@@ -182,7 +185,7 @@ export const resolveViteConfig = async (
   const viteConfig = _vite.defineConfig({
     logLevel: dev ? 'silent' : 'info',
     base: './',
-    root, // Resolve index.html from the root directory
+    root: absoluteRoot, // Resolve index.html from the root directory (must be absolute)
     build: {
       emptyOutDir: false,
       outDir,
@@ -196,7 +199,7 @@ export const resolveViteConfig = async (
 
   const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
   const mode = dev ? 'development' : 'production'
-  const env = _vite.loadEnv(mode, root, mergedConfig.envPrefix)
+  const env = _vite.loadEnv(mode, absoluteRoot, mergedConfig.envPrefix)
 
   mergedConfig.plugins = [
     ...mergedConfig.plugins,

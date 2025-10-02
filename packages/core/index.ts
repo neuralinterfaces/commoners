@@ -31,6 +31,10 @@ import { ConfigurationError, ValidationError } from './errors.js'
 // Security utilities
 import { validatePath } from './utils/security.js'
 
+// Logging
+import { createLogger } from './utils/logger.js'
+const logger = createLogger('config')
+
 import { resolveHooks } from './assets/utils/hooks.js'
 export { resolveHooks }
 
@@ -58,6 +62,7 @@ export { buildApp as build, buildServices } from './build.js'
 export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers
+export { Logger, LogLevel, createLogger, getLogger, configureLogger, setGlobalLogLevel } from './utils/logger.js' // Logging
 
 // ------------------ Configuration File Handling ------------------
 export const resolveConfigPath = (base = '') =>
@@ -77,8 +82,7 @@ const isCommonersProject = async (root: string = process.cwd()) => {
     failMessage = `This directory does not contain an index.html file.`
 
   if (failMessage) {
-    console.error('Invalid Commoners project')
-    console.error(failMessage)
+    logger.error('Invalid Commoners project', { root, reason: failMessage })
     return false
   }
 
@@ -125,9 +129,8 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
     }
   }
 
-  // Set the root of the project
-
-  config.root = relative(process.cwd(), resolvedRoot) || resolvedRoot
+  // Set the root of the project (always absolute for consistent path resolution)
+  config.root = resolvedRoot
 
   return config
 }
@@ -159,7 +162,9 @@ export async function resolveConfig(
     delete o.root
   }
 
-  const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
+  // Always use absolute root path for consistent path resolution
+  const root = o.root ? (isAbsolute(o.root) ? o.root : resolve(o.root)) : process.cwd()
+  o.root = root
 
   const { services: ogServices, plugins, vite, ...temp } = o
 

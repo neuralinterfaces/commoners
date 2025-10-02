@@ -1,0 +1,68 @@
+/**
+ * Mobile (iOS/Android) launch strategy
+ * Handles launching mobile apps via Capacitor
+ */
+
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { createLogger } from '../../utils/logger.js'
+import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
+import { BuildError } from '../../errors.js'
+import * as mobile from '../../mobile/index.js'
+
+const logger = createLogger('MobileLaunchStrategy')
+
+/**
+ * Mobile launch strategy for iOS and Android
+ */
+export class MobileLaunchStrategy extends BaseLaunchStrategy {
+  readonly platform: string
+
+  constructor(platform: 'ios' | 'android') {
+    super()
+    this.platform = platform
+  }
+
+  canHandle(target: string): boolean {
+    return target === this.platform
+  }
+
+  async prepare(context: LaunchContext): Promise<void> {
+    const { resolvedConfig } = context
+    const { root, outDir: configOutDir } = resolvedConfig
+
+    // Resolve output directory
+    if (configOutDir) {
+      context.outDir = configOutDir
+    } else {
+      const { globalWorkspacePath } = await import('../../globals.js')
+      context.outDir = join(root, globalWorkspacePath, context.target)
+    }
+
+    // Verify output directory exists
+    if (!existsSync(context.outDir)) {
+      throw new BuildError(
+        'Output directory not found',
+        `The expected output directory does not exist: ${context.outDir}. Run build command first.`
+      )
+    }
+
+    logger.debug(`${this.platform} launch prepared`, { outDir: context.outDir })
+  }
+
+  async launch(context: LaunchContext): Promise<void> {
+    const { outDir, target, resolvedConfig } = context
+    const { root } = resolvedConfig
+
+    logger.info(`Launching ${this.platform} app`, { outDir })
+
+    // Launch mobile app (opens in native IDE/simulator)
+    // Note: Capacitor commands must run from project root, not outDir
+    await mobile.launch(target as 'ios' | 'android', root)
+
+    logger.info(`${this.platform} app launched in native environment`)
+
+    // Emit ready event
+    context.hooks.emit({ type: 'launch:ready' })
+  }
+}

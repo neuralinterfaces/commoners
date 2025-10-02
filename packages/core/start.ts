@@ -186,8 +186,15 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     // ------------------------------- Mobile -------------------------------
     if (isMobile(target)) {
       await initializeWebsocketPort()
-      await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
+      const outDir = await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
       startManager.services = await runDevelopmentPlugins(scopedConfig, hooks)
+
+      // Initialize and open the native IDE (Xcode for iOS, Android Studio for Android)
+      const mobile = await import('./mobile/index.js')
+      const mobileOpts = { target: target as 'ios' | 'android', outDir }
+      await mobile.init(mobileOpts, scopedConfig)
+      await mobile.open(mobileOpts, scopedConfig)
+
       return startManager
     }
 
@@ -212,7 +219,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
       // Use Vite to Load URLs in Dev Mode
       else {
-        const assets = await getAppAssets(scopedConfig, true)
+        const assets = await getAppAssets(scopedConfig, true, outDir)
         await buildAssets(assets, { outDir, root, target })
         .catch(err => {
           console.log('Error building assets:', err)
@@ -231,7 +238,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     // ------------------------------- Web -------------------------------
     await initializeWebsocketPort()
-    const webAssets = await getAppAssets(scopedConfig, true)
+    const webAssets = await getAppAssets(scopedConfig, true, outDir)
     await buildAssets(webAssets, { outDir, root, target })
     .catch(err => {
       console.log('Error building assets:', err)

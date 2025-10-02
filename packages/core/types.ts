@@ -300,6 +300,7 @@ export type ElectronSecuritySettings = {
   devTools?: boolean // Enable devTools (default: !isProduction)
   contextIsolation?: boolean // Enable context isolation (default: true)
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
+  asarIntegrity?: boolean // Enable ASAR integrity checks (default: true)
 }
 
 export type ElectronOptions = {

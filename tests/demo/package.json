@@ -16,7 +16,8 @@
   "workspaces": [
     "src/services/*"
   ],
-  "dependecies": {
+  "dependencies": {
+    "@capacitor-community/bluetooth-le": "^7.2.0",
     "@commoners/bluetooth": "1.0.0-alpha.2",
     "@commoners/local-services": "0.0.62",
     "@commoners/serial": "1.0.0-alpha.2",
@@ -24,13 +25,11 @@
     "@commoners/windows": "1.0.0-alpha.2"
   },
   "devDependencies": {
-    "@capacitor/android": "^6.2.0",
+    "@capacitor/android": "^7.0.0",
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^6.2.0",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/ios": "^6.2.0"
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
   },
-  "dependencies": {
-    "chalk": "^5.2.0"
-  }
+  "main": ".commoners/.temp/electron/main.cjs"
 }

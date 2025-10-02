@@ -121,14 +121,14 @@ export const openConfig = async ({ name, appId, plugins, outDir, root }: ConfigO
 const addProjectTarget = async (target, config: ResolvedConfig, outDir: string) => {
   const { name, appId, plugins, root } = config
   const { close } = await openConfig({ name, appId, plugins, outDir, root })
-  await runCommand(`npx cap add ${target} && npx cap copy ${target}`)
+  await runCommand(`npx cap add ${target} && npx cap copy ${target}`, { cwd: root })
   close()
 }
 
 const syncProject = async (config: ResolvedConfig, outDir: string) => {
   const { name, appId, target, plugins, root } = config
   const { close } = await openConfig({ name, appId, plugins, outDir, root })
-  await runCommand(`npx cap sync ${target}`)
+  await runCommand(`npx cap sync ${target}`, { cwd: root })
   close()
 }
 
@@ -165,14 +165,78 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     writeFileSync(platformConfigPath, plist.build(xml))
   }
 
-  // Inject the appropriate permissions into the AndroidManifest.xml file (Android only) (UNTESTED)
+  // Inject the appropriate permissions into the AndroidManifest.xml file (Android only)
   else if (target === TARGET_ANDROID) {
     const xml = readFileSync(platformConfigPath, 'utf8')
     const result = await xml2js.parseStringPromise(xml)
     const androidManifest = result.manifest
 
-    // TODO: Implement Android manifest injection for plugins
-    // See: https://github.com/commoners/commoners/issues/XXX
+    // Ensure tools namespace is declared (needed for tools: attributes)
+    if (!androidManifest.$) {
+      androidManifest.$ = {}
+    }
+    if (!androidManifest.$['xmlns:tools']) {
+      androidManifest.$['xmlns:tools'] = 'http://schemas.android.com/tools'
+    }
+
+    // Inject permissions from plugins
+    installedPlugins.forEach(({ manifest = {} }) => {
+      // Handle uses-permission entries
+      if (manifest['uses-permission']) {
+        if (!androidManifest['uses-permission']) {
+          androidManifest['uses-permission'] = []
+        }
+
+        const permissions = Array.isArray(manifest['uses-permission'])
+          ? manifest['uses-permission']
+          : [manifest['uses-permission']]
+
+        permissions.forEach(permission => {
+          // Check if permission already exists
+          const exists = androidManifest['uses-permission'].some(existing => {
+            const existingName = existing.$?.['android:name'] || existing['android:name']
+            const permName = permission.$?.['android:name'] || permission['android:name']
+            return existingName === permName
+          })
+
+          if (!exists) {
+            // Format permission with $ wrapper for attributes
+            const formattedPermission: any = { $: {} }
+            Object.entries(permission).forEach(([key, value]) => {
+              if (key.startsWith('android:') || key.startsWith('tools:')) {
+                formattedPermission.$[key] = value
+              } else {
+                formattedPermission[key] = value
+              }
+            })
+            androidManifest['uses-permission'].push(formattedPermission)
+          }
+        })
+      }
+
+      // Handle other manifest entries (features, etc.)
+      Object.entries(manifest).forEach(([key, value]) => {
+        if (key === 'uses-permission') return // Already handled above
+
+        if (!androidManifest[key]) {
+          androidManifest[key] = []
+        }
+
+        const entries = Array.isArray(value) ? value : [value]
+        entries.forEach(entry => {
+          // Format entry with $ wrapper for attributes
+          const formattedEntry: any = { $: {} }
+          Object.entries(entry).forEach(([attrKey, attrValue]) => {
+            if (attrKey.startsWith('android:') || attrKey.startsWith('tools:')) {
+              formattedEntry.$[attrKey] = attrValue
+            } else {
+              formattedEntry[attrKey] = attrValue
+            }
+          })
+          androidManifest[key].push(formattedEntry)
+        })
+      })
+    })
 
     writeFileSync(platformConfigPath, new xml2js.Builder().buildObject(result))
   }
@@ -232,32 +296,24 @@ export const checkDepsInstalled = async (config: ResolvedConfig) => {
 }
 
 export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
+  const { root } = config
+
   await checkDepsInstalled(config)
 
   await syncProject(config, outDir)
 
   if (assets.has(config)) {
     const info = assets.create(config)
-    await runCommand(`npx @capacitor/assets generate --${target}`) // Generate assets
+    await runCommand(`npx @capacitor/assets generate --${target}`, { cwd: root })
     assets.cleanup(info)
   }
 
-  await runCommand(`npx cap open ${target}`)
+  await runCommand(`npx cap open ${target}`, { cwd: root })
 }
 
-export const launch = async target => {
-  const _chalk = await chalk
-
-  throw new PlatformError(
-    'Mobile launch not implemented',
-    `Cannot launch for ${target} yet. This feature is under development.`
-  )
-
-  // TODO: Implement mobile launch detection
-  // See: https://github.com/commoners/commoners/issues/XXX
-  // }
-
-  // await checkDepsInstalled(platform)
-  // await openConfig(() => runCommand("npx cap sync"))
-  // await runCommand(`npx cap run ${platform}`)
+export const launch = async (target: typeof TARGET_IOS | typeof TARGET_ANDROID, root?: string) => {
+  // Launch opens the native IDE (Xcode for iOS, Android Studio for Android)
+  // The capacitor CLI command 'npx cap open' must run from the project root
+  const options = root ? { cwd: root } : {}
+  await runCommand(`npx cap open ${target}`, options)
 }

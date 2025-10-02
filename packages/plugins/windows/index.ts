@@ -188,8 +188,17 @@ class BrowserWindow extends EventTarget {
 export default (windows: Windows): Plugin => {
   const windowTypes = Object.keys(windows)
 
-  const assets = windowTypes.reduce((acc, id) => {
-    acc[id] = windows[id].src || windows[id]
+  // Assets with Metadata
+  const __assets = windowTypes.reduce((acc, id) => {
+    const config = windows[id]
+    if (typeof config === 'string') acc[id] = { src: config }
+    else acc[id] = config
+    return acc
+  }, {})
+
+  // Source path assets
+  const assets = Object.entries(__assets).reduce((acc, [id, config]) => {
+    acc[id] = config.src
     return acc
   }, {})
 
@@ -228,7 +237,8 @@ export default (windows: Windows): Plugin => {
 
           acc[type] = {
             create: () => {
-              const win = new BrowserWindow(assets[type])
+              const assetConfig = __assets[type]
+              const win = new BrowserWindow(assetConfig)
               win.addEventListener('ready', () => (windows[win.id] = win))
               win.addEventListener('closed', () => delete windows[win.id])
               document.addEventListener('beforeunload', () => win.close())

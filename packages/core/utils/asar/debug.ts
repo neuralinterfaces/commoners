@@ -1,10 +1,11 @@
-/* eslint-disable no-console */
 import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { createLogger } from '../logger.js'
 
-const log = (...a: any[]) => console.log('[asar-debug]', ...a)
-const warn = (...a: any[]) => console.warn('[asar-debug]', ...a)
-const error = (...a: any[]) => console.error('[asar-debug]', ...a)
+const logger = createLogger('asar-debug')
+const log = (...a: any[]) => logger.debug(a.join(' '))
+const warn = (...a: any[]) => logger.warn(a.join(' '))
+const error = (...a: any[]) => logger.error(a.join(' '))
 
 interface AsarState {
   exists: boolean

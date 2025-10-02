@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import {
   build,
   buildServices,
@@ -10,14 +8,17 @@ import {
   loadConfigFromFile,
 
   // Types
-  resolveConfig,
   resolveHooks,
-  resolveAppToLaunch,
   UserConfig,
   valid,
 
   // Errors
   CommonersError,
+
+  // Logger
+  setGlobalLogLevel,
+  LogLevel
+
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
@@ -26,6 +27,7 @@ import { DefaultHooks, CommonersUI } from '@commoners/solidarity/ui'
 
 // Parse early to check for --no-color flag
 const hasNoColor = process.argv.includes('--no-color')
+
 const ui = new CommonersUI({}, { noColor: hasNoColor })
 const cliHooks = new DefaultHooks(ui)
 
@@ -120,6 +122,7 @@ cli.option('--target <target>', 'Choose a target for the application')
 cli.option('--config <path>', 'Specify a configuration file')
 cli.option('--stdin', 'Read configuration from STDIN')
 cli.option('--no-color', 'Disable colored output')
+cli.option('-L, --log-level <level>', 'Set log level (debug, info, warn, error, silent)', { default: 'info' })
 
 // Add example usage
 cli.example('cat config.json | commoners build --stdin  # Use STDIN config')
@@ -300,12 +303,20 @@ cli
 cli.help()
 cli.version(pkg.version)
 
-const run = async () => {
-  const parsed = cli.parse()
-
-  if (parsed.options.version) process.exit()
-
-  if (parsed.options.help) process.exit()
+// Set log level BEFORE parsing (by checking argv directly)
+// This ensures loggers are configured before CAC command actions run
+const logLevelArgIndex = process.argv.findIndex(arg => arg === '--log-level' || arg === '-L')
+if (logLevelArgIndex !== -1 && process.argv[logLevelArgIndex + 1]) {
+  const levelString = process.argv[logLevelArgIndex + 1].toUpperCase()
+  const levelMap: Record<string, LogLevel> = {
+    DEBUG: LogLevel.DEBUG,
+    INFO: LogLevel.INFO,
+    WARN: LogLevel.WARN,
+    ERROR: LogLevel.ERROR,
+    SILENT: LogLevel.SILENT,
+  }
+  const levelValue = levelMap[levelString]
+  if (levelValue !== undefined) setGlobalLogLevel(levelValue)
 }
 
-run()
+cli.parse()

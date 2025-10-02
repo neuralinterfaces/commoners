@@ -219,8 +219,17 @@ async function buildService(
 // Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
-export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) => {
-  const { root, target, outDir } = resolvedConfig
+export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false, runtimeOutDir?: string) => {
+  const { root, target } = resolvedConfig
+  const outDir = runtimeOutDir ?? resolvedConfig.outDir
+
+  // Ensure required parameters are defined
+  if (!root || !outDir) {
+    throw new BuildError(
+      'Missing required configuration',
+      `root and outDir must be defined. Got root=${root}, outDir=${outDir}`
+    )
+  }
 
   const configPath = resolveConfigPath(root)
 
@@ -260,8 +269,8 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
   }
 
   // Copy All Icons
-  if (resolvedConfig.icon)
-    assets.copy.push(...getAllIcons(resolvedConfig.icon).map(icon => getAbsolutePath(root, icon)))
+  if (resolvedConfig.icon && root)
+    assets.copy.push(...getAllIcons(resolvedConfig.icon).filter(icon => icon).map(icon => getAbsolutePath(root, icon)))
 
   // Handle Provided Plugins
   for (const [id, plugin] of Object.entries(resolvedConfig.plugins)) {
@@ -270,6 +279,9 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
     // Only bundle assets in production mode
     if (!dev)
       Object.entries(pluginAssets).map(([key, assetSrc]) => {
+        // Skip undefined or null assets
+        if (!assetSrc || !root) return
+
         // Skip HTML files for bundling or copying
         // Handle in the main Vite build process instead
         if (extname(assetSrc) === '.html') return (pluginAssets[key] = assetSrc)
@@ -277,6 +289,7 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
         const absPath = getAbsolutePath(root, assetSrc)
 
         const filename = basename(assetSrc)
+        if (!filename || !id || !key) return // Skip if any component is invalid
         const assetPath = join('plugins', id, key, filename)
         const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
         const extension = extname(filename)
