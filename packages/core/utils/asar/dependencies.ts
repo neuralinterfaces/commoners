@@ -3,7 +3,7 @@
  * Validates required native modules are available
  */
 
-import { createLogger } from '../logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 
 const logger = createLogger('asar-integrity')
 

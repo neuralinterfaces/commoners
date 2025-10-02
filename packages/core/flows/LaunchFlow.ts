@@ -3,7 +3,7 @@
  * Implements the Template Method pattern for launch operations
  */
 
-import { createLogger } from '../utils/logger.js'
+import { createLogger } from '../assets/utils/logger.js'
 import type { UserConfig, HooksInterface } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 
@@ -108,6 +108,7 @@ export class LaunchFlow {
       this.logger.info('Starting launch', { target, dev, port, host })
 
       // Emit launch start event
+      this.logger.debug('Emitting launch:start', { config: resolvedConfig.name, target, dev })
       hooks.emit({ type: 'launch:start', config: resolvedConfig })
 
       // Get the appropriate launch strategy
@@ -136,6 +137,7 @@ export class LaunchFlow {
 
       this.logger.info('Launch completed successfully')
     } catch (error) {
+      this.logger.debug('Emitting launch:error', { error: (error as Error).message })
       hooks.emit({
         type: 'launch:error',
         error: error as Error,
@@ -161,6 +163,7 @@ export class LaunchFlow {
       await strategy.launch(context)
 
       // Emit launch complete event
+      this.logger.debug('Emitting launch:complete', { target: context.target })
       context.hooks.emit({ type: 'launch:complete' })
     } catch (error) {
       // Cleanup on error

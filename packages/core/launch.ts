@@ -4,7 +4,7 @@
  */
 
 import { join } from 'node:path'
-import { createLogger } from './utils/logger.js'
+import { createLogger } from './assets/utils/logger.js'
 import { createLaunchFlow } from './flows/index.js'
 import { resolveConfig } from './index.js'
 import { globalWorkspacePath } from './globals.js'
@@ -12,7 +12,7 @@ import { createAll } from './assets/services/index.js'
 import { ValidationError } from './errors.js'
 
 import type { ConfigResolveOptions, LaunchConfig } from './types.js'
-import type { Logger } from './utils/logger.js'
+import type { Logger } from './assets/utils/logger.js'
 
 // Lazy logger instance (created on first use)
 let logger: Logger

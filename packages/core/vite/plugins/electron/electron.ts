@@ -2,6 +2,9 @@ import * as cleanup from '../../../cleanup.js'
 import { createNoOpHooks } from '../../../ui.js'
 import { HooksInterface } from '../../../types.js'
 import { treeKillGracefully } from './processes.js'
+import { createLogger } from '../../../assets/utils/logger.js'
+
+const logger = createLogger('electron')
 
 type ChildProcess = import('node:child_process').ChildProcess
 
@@ -40,9 +43,16 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks()) {
   }))
 
   app.once('exit', cleanup.exit) // Kill the process after Electron.app exits
-  app.stdout.on('data', data => hooks.emit({ type: 'dev:electron:stdout', data })) // Print out any output from Electron.app
-  app.stderr.on('data', data => hooks.emit({ type: 'dev:electron:stderr', data })) // Print out any errors from Electron.app
+  app.stdout.on('data', data => {
+    logger.debug('Emitting dev:electron:stdout')
+    hooks.emit({ type: 'dev:electron:stdout', data })
+  }) // Print out any output from Electron.app
+  app.stderr.on('data', data => {
+    logger.debug('Emitting dev:electron:stderr')
+    hooks.emit({ type: 'dev:electron:stderr', data })
+  }) // Print out any errors from Electron.app
   cleanup.onCleanup(onExit) // Kill the process after the process exits
+  logger.debug('Emitting dev:electron:ready', { pid: app.pid })
   hooks.emit({ type: 'dev:electron:ready', app }) // Emit the start event
 
   return app

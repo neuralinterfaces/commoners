@@ -2,7 +2,7 @@ import { join, basename, dirname, extname, normalize, sep } from 'node:path'
 import { existsSync, readdirSync, lstatSync, statSync } from 'node:fs'
 import { flipFuses, FuseVersion, FuseV1Options } from '@electron/fuses'
 import { logAsarState } from './debug.js'
-import { createLogger } from '../logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 
 // Import from extracted modules
 import { sha256, readJsonHeaderBytes, readFullHeaderBytes } from './hash.js'
@@ -23,19 +23,34 @@ import {
   findSiblingUnpackedDir,
   findMacAppForArtifact,
 } from './platform.js'
-import {
-  chainAfterPack,
-  chainAfterSign,
-  chainArtifactBuildCompleted,
-  chainBeforeBuild,
-  chainAfterAllArtifactBuild,
-} from './hooks.js'
 
 /* ---------------- Logger ---------------- */
 const logger = createLogger('asar-integrity')
-const log = (...a: any[]) => logger.info(a.join(' '))
-const warn = (...a: any[]) => logger.warn(a.join(' '))
-const error = (...a: any[]) => logger.error(a.join(' '))
+
+// Helper functions that support both string messages and context objects
+const log = (message: string, context?: any) => {
+  if (typeof context === 'object' && context !== null) {
+    logger.info(message, context)
+  } else {
+    logger.info(message)
+  }
+}
+
+const warn = (message: string, context?: any) => {
+  if (typeof context === 'object' && context !== null) {
+    logger.warn(message, context)
+  } else {
+    logger.warn(message)
+  }
+}
+
+const error = (message: string, context?: any) => {
+  if (typeof context === 'object' && context !== null) {
+    logger.error(message, context)
+  } else {
+    logger.error(message)
+  }
+}
 
 export const debugAfterPack = async (context: any) => {
   const buildConfig = context.packager?.info?.options || {}
@@ -130,9 +145,9 @@ function validateDependenciesForIntegrity(): boolean {
 
   // Log successful setup
   if (deps.ffiAvailable) {
-    log('✅ FFI libraries available - using preferred integrity embedding method')
+    log('FFI libraries available - using preferred integrity embedding method')
   } else if (deps.rceditAvailable) {
-    log('✅ rcedit available - using fallback integrity embedding method')
+    log('rcedit available - using fallback integrity embedding method')
   }
 
   return true
@@ -165,20 +180,20 @@ function logIntegritySetupStatus(): void {
   const deps = checkWindowsDependencies()
 
   log('=== ASAR Integrity Setup Status ===')
-  log(`FFI Libraries: ${deps.ffiAvailable ? '✅ Available' : '❌ Missing'}`)
+  log(`FFI Libraries: ${deps.ffiAvailable ? 'Available' : '❌ Missing'}`)
   if (!deps.ffiAvailable) {
     log(`  Error: ${deps.ffiError}`)
     log('  Install: npm install ffi-napi ref-napi')
   }
 
-  log(`rcedit: ${deps.rceditAvailable ? '✅ Available' : '❌ Missing'}`)
+  log(`rcedit: ${deps.rceditAvailable ? 'Available' : '❌ Missing'}`)
   if (!deps.rceditAvailable) {
     log(`  Error: ${deps.rceditError}`)
     log('  Install: npm install rcedit')
   }
 
   if (deps.ffiAvailable || deps.rceditAvailable) {
-    log('Status: ✅ Ready for ASAR integrity embedding')
+    log('Status: Ready for ASAR integrity embedding')
   } else {
     log('Status: ❌ Cannot embed ASAR integrity - app will fail to start')
   }
@@ -352,7 +367,7 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
           return
         }
         writePlistIntegrity(plistPath, jsonHash)
-        log('✅ Wrote ElectronAsarIntegrity → Info.plist')
+        log('Wrote ElectronAsarIntegrity → Info.plist')
         return
       }
 
@@ -416,7 +431,7 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
                 const embedded = rec && String(rec.value || '').toLowerCase()
 
                 if (embedded === jsonHash) {
-                  log('✅ Embedded JSON header hash verified')
+                  log('Embedded JSON header hash verified')
                   logAsarState('AFTER_SUCCESSFUL_VERIFICATION', asarPath, {
                     verifiedHash: embedded,
                   })
@@ -474,7 +489,7 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
                 return
               }
 
-              log('✅ Embedded FULL header hash verified')
+              log('Embedded FULL header hash verified')
 
               // Final verification: re-read the ASAR to make sure it hasn't changed
               await new Promise(resolve => setTimeout(resolve, 1000)) // Wait longer
@@ -520,7 +535,7 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
             warn('Continuing build - verification failed but resource may still be embedded')
           }
         } else {
-          log('✅ Integrity resource written (verification skipped - FFI not available)')
+          log('Integrity resource written (verification skipped - FFI not available)')
           logAsarState('VERIFICATION_SKIPPED', asarPath)
         }
       }
@@ -544,8 +559,10 @@ export async function afterPackFlipFuses(context: any) {
       return
     }
 
-    // Track ASAR state before fuse flipping
-    const asarPath = join(appOutDir, 'resources', 'app.asar')
+    // Track ASAR state before fuse flipping - use correct path for macOS
+    const asarPath = isMac()
+      ? join(appOutDir, `${product}.app`, 'Contents', 'Resources', 'app.asar')
+      : join(appOutDir, 'resources', 'app.asar')
     logAsarState('BEFORE_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' })
 
     const targetPath = isWin()
@@ -565,7 +582,7 @@ export async function afterPackFlipFuses(context: any) {
     // Track ASAR state after fuse flipping
     logAsarState('AFTER_FUSE_FLIP', asarPath, { hook: 'afterPackFlipFuses' })
 
-    log('✅ Fuses flipped successfully on', targetPath)
+    log('Fuses flipped successfully on', targetPath)
   } catch (e: any) {
     warn('Fuse flip failed:', e?.message || e)
     // Don't throw - fuse flipping failure shouldn't break the build

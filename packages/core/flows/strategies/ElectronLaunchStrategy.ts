@@ -6,7 +6,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { cpus } from 'node:os'
-import { createLogger } from '../../utils/logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
 import { TARGET_ELECTRON } from '../../constants.js'
 import { PLATFORM } from '../../globals.js'

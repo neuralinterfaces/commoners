@@ -1,6 +1,9 @@
 
 import { spawn } from 'node:child_process'
 import { createNoOpHooks } from '../ui.js'
+import { createLogger } from '../assets/utils/logger.js'
+
+const logger = createLogger('processes')
 
 const children = {}
 
@@ -55,9 +58,18 @@ export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } 
     // Process output is handled by the service management system
     // Individual process logs are no longer logged to console
     if (opts.log !== false) {
-      proc.stdout?.on('data', (data) => hooks.emit({ type: 'service:stdout', data, service: label }))
-      proc.stderr?.on('data', (data) => hooks.emit({ type: 'service:stderr', data, service: label }))
-      proc.on('error', (error) => hooks.emit({ type: 'service:error', error, service: label }))
+      proc.stdout?.on('data', (data) => {
+        logger.debug('Emitting service:stdout', { service: label })
+        hooks.emit({ type: 'service:stdout', data, service: label })
+      })
+      proc.stderr?.on('data', (data) => {
+        logger.debug('Emitting service:stderr', { service: label })
+        hooks.emit({ type: 'service:stderr', data, service: label })
+      })
+      proc.on('error', (error) => {
+        logger.debug('Emitting service:error', { service: label, error: error.message })
+        hooks.emit({ type: 'service:error', error, service: label })
+      })
     }
 
     // Handle both exit and close to ensure cleanup

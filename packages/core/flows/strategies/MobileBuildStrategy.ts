@@ -3,7 +3,7 @@
  */
 
 import { join } from 'node:path'
-import { createLogger } from '../../utils/logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { DIR_MOBILE } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
@@ -53,6 +53,7 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
 
     logger.info(`Building ${this.platform} app`)
 
+    logger.debug('Emitting build:mobile:start', { platform: this.platform, target })
     context.hooks.emit({ type: 'build:mobile:start' })
 
     const mobileOpts = { target: target as 'ios' | 'android', outDir }

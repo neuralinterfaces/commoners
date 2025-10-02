@@ -4,6 +4,7 @@ import { getNormalizedTarget } from '@commoners/solidarity'
 
 import { build, open } from '@commoners/testing'
 import { checkAssets } from './assets'
+import { verifyAsarIntegrity, printVerificationResult } from './asar/verify'
 
 import config from './demo/commoners.config'
 
@@ -291,17 +292,61 @@ export const registerBuildTest = (
       checkAssets(projectBase, baseDir, { build: true, target })
     })
 
+    // Add ASAR integrity verification for Electron builds
+    if (isElectron) {
+      test('ASAR integrity is properly configured', async () => {
+        const baseDir = (await assetsBuilt) as string
+
+        // Find the built .app or .exe
+        const { name } = config
+        let appPath: string | null = null
+
+        if (process.platform === 'darwin') {
+          // macOS - look for .app bundle
+          appPath = join(baseDir, `${name}.app`)
+        } else if (process.platform === 'win32') {
+          // Windows - look for .exe
+          appPath = join(baseDir, `${name}.exe`)
+        }
+
+        if (!appPath) {
+          console.warn('⚠️  Skipping ASAR integrity test - unsupported platform')
+          return
+        }
+
+        const result = verifyAsarIntegrity(appPath)
+
+        // Print detailed results
+        printVerificationResult(result)
+
+        // Assert on critical checks
+        expect(result.checks.asarExists, 'ASAR file should exist').toBe(true)
+        expect(result.checks.metadataExists, 'ASAR integrity metadata should exist').toBe(true)
+        expect(result.checks.hashMatches, 'ASAR hash should match embedded hash').toBe(true)
+
+        // Fuse detection is a warning, not a failure
+        if (!result.checks.fuseDetected) {
+          console.warn('⚠️  Fuse sentinel not detected - this may cause issues')
+        }
+
+        // Overall success
+        expect(result.success, 'ASAR integrity verification should pass').toBe(true)
+      })
+    }
+
     describeFn('Launched application tests', async () => {
-      const output = getMockOutput()
+      const launchOutput = getMockOutput()
       beforeAll(async () => {
+        // Wait for build to complete first
+        await assetsBuilt
         const _output = await open(projectBase, opts, true)
-        Object.assign(output, _output)
+        Object.assign(launchOutput, _output)
       })
 
-      afterAll(() => output.cleanup())
+      afterAll(() => launchOutput.cleanup())
 
-      e2eTests.basic(output, { target }, false)
-      e2eTests.plugins(output, { target }, false)
+      e2eTests.basic(launchOutput, { target }, false)
+      e2eTests.plugins(launchOutput, { target }, false)
     })
   })
 }

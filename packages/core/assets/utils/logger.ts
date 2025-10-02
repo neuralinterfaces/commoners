@@ -35,6 +35,15 @@ export interface LoggerOptions {
   onLog?: (entry: LogEntry) => void
 }
 
+// Set log level icons
+const logLevelIcons: Record<LogLevel, string> = {
+  [LogLevel.DEBUG]: '🔍',
+  [LogLevel.INFO]: 'ℹ️',
+  [LogLevel.WARN]: '⚠️',
+  [LogLevel.ERROR]: '❌',
+  [LogLevel.SILENT]: '',
+}
+
 export class Logger {
   private level: LogLevel
   private prefix: string
@@ -105,6 +114,40 @@ export class Logger {
       this.onLog(entry)
     }
 
+    // Use global UI if available for formatted output
+    const ui = globalUI
+
+    // Helper to format context values compactly
+    const formatValue = (v: any): string => {
+      if (typeof v === 'string' && v.length > 60) {
+        // Truncate long paths/strings with ellipsis in middle
+        const start = v.substring(0, 30)
+        const end = v.substring(v.length - 27)
+        return `"${start}...${end}"`
+      }
+      return JSON.stringify(v)
+    }
+
+    if (ui) {
+      const icon = logLevelIcons[level]
+
+      // Use UI's indent system
+      ui.pushIndent()
+      // Add extra space after icon to ensure consistent alignment across emoji widths
+      ui.add(`${icon}  ${message}`)
+
+      // Add context as details if present
+      if (context && Object.keys(context).length > 0) {
+        const entries = Object.entries(context)
+        const contextStr = entries.map(([k, v]) => `${k}=${formatValue(v)}`).join(' ')
+        ui.details(contextStr)
+      }
+
+      ui.popIndent()
+      ui.add()
+      return
+    }
+
     // Still output to console for development
     const formatted = this.formatMessage(level, message, context)
 
@@ -169,9 +212,10 @@ export class Logger {
   }
 }
 
-// Global logger instance and level
+// Global logger instance, level, and UI
 let globalLogger: Logger
 let globalLogLevel: LogLevel | undefined
+let globalUI: any | undefined
 
 /**
  * Get or create the global logger instance
@@ -210,4 +254,18 @@ export function setGlobalLogLevel(level: LogLevel) {
  */
 export function createLogger(component: string): Logger {
   return getLogger().child({ component })
+}
+
+/**
+ * Set the global UI instance for formatted logging output
+ */
+export function setGlobalUI(ui: any) {
+  globalUI = ui
+}
+
+/**
+ * Get the global UI instance
+ */
+export function getGlobalUI() {
+  return globalUI
 }

@@ -4,7 +4,7 @@
  */
 
 import { join, resolve } from 'node:path'
-import { createLogger } from './utils/logger.js'
+import { createLogger } from './assets/utils/logger.js'
 import { createBuildFlow } from './flows/index.js'
 import { resolveConfig } from './index.js'
 import { getServiceAssets, buildAssets, getServicesToBuild } from './utils/assets.js'
@@ -15,7 +15,7 @@ import type {
   ServiceBuildOptions,
   UserConfig,
 } from './types.js'
-import type { Logger } from './utils/logger.js'
+import type { Logger } from './assets/utils/logger.js'
 
 // Lazy logger instance (created on first use)
 let logger: Logger
@@ -60,6 +60,7 @@ export const buildServices = async (
     return []
   }
 
+  getLogger().debug('Emitting build:assets:start', { phase: 'services', serviceCount: servicesToBuild.length })
   hooks.emit({
     type: 'build:assets:start',
     phase: 'services',
@@ -74,6 +75,7 @@ export const buildServices = async (
     target,
   })
 
+  getLogger().debug('Emitting build:assets:complete', { phase: 'services', resultCount: results.length })
   hooks.emit({ type: 'build:assets:complete', phase: 'services' })
 
   getLogger().info('Services built successfully', { count: results.length })

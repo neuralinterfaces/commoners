@@ -21,6 +21,7 @@ import { encodePath } from './encode.js'
 import { chalk, isDesktop, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
 import { BuildError } from '../errors.js'
+import { createLogger } from '../assets/utils/logger.js'
 import {
   ResolvedConfig,
   ResolvedService,
@@ -32,6 +33,8 @@ import { getAllIcons } from '../assets/utils/icons.js'
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from './esbuild/plugins.js'
 import { getEnvFilesForMode, tryStatSync } from '../assets/services/env/utils.js'
+
+const logger = createLogger('assets')
 
 const CONFIG_EXTENSION_TARGETS = [
   '.cjs',
@@ -161,6 +164,7 @@ async function buildService(
   out = resolve(out)
   const buildInfo = { name, src, out, force }
 
+  logger.debug('Emitting service:build:start', { service: name, src, out })
   hooks.emit({ type: 'service:build:start', service: name, src, out })
 
   try {
@@ -188,17 +192,27 @@ async function buildService(
       // Output path
       if (existsSync(build)) {
         const endTime = performance.now()
-        if (typeof wasBuilt === 'boolean' && !wasBuilt) hooks.emit({ type: 'service:build:cached', service: name, src, out: build })
-        else hooks.emit({ type: 'service:build:end', service: name, src, out: build, duration: endTime - startTime })
+        if (typeof wasBuilt === 'boolean' && !wasBuilt) {
+          logger.debug('Emitting service:build:cached', { service: name, src, out: build })
+          hooks.emit({ type: 'service:build:cached', service: name, src, out: build })
+        }
+        else {
+          logger.debug('Emitting service:build:end', { service: name, src, out: build, duration: endTime - startTime })
+          hooks.emit({ type: 'service:build:end', service: name, src, out: build, duration: endTime - startTime })
+        }
         return build // NOTE: Can be resolved by the above build function
       }
 
       // Stop if the build is not required
-      if (!mustBuild({ out, force })) return hooks.emit({ type: 'service:build:cached', service: name, src, out })
+      if (!mustBuild({ out, force })) {
+        logger.debug('Emitting service:build:cached', { service: name, src, out })
+        return hooks.emit({ type: 'service:build:cached', service: name, src, out })
+      }
 
       // Terminal Command
       await spawnProcess(build, [], { cwd: root, label: name }, hooks)
       const endTime = performance.now()
+      logger.debug('Emitting service:build:end', { service: name, src, out, duration: endTime - startTime })
       hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
     }
 
@@ -206,11 +220,18 @@ async function buildService(
     else {
       const { built } = await packageFile(buildInfo, hooks)
       const endTime = performance.now()
-      if (built) hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
-      else hooks.emit({ type: 'service:build:cached', service: name, src, out })
+      if (built) {
+        logger.debug('Emitting service:build:end', { service: name, src, out, duration: endTime - startTime })
+        hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
+      }
+      else {
+        logger.debug('Emitting service:build:cached', { service: name, src, out })
+        hooks.emit({ type: 'service:build:cached', service: name, src, out })
+      }
     }
 
   } catch (error) {
+    logger.debug('Emitting service:build:error', { service: name, src, out, error: (error as Error).message })
     hooks.emit({ type: 'service:build:error', service: name, src, out, error })
     throw error // Re-throw the error for further handling
   }
@@ -395,6 +416,7 @@ export const getServiceAssets = (
     if (allowCompilation) {
       bundleConfig.compile = async function ({ src, out }) {
 
+        logger.debug('Emitting service:build', { service: name, src, out, method: 'compile' })
         hooks.emit({ type: 'service:build', service: name, src, out, method: 'compile' })
 
         const rebuild =
@@ -416,6 +438,7 @@ export const getServiceAssets = (
         const toCopy = output === null ? null : (output ?? base ?? filepath)
 
         if (!existsSync(toCopy)) {
+          logger.debug('Emitting service:build:error', { service: name, src, out, missingFile: toCopy })
           hooks.emit({ type: 'service:build:error', service: name, src, out, error: new Error(`Missing build file: ${toCopy}`) })
           return null // Do not try to copy or bundle the missing file
         }

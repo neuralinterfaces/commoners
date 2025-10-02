@@ -3,7 +3,7 @@
  * Handles standard web and progressive web app builds
  */
 
-import { createLogger } from '../../utils/logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 
 const logger = createLogger('WebBuildStrategy')

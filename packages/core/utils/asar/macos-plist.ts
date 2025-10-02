@@ -5,7 +5,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import plist from 'plist'
-import { createLogger } from '../logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 
 const logger = createLogger('asar-integrity')
 
@@ -38,7 +38,7 @@ export function writePlistIntegrity(infoPlistPath: string, headerHash: string): 
     const out = plist.build(obj)
     writeFileSync(infoPlistPath, out, 'utf8')
 
-    logger.info(`✅ Wrote integrity hash to Info.plist: ${headerHash}`)
+    logger.info(`Wrote integrity hash to Info.plist: ${headerHash}`)
   } catch (e: any) {
     logger.error('Failed to write plist integrity:', e.message)
     throw e
@@ -97,7 +97,7 @@ export function validatePlistIntegrity(
       return false
     }
 
-    logger.info('✅ Info.plist integrity validated')
+    logger.info('Info.plist integrity validated')
     return true
   } catch (e: any) {
     logger.warn('Plist validation failed:', e.message)

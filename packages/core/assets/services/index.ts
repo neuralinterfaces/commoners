@@ -8,6 +8,9 @@ import { ResolvedService, ActiveServices, ActiveService, HooksInterface } from '
 import { loadEnvironmentVariables } from './env/index.js'
 
 import { getLocalIP } from './ip.js'
+import { createLogger } from '../utils/logger.js'
+
+const logger = createLogger('services')
 
 const createNoOpHooks = (): HooksInterface => ({
   emit: () => {},
@@ -341,6 +344,7 @@ export async function start(
 
     resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
 
+    logger.debug('Emitting service:launch:start', { service: label, filepath })
     hooks.emit({ type: 'service:launch:start',  service: label, filepath })
 
     try {
@@ -362,14 +366,17 @@ export async function start(
       const resolvedFilepath = resolve(
         isExecutable(ext) && !ext && existsSync(filepath + '.exe') ? filepath + '.exe' : filepath
       )
-      
+
       const fileExists = existsSync(resolvedFilepath)
 
-      if (!fileExists) return hooks.emit({
-        type: 'service:launch:error',
-        error: new Error(`File does not exist at ${resolvedFilepath}`),
-        service: label,
-      })
+      if (!fileExists) {
+        logger.debug('Emitting service:launch:error', { service: label, filepath: resolvedFilepath })
+        return hooks.emit({
+          type: 'service:launch:error',
+          error: new Error(`File does not exist at ${resolvedFilepath}`),
+          service: label,
+        })
+      }
 
       const resolvedProcessOptions = {
         cwd,
@@ -394,6 +401,7 @@ export async function start(
         childProcess.stdout.on('data', data => {
           config.status = true
           if (opts.onLog) opts.onLog(id, data)
+          logger.debug('Emitting service:stdout', { service: label })
           hooks.emit({
             type: 'service:stdout',
             service: label,
@@ -401,23 +409,29 @@ export async function start(
           })
         })
 
-      if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', data => hooks.emit({ type: 'service:stderr', service: label, data }))
+      if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', data => {
+        logger.debug('Emitting service:stderr', { service: label })
+        hooks.emit({ type: 'service:stderr', service: label, data })
+      })
 
-        
+
       // Notify of process closure gracefully
       childProcess.on('close', code => {
         config.status = false
         if (opts.onClosed) opts.onClosed(id, code)
         delete processes[id]
+        logger.debug('Emitting service:exit', { service: label, code })
         hooks.emit({ type: 'service:exit', service: label, code  })
       })
 
 
+      logger.debug('Emitting service:launch:complete', { service: label, url: resolvedURL.href, filepath })
       hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
       processes[id] = childProcess
 
       return { ...config, process: childProcess } as ActiveService
     } else {
+      logger.debug('Emitting service:launch:error', { service: label, filepath })
       hooks.emit({ type: 'service:launch:error', service: label, filepath, error })
     }
   }

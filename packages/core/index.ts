@@ -32,7 +32,7 @@ import { ConfigurationError, ValidationError } from './errors.js'
 import { validatePath } from './utils/security.js'
 
 // Logging
-import { createLogger } from './utils/logger.js'
+import { createLogger } from './assets/utils/logger.js'
 const logger = createLogger('config')
 
 import { resolveHooks } from './assets/utils/hooks.js'
@@ -62,7 +62,7 @@ export { buildApp as build, buildServices } from './build.js'
 export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers
-export { Logger, LogLevel, createLogger, getLogger, configureLogger, setGlobalLogLevel } from './utils/logger.js' // Logging
+export { Logger, LogLevel, createLogger, getLogger, configureLogger, setGlobalLogLevel, setGlobalUI, getGlobalUI } from './assets/utils/logger.js' // Logging
 
 // ------------------ Configuration File Handling ------------------
 export const resolveConfigPath = (base = '') =>

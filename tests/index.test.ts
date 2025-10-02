@@ -4,6 +4,9 @@ import {
   loadConfigFromFile,
   resolveConfigPath,
   resolveServiceBuildInfo,
+
+  LogLevel,
+  setGlobalLogLevel
 } from '@commoners/solidarity'
 
 import { resolve } from 'node:path'
@@ -12,6 +15,9 @@ import { existsSync } from 'node:fs'
 import { name } from './demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { buildServices } from '@commoners/testing'
+
+// Configure global logger for detailed output
+setGlobalLogLevel(LogLevel.DEBUG)
 
 const platforms = {
   windows: process.platform === 'win32',

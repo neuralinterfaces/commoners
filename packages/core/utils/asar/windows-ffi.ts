@@ -5,7 +5,7 @@
 
 import { basename, dirname } from 'node:path'
 import { existsSync, statSync } from 'node:fs'
-import { createLogger } from '../logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 
 const logger = createLogger('asar-integrity')
 
@@ -92,7 +92,7 @@ export function writeIntegrityResourceFFI(exePath: string, payloadJson: string):
     if (!r) {
       const currentErr = lastErr()
       logger.warn(
-        `[asar-integrity] UpdateResourceW failed (lang=${lang}, err=${currentErr})`
+        `UpdateResourceW failed (lang=${lang}, err=${currentErr})`
       )
       if (ok) {
         // Only set error on first failure
@@ -101,7 +101,7 @@ export function writeIntegrityResourceFFI(exePath: string, payloadJson: string):
       }
     } else {
       logger.info(
-        `[asar-integrity] UpdateResourceW OK (lang=${lang}, ${data.length} bytes)`
+        `UpdateResourceW OK (lang=${lang}, ${data.length} bytes)`
       )
       ok = true // At least one succeeded
       break // Exit on first success
@@ -137,7 +137,7 @@ export function readIntegrityResource(exePath: string): Array<{
     // Validate the executable exists and is actually an executable
     if (!existsSync(exePath)) {
       logger.warn(
-        `[asar-integrity] Executable not found for integrity verification: ${exePath}`
+        `Executable not found for integrity verification: ${exePath}`
       )
       return []
     }
@@ -174,12 +174,12 @@ export function readIntegrityResource(exePath: string): Array<{
         }
 
         logger.info(
-          `[asar-integrity] LoadLibraryExW failed with ${attempt.name} (err=${lastError})`
+          `LoadLibraryExW failed with ${attempt.name} (err=${lastError})`
         )
         mod = null
       } catch (e: any) {
         logger.warn(
-          `[asar-integrity] Exception during LoadLibraryExW with ${attempt.name}:`,
+          `Exception during LoadLibraryExW with ${attempt.name}:`,
           e.message
         )
         mod = null
@@ -189,10 +189,10 @@ export function readIntegrityResource(exePath: string): Array<{
     if (!mod) {
       // Don't throw here - this is verification, not critical path
       logger.warn(
-        `[asar-integrity] All LoadLibraryExW attempts failed for ${basename(exePath)} (last err=${lastError})`
+        `All LoadLibraryExW attempts failed for ${basename(exePath)} (last err=${lastError})`
       )
       logger.warn(
-        '[asar-integrity] This may indicate the executable is corrupted, locked, or has an incompatible architecture'
+        'This may indicate the executable is corrupted, locked, or has an incompatible architecture'
       )
       return []
     }
@@ -225,7 +225,7 @@ export function readIntegrityResource(exePath: string): Array<{
         out.push({ lang, found: true, json, size })
       } catch (e: any) {
         logger.warn(
-          `[asar-integrity] Error reading resource for language ${lang}:`,
+          `Error reading resource for language ${lang}:`,
           e.message
         )
         out.push({ lang, found: false })
@@ -235,7 +235,7 @@ export function readIntegrityResource(exePath: string): Array<{
     try {
       K.FreeLibrary(mod)
     } catch (e: any) {
-      logger.warn('[asar-integrity] Error freeing library:', e.message)
+      logger.warn('Error freeing library:', e.message)
     }
 
     return out
@@ -363,13 +363,13 @@ export async function writeIntegrityResource(
         await new Promise((resolve) => setTimeout(resolve, attempt * 100)) // Progressive delay
         writeIntegrityResourceFFI(exePath, payloadJson)
         logger.info(
-          `[asar-integrity] ✅ FFI resource writing succeeded on attempt ${attempt + 1}`
+          `FFI resource writing succeeded on attempt ${attempt + 1}`
         )
         return
       } catch (e: any) {
         lastError = e
         logger.warn(
-          `[asar-integrity] FFI resource writing attempt ${attempt + 1} failed:`,
+          `FFI resource writing attempt ${attempt + 1} failed:`,
           e.message
         )
         if (attempt < 2) {
@@ -390,13 +390,13 @@ export async function writeIntegrityResource(
         await new Promise((resolve) => setTimeout(resolve, attempt * 100)) // Progressive delay
         await writeIntegrityResourceRcedit(exePath, payloadJson)
         logger.info(
-          `[asar-integrity] ✅ rcedit resource writing succeeded on attempt ${attempt + 1}`
+          `rcedit resource writing succeeded on attempt ${attempt + 1}`
         )
         return
       } catch (e: any) {
         lastError = e
         logger.warn(
-          `[asar-integrity] rcedit attempt ${attempt + 1} failed:`,
+          `rcedit attempt ${attempt + 1} failed:`,
           e.message
         )
         if (attempt < 2) {

@@ -17,6 +17,7 @@ import {
 
   // Logger
   setGlobalLogLevel,
+  setGlobalUI,
   LogLevel
 
 } from '@commoners/solidarity'
@@ -29,6 +30,7 @@ import { DefaultHooks, CommonersUI } from '@commoners/solidarity/ui'
 const hasNoColor = process.argv.includes('--no-color')
 
 const ui = new CommonersUI({}, { noColor: hasNoColor })
+setGlobalUI(ui) // Ensure loggers use the same system for formatting
 const cliHooks = new DefaultHooks(ui)
 
 // Utilities
@@ -40,9 +42,16 @@ const didYouMean = didYouMeanModule.default || didYouMeanModule // Handle both n
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
+class CLIError extends CommonersError {
+  constructor(message: string, details?: string) {
+    super(message, details)
+    this.name = 'CLIError'
+  }
+}
+
 function failed (message: string, submessage?: string) {
   ui.error(message, submessage)
-  process.exit(1)
+  throw new CLIError(`CLI Error: ${message}`, submessage)
 }
 
 function preprocessTarget(target, hooks) {
@@ -109,7 +118,7 @@ async function getConfig(opts: { root?: string; config?: string; stdin?: boolean
       return parsed
     } catch (error) {
       ui.error(`Failed to parse config from STDIN`, error.message)
-      process.exit(1)
+      throw error // Exit with error
     }
   }
   return loadConfigFromFile(getConfigPathFromOpts({ root: opts.root, config: opts.config }))
@@ -220,10 +229,7 @@ cli
       // Enhanced launch feedback
       await launch({ ...reconciledConfig, hooks })
     } catch (error) {
-      if (error instanceof CommonersError) {
-        ui.error(error.message, error.details)
-        process.exit(1)
-      }
+      if (error instanceof CommonersError) ui.error(error.message, error.details)
       throw error // Re-throw unexpected errors
     }
   })
@@ -246,33 +252,37 @@ cli
   .option('--publish [type]', 'Publish the application', { default: 'always' })
   .option('--sign', 'Enable code signing (desktop target on Mac only)')
   .action(async (root, options) => {
-    const { config: configPath, service, services, sign, publish, stdin, ...overrides } = options
-    const { target: manualTarget } = overrides
-    overrides.build = { sign, publish }
+    try {
+      const { config: configPath, service, services, sign, publish, stdin, ...overrides } = options
+      const { target: manualTarget } = overrides
+      overrides.build = { sign, publish }
 
-    preprocessTarget(manualTarget, cliHooks)
-    const config = await getConfig({ root, config: configPath, stdin })
-    if (!config) return failed('Configuration not found')
-    const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
+      preprocessTarget(manualTarget, cliHooks)
+      const config = await getConfig({ root, config: configPath, stdin })
+      if (!config) return failed('Configuration not found')
+      const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
 
-    // Build Services Only
-    const servicesToBuild = services ? Object.keys(config.services) : service
-    if (!manualTarget && servicesToBuild) {
-      const nServices = Array.isArray(servicesToBuild) ? Object.keys(servicesToBuild).length : 1
-      hooks.ui.header(`Building Service${nServices > 1 ? 's' : ` (${servicesToBuild})`}`)
-      try {
-        await buildServices(config, { services: servicesToBuild, hooks })
-        hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
-      } catch (error) {
-        hooks.ui.error('Failed to build services', error.message)
-        process.exit(1)
+      // Build Services Only
+      const servicesToBuild = services ? Object.keys(config.services) : service
+      if (!manualTarget && servicesToBuild) {
+        const nServices = Array.isArray(servicesToBuild) ? Object.keys(servicesToBuild).length : 1
+        hooks.ui.header(`Building Service${nServices > 1 ? 's' : ` (${servicesToBuild})`}`)
+        try {
+          await buildServices(config, { services: servicesToBuild, hooks })
+          hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
+        } catch (error) {
+          ui.error('Failed to build services', error.message)
+          throw error // Re-throw unexpected errors
+        }
+        return
       }
-      return
+
+      const resolvedConfig = reconcile(config, overrides)
+      await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks })
+    } catch (error) {
+      if (error instanceof CommonersError) ui.error(error.message, error.details)
+      throw error // Re-throw unexpected errors
     }
-
-    const resolvedConfig = reconcile(config, overrides)
-    await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks })
-
   })
 
 // Start the application in development mode
@@ -291,13 +301,18 @@ cli
   .alias('run')
 
   .action(async (root, options) => {
-    const { config: configPath, stdin, ...overrides } = options
-    preprocessTarget(overrides.target, cliHooks)
-    const config = await getConfig({ root, config: configPath, stdin })
-    if (!config) return failed('Configuration not found')
-    const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
-    const resolvedConfig = reconcile(config, overrides)
-    await start(resolvedConfig, { hooks })
+    try {
+      const { config: configPath, stdin, ...overrides } = options
+      preprocessTarget(overrides.target, cliHooks)
+      const config = await getConfig({ root, config: configPath, stdin })
+      if (!config) return failed('Configuration not found')
+      const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
+      const resolvedConfig = reconcile(config, overrides)
+      await start(resolvedConfig, { hooks })
+    } catch (error) {
+      if (error instanceof CommonersError) ui.error(error.message, error.details)
+      throw error // Re-throw unexpected errors
+    }
   })
 
 cli.help()

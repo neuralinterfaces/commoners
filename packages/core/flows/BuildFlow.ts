@@ -4,7 +4,7 @@
  */
 
 import { join, resolve, dirname, relative, isAbsolute } from 'node:path'
-import { createLogger } from '../utils/logger.js'
+import { createLogger } from '../assets/utils/logger.js'
 import type { UserConfig, BuildHooks, HooksInterface } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
@@ -122,6 +122,7 @@ export class BuildFlow {
       this.logger.info('Starting build', { target, dev, root })
 
       // Emit build start event
+      this.logger.debug('Emitting build:start', { config: resolvedConfig.name, target, dev })
       hooks.emit({ type: 'build:start', config: resolvedConfig, dev })
 
       // Get the appropriate build strategy
@@ -154,6 +155,7 @@ export class BuildFlow {
       await this.executeBuildFlow(context, strategy)
 
       // Emit build complete event
+      this.logger.debug('Emitting build:complete', { config: resolvedConfig.name, outDir: context.outDir })
       hooks.emit({
         type: 'build:complete',
         config: resolvedConfig,
@@ -164,6 +166,7 @@ export class BuildFlow {
 
       return context.outDir
     } catch (error) {
+      this.logger.debug('Emitting build:error', { error: (error as Error).message })
       hooks.emit({
         type: 'build:error',
         error: error as Error,
@@ -221,6 +224,7 @@ export class BuildFlow {
   private async buildFrontendAssets(context: BuildContext): Promise<void> {
     const { resolvedConfig, hooks, dev, outDir, root } = context
 
+    this.logger.debug('Emitting build:assets:start', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
 
     // Ensure root is absolute for Vite (Vite expects absolute root)
@@ -248,6 +252,7 @@ export class BuildFlow {
       customLogger: customViteLogger,
     })
 
+    this.logger.debug('Emitting build:assets:complete', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })
 
     this.logger.debug('Frontend assets built', { outDir })
@@ -277,6 +282,7 @@ export class BuildFlow {
       return
     }
 
+    this.logger.debug('Emitting build:assets:start', { phase: 'services', services: servicesToBuild })
     hooks.emit({
       type: 'build:assets:start',
       phase: 'services',
@@ -290,6 +296,7 @@ export class BuildFlow {
       target: context.target,
     })
 
+    this.logger.debug('Emitting build:assets:complete', { phase: 'services' })
     hooks.emit({ type: 'build:assets:complete', phase: 'services' })
 
     this.logger.info('Services built', { count: results.length })
@@ -320,7 +327,8 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
       const tempDir = this.getTempDir(root, context.target)
       const { overwrite: wasOverwritten } = await handleTemporaryDirectories(
         dirname(tempDir),
-        overwrite
+        overwrite,
+        { cleanupOnExit: true } // Always cleanup temp directories on exit
       )
 
       // Update context with actual output directory

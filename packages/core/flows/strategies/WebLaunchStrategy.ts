@@ -5,7 +5,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { createLogger } from '../../utils/logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
 import { vite } from '../../globals.js'
 import { BuildError } from '../../errors.js'
@@ -87,6 +87,7 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     logger.info('Vite dev server running', { url, host: resolvedHost, port: resolvedPort })
 
     // Emit ready event with server info
+    logger.debug('Emitting launch:ready', { url, hasServer: !!this.server })
     context.hooks.emit({
       type: 'launch:ready',
       url,

@@ -4,7 +4,7 @@
  */
 
 import { join, relative, isAbsolute } from 'node:path'
-import { createLogger } from '../../utils/logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_ELECTRON, DIR_ELECTRON } from '../../constants.js'
 import { parseOptions } from '../../assets/electron/modules/config.js'
@@ -52,6 +52,14 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     return join(root, globalTempDir, DIR_ELECTRON)
   }
 
+  /**
+   * Get the final output directory for electron-builder artifacts
+   * (different from temp dir where assets are built)
+   */
+  private getFinalOutputDir(root: string): string {
+    return join(root, globalWorkspacePath, DIR_ELECTRON)
+  }
+
   async prepare(context: BuildContext): Promise<void> {
     await super.prepare(context)
 
@@ -70,6 +78,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
     logger.info('Starting Electron packaging', { name, appId })
 
+    logger.debug('Emitting build:electron:start', { name, appId })
     context.hooks.emit({ type: 'build:electron:start' })
 
     // Configure package.json for Electron
@@ -106,9 +115,23 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     const { build } = await import('electron-builder')
     await build(electronBuilderConfig)
 
+    // Update context with final output directory for build:complete event
+    const finalOutputDir = this.getFinalOutputDir(root)
+    context.outDir = finalOutputDir
+
+    logger.debug('Emitting build:electron:complete', { name, outDir: finalOutputDir })
     context.hooks.emit({ type: 'build:electron:complete' })
 
     logger.info('Electron packaging completed')
+  }
+
+  async finalize(context: BuildContext): Promise<void> {
+    // Ensure the final output directory is set in context
+    // so that build:complete event reports the correct path
+    const finalOutputDir = this.getFinalOutputDir(context.root)
+    context.outDir = finalOutputDir
+
+    this.logger.debug('No finalization steps for electron')
   }
 
   /**
@@ -133,9 +156,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Disable npm rebuild to avoid dependency conflicts
     buildConfig.npmRebuild = false
 
-    // Set output directory (relative to root for electron-builder)
-    const outputDirRelativeToRoot = relative(root, outDir)
-    buildConfig.directories.output = outputDirRelativeToRoot
+    // Set output directory to final location (not temp dir)
+    // This is where electron-builder will place the final packages (.app, .dmg, .zip, etc.)
+    const finalOutputDir = this.getFinalOutputDir(root)
+    const actualOutDir = isAbsolute(finalOutputDir) ? finalOutputDir : join(process.cwd(), finalOutputDir)
+    buildConfig.directories.output = actualOutDir
 
     // App directory is where the built files are (temp dir)
     // This way electron-builder packages the contents directly without extra nesting

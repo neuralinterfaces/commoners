@@ -9,6 +9,9 @@ if [ -z "$APP" ]; then
     exit 1
 fi
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║         ASAR Integrity Verification Test Suite            ║"
 echo "╚════════════════════════════════════════════════════════════╝"
@@ -16,20 +19,20 @@ echo ""
 
 # Test 1: Basic Verification
 echo "━━━ Test 1: Basic Verification ━━━"
-./verify-asar-integrity.sh "$APP"
+"$SCRIPT_DIR/verify-asar-integrity.sh" "$APP"
 TEST1=$?
 echo ""
 
 # Test 2: CI/CD Verification
 echo "━━━ Test 2: CI/CD Verification (Strict Mode) ━━━"
-STRICT_MODE=true ./ci-verify-asar-integrity.sh "$APP"
+STRICT_MODE=true "$SCRIPT_DIR/ci-verify-asar-integrity.sh" "$APP"
 TEST2=$?
 echo ""
 
 # Test 3: Tamper Test (Interactive - will ask for confirmation)
 echo "━━━ Test 3: Tamper Test (Definitive Proof) ━━━"
 echo "This test will tamper with a copy and verify it fails to launch"
-./test-asar-tamper.sh "$APP"
+"$SCRIPT_DIR/test-asar-tamper.sh" "$APP"
 TEST3=$?
 echo ""
 

@@ -59,15 +59,6 @@ fi
 
 print_header "ASAR Integrity Tamper Test"
 
-echo "This test will:"
-echo "  1. Create a copy of your app"
-echo "  2. Tamper with the ASAR file"
-echo "  3. Attempt to launch the tampered app"
-echo "  4. Verify if integrity protection prevented the launch"
-echo ""
-read -p "Press Enter to continue..."
-echo ""
-
 # Detect platform
 if [[ "$APP_PATH" == *.app ]]; then
     PLATFORM="macOS"

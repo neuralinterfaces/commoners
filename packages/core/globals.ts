@@ -59,7 +59,12 @@ export const globalWorkspacePath = '.commoners'
 export const globalTempDir = join(globalWorkspacePath, '.temp')
 
 let __selectedTempDir: string
-export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwrite = false) => {
+export const handleTemporaryDirectories = async (
+  tempDir = globalTempDir,
+  overwrite = false,
+  options: { cleanupOnExit?: boolean } = {}
+) => {
+  const { cleanupOnExit = true } = options
   const canOverwrite = overwrite && __selectedTempDir === tempDir
   const hasTempDir = existsSync(tempDir)
   const isOverWritten = canOverwrite && hasTempDir
@@ -75,7 +80,8 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwr
   let removed = false
 
   __selectedTempDir = tempDir
-  const onClose = () => {
+  const clearTemporaryFiles = () => {
+
     // Prevent double-calling
     if (removed) return
     removed = true
@@ -85,12 +91,12 @@ export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwr
     removeDirectory(`${tempDir}.services`)
   }
 
-  // Always clear the temp directories on exit
-  onCleanup(onClose)
+  // Only register cleanup on exit if cleanupOnExit is true (e.g., for dev builds)
+  if (cleanupOnExit) onCleanup(clearTemporaryFiles)
 
   return {
     overwrite: isOverWritten,
-    close: onClose,
+    close: clearTemporaryFiles,
   }
 }
 

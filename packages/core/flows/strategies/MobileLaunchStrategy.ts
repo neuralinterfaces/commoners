@@ -5,7 +5,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { createLogger } from '../../utils/logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
 import { BuildError } from '../../errors.js'
 import * as mobile from '../../mobile/index.js'
@@ -63,6 +63,7 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
     logger.info(`${this.platform} app launched in native environment`)
 
     // Emit ready event
+    logger.debug('Emitting launch:ready', { platform: this.platform, outDir })
     context.hooks.emit({ type: 'launch:ready' })
   }
 }

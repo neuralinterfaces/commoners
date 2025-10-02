@@ -12,6 +12,7 @@ import {
 } from './index.js'
 import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile } from './globals.js'
 import { onCleanup } from './cleanup.js'
+import { createLogger } from './assets/utils/logger.js'
 
 import { Plugin, ResolvedConfig, UserConfig, HooksInterface } from './types.js'
 import { createNoOpHooks } from './ui.js'
@@ -23,6 +24,8 @@ import { getFreePorts } from './assets/services/network.js'
 
 import { startElectronInstance } from './vite/plugins/electron/index.js'
 import { buildAssets, getAppAssets } from './utils/assets.js'
+
+const logger = createLogger('start')
 
 const wsPortEnvVar = 'COMMONERS_WEBSOCKET_PORT'
 
@@ -62,6 +65,7 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
       const matchedContext = wsContexts[context]
 
       if (!matchedContext) {
+        logger.debug('Emitting dev:server:error', { context })
         hooks.emit({
           type: 'dev:server:error',
           error: new Error(`Unknown WS message context: ${context}`)
@@ -154,6 +158,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
   try {
 
     // Emit dev server start event
+    logger.debug('Emitting dev:start', { target: resolvedConfig.target })
     hooks.emit({ type: 'dev:start', config: resolvedConfig })
 
 
@@ -209,6 +214,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
         configureForDesktop(outDir, root)
         await startElectronInstance(root, hooks) // Start the Electron instance
 
+        logger.debug('Emitting dev:reload:unavailable', { target, loadMode: load })
         hooks.emit({
           type: 'dev:reload:unavailable',
           target,
@@ -254,10 +260,12 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     const { port, host } = frontend.config.server
     const protocol = frontend.config.server.https ? 'https' : 'http'
     const url = `${protocol}://${host || 'localhost'}:${port}`
+    logger.debug('Emitting dev:server:ready', { target, url })
     hooks.emit({ type: 'dev:server:ready', target, url  })
     return startManager
 
   } catch (error) {
+    logger.debug('Emitting dev:server:error', { error: (error as Error).message })
     hooks.emit({
       type: 'dev:server:error',
       error: error as Error

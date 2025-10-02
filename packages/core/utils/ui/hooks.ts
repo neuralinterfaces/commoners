@@ -140,7 +140,6 @@ export class DefaultHooks extends Hooks {
 
         const require = createRequire(import.meta.url)
         const chalk = require('chalk').default
-        const path = require('path')
 
         this.ui.box(
           `${name} (${targetName}) was built successfully!\n${chalk.gray(this.ui.path(outDir))}`,
@@ -259,11 +258,7 @@ export class DefaultHooks extends Hooks {
     })
 
     this.on('service:launch:complete', async (event) => {
-      if (event.type === 'service:launch:complete') {
-        const require = createRequire(import.meta.url)
-        const chalk = require('chalk').default
-        return this.ui.service(event.service, `${chalk.cyanBright(event.url)}`, 'success')
-      }
+      if (event.type === 'service:launch:complete') return
     })
 
     this.on('service:launch:error', (event) => {
@@ -337,7 +332,7 @@ export class DefaultHooks extends Hooks {
       'g'
     )
 
-    const logForElectron =  (ev, type = 'info') => {
+    const logForElectron =  (ev: any, type: 'info' | 'error' | 'success' = 'info') => {
       const { data } = ev
       const message = data.toString()
       if (labelRegexp.test(message.replace(ansiRegex, ''))) return console.log(message)

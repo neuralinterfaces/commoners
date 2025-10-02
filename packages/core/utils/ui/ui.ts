@@ -23,6 +23,8 @@ export class CommonersUI {
   private activeSpinners: Set<Ora> = new Set()
   private sectionStack: SectionContext[] = []
   private colorsEnabled: boolean = true
+  private indentLevel: number = 0
+  private indentString: string = '  ' // 2 spaces per indent level
 
   constructor(theme: Partial<UITheme> | ThemeName = {}, options: { noColor?: boolean } = {}) {
 
@@ -440,6 +442,7 @@ export class CommonersUI {
 
   details(message: string) {
     const currentSection = this.getCurrentSection()
+    const indent = this.indentString.repeat(this.indentLevel)
     const fullMessage = this._chalk.hex(this.theme.muted)(message)
 
     if (currentSection?.boxed) {
@@ -448,7 +451,7 @@ export class CommonersUI {
     } else {
       // Render immediately for non-boxed sections
       const formattedMessage = this.formatWithSectionContext(fullMessage)
-      this.add(formattedMessage)
+      console.log(indent + formattedMessage)
       this.addToCurrentSection(message)
     }
   }
@@ -602,6 +605,7 @@ export class CommonersUI {
   add(...args: string[]) {
     const currentSection = this.getCurrentSection()
     const message = args.join(' ')
+    const indent = this.indentString.repeat(this.indentLevel)
 
     if (currentSection) {
       if (currentSection.boxed) {
@@ -609,11 +613,11 @@ export class CommonersUI {
         this.addToCurrentSection(message)
       } else {
         const formattedMessage = this.formatWithSectionContext(message)
-        console.log(formattedMessage)
+        console.log(indent + formattedMessage)
         this.addToCurrentSection(message)
       }
     } else {
-      console.log(message)
+      console.log(indent + message)
     }
   }
 
@@ -626,6 +630,7 @@ export class CommonersUI {
   // Add multi-line content to the current section (especially useful for boxed sections)
   addLines(lines: string[]) {
     const currentSection = this.getCurrentSection()
+    const indent = this.indentString.repeat(this.indentLevel)
 
     if (currentSection) {
       if (currentSection.boxed) {
@@ -634,12 +639,33 @@ export class CommonersUI {
       } else {
         lines.forEach(line => {
           const formattedMessage = this.formatWithSectionContext(line)
-          console.log(formattedMessage)
+          console.log(indent + formattedMessage)
         })
         this.addToCurrentSection(lines)
       }
     } else {
-      lines.forEach(line => console.log(line))
+      lines.forEach(line => console.log(indent + line))
     }
+  }
+
+  // Indent management for generic indentation
+  pushIndent(levels: number = 1) {
+    this.indentLevel += levels
+  }
+
+  popIndent(levels: number = 1) {
+    this.indentLevel = Math.max(0, this.indentLevel - levels)
+  }
+
+  setIndent(level: number) {
+    this.indentLevel = Math.max(0, level)
+  }
+
+  getIndent(): number {
+    return this.indentLevel
+  }
+
+  getIndentString(): string {
+    return this.indentString.repeat(this.indentLevel)
   }
 }

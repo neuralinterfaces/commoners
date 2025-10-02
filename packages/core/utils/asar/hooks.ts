@@ -3,7 +3,7 @@
  * Allows combining multiple hooks into a single hook function
  */
 
-import { createLogger } from '../logger.js'
+import { createLogger } from '../../assets/utils/logger.js'
 
 const logger = createLogger('asar-integrity')
 
