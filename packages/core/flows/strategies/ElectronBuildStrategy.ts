@@ -269,7 +269,6 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
       if (extraResource) {
         const glob = isDirectory ? join(location, '**') : location
-        console.log("Adding extra resource:", glob) // Debugging output
         extraResources.push(glob)
         files.push(`!${glob}`)
       }

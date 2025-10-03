@@ -292,7 +292,6 @@ export class BuildFlow {
     const isRebuildConfig = rebuildServices && typeof rebuildServices === 'object' && !Array.isArray(rebuildServices)
     const resolvedOutDir = (isRebuildConfig ? rebuildServices.outDir : "") || (context.__outDir || resolve(join(root, globalServiceWorkspacePath)))
 
-    console.log("Output Directory", resolvedOutDir, context.__outDir, context.outDir)
     const resolvedRebuild = (isRebuildConfig ? rebuildServices.force : rebuildServices) as ServiceRebuildOption
     const assets = await getServiceAssets(config, dev, resolvedRebuild, hooks)
     const results = await buildAssets(assets, { root, outDir: resolvedOutDir, target, dev })
