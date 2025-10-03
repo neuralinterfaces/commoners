@@ -49,7 +49,8 @@ export async function createSEA(options: SEABuildOptions): Promise<SEABuildResul
     const tempBundle = join(outDir, `${outName}.bundle.js`)
     const seaConfigPath = join(outDir, `${outName}.sea-config.json`)
     const seaBlobPath = join(outDir, `${outName}.sea-prep.blob`)
-    const executablePath = platform === 'win32' ? `${out}.exe` : out
+    // Add .exe only if not already present on Windows
+    const executablePath = platform === 'win32' ? (out.endsWith('.exe') ? out : `${out}.exe`) : out
 
     // Ensure output directory exists
     mkdirSync(outDir, { recursive: true })
