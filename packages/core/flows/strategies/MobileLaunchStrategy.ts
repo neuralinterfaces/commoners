@@ -9,6 +9,7 @@ import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
 import { BuildError } from '../../errors.js'
 import * as mobile from '../../mobile/index.js'
+import { LaunchOutput } from '../../types.js'
 
 const logger = createLogger('MobileLaunchStrategy')
 
@@ -50,7 +51,7 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
     logger.debug(`${this.platform} launch prepared`, { outDir: context.outDir })
   }
 
-  async launch(context: LaunchContext): Promise<void> {
+  async launch(context: LaunchContext): Promise<LaunchOutput> {
     const { outDir, target, config } = context
     const { root } = config
 
@@ -65,5 +66,7 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
     // Emit ready event
     logger.debug('Emitting launch:ready', { platform: this.platform, outDir })
     context.hooks.emit({ type: 'launch:ready' })
+
+    return { url: null }
   }
 }

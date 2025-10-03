@@ -604,7 +604,9 @@ export class CommonersUI {
 
   add(...args: string[]) {
     const currentSection = this.getCurrentSection()
+    // console.log(...args)
     const message = args.join(' ')
+    // console.log(message)
     const indent = this.indentString.repeat(this.indentLevel)
 
     if (currentSection) {

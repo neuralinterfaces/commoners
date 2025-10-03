@@ -70,7 +70,7 @@ export type DevServerEvent =
 
 export type LaunchEvent =
   | { type: 'launch:start'; outDir: string, target: string }
-  | { type: 'launch:ready'; }
+  | { type: 'launch:ready'; url?: string; server?: any; }
   | { type: 'launch:error'; error: Error; target?: string }
 
 
@@ -83,6 +83,10 @@ export type HookFunction = (event: HookEvent) => void | Promise<void>
 export interface HooksInterface {
   emit: (event: HookEvent) => void
   on: (eventType: HookEvent['type'] | 'all', handler: HookFunction) => () => void
+}
+
+export type LaunchOutput = {
+  url?: string // URL for web targets
 }
 
 export type ServiceOptions = string | string[]

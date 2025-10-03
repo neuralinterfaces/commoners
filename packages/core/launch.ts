@@ -90,7 +90,6 @@ export const resolveAppToLaunch = (config: LaunchConfig): string => {
  */
 export const launchApp = async (
   config: LaunchConfig,
-  args: string[] = []
 ): Promise<any> => {
   getLogger().debug('Starting app launch with flow architecture')
 
@@ -101,18 +100,17 @@ export const launchApp = async (
 
     // Extract launch options
     const { port, public: isPublic } = resolvedConfig
-
+    
     // Delegate to LaunchFlow for orchestration
-    await getLaunchFlow().launch(resolvedConfig, {
+    const result = await getLaunchFlow().launch(resolvedConfig, {
       hooks,
-      dev: true, // launch is always in dev mode
       port,
       host: isPublic ? '0.0.0.0' : undefined,
     })
 
     logger.info('App launch completed successfully')
 
-    return {}
+    return result
   } catch (error) {
     logger.error('App launch failed', {}, error as Error)
     throw error

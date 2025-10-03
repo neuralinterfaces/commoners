@@ -12,6 +12,7 @@ import { TARGET_ELECTRON } from '../../constants.js'
 import { PLATFORM } from '../../globals.js'
 import { spawnProcess } from '../../utils/processes.js'
 import { BuildError } from '../../errors.js'
+import { LaunchOutput } from '../../types.js'
 
 const logger = createLogger('ElectronLaunchStrategy')
 
@@ -89,7 +90,7 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
     logger.debug('Electron launch prepared', { outDir: context.outDir })
   }
 
-  async launch(context: LaunchContext): Promise<void> {
+  async launch(context: LaunchContext): Promise<LaunchOutput> {
     const { outDir, hooks } = context
 
     // Verify output directory exists
@@ -138,5 +139,7 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
     )
 
     logger.info('Electron app launched successfully')
+
+    return { url: null }
   }
 }

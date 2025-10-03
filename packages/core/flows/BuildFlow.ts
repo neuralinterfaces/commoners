@@ -250,15 +250,11 @@ export class BuildFlow {
       hooks,
     })
 
-    const customViteLogger = new ScopedLogger((...args) =>
-      customViteLogger.call(() => hooks.emit({ type: 'log', args }))
-    )
 
     const _vite = await vite
-    await _vite.build({
-      ...resolvedViteConfig,
-      customLogger: customViteLogger,
-    })
+    const customViteLogger = new ScopedLogger((...args) => customViteLogger.call(() => hooks.emit({ type: 'log', args })))
+    await _vite.build({ ...resolvedViteConfig, customLogger: customViteLogger })
+    customViteLogger.close()
 
     this.logger.debug('Emitting build:assets:complete', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })

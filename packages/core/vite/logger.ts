@@ -5,18 +5,43 @@ import { createLogger, type Logger, type LogOptions, type LogErrorOptions } from
   export class ScopedLogger implements Logger {
     #active = false
     #__levels = {}
+    #customLoggingFunction: Function
     #logger = createLogger('info', { prefix: '' }); // Vite’s default logger
 
 
     constructor(customLoggingFunction: Function) {
-        LOG_LEVELS.forEach(level => {
+        this.#customLoggingFunction = customLoggingFunction;
+        this.#start();
+    }
+
+    #PWAMessageThrown = false;
+
+    #isPWAMessage(args) {
+        const firstArg = args[0];
+        if (this.#PWAMessageThrown) return false
+        if (typeof firstArg === 'string' && firstArg.includes('PWA')) return true
+    }
+
+    #start() {
+         LOG_LEVELS.forEach(level => {
             this.#__levels[level] = console[level].bind(console);
             console[level] = (...args) => {
                 const ogLevel = this.#__levels[level]
-                if (this.#active) customLoggingFunction.call(this, ...args); // Forward to original console method
-                else ogLevel(...args); // Forward to original console method
+                if (this.#active) this.#customLoggingFunction.call(this, ...args);
+                else {
+                    const isPWA = this.#isPWAMessage(args);
+                    if (isPWA) {
+                        this.#PWAMessageThrown = true;
+                        this.#customLoggingFunction.call(this, ...args);
+                    }
+                    else ogLevel(...args);
+                }
             }
         })
+    }
+
+    close() {
+        LOG_LEVELS.forEach(level => console[level] = this.#__levels[level])
     }
 
     // Call original function safely

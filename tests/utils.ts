@@ -197,7 +197,7 @@ export const getMockOutput = () => {
 export const registerStartTest = (name, { target = 'web' } = {}, enabled = true) => {
   const describeCommand = enabled ? describe : describe.skip
 
-  describeCommand(name, () => {
+  describeCommand(`${name} (Start)`, () => {
     const output = getMockOutput()
     beforeAll(async () => {
       const _output = await open(projectBase, { target })
@@ -249,7 +249,7 @@ export const registerBuildTest = (
   const isElectron = target === 'electron'
   const isMobile = target === 'mobile'
 
-  describeCommand(name, () => {
+  describeCommand(`${name} (Build)`, () => {
     let triggerAssetsBuilt
     let triggerBuildComplete
     const assetsBuilt = new Promise(res => (triggerAssetsBuilt = res))

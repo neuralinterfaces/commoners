@@ -3,10 +3,7 @@ import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 import {
   loadConfigFromFile,
   resolveConfigPath,
-  resolveServiceBuildInfo,
-
-  LogLevel,
-  setGlobalLogLevel
+  resolveServiceBuildInfo
 } from '@commoners/solidarity'
 
 import { resolve } from 'node:path'
@@ -16,10 +13,12 @@ import { name } from '../examples/demo/commoners.config'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase, registerBuildTest, registerStartTest } from './utils'
 import { buildServices } from '@commoners/testing'
 
+const { platform } = process
+
 const platforms = {
-  windows: process.platform === 'win32',
-  mac: process.platform === 'darwin',
-  linux: process.platform === 'linux',
+  windows: platform === 'win32',
+  mac: platform=== 'darwin',
+  linux: platform === 'linux',
 }
 
 describe('Custom project base is loaded', () => {
@@ -46,6 +45,7 @@ describe('Build and Launch', () => {
 })
 
 describe('Desktop Start + Build and Launch', () => {
+
   registerBuildTest(
     'Desktop',
     { target: 'electron' },

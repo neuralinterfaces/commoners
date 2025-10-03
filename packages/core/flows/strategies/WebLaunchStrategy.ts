@@ -9,6 +9,7 @@ import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
 import { vite } from '../../globals.js'
 import { BuildError } from '../../errors.js'
+import { LaunchOutput } from '../../types.js'
 
 const logger = createLogger('WebLaunchStrategy')
 
@@ -53,46 +54,35 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     logger.debug('Web launch prepared', { outDir: context.outDir })
   }
 
-  async launch(context: LaunchContext): Promise<void> {
+  async launch(context: LaunchContext): Promise<LaunchOutput> {
     const { outDir, port, host, config } = context
     const { public: isPublic } = config
 
-    logger.info('Starting Vite dev server', { outDir, port, host })
-
     const __vite = await vite
 
-    const serverConfig: ViteServerOptions = {
+    logger.info('Starting Vite preview server', { outDir, port, host })
+    
+    const previewConfig = {
       port,
       open: !process.env.VITEST,
+      host: isPublic || host ? (host || '0.0.0.0') : undefined,
     }
 
-    if (isPublic || host) {
-      serverConfig.host = host || '0.0.0.0'
-    }
-
-    // Create Vite server
-    this.server = await __vite.createServer({
-      configFile: false,
-      root: outDir,
-      server: serverConfig,
+    // Create Vite preview server for built artifacts (handles PWA correctly)
+    this.server = await __vite.preview({
+      build: {
+        outDir
+      },
+      preview: previewConfig,
     })
 
-    await this.server.listen()
-
-    // Get server info
-    const { port: resolvedPort, host: resolvedHost } = this.server.config.server
-    const protocol = this.server.config.server.https ? 'https' : 'http'
+    const resolvedPort = this.server.config.preview.port
+    const resolvedHost = this.server.config.preview.host
+    const protocol = this.server.config.preview.https ? 'https' : 'http'
     const url = `${protocol}://localhost:${resolvedPort}`
+    logger.info('Vite preview server running', { url, host: resolvedHost, port: resolvedPort })
+    context.hooks.emit({ type: 'launch:ready', url, server: this.server })
 
-    logger.info('Vite dev server running', { url, host: resolvedHost, port: resolvedPort })
-
-    // Emit ready event with server info
-    logger.debug('Emitting launch:ready', { url, hasServer: !!this.server })
-    context.hooks.emit({
-      type: 'launch:ready',
-      url,
-      server: this.server,
-    })
   }
 
   async cleanup(context: LaunchContext): Promise<void> {

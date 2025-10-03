@@ -4,7 +4,7 @@
  */
 
 import { createLogger } from '../assets/utils/logger.js'
-import type { UserConfig, HooksInterface, ResolvedConfig } from '../types.js'
+import type { UserConfig, HooksInterface, ResolvedConfig, LaunchOutput } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 
 const logger = createLogger('launch-flow')
@@ -31,7 +31,7 @@ export interface LaunchStrategy {
   /**
    * Launch the application
    */
-  launch(context: LaunchContext): Promise<void>
+  launch(context: LaunchContext): Promise<LaunchOutput>
 
   /**
    * Cleanup on shutdown
@@ -48,7 +48,6 @@ export interface LaunchContext {
   target: string
   root: string
   outDir: string
-  dev: boolean
   port?: number
   host?: string
 }
@@ -89,12 +88,11 @@ export class LaunchFlow {
     config: UserConfig = {},
     options: {
       hooks?: HooksInterface
-      dev?: boolean
       port?: number
       host?: string
     } = {}
-  ): Promise<void> {
-    const { hooks: optHooks, dev = true, port, host } = options
+  ): Promise<LaunchOutput> {
+    const { hooks: optHooks, port, host } = options
 
     // Resolve hooks
     const hooks = (config.hooks = await resolveHooks(config.hooks, optHooks))
@@ -104,10 +102,10 @@ export class LaunchFlow {
       const resolvedConfig = await resolveConfig(config, { build: false })
       const { root, target } = resolvedConfig
 
-      this.logger.info('Starting launch', { target, dev, port, host })
+      this.logger.info('Starting launch', { target, port, host })
 
       // Emit launch start event
-      this.logger.debug('Emitting launch:start', { config: resolvedConfig.name, target, dev })
+      this.logger.debug('Emitting launch:start', { config: resolvedConfig.name, target })
       hooks.emit({ type: 'launch:start', config: resolvedConfig })
 
       // Get the appropriate launch strategy
@@ -125,15 +123,14 @@ export class LaunchFlow {
         target,
         root,
         outDir: '', // Will be set by strategy
-        dev,
         port,
         host,
       }
 
       // Execute launch flow
-      await this.executeLaunchFlow(context, strategy)
-
+      const result = await this.executeLaunchFlow(context, strategy)
       this.logger.info('Launch completed successfully')
+      return result
     } catch (error) {
       this.logger.debug('Emitting launch:error', { error: (error as Error).message })
       hooks.emit({
@@ -152,17 +149,16 @@ export class LaunchFlow {
   private async executeLaunchFlow(
     context: LaunchContext,
     strategy: LaunchStrategy
-  ): Promise<void> {
+  ): Promise<LaunchOutput> {
     try {
       // Step 1: Prepare launch environment
       await strategy.prepare(context)
 
       // Step 2: Launch the application
-      await strategy.launch(context)
-
-      // Emit launch complete event
+      const result = await strategy.launch(context)
       this.logger.debug('Emitting launch:complete', { target: context.target })
       context.hooks.emit({ type: 'launch:complete' })
+      return result
     } catch (error) {
       // Cleanup on error
       await strategy.cleanup(context).catch((cleanupError) => {
@@ -185,7 +181,7 @@ export abstract class BaseLaunchStrategy implements LaunchStrategy {
 
   abstract prepare(context: LaunchContext): Promise<void>
 
-  abstract launch(context: LaunchContext): Promise<void>
+  abstract launch(context: LaunchContext): Promise<LaunchOutput>
 
   async cleanup(context: LaunchContext): Promise<void> {
     // Default: no cleanup

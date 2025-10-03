@@ -54,10 +54,9 @@ const resolvePWAOptions = (
   else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [pwaOpts.includeAssets]
 
   // Only include preferred icons
-  const icons = getAllIcons(icon).map((src: string) =>
-    relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir))
-  )
-  pwaOpts.includeAssets.push(...icons.map(safePath)) // Include specified assets
+  const icons = getAllIcons(icon).map((src: string) => relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir)))
+  const scopedIconPaths = icons.map(src => safePath(src))
+  pwaOpts.includeAssets.push(...scopedIconPaths) // Include specified assets
 
   const baseManifest = {
     id: `?${appId}=1`,
@@ -75,15 +74,22 @@ const resolvePWAOptions = (
 
     // Generated
     icons: icons.map(src => {
-      return {
-        src: safePath(src),
-        type: `image/${extname(src).slice(1)}`,
-        sizes: 'any',
-      }
+      return { src: safePath(src), type: `image/${extname(src).slice(1)}`, sizes: 'any' }
     }),
   } as Partial<ManifestOptions>
 
   pwaOpts.manifest = 'manifest' in pwaOpts ? { ...baseManifest, ...pwaOpts.manifest } : baseManifest // Naive merge
+
+  // Configure workbox for proper caching behavior
+  if (!('workbox' in pwaOpts)) {
+    pwaOpts.workbox = {
+      globPatterns: ['**/*.{html,js,css,svg,png,webp,ico,woff2}'], // Cache common web assets
+      additionalManifestEntries: [ ...scopedIconPaths.map(src => ({ url: src, revision: null }))], // Ensures that icons are cached
+      cleanupOutdatedCaches: true, // Ensure outdated caches are cleaned up
+      clientsClaim: true, // Force service worker to activate immediately
+      skipWaiting: true,
+    }
+  }
 
   return pwaOpts as ResolvedConfig['pwa']
 }
