@@ -11,25 +11,54 @@ type PassedDesktopArgs = {
 const globalVariableName = '__commoners'
 const services = ipcRenderer.sendSync('commoners:services')
 
-const args = process.argv.slice(1).reduce((acc, arg) => {
-  const match = arg.match(/^--(__.+)=(.+)$/)
-  if (match) {
-    acc[match[1]] = match[2]
-    try {
-      acc[match[1]] = JSON.parse(acc[match[1]])
-    } catch {}
+// Parse arguments from process.argv (sandbox-compatible approach)
+// In sandbox mode, process.argv may be restricted, so we handle gracefully
+const args = (() => {
+  try {
+    // Try to access process.argv - works in non-sandboxed mode
+    if (typeof process !== 'undefined' && process.argv) {
+      return process.argv.slice(1).reduce((acc, arg) => {
+        const match = arg.match(/^--(__.+)=(.+)$/)
+        if (match) {
+          acc[match[1]] = match[2]
+          try {
+            acc[match[1]] = JSON.parse(acc[match[1]])
+          } catch {}
+        }
+        return acc
+      }, {} as Record<string, any>)
+    }
+  } catch (e) {
+    // In sandbox mode, process.argv might not be available
+    console.warn('process.argv not available in sandbox mode, falling back to empty args')
   }
-  return acc
-}, {})
+  return {} as Record<string, any>
+})()
 
 const { __id } = args as PassedDesktopArgs
 
 const __location = ipcRenderer.sendSync(`commoners:location`, __id)
 
 // Update URL search and hash for the current window without reloading
-const url = new URL(window.location.href)
-for (let [key, value] of Object.entries(__location)) value && (url[key] = value)
-window.history.replaceState(null, '', url.toString())
+// Defer to ensure window object is fully available
+if (typeof window !== 'undefined') {
+  try {
+    const url = new URL(window.location.href)
+    for (let [key, value] of Object.entries(__location)) value && (url[key] = value)
+    window.history.replaceState(null, '', url.toString())
+  } catch (e) {
+    // If window isn't ready yet, defer to DOMContentLoaded
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        const url = new URL(window.location.href)
+        for (let [key, value] of Object.entries(__location)) value && (url[key] = value)
+        window.history.replaceState(null, '', url.toString())
+      } catch (err) {
+        console.warn('Failed to update window location:', err)
+      }
+    })
+  }
+}
 
 const TEMP_COMMONERS = {
   quit: (message?: string) => ipcRenderer.send('commoners:quit', message),
@@ -83,7 +112,17 @@ for (let id in TEMP_COMMONERS.services) {
 }
 
 // Expose ipcRenderer
-if (process.contextIsolated) {
+// Check for context isolation in a sandbox-compatible way
+const isContextIsolated = (() => {
+  try {
+    return typeof process !== 'undefined' && process.contextIsolated
+  } catch {
+    // If process is not available, assume context isolation is enabled (sandbox mode default)
+    return true
+  }
+})()
+
+if (isContextIsolated) {
   try {
     contextBridge.exposeInMainWorld(globalVariableName, TEMP_COMMONERS)
   } catch (error) {
