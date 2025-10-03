@@ -210,11 +210,9 @@ export class DefaultHooks extends Hooks {
 
     this.on('service:exit', (event) => {
       if (event.type === 'service:exit') {
-        if (event.code === null) this.ui.service(event.service, 'Restarting...', 'info')
-        else {
-          const type = event.code === 0 ? 'success' : 'error'
-          this.ui.service(event.service, `Exited with code ${event.code}`,type)
-        }
+        if (event.code === null) return
+        const type = event.code === 0 ? 'success' : 'error'
+        this.ui.service(event.service, `Exited with code ${event.code}`,type)
       }
     })
 

@@ -50,8 +50,8 @@ const customHooks = async () => {
 
   const { Hooks, DefaultHooks, CommonersUI } = require('@commoners/solidarity/ui')
 
-    // const ui = new CommonersUI('dark') // Included Theme 
-    // return new DefaultHooks(ui)
+    const ui = new CommonersUI('dark') // Included Theme 
+    return new DefaultHooks(ui)
     
     // const ui = new CommonersUI( { primary: '#ff5050ff', muted: '#81858bff' }) // Custom Theme
     // return new DefaultHooks(ui)
@@ -83,7 +83,7 @@ const config = defineConfig({
   // NOTE: Protocol definition is not yet tested...
   electron: {
     protocol: { scheme: 'commoners', privileges: { supportFetchAPI: true } },
-    // hooks: customHooks
+    hooks: customHooks
   },
 
   pwa: {
