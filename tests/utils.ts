@@ -297,8 +297,8 @@ export const registerBuildTest = (
       checkAssets(projectBase, baseDir, { build: true, target })
     })
 
-    // Add ASAR integrity verification for Electron builds
-    if (isElectron) {
+    // Add ASAR integrity verification for Electron builds (only when code-signed)
+    if (isElectron && publish) {
       test('ASAR integrity is properly configured', async () => {
         // Use the artifact directory (final output), not the web directory (temp build)
         const builtOutput = (await buildComplete) as any

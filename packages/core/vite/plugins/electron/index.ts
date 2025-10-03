@@ -1,4 +1,4 @@
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import { vite } from '../../../globals.js'
 import { rootDir } from '../../../globals.js'
 
@@ -65,7 +65,7 @@ const getElectronBuildOptions = async (root: string, outDir: string, build: bool
   const mainLocation = join(electronTemplateBase, 'main.ts')
   const preloadLocation = join(electronTemplateBase, 'preload.ts')
 
-  outDir = resolve(outDir) // Resolve the outDir to an absolute path
+  if (!isAbsolute(outDir)) outDir = resolve(root, outDir) // Ensure outDir is absolute
 
   const sharedBuildConfig = { minify: build, outDir }
 

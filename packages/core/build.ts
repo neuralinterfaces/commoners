@@ -17,6 +17,7 @@ import type {
 } from './types.js'
 import type { Logger } from './assets/utils/logger.js'
 import { BuiltAppMetadata } from './flows/BuildFlow.js'
+import { globalServiceWorkspacePath } from './assets/services/paths.js'
 
 // Lazy logger instance (created on first use)
 let logger: Logger
@@ -68,13 +69,10 @@ export const buildServices = async (
     services: servicesToBuild,
   })
 
-  const assets = await getServiceAssets(resolvedConfig, dev, rebuild, hooks)
 
-  const results = await buildAssets(assets, {
-    root,
-    outDir: outDir ?? resolve(join(root, globalWorkspacePath, 'services')),
-    target,
-  })
+  const assets = await getServiceAssets(resolvedConfig, dev, rebuild, hooks)
+  const resolvedOutDir = outDir ?? resolve(join(root, globalServiceWorkspacePath))
+  const results = await buildAssets(assets, { root, outDir: resolvedOutDir, target, dev })
 
   getLogger().debug('Emitting build:assets:complete', { phase: 'services', resultCount: results.length })
   hooks.emit({ type: 'build:assets:complete', phase: 'services' })

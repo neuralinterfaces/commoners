@@ -126,7 +126,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     relativeOutDir: string
   ): Promise<any> {
     const { config, root, outDir, __outDir } = context
-    const { name, electron, appId, icon, build: userBuildConfig } = config
+    const { name, electron, appId, icon } = config
 
     const buildConfig = merge(
       electron.build ?? {},
@@ -248,22 +248,28 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     extraResources: string[],
     signIgnore: string[]
   ): Promise<void> {
-    const { config, __outDir, root, target } = context
+
+    const { config, __outDir, root, target, assets } = context
     const { getAppAssets, buildAssets } = await import('../../utils/assets.js')
 
-    const assetCollection = await getAppAssets(config, false, __outDir)
-    const assets = await buildAssets(assetCollection, { outDir: __outDir, root, target })
+    // Build app assets (config, plugins, etc.)
+    const appAssetCollection = await getAppAssets(config, false, __outDir)
+    const appAssets = await buildAssets(appAssetCollection, { outDir: __outDir, root, target })
+
+
+    const allAssets = [ ...appAssets, ...assets ]
 
     const resolveFileLocation = (file: string) => {
       const relPath = relative(cwdRelativeOutDir, file)
       return join(relativeOutDir, relPath)
     }
 
-    assets.forEach(({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
+    allAssets.forEach(({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
       const location = resolveFileLocation(file)
 
       if (extraResource) {
         const glob = isDirectory ? join(location, '**') : location
+        console.log("Adding extra resource:", glob) // Debugging output
         extraResources.push(glob)
         files.push(`!${glob}`)
       }
@@ -341,6 +347,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     )
   }
 
+  private willSign(config: any): boolean {
+    const { publish, sign } = config.build ?? {}
+    return Boolean(publish || sign)
+  }
+
   /**
    * Configure code signing settings
    */
@@ -348,9 +359,8 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     buildConfig: WritableElectronBuilderConfig,
     config: any
   ): void {
-    const { publish, sign } = config.build ?? {}
-    const toSign = publish || sign
 
+    const toSign = this.willSign(config)
     if (!toSign) {
       // Disable code signing for Mac
       buildConfig.mac.identity = null
@@ -381,6 +391,12 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     buildConfig: WritableElectronBuilderConfig,
     config: any
   ): Promise<void> {
+
+    const willSign = this.willSign(config)
+    if (!willSign) {
+      logger.debug('ASAR integrity disabled since the application will not be signed')
+      return
+    }
     
     const { securitySettings } = parseOptions(config, true)
 

@@ -6,7 +6,7 @@
  */
 
 import electron, { app, shell, BrowserWindow, ipcMain, session } from 'electron'
-import { join, extname } from 'node:path'
+import { join, extname, normalize } from 'node:path'
 import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
@@ -94,6 +94,8 @@ Security.runVerification(isProduction).then(async isValid => {
   function getPageLocation(pathname: string = 'index.html', alt = false): string {
     if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
 
+    // Normalize the pathname (resolve .. and . in paths)
+    pathname = normalize(pathname)
     pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname
 
     const isContained = Protocol.normalizeAndCompare(pathname, ASSET_ROOT_DIR, (a, b) =>
@@ -102,13 +104,24 @@ Security.runVerification(isProduction).then(async isValid => {
 
     const location = isContained ? pathname : join(ASSET_ROOT_DIR, pathname)
 
-    if (extname(location)) return location
+    // If location has an extension, return as is
+    if (extname(location)) {
+      return location
+    }
 
+    // No extension - try different variations
     const html = location + '.html'
     const index = join(location, 'index.html')
 
-    if (existsSync(html)) return html
+    // For ASAR files, we can't use existsSync/lstatSync to check directories
+    // So we always try index.html first for paths without extensions
+    // This handles both regular directories and ASAR virtual directories
+
+    // Try in order: index.html in directory, .html file, fallback to index
     if (existsSync(index)) return index
+    if (existsSync(html)) return html
+
+    // If neither exists, return index.html (for ASAR compatibility)
     return alt ? html : index
   }
 
@@ -229,7 +242,29 @@ Security.runVerification(isProduction).then(async isValid => {
       __location.hash = urlObj.hash
       Window.updateWindowLocation(__id, __location)
 
-      await loadPage(win, urlObj.pathname)
+      // Extract path relative to ASSET_ROOT_DIR
+      // This handles cases where navigation resolves to the ASAR file itself or parent directories
+      let pathname = urlObj.pathname
+
+      // Handle ASAR paths - extract path within the ASAR archive
+      // URL pathname will be like: /path/to/app.asar/pages/windows/index.html
+      // We need to extract just: pages/windows/index.html
+      const asarIndex = pathname.indexOf('.asar/')
+      if (asarIndex !== -1) {
+        // Extract path after .asar/
+        pathname = pathname.slice(asarIndex + 6) // '.asar/'.length = 6
+        if (!pathname || pathname === '/') pathname = 'index.html'
+      } else if (pathname.endsWith('.asar')) {
+        // Navigation resolved exactly to the .asar file (e.g., '../..')
+        pathname = 'index.html'
+      } else if (pathname.startsWith(ASSET_ROOT_DIR)) {
+        // Non-ASAR path relative to ASSET_ROOT_DIR
+        pathname = pathname.slice(ASSET_ROOT_DIR.length)
+        if (pathname.startsWith('/')) pathname = pathname.slice(1)
+        if (!pathname) pathname = 'index.html'
+      }
+
+      await loadPage(win, pathname)
     })
 
     Object.defineProperty(win, '__show', {

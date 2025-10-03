@@ -18,7 +18,8 @@ import {
   // Logger
   setGlobalLogLevel,
   setGlobalUI,
-  LogLevel
+  LogLevel,
+  isDesktop
 
 } from '@commoners/solidarity'
 
@@ -255,12 +256,13 @@ cli
           await buildServices(config, { services: servicesToBuild, hooks })
           hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
         } catch (error) { handleError(new CLIError(`Failed to build service${nServices > 1 ? 's' : ''}`, error.message)) }
-
         return
       }
 
       const resolvedConfig = reconcile(config, overrides)
-      await build(resolvedConfig, { rebuildServices: servicesToBuild ?? false, hooks })
+      const serviceBuildOptions: any = { hooks }
+      if (servicesToBuild) serviceBuildOptions.rebuildServices = servicesToBuild
+      await build(resolvedConfig, serviceBuildOptions)
     } catch (error) { handleError(error) }
   })
 

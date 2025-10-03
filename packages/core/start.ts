@@ -230,12 +230,12 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       // Use Vite to Load URLs in Dev Mode
       else {
         const assets = await getAppAssets(scopedConfig, true, outDir)
-        await buildAssets(assets, { outDir, root, target })
+        await buildAssets(assets, { outDir, root, target, dev: true })
         .catch(err => {
           console.log('Error building assets:', err)
           throw err
         })
-        if (isDesktop(target)) await buildServices(scopedConfig, { dev: true, outDir, rebuild: true, hooks })
+        if (isDesktop(target)) await buildServices(scopedConfig, { dev: true, rebuild: true, hooks }) // Attempt to rebuild all
         configureForDesktop(outDir, root)
         const frontend = (startManager.frontend = await createServer(scopedConfig))
         startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
@@ -249,7 +249,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     // ------------------------------- Web -------------------------------
     await initializeWebsocketPort()
     const webAssets = await getAppAssets(scopedConfig, true, outDir)
-    await buildAssets(webAssets, { outDir, root, target })
+    await buildAssets(webAssets, { outDir, root, target, dev: true })
     .catch(err => {
       console.log('Error building assets:', err)
       throw err

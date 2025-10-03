@@ -5,13 +5,14 @@
 
 import { join, resolve, dirname, relative, isAbsolute } from 'node:path'
 import { createLogger } from '../assets/utils/logger.js'
-import type { UserConfig, BuildHooks, HooksInterface, ResolvedConfig } from '../types.js'
+import type { UserConfig, BuildHooks, HooksInterface, ResolvedConfig, ServiceRebuildOption } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
 import { resolveViteConfig } from '../vite/index.js'
 import { ScopedLogger } from '../vite/logger.js'
 import { removeDirectory } from '../utils/files.js'
-import { globalWorkspacePath, globalTempDir, handleTemporaryDirectories, vite } from '../globals.js'
+import { globalWorkspacePath, globalTempDir, handleTemporaryDirectories, vite, isDesktop } from '../globals.js'
+import { globalServiceWorkspacePath } from '../assets/services/paths.js'
 
 const resolveOutDir = (context: BuildContext): string => context.__outDir || context.outDir
 
@@ -55,6 +56,8 @@ export interface BuildStrategy {
   getOutputDir(root: string, target: string, isDev: boolean): string
 }
 
+type BuildServiceRebuildOptions = { force?: boolean, outDir?: string } | ServiceRebuildOption
+
 /**
  * Build context shared across all build steps
  */
@@ -67,8 +70,9 @@ export interface BuildContext {
   __outDir: string // Temporary output directory during build
   dev: boolean
   overwrite: boolean
-  rebuildServices: boolean
-  onBuildAssets?: (outDir: string) => void | null
+  rebuildServices: BuildServiceRebuildOptions
+  onBuildAssets?: Function | null
+  assets: any[] // Collection of built assets
 }
 
 /**
@@ -108,10 +112,9 @@ export class BuildFlow {
     options: BuildHooks = {}
   ): Promise<BuiltAppMetadata> {
     const {
-      services: devServices,
       onBuildAssets,
       dev = false,
-      rebuildServices = true,
+      rebuildServices = isDesktop(config.target) ? { force: false } : false, // Default to true for desktop targets
       overwrite = false,
       hooks: optHooks,
     } = options
@@ -154,6 +157,7 @@ export class BuildFlow {
         overwrite,
         rebuildServices,
         onBuildAssets,
+        assets: []
       }
 
       // Execute build flow using strategy
@@ -201,10 +205,8 @@ export class BuildFlow {
     await this.buildAppAssets(context)
 
     // Step 4: Build services (if applicable)
-    if (context.rebuildServices) {
-      await this.buildServices(context)
-    }
-
+    if (context.rebuildServices) await this.buildServices(context)
+      
     // Step 5: Execute custom asset callback
     if (context.onBuildAssets) {
       const outDir = resolveOutDir(context)
@@ -216,9 +218,7 @@ export class BuildFlow {
     }
 
     // Step 6: Platform-specific build and packaging
-    if (!dev) {
-      await strategy.build(context)
-    }
+    if (!dev) await strategy.build(context)
 
     // Step 7: Finalize build
     await strategy.finalize(context)
@@ -272,7 +272,8 @@ export class BuildFlow {
     const { config, dev, root, target } = context
     const outDir = resolveOutDir(context)
     const assets = await getAppAssets(config, dev, outDir)
-    await buildAssets(assets, { outDir, root, target })
+    const output = await buildAssets(assets, { outDir, root, target })
+    context.assets.push(...output)
     this.logger.debug('App assets built')
   }
 
@@ -280,31 +281,25 @@ export class BuildFlow {
    * Build services
    */
   private async buildServices(context: BuildContext): Promise<void> {
-    const { config, dev, outDir, hooks } = context
 
+    const { config, dev, hooks, root, target, rebuildServices } = context
     const servicesToBuild = getServicesToBuild(config, dev)
-    if (servicesToBuild.length === 0) {
-      this.logger.debug('No services to build')
-      return
-    }
+    if (servicesToBuild.length === 0) return this.logger.debug('No services to build')
 
     this.logger.debug('Emitting build:assets:start', { phase: 'services', services: servicesToBuild })
-    hooks.emit({
-      type: 'build:assets:start',
-      phase: 'services',
-      services: servicesToBuild,
-    })
+    hooks.emit({ type: 'build:assets:start', phase: 'services', services: servicesToBuild })
 
-    const assets = await getServiceAssets(config, dev, true, hooks)
-    const results = await buildAssets(assets, {
-      root: context.root,
-      outDir: outDir ?? resolve(join(context.root, globalWorkspacePath, 'services')),
-      target: context.target,
-    })
+    const isRebuildConfig = rebuildServices && typeof rebuildServices === 'object' && !Array.isArray(rebuildServices)
+    const resolvedOutDir = (isRebuildConfig ? rebuildServices.outDir : "") || (context.__outDir || resolve(join(root, globalServiceWorkspacePath)))
+
+    console.log("Output Directory", resolvedOutDir, context.__outDir, context.outDir)
+    const resolvedRebuild = (isRebuildConfig ? rebuildServices.force : rebuildServices) as ServiceRebuildOption
+    const assets = await getServiceAssets(config, dev, resolvedRebuild, hooks)
+    const results = await buildAssets(assets, { root, outDir: resolvedOutDir, target, dev })
+    context.assets.push(...results)
 
     this.logger.debug('Emitting build:assets:complete', { phase: 'services' })
     hooks.emit({ type: 'build:assets:complete', phase: 'services' })
-
     this.logger.info('Services built', { count: results.length })
   }
 }
@@ -320,15 +315,21 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
   abstract canHandle(target: string): boolean
 
   async prepare(context: BuildContext): Promise<void> {
-    const { root, dev, overwrite } = context
+    const { config, root, dev, overwrite } = context
+
+    // Ensure root is absolute
+    const absoluteRoot = isAbsolute(root) ? root : resolve(root)
 
     // Setup temporary directories
     const customTempDir = this.shouldUseTempDir(context.target)
-    if (customTempDir) { 
-      const tempDir = this.getTempDir(root, context.target) // We assume the base tempDir is already set up
-      context.__outDir = resolve(tempDir) // Update context with actual output directory
+    if (customTempDir) {
+      const tempDir = this.getTempDir(absoluteRoot, context.target)
+      const modifiedConfig = { ...config }
+      delete modifiedConfig.outDir // Ensure outDir is not set to avoid conflicts
+      handleTemporaryDirectories(modifiedConfig)
+      context.__outDir = tempDir // Already absolute since we use absoluteRoot
       this.logger.debug('Using temporary directory', { tempDir })
-    } 
+    }
 
     else await removeDirectory(context.outDir) // Clear output directory if not using temp dir
   }

@@ -198,6 +198,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     __compile,
   } = resolvedWithoutSource
 
+
   // Resolve filepath
   const fullFile = filepath && resolvePath(root, filepath)
   const willBeBuilt = isBuildProcess || __compile || __autobuild

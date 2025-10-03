@@ -38,8 +38,8 @@ import {
 } from './types.js'
 
 import { globalWorkspacePath } from './assets/services/paths.js'
-import { dir } from 'node:console'
 export { globalWorkspacePath }
+
 
 // Dynamic Imports
 export const chalk = import('chalk').then(m => m.default)
@@ -67,11 +67,11 @@ export const handleTemporaryDirectories = async (
   options: { cleanupOnExit?: boolean } = {}
 ) => {
 
-  const tempDir = config.outDir || globalTempDir
+  const tempDir = config.outDir || resolve(config.root, globalTempDir)
 
   const { cleanupOnExit = true } = options
   const canOverwrite = overwrite && __selectedTempDir === tempDir
-  const runMetadataFile = join(tempDir, '.commoners.metadata.json')
+  const runMetadataFile = join(tempDir, 'commoners.metadata.json')
   const hasTempMetadata = existsSync(runMetadataFile)
   const isOverWritten = canOverwrite && hasTempMetadata
 
@@ -94,13 +94,9 @@ export const handleTemporaryDirectories = async (
 
   __selectedTempDir = tempDir
   const clearTemporaryFiles = () => {
-
-    // Prevent double-calling
-    if (removed) return
+    if (removed) return // Prevent double-calling
     removed = true
-
-    // Remove the temporary directories
-    removeDirectory(tempDir)
+    removeDirectory(tempDir) // Remove the temporary directories
   }
 
   // Only register cleanup on exit if cleanupOnExit is true (e.g., for dev builds)

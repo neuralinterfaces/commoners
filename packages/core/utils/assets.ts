@@ -459,18 +459,19 @@ export const buildAssets = async (
     outDir,
     root,
     target,
+    dev = false,
   }: {
     outDir: string
     root: string
     target
+    dev?: boolean
   }
 ) => {
 
   const _vite = await vite
 
   const isDesktopTarget = isDesktop(target)
-
-  mkdirSync(outDir, { recursive: true }) // Ensure asset output directory exists
+    mkdirSync(outDir, { recursive: true }) // Ensure asset output directory exists
 
   const outputs: AssetOutput[] = []
 
@@ -488,17 +489,13 @@ export const buildAssets = async (
       continue // Skip if no result
     // Copy results.
     else if (existsSync(result)) {
-      if (isDesktopTarget) assets.copy.push({ input: result, extraResource: true, sign: true })
+      if (!dev && isDesktopTarget) assets.copy.push({ input: result, output, extraResource: true, sign: true })
     }
 
     // Or attempt auto-bundle
-    else
-      toBundle.push({
-        ...resolvedInfo,
-        extraResource: true,
-        sign: true,
-      })
+    else  toBundle.push({ ...resolvedInfo, extraResource: true, sign: true })
   }
+
 
   // Create an assets folder with copied assets (ESM)
   await Promise.all(
@@ -593,19 +590,14 @@ export const buildAssets = async (
     const isObject = typeof info === 'object'
     const file = isObject ? info.input : info
     const locationToEncode = (isObject ? info.output : undefined) ?? file
-    const forceSpecifiedLocation = isObject && info.force
-
     const extraResource = isObject ? info.extraResource : false
+    const forceSpecifiedLocation = extraResource || (isObject && info.force)
+
 
     // Ensure extra resources are copied to the output directory
-    const output: AssetOutput = {
-      file: extraResource
-        ? copyAssetOld(file, { outDir, root })
-        : copyAsset(
-            file,
-            forceSpecifiedLocation ? locationToEncode : getAssetBuildPath(locationToEncode, outDir)
-          ),
-    }
+    const outputLocation = forceSpecifiedLocation ? locationToEncode : getAssetBuildPath(locationToEncode, outDir)
+    const isContained = outputLocation.startsWith(file) // Avoid duplication
+    const output: AssetOutput = { file:  isContained ? file : copyAsset( file, outputLocation)  }
 
     // Handle extra resources
     if (isObject) {
