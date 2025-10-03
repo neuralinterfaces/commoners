@@ -12,6 +12,8 @@
 import electron, { app, session, Session } from 'electron'
 import { ElectronSecuritySettings } from '../../../types'
 import { hasSignature, verifySignature, verifyAsarIntegrity } from '../security'
+import { getDefaultSecuritySettings } from './config'
+
 
 /**
  * Get security settings with defaults applied
@@ -20,13 +22,7 @@ export function getSecuritySettings(
   userSettings: boolean | ElectronSecuritySettings,
   isProduction: boolean
 ): ElectronSecuritySettings {
-  const DEFAULT_SECURITY_SETTINGS: ElectronSecuritySettings = {
-    contextIsolation: true,
-    nodeIntegration: false,
-    sandbox: false,
-    devTools: !isProduction,
-  }
-
+  const DEFAULT_SECURITY_SETTINGS = getDefaultSecuritySettings(isProduction)
   const securitySettings: ElectronSecuritySettings = {}
 
   if (userSettings) {
@@ -106,9 +102,7 @@ export function setupContentSecurityPolicy(sessionInstance: Session): void {
  * Apply security settings to the app
  */
 export function applySecuritySettings(securitySettings: ElectronSecuritySettings): void {
-  if (securitySettings.sandbox) {
-    app.enableSandbox() // Enable sandboxing if specified
-  }
+  if (securitySettings.sandbox) app.enableSandbox() // Enable sandboxing if specified
 
   // Apply other security settings as needed
   // Most security settings are applied per-window via webPreferences
@@ -121,6 +115,7 @@ export function applySecuritySettings(securitySettings: ElectronSecuritySettings
 export function getWebPreferencesSecuritySettings(
   securitySettings: ElectronSecuritySettings
 ): Partial<ElectronSecuritySettings> {
+  
   const webPreferencesSecuritySettings = [
     'sandbox',
     'devTools',

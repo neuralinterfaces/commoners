@@ -39,7 +39,7 @@ export function getDefaultSecuritySettings(isProduction = true): ElectronSecurit
   return {
     contextIsolation: true, // Enable context isolation by default
     nodeIntegration: false, // Disable Node.js integration by default
-    sandbox: false, // Disable sandboxing by default
+    sandbox: true, // Enable sandboxing by default
     devTools: !isProduction, // Disable devTools in production
     asarIntegrity: true, // Enable ASAR integrity checks by default
   }
