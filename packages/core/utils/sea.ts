@@ -160,9 +160,21 @@ async function injectSEABlob(
     // Set executable permissions
     chmodSync(executablePath, 0o755)
   } else if (platform === 'win32') {
-    // Windows: Direct injection
+    // Windows: Remove signature before injection (if present)
+    try {
+      // Try to remove signature using signtool (from Windows SDK)
+      execSync(`signtool remove /s "${executablePath}"`, { stdio: 'pipe' })
+    } catch {
+      // Ignore if signtool is not available or signature removal fails
+      // postject can still work but may show warnings
+    }
+
+    // Inject with postject
     const injectCmd = `npx postject "${executablePath}" NODE_SEA_BLOB "${blobPath}" --sentinel-fuse ${sentinelFuse}`
     execSync(injectCmd, { stdio: 'pipe' })
+
+    // Note: Executable will be unsigned after injection
+    // Re-sign later as part of the Electron app signing process
   } else {
     throw new PlatformError(
       'SEA not supported on platform',

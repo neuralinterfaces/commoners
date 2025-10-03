@@ -277,12 +277,6 @@ Security.runVerification(isProduction).then(async isValid => {
     })
 
     if (isMainWindow) {
-      ipcMain.once(`commoners:ready:${__id}`, () => {
-        Window.setMainWindow(win)
-        Window.setFirstInitialized()
-        Window.flushReadyQueue(win)
-      })
-
       win.once('close', () => {
         Window.setMainWindow(null)
       })
