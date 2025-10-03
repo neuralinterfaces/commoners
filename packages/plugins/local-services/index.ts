@@ -106,6 +106,7 @@ export default ({ type = DEFAULT_TYPE, register = [] }: LocalServicePluginOption
     },
     quit: async function () {
       const { browser, bonjour } = this
+      if (!bonjour) return console.log("CAllED TWICE")
       await new Promise(resolve => bonjour.unpublishAll(() => resolve(true)))
       if (browser) browser.stop()
       if (bonjour) bonjour.destroy()
