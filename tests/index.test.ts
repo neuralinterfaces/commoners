@@ -33,18 +33,18 @@ describe('Custom project base is loaded', () => {
   })
 })
 
-describe('Start', () => {
+describe.sequential('Start', () => {
   registerStartTest('Web')
   registerStartTest('Mobile', { target: 'mobile' }, false) // NOTE: Skipped because Ruby Gems needs to be updated
 })
 
-describe('Build and Launch', () => {
+describe.sequential('Build and Launch', () => {
   registerBuildTest('Web', { target: 'web' })
   registerBuildTest('PWA', { target: 'pwa' })
   registerBuildTest('Mobile', { target: 'mobile' }, false)
 })
 
-describe('Desktop Start + Build and Launch', () => {
+describe.sequential('Desktop Start + Build and Launch', () => {
 
   registerBuildTest(
     'Desktop',
