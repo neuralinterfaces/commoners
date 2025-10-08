@@ -15,6 +15,7 @@ import { getAssetBuildPath } from '../utils/assets.js'
 
 import { getAllIcons, getIcon } from '../assets/utils/icons.js'
 import { safePath } from '../assets/utils/paths.js'
+import { existsSync } from 'node:fs'
 
 type ManifestOptions = import('vite-plugin-pwa').ManifestOptions
 type VitePWAOptions = import('vite-plugin-pwa').VitePWAOptions
@@ -166,23 +167,23 @@ export const resolveViteConfig = async (
 
   const rollupOptions = {}
 
-  // Resolve pages
-  if (Object.keys(collectedPages).length) {
-    const rootHTML = getAbsolutePath(absoluteRoot, 'index.html')
-    const allPages = Object.values(collectedPages)
-    if (allPages.length) {
-      if (!allPages.includes(rootHTML)) allPages.push(rootHTML)
-      const allUniquePages = Array.from(new Set(allPages))
-      rollupOptions.input = allUniquePages.reduce((acc, filepath) => {
-        acc[crypto.randomUUID()] = filepath
-        return acc
-      }, {})
-    }
-  }
+  // Always resolve pages with the root HTML file
+  const rootHTML = getAbsolutePath(absoluteRoot, 'index.html')
+  const rootHTMLExists = existsSync(rootHTML)
+  const allPages = Object.values(collectedPages)
+  if (rootHTMLExists && !allPages.includes(rootHTML)) allPages.push(rootHTML)
+  const allUniquePages = Array.from(new Set(allPages))
+  rollupOptions.input = allUniquePages.reduce((acc, filepath) => {
+    acc[crypto.randomUUID()] = filepath
+    return acc
+  }, {})
+  
+  const nPages = allPages.length
+  const hasAnyPages = nPages > 0
 
   const serverConfig = {
     port,
-    open: !isDesktopTarget && !process.env.VITEST, // Open the browser unless testing / building for desktop
+    open: hasAnyPages && !isDesktopTarget && !process.env.VITEST, // Open the browser unless testing / building for desktop
   } as ViteServerOptions
 
   if (isPublic) serverConfig.host = '0.0.0.0'

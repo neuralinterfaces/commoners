@@ -145,10 +145,13 @@ export type PackageBuildInfo = {
 
 type UserBuildCommand = string | ((info: PackageBuildInfo) => string | Promise<string>) // e.g. could respond to platform or manually build the executable
 
+type ResolvedServices = { [x: string]: ResolvedService }
+
 type _ExtraServiceMetadata = {
   public?: boolean
   port?: number
   build?: UserBuildCommand
+  env?: Record<string, string> | ((services: ResolvedServices) => Record<string, string> | Promise<Record<string, string>>)
 }
 
 type _ServiceMetadata = string | false | (BaseServiceMetadata & _ExtraServiceMetadata)
@@ -171,6 +174,7 @@ export type ResolvedService = {
   filepath: string
   base: string | null
   build: ExtraServiceMetadata['build']
+  env?: ExtraServiceMetadata['env']
   __src: string
   __compile: boolean
   __autobuild: boolean

@@ -72,20 +72,18 @@ const isDirectory = (root: string) => lstatSync(root).isDirectory()
 const isCommonersProject = async (root: string = process.cwd()) => {
   const rootExists = existsSync(root)
 
-  let failMessage = ''
+  let failError: ConfigurationError | undefined
 
   // Root does not exist
-  if (root && !rootExists) failMessage = `This path does not exist.`
-  // No index.html file
-  else if (!existsSync(join(root, 'index.html')))
-    failMessage = `This directory does not contain an index.html file.`
+  if (root && !rootExists) failError = new ConfigurationError(
+      'Invalid Commoners project',
+      `This path does not exist.`
+    )
 
-  if (failMessage) {
-    logger.error('Invalid Commoners project', { root, reason: failMessage })
-    return false
+  if (failError) {
+    logger.error(failError.message, { root, reason: failError.details })
+    throw failError
   }
-
-  return true
 }
 
 export async function loadConfigFromFile(root: string = resolveConfigPath()) {
@@ -96,14 +94,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
     if (!isDirectory(root)) root = dirname(root) // Get the parent directory
   }
 
-  const isValidProject = await isCommonersProject(root)
-
-  if (!isValidProject) {
-    throw new ConfigurationError(
-      'Invalid Commoners project',
-      `This directory does not contain an index.html file: ${root}`
-    )
-  }
+  await isCommonersProject(root)
 
   const configPath = resolveConfigPath(
     rootExists

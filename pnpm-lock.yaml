@@ -176,7 +176,7 @@ importers:
         version: 1.0.1(@types/node@20.19.17)
       '@electron-toolkit/utils':
         specifier: ^3.0.0
-        version: 3.0.0(electron@38.2.0)
+        version: 3.0.0(electron@39.0.0-beta.1)
       '@electron/asar':
         specifier: ^4.0.1
         version: 4.0.1
@@ -196,8 +196,8 @@ importers:
         specifier: ^16.3.1
         version: 16.6.1
       electron:
-        specifier: ^38.1.0
-        version: 38.2.0
+        specifier: 39.0.0-beta.1
+        version: 39.0.0-beta.1
       electron-builder:
         specifier: 24.13.3
         version: 24.13.3(electron-builder-squirrel-windows@24.13.3)
@@ -2854,8 +2854,8 @@ packages:
   electron-to-chromium@1.5.223:
     resolution: {integrity: sha512-qKm55ic6nbEmagFlTFczML33rF90aU+WtrJ9MdTCThrcvDNdUHN4p6QfVN78U06ZmguqXIyMPyYhw2TrbDUwPQ==}
 
-  electron@38.2.0:
-    resolution: {integrity: sha512-Cw5Mb+N5NxsG0Hc1qr8I65Kt5APRrbgTtEEn3zTod30UNJRnAE1xbGk/1NOaDn3ODzI/MYn6BzT9T9zreP7xWA==}
+  electron@39.0.0-beta.1:
+    resolution: {integrity: sha512-m32Ink/luPE41Rh4Q+m10UfNGhU3B9Qqg2ITDNScNGh1CEorMP4qMdVVnVJub3zcP1YznvLx3NA5pm5aE6E8nw==}
     engines: {node: '>= 12.20.55'}
     hasBin: true
 
@@ -6722,9 +6722,9 @@ snapshots:
     dependencies:
       '@types/node': 20.19.17
 
-  '@electron-toolkit/utils@3.0.0(electron@38.2.0)':
+  '@electron-toolkit/utils@3.0.0(electron@39.0.0-beta.1)':
     dependencies:
-      electron: 38.2.0
+      electron: 39.0.0-beta.1
 
   '@electron/asar@3.4.1':
     dependencies:
@@ -9044,7 +9044,7 @@ snapshots:
 
   electron-to-chromium@1.5.223: {}
 
-  electron@38.2.0:
+  electron@39.0.0-beta.1:
     dependencies:
       '@electron/get': 2.0.3
       '@types/node': 22.18.8

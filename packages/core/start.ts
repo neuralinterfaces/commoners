@@ -24,6 +24,7 @@ import { getFreePorts } from './assets/services/network.js'
 
 import { startElectronInstance } from './vite/plugins/electron/index.js'
 import { buildAssets, getAppAssets } from './utils/assets.js'
+import { existsSync } from 'node:fs'
 
 const logger = createLogger('start')
 
@@ -266,7 +267,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     const url = `${protocol}://${host || 'localhost'}:${port}`
     logger.debug('Emitting dev:server:ready', { target, url })
     hooks.emit({ type: 'dev:server:ready', target, url  })
+
+
     return startManager
+
 
   } catch (error) {
     logger.debug('Emitting dev:server:error', { error: (error as Error).message })

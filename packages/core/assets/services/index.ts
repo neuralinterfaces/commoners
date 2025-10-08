@@ -194,6 +194,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     filepath,
     public: isPublic,
     port,
+    env,
     __autobuild,
     __compile,
   } = resolvedWithoutSource
@@ -214,6 +215,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     src,
     url,
     build,
+    env,
     base: base && resolvePath(root, base),
     filepath: file,
 
@@ -285,9 +287,11 @@ export async function resolveService(config, name, opts: ServiceOptions) {
 
   const isMobileTarget = isMobile(target)
 
-  if (isMobileTarget && getLocalUrl(resolvedForBuild.url)) {
-    const host = getLocalIP() // Use public IP address for mobile development
-    resolvedForBuild.public = true // All services are public in mobile mode
+  if (isMobileTarget && getLocalUrl(resolvedForBuild.url)) resolvedForBuild.public = true // All services are public in mobile mode
+
+  // Map URLs to the public IP address when requested
+  if (resolvedForBuild.public) {
+    const host = getLocalIP() // Use public IP address
     const url = new URL(resolvedForBuild.url)
     url.hostname = host
     resolvedForBuild.url = url.toString() // Transform localhost references to public IP
@@ -298,6 +302,7 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     filepath: filepath || __src,
     base,
     build, // Build Info
+    env: resolvedForBuild.env,
     __src,
     __compile,
     __autobuild, // Flags
@@ -353,10 +358,14 @@ export async function start(
       const mode = build ? 'production' : 'development'
       const userEnv = loadEnvironmentVariables(mode, root)
 
+      // Get service-specific env variables
+      const serviceEnv = config.env && typeof config.env === 'object' ? config.env : {}
+
       // Share environment variables with the child process
       const env = {
         ...userEnv,
         ...process.env,
+        ...serviceEnv,
         PORT: resolvedURL.port,
         HOST: resolvedURL.hostname,
       }
@@ -506,6 +515,13 @@ export async function resolveAll(servicesToResolve = {}, opts) {
 
 export async function createAll(services = {}, opts) {
   const resolved = await resolveAll(services, opts)
+
+  // Resolve env functions for all services
+  for (const config of Object.values(resolved)) {
+    if (config.env && typeof config.env === 'function') {
+      config.env = await config.env(resolved)
+    }
+  }
 
   // Run sidecars automatically based on the configuration file
   const activeServices: ActiveServices = {}
