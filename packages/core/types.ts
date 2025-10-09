@@ -147,11 +147,17 @@ type UserBuildCommand = string | ((info: PackageBuildInfo) => string | Promise<s
 
 type ResolvedServices = { [x: string]: ResolvedService }
 
+type SSLConfiguration = {
+  key: string
+  cert: string
+}
+
 type _ExtraServiceMetadata = {
   public?: boolean
   port?: number
   build?: UserBuildCommand
   env?: Record<string, string> | ((services: ResolvedServices) => Record<string, string> | Promise<Record<string, string>>)
+  ssl?: SSLConfiguration
 }
 
 type _ServiceMetadata = string | false | (BaseServiceMetadata & _ExtraServiceMetadata)
@@ -175,6 +181,7 @@ export type ResolvedService = {
   base: string | null
   build: ExtraServiceMetadata['build']
   env?: ExtraServiceMetadata['env']
+  ssl?: SSLConfiguration
   __src: string
   __compile: boolean
   __autobuild: boolean

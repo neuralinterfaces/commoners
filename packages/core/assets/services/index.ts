@@ -195,6 +195,8 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     public: isPublic,
     port,
     env,
+    protocol,
+    ssl,
     __autobuild,
     __compile,
   } = resolvedWithoutSource
@@ -211,11 +213,32 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
         : fullFile
       : null // Reference correctly from build Electron application
 
+  // Resolve SSL certificate paths
+  let resolvedSSL = undefined
+  if (ssl?.key && ssl?.cert) {
+    const keyPath = resolvePath(root, ssl.key)
+    const certPath = resolvePath(root, ssl.cert)
+
+    // Only include SSL if both files exist
+    if (existsSync(keyPath) && existsSync(certPath)) {
+      resolvedSSL = {
+        key: keyPath,
+        cert: certPath
+      }
+    } else {
+      logger.warn(`SSL configuration provided but certificate files not found:`)
+      if (!existsSync(keyPath)) logger.warn(`  - Key file not found: ${keyPath}`)
+      if (!existsSync(certPath)) logger.warn(`  - Cert file not found: ${certPath}`)
+    }
+  }
+
   return {
     src,
     url,
     build,
     env,
+    protocol,
+    ssl: resolvedSSL,
     base: base && resolvePath(root, base),
     filepath: file,
 
@@ -234,7 +257,7 @@ function getLocalUrl(url) {
 
 async function getServiceUrl(service) {
   const resolved = resolveServiceConfiguration(service)
-  const { url, port, src } = resolved
+  const { url, port, src, ssl, protocol } = resolved
 
   if (!src) return url // Cannot generate URL without source file
 
@@ -244,6 +267,12 @@ async function getServiceUrl(service) {
   if (_url) {
     const resolvedPort = port || (await getFreePorts(1))[0]
     if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
+
+    // Auto-update protocol to https when SSL is configured
+
+    if (protocol) _url.protocol = protocol // Use custom protocol if provided
+    else if (ssl?.key && ssl?.cert) _url.protocol = 'https:'
+
     return _url.href
   }
 
@@ -278,12 +307,14 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     base,
     build,
     url,
+    protocol,
+    ssl,
     __src = src && resolve(root, src),
     __compile,
     __autobuild,
   } = resolvedForBuild
 
-  resolvedForBuild.url = await getServiceUrl({ src, url, port })
+  resolvedForBuild.url = await getServiceUrl({ src, url, port, ssl, protocol })
 
   const isMobileTarget = isMobile(target)
 
@@ -303,6 +334,7 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     base,
     build, // Build Info
     env: resolvedForBuild.env,
+    ssl: resolvedForBuild.ssl,
     __src,
     __compile,
     __autobuild, // Flags
@@ -361,11 +393,18 @@ export async function start(
       // Get service-specific env variables
       const serviceEnv = config.env && typeof config.env === 'object' ? config.env : {}
 
+      // Add SSL certificate paths to environment if configured
+      const sslEnv = config.ssl ? {
+        SSL_KEY_PATH: config.ssl.key,
+        SSL_CERT_PATH: config.ssl.cert,
+      } : {}
+
       // Share environment variables with the child process
       const env = {
         ...userEnv,
         ...process.env,
         ...serviceEnv,
+        ...sslEnv,
         PORT: resolvedURL.port,
         HOST: resolvedURL.hostname,
       }
