@@ -145,12 +145,14 @@ export type PackageBuildInfo = {
 
 type UserBuildCommand = string | ((info: PackageBuildInfo) => string | Promise<string>) // e.g. could respond to platform or manually build the executable
 
-type ResolvedServices = { [x: string]: ResolvedService }
-
 type SSLConfiguration = {
   key: string
   cert: string
+  __keySource?: string // Original source path for build-time asset collection
+  __certSource?: string // Original source path for build-time asset collection
 }
+
+type ResolvedServices = { [x: string]: ResolvedService }
 
 type _ExtraServiceMetadata = {
   public?: boolean
@@ -418,8 +420,6 @@ export type ServiceBuildOptions = {
   rebuild?: ServiceRebuildOption
   hooks?: HooksInterface // Hooks interface for CLI integration
 }
-
-type ResolvedServices = { [x: string]: ResolvedService }
 
 export type ResolvedConfig =Omit<BaseConfig, 'hooks'> & {
   build?: BuildOptions

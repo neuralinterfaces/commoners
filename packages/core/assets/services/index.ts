@@ -1,4 +1,4 @@
-import { isAbsolute, extname, join, resolve, sep } from 'node:path'
+import { isAbsolute, extname, join, resolve, sep, relative } from 'node:path'
 import { getFreePorts } from './network.js'
 
 import { spawn, fork } from 'node:child_process'
@@ -221,9 +221,25 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
 
     // Only include SSL if both files exist
     if (existsSync(keyPath) && existsSync(certPath)) {
+      // For desktop targets being built, adjust paths for ASAR packaging
+      // Store paths that will work at runtime
+      const adjustPathForDesktop = (path: string) => {
+        if (!isDesktopTarget || !isBuildProcess) return path
+
+        // Make path relative to root for packaging
+        const relativePath = relative(root, path)
+
+        // At runtime in Electron, these will be in extraResources
+        // so we return a marker that will be resolved at runtime
+        return `__RUNTIME_SSL__/${relativePath}`
+      }
+
       resolvedSSL = {
-        key: keyPath,
-        cert: certPath
+        key: adjustPathForDesktop(keyPath),
+        cert: adjustPathForDesktop(certPath),
+        // Store original paths for build-time asset collection
+        __keySource: keyPath,
+        __certSource: certPath,
       }
     } else {
       logger.warn(`SSL configuration provided but certificate files not found:`)
@@ -393,11 +409,43 @@ export async function start(
       // Get service-specific env variables
       const serviceEnv = config.env && typeof config.env === 'object' ? config.env : {}
 
+      // Helper to resolve runtime SSL paths
+      function resolveRuntimePath(path: string): string {
+        // If path contains runtime marker, resolve it
+        if (path.startsWith('__RUNTIME_SSL__/')) {
+          const relativePath = path.replace('__RUNTIME_SSL__/', '')
+
+          // In Electron production, resolve from extraResources
+          if (typeof process !== 'undefined' && process.resourcesPath) {
+            const resolvedPath = resolve(process.resourcesPath, 'ssl', relativePath)
+            logger.debug(`[${label}] SSL path resolved from resources: ${path} -> ${resolvedPath}`)
+            return resolvedPath
+          }
+
+          // Fallback to original resolution (shouldn't happen)
+          const resolvedPath = resolve(root, relativePath)
+          logger.debug(`[${label}] SSL path resolved from root: ${path} -> ${resolvedPath}`)
+          return resolvedPath
+        }
+
+        // In dev mode, paths should already be absolute
+        logger.debug(`[${label}] SSL path used as-is: ${path}`)
+        return path
+      }
+
       // Add SSL certificate paths to environment if configured
       const sslEnv = config.ssl ? {
-        SSL_KEY_PATH: config.ssl.key,
-        SSL_CERT_PATH: config.ssl.cert,
+        SSL_KEY_PATH: resolveRuntimePath(config.ssl.key),
+        SSL_CERT_PATH: resolveRuntimePath(config.ssl.cert),
       } : {}
+
+      if (config.ssl) {
+        logger.debug(`[${label}] SSL configuration:`)
+        logger.debug(`  - SSL_KEY_PATH: ${sslEnv.SSL_KEY_PATH}`)
+        logger.debug(`  - SSL_CERT_PATH: ${sslEnv.SSL_CERT_PATH}`)
+        logger.debug(`  - Key exists: ${existsSync(sslEnv.SSL_KEY_PATH)}`)
+        logger.debug(`  - Cert exists: ${existsSync(sslEnv.SSL_CERT_PATH)}`)
+      }
 
       // Share environment variables with the child process
       const env = {

@@ -402,7 +402,27 @@ export const getServiceAssets = (
       __autobuild?: boolean
     }
 
-    const { build, base, filepath, __src, __autobuild } = resolvedService
+    const { build, base, filepath, __src, __autobuild, ssl } = resolvedService
+
+    // Include SSL certificate files as extra resources for desktop builds
+    if (ssl && !dev) {
+      if (ssl.__keySource) {
+        assets.copy.push({
+          input: ssl.__keySource,
+          // Output relative to build dir, will be placed in extraResources
+          output: join('ssl', basename(ssl.__keySource)),
+          extraResource: true,
+        })
+      }
+      if (ssl.__certSource) {
+        assets.copy.push({
+          input: ssl.__certSource,
+          // Output relative to build dir, will be placed in extraResources
+          output: join('ssl', basename(ssl.__certSource)),
+          extraResource: true,
+        })
+      }
+    }
 
     const allowCompilation = !(dev && __autobuild)
 
