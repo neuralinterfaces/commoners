@@ -9,6 +9,7 @@ import {
   BuildHooks,
   cleanup,
   merge,
+  isDesktop,
 } from '@commoners/solidarity'
 // } from '../core/index'
 
@@ -98,7 +99,7 @@ export const open = async (
 
   const { outDir, target, port } = updatedConfig
 
-  const isElectron = target === 'electron'
+  const isElectron = isDesktop(target)
 
   // Launch build of the project
   if (useBuild) {
