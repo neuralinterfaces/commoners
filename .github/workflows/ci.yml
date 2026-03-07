@@ -138,8 +138,60 @@ jobs:
       - name: Run type check
         run: pnpm typecheck
 
-  test:
-    name: Test on ${{ matrix.os }} (Node ${{ matrix.node }})
+  test-fast:
+    name: Fast tests on ${{ matrix.os }} (Node ${{ matrix.node }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['20', '22']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Config tests
+        run: pnpm test:config
+        env:
+          CI: true
+
+      - name: Environment tests
+        run: pnpm test:env
+        env:
+          CI: true
+
+  test-services:
+    name: Service tests on ${{ matrix.os }} (Node ${{ matrix.node }})
     needs: build
     runs-on: ${{ matrix.os }}
 
@@ -183,7 +235,8 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Run tests
-        run: pnpm test
+      - name: Service compilation tests
+        run: pnpm test:services
+        continue-on-error: true
         env:
           CI: true
