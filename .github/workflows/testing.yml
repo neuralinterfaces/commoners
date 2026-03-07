@@ -51,6 +51,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install FUSE for AppImage support
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y fuse

@@ -223,6 +223,15 @@ const config = defineConfig({
       publish: './build/cpp/server.exe', // Specified output folder
     },
 
+    // Rust
+    ...services.rust.services([
+      {
+        name: 'rust',
+        bin: 'server', // Cargo binary name from Cargo.toml
+        src: join(root, './src/services/rust/src/main.rs'),
+      },
+    ]),
+
     dynamicNode: expressSrc, // Will auto-publish on desktop builds
 
     devOnly: {
