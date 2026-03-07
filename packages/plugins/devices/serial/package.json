@@ -1,7 +1,16 @@
 {
   "name": "@commoners/serial",
   "version": "1.0.0-alpha.2",
+  "author": "Neural Interfaces",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/devices/serial"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

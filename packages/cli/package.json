@@ -3,7 +3,13 @@
   "description": "Cross-Platform Development for the Rest of Us",
   "version": "1.0.0-alpha.2",
   "type": "module",
+  "author": "Neural Interfaces",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/cli"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

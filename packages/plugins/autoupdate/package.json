@@ -1,6 +1,17 @@
 {
   "name": "@commoners/autoupdate",
-  "version": "0.0.0",
+  "version": "1.0.0-alpha.2",
+  "description": "Auto-update plugin for Commoners desktop applications",
+  "author": "Neural Interfaces",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/autoupdate"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "main": "index.js",
   "dependencies": {

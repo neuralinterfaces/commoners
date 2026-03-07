@@ -2,7 +2,16 @@
   "name": "@commoners/testing",
   "version": "1.0.0-alpha.2",
   "description": "Commoners Testing Library",
+  "author": "Neural Interfaces",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/testing"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "main": "./dist/main.cjs",
   "module": "./dist/main.mjs",

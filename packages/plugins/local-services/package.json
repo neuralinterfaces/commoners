@@ -1,6 +1,16 @@
 {
   "name": "@commoners/local-services",
-  "version": "0.0.62",
+  "version": "1.0.0-alpha.2",
+  "description": "Local service discovery plugin for Commoners",
+  "author": "Neural Interfaces",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/local-services"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "license": "MIT",

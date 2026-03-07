@@ -3,7 +3,13 @@
   "description": "Build solidarity across platform",
   "version": "1.0.0-alpha.2",
   "type": "module",
+  "author": "Neural Interfaces",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/core"
+  },
   "exports": {
     ".": {
       "types": "./dist/types/index.d.ts",
