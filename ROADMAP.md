@@ -30,10 +30,10 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Tests split into `config.test.ts`, `start.test.ts`, `build.test.ts`, `desktop.test.ts`, `services.test.ts`
 - Targeted scripts: `pnpm test:config`, `pnpm test:start`, `pnpm test:build`, `pnpm test:desktop`, `pnpm test:services`
 
-### Expand `.env` / Service Ignoring Tests — Testing
-- Verify compatible `.env` files are copied
-- Verify un-prefixed environment variables are accessible from services and return the correct values
-- Note: substantial test infrastructure already exists in `tests/env.test.ts` and `tests/service-env.test.ts`
+### ~~Expand `.env` / Service Ignoring Tests~~ — Testing (done)
+- 32 tests across `tests/env.test.ts` and `tests/service-env.test.ts` covering: file loading, mode-specific overrides, priority order, un-prefixed variable access, security model
+- `.env` files are copied to desktop build output via `getAppAssets()` with `force: true`
+- Targeted script: `pnpm test:env`
 
 ### ~~Rust `CargoService` Helper~~ — Services (done)
 - `CargoService` helper implemented in `packages/core/assets/services/cargo.ts`
