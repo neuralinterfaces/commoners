@@ -1,8 +1,8 @@
-import { resolve, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 
-// const root/ = resolve(dirname(fileURLToPath(import.meta.url)))
-const root = './'
+import { getDirname } from '@commoners/solidarity/config'
+
+const root = getDirname(import.meta.url)
 
 import * as checksPlugin from './src/plugins/checks'
 

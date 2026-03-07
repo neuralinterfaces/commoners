@@ -15,18 +15,70 @@ export default (props: ModalProps) => {
     template.innerHTML = `
       <style>
 
+      :host {
+        --modal-bg: #ffffff;
+        --modal-border: #dcdcdc;
+        --modal-text: #1a1a1a;
+        --modal-text-muted: #808080;
+        --modal-selected-bg: #f0f0f0;
+        --modal-backdrop: rgba(0, 0, 0, 0.7);
+        --modal-btn-bg: #ffffff;
+        --modal-btn-border: #dcdcdc;
+        --modal-btn-text: #1a1a1a;
+        --modal-radius: 6px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :host {
+          --modal-bg: #1e1e1e;
+          --modal-border: #3a3a3a;
+          --modal-text: #e0e0e0;
+          --modal-text-muted: #808080;
+          --modal-selected-bg: #2a2a2a;
+          --modal-backdrop: rgba(0, 0, 0, 0.85);
+          --modal-btn-bg: #2a2a2a;
+          --modal-btn-border: #3a3a3a;
+          --modal-btn-text: #e0e0e0;
+        }
+      }
+
+      :host([data-theme="dark"]) {
+        --modal-bg: #1e1e1e;
+        --modal-border: #3a3a3a;
+        --modal-text: #e0e0e0;
+        --modal-text-muted: #808080;
+        --modal-selected-bg: #2a2a2a;
+        --modal-backdrop: rgba(0, 0, 0, 0.85);
+        --modal-btn-bg: #2a2a2a;
+        --modal-btn-border: #3a3a3a;
+        --modal-btn-text: #e0e0e0;
+      }
+
+      :host([data-theme="light"]) {
+        --modal-bg: #ffffff;
+        --modal-border: #dcdcdc;
+        --modal-text: #1a1a1a;
+        --modal-text-muted: #808080;
+        --modal-selected-bg: #f0f0f0;
+        --modal-backdrop: rgba(0, 0, 0, 0.7);
+        --modal-btn-bg: #ffffff;
+        --modal-btn-border: #dcdcdc;
+        --modal-btn-text: #e0e0e0;
+      }
+
       h3 {
         margin: 0;
       }
 
       dialog {
         padding: 0;
-        border-radius: 6px;
+        border-radius: var(--modal-radius);
         border: 0;
+        color: var(--modal-text);
       }
 
       dialog::backdrop {
-        background: rgba(0, 0, 0, 0.7);
+        background: var(--modal-backdrop);
       }
 
       section {
@@ -35,30 +87,32 @@ export default (props: ModalProps) => {
         grid-template-rows: min-content 1fr min-content;
         overflow: hidden;
       }
-    
+
       header {
         padding: 16px;
         padding-bottom: 10px;
-
-        background: white;
-        border-bottom: 1px solid gainsboro;
+        background: var(--modal-bg);
+        border-bottom: 1px solid var(--modal-border);
+        color: var(--modal-text);
       }
-    
+
       footer {
         padding: 16px;
         padding-top: 10px;
-        background: white;
-        border-top: 1px solid gainsboro;
+        background: var(--modal-bg);
+        border-top: 1px solid var(--modal-border);
+        color: var(--modal-text);
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: 10px;
       }
-    
+
       main {
         overflow: auto;
         max-height: 300px;
         min-width: 500px;
+        background: var(--modal-bg);
       }
 
       ul {
@@ -73,12 +127,13 @@ export default (props: ModalProps) => {
         padding: 16px;
         text-align: center;
         font-weight: 300;
-        color: gray;
+        color: var(--modal-text-muted);
       }
 
       li {
         padding: 16px;
-        border-bottom: 1px solid gainsboro;
+        border-bottom: 1px solid var(--modal-border);
+        color: var(--modal-text);
       }
 
       li:last-child {
@@ -86,17 +141,18 @@ export default (props: ModalProps) => {
       }
 
       li[selected] {
-        background: #F0F0F0;
+        background: var(--modal-selected-bg);
       }
 
       button {
         padding: 8px 16px;
-        border: 1px solid gainsboro;
-        background: white;
+        border: 1px solid var(--modal-btn-border);
+        background: var(--modal-btn-bg);
+        color: var(--modal-btn-text);
         cursor: pointer;
         border-radius: 4px;
       }
-    
+
       </style>
       <dialog>
         <section>
@@ -138,6 +194,16 @@ export default (props: ModalProps) => {
         this.attachShadow({ mode: 'open' })
 
         this.shadowRoot.appendChild(template.content.cloneNode(true))
+
+        // Sync data-theme with the document element
+        const syncTheme = () => {
+          const theme = document.documentElement.getAttribute('data-theme')
+          if (theme) this.setAttribute('data-theme', theme)
+          else this.removeAttribute('data-theme')
+        }
+        syncTheme()
+        const themeObserver = new MutationObserver(syncTheme)
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
         const dialog = this.getDialog()
         dialog.addEventListener('click', () => dialog.close())

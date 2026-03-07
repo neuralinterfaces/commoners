@@ -20,20 +20,37 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 
 ## Low Lift
 
-### Fix `import.meta.url` on Windows — Desktop
-- Windows path handling pattern already exists in `packages/core/globals.ts`; needs consistent application across the codebase
+### ~~Fix `import.meta.url` on Windows~~ — Desktop (done)
+- Shared `toFilePath` / `getFilename` utility in `packages/core/utils/paths.ts`; applied in `globals.ts` and `electron/main.ts`
 
-### Scope Device Modal Styles — Plugins
-- Add dark mode support via `prefers-color-scheme` (Shadow DOM already provides scoping)
-- Export modals but don't show by default
+### ~~Scope Device Modal Styles~~ — Plugins (done)
+- CSS custom properties with `prefers-color-scheme` dark mode and `data-theme` attribute override in `packages/plugins/devices/modal.ts`
+
+### ~~Split Tests into Individually Runnable Units~~ — Testing (done)
+- Tests split into `config.test.ts`, `start.test.ts`, `build.test.ts`, `desktop.test.ts`, `services.test.ts`
+- Targeted scripts: `pnpm test:config`, `pnpm test:start`, `pnpm test:build`, `pnpm test:desktop`, `pnpm test:services`
 
 ### Expand `.env` / Service Ignoring Tests — Testing
 - Verify compatible `.env` files are copied
 - Verify un-prefixed environment variables are accessible from services and return the correct values
 - Note: substantial test infrastructure already exists in `tests/env.test.ts` and `tests/service-env.test.ts`
 
-### Review Starter Kit — Release
-- Verify `create-commoners` scaffolding still works end-to-end
+### ~~Rust `CargoService` Helper~~ — Services (done)
+- `CargoService` helper implemented in `packages/core/assets/services/cargo.ts`
+- Auto-detects `.rs` source files, resolves Cargo project root, handles cross-platform binary naming
+
+### Starter Kit Overhaul — Release
+- The `commoners-starter-kit` repo is outdated (`commoners@0.0.60-alpha.5`) and too minimal — just a counter with no services, plugins, or pages
+- `create-commoners` source code was deleted (only compiled output remains); decide whether to restore or deprecate
+- Redesign the starter kit as a focused "learn Commoners in an hour" project demonstrating:
+  - At least one service (TypeScript HTTP)
+  - At least one plugin (e.g., splash screen)
+  - Multiple pages with navigation
+  - Multi-target config (PWA + desktop)
+  - Environment variable usage
+- Keep CI/CD workflows (already exist in `commoners-starter-kit`) but update for current Commoners version
+- Document in `/docs/getting-started.md` as the recommended starting point, replacing the current `create-vite` + manual setup flow
+- The starter kit should be simpler than `examples/demo` (which exercises every feature for testing) but comprehensive enough to show the real value of Commoners
 
 ## Low–Medium Lift
 
@@ -41,8 +58,9 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - ~~Ensure E2E tests complete; Electron should close down automatically~~ (resolved by Electron 40 upgrade)
 - Improve the test suite to check more known behaviors of the API
 
-### Fix GHA Build Tests — Testing
-- Troubleshoot and fix CI workflow failures in `.github/workflows/`
+### Fix GHA Build Tests — Testing (partial)
+- CI restructured with lint/typecheck as non-blocking; core build tests passing
+- Remaining: full matrix validation across platforms
 
 ### Validate Mobile Workflows — Mobile
 - Validate B@P iOS workflow end-to-end
@@ -62,6 +80,13 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
   - [Graceful degradation](https://stackoverflow.com/questions/2550431/what-is-the-difference-between-progressive-enhancement-and-graceful-degradation)
   - [Platform enhancement](https://www.nngroup.com/articles/enhancement/)
 - Introduce platform-specific storage options with [conditional guards](https://vite.dev/guide/api-hmr#required-conditional-guard)
+
+### WASM Service Compilation — Architecture
+- Compile Rust (and potentially C++) services to WebAssembly for browser-based execution
+- Enables running compiled services in PWA targets without a separate server process
+- Investigate `wasm-bindgen` + `wasm-pack` integration for Rust→WASM service builds
+- Pattern already proven in the SDK repo (`ubcap-protocol-wasm`, `ub-analysis` WASM targets)
+- Would pair naturally with the `CargoService` helper (Low Lift roadmap item)
 
 ### Walkthroughs — Documentation
 - How to use the OpenAPI standard to document services
@@ -85,8 +110,10 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 
 ### Tauri Investigation — Desktop
 - Compare how services are included in Electron vs the sidecar concept in Tauri
+- Tauri's sidecar model maps directly to compiled services (Rust, C++) — evaluate whether existing service compilation can target Tauri sidecars with minimal changes
 - Evaluate difficulty of providing Tauri analogues for all Electron-specific behaviors
 - Swap Tauri for Electron when no Electron-specific plugins are used
+- Rust services would be native Tauri sidecars rather than spawned child processes
 - No existing implementation; requires research, design, and significant new code
 
 ### Vite Plugin Refactor — Architecture

@@ -7,6 +7,7 @@
 
 import electron, { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join, extname, normalize } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
@@ -17,6 +18,7 @@ import {
   ExtendedElectronBrowserWindow,
 } from '../../types'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons'
+import { toFilePath } from '../../utils/paths'
 import { resolveHooks } from '../utils/hooks'
 
 // Import all modules
@@ -95,8 +97,7 @@ Security.runVerification(isProduction).then(async isValid => {
     if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
 
     // Normalize the pathname (resolve .. and . in paths)
-    pathname = normalize(pathname)
-    pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname
+    pathname = toFilePath(normalize(pathname))
 
     const isContained = Protocol.normalizeAndCompare(pathname, ASSET_ROOT_DIR, (a, b) =>
       a.startsWith(b)
@@ -139,7 +140,7 @@ Security.runVerification(isProduction).then(async isValid => {
       return location
     } catch {}
 
-    const loadFile = (loc: string) => win.loadURL(`file://${loc}`)
+    const loadFile = (loc: string) => win.loadURL(pathToFileURL(loc).href)
 
     const result = await loadFile(location)
       .then(() => location)

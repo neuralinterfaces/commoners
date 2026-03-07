@@ -5,6 +5,7 @@ import { exists, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node
 import { createRequire } from 'node:module'
 
 import { removeDirectory } from './utils/files.js'
+import { getFilename } from './utils/paths.js'
 import { SpecificTargetType } from './types.js'
 
 import { onCleanup } from './cleanup.js'
@@ -51,9 +52,7 @@ const getOS = () =>
 export const PLATFORM = getOS() // Declared Mobile OR Implicit Desktop Patform
 
 // Ensure __filename is available in ES Modules
-const ____filename = new URL('', import.meta.url).pathname
-const __filename =
-  ____filename.startsWith('/') && PLATFORM === 'windows' ? ____filename.slice(1) : ____filename // NOTE: For some reason, a slash has started to be added here...
+const __filename = getFilename(import.meta.url)
 const require = createRequire(import.meta.url)
 const { version: electronVersion } = require('electron/package.json')
 export { electronVersion }
