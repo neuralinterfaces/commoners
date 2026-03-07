@@ -1,117 +1,126 @@
 # Getting Started
-Welcome to Commoners! In this guide, you'll build your first cross-platform application using Commoners in a few simple steps.
+Welcome to Commoners! In this guide, you'll build your first cross-platform application in a few simple steps.
 
+## Scaffolding a New Project
 
-Since Commoners is built on top of [Vite](https://vitejs.dev), you can use the `create-vite` package to scaffold a new project. To do this, run the following command in your terminal:
+The fastest way to get started is with `create-commoners`:
 
-```bash
-npm create vite@latest my-commoners-app
+::: code-group
+
+```bash [pnpm]
+pnpm create commoners my-app
 ```
 
-
-Follow the prompts to select your favorite framework and features.
-
-Then, navigate to your new project directory and run `npm install` to install the project dependencies.
-
-## Commoners Setup
-### Installation
-After running `npm install`, add Commoners as a dependency.
-
-```bash
-npm install -D commoners@latest
+```bash [npm]
+npm create commoners my-app
 ```
 
-### Scripts
-Modify `scripts` in the `package.json` to provide simple commands for starting, building, and launching your application.
+```bash [yarn]
+yarn create commoners my-app
+```
+
+:::
+
+This scaffolds a complete Commoners project with:
+- A TypeScript HTTP **service** with environment variable support
+- A **splash screen** plugin
+- Multiple **pages** with navigation
+- **Environment files** (`.env`, `.env.development`, `.env.production`)
+- Scripts for web, desktop, and mobile builds
+
+Navigate to your new project and install dependencies:
+
+```bash
+cd my-app
+pnpm install
+```
+
+### Adding Commoners to an Existing Vite Project
+
+If you already have a Vite project, you can add Commoners directly:
+
+```bash
+pnpm add -D commoners@latest
+```
+
+Then create a `commoners.config.ts` file in your project root (see [Configuration](./guide/config.md)) and update your `package.json` scripts:
 
 ```json
 {
     "scripts": {
-        "start": "commoners",
+        "dev": "commoners",
         "build": "commoners build",
-        "launch": "commoners launch"
+        "preview": "commoners launch"
     }
 }
 ```
 
-## Commoners Usage
+## Development
+
+Start the development server:
+
+```bash
+pnpm dev
+```
+
+This launches your app with hot module replacement, and starts any configured services.
+
 ### Configuration
-You can customize your Commoners application by adding a `commoners.config.js` file to the root of your project. 
+Customize your application by editing the `commoners.config.ts` file in the root of your project.
 
-Add the following to your `commoners.config.js` file to customize your application's name and icon:
+```ts
+import { defineConfig } from '@commoners/solidarity/config'
 
-```js
-export default {
+export default defineConfig({
     name: 'My App',
-    icon: {
-        svg: './public/vite.svg', // Preferred format
-        png: './public/vite.png', // Electron Icon: A 512x512 PNG file converted using https://svgtrace.com/svg-to-png
-    }
-}
+    icon: [
+        './public/icon.png',
+        './public/icon.svg'
+    ]
+})
 ```
 
-The `name` and `icon` fields will automatically configure your application's `<title>` and `<link rel="icon">` tags. Delete these in the `index.html` file and see what happens!
+The `name` and `icon` fields automatically configure your application's `<title>` and `<link rel="icon">` tags.
 
 For more advanced configuration options, check out the [Configuration](./guide/config.md) documentation.
 
-#### Accessing Configuration Options
-In your application, you can access many Commoners configuration items using the `commoners` object:
+### Accessing Configuration at Runtime
+In your application, you can access Commoners configuration using the `commoners` global:
 
 ```js
 console.log(commoners) // { NAME: 'My App', VERSION: '0.0.0', ICON: '<path>', DESKTOP: true, READY: Promise, SERVICES: { ... }, ... }
 ```
 
-Try replacing the default `h1` and `img` tags with your custom `NAME` and `ICON` using the `commoners` global variable!
-
-### Multi-Platform Development
-Commoners allows you to develop for web, desktop, and mobile platforms using the same codebase. To switch between platforms, use the `--target` flag.
+## Multi-Platform Development
+Commoners lets you develop for web, desktop, and mobile platforms from the same codebase. Use the `--target` flag to switch platforms:
 
 ```bash
-npm start -- --target desktop # Develop for desktop
-npm start -- --target android # Develop for Android
-npm start -- --target ios # Develop for iOS
+pnpm dev                    # Web (default)
+pnpm dev -- --target desktop  # Desktop (Electron)
+pnpm dev -- --target ios      # iOS
+pnpm dev -- --target android  # Android
 ```
 
-To change the default platform, modify the `target` field in your `commoners.config.js` file:
-
-```js
-export default {
-    target: 'desktop', // Overrides `web` as the default target
-}
-```
-
-
-### Building Your Application
-To build your application, run one of the following commands:
+## Building Your Application
 
 ```bash
-npm run build # Default target
-
-# Web
-npm run build -- --target web # Basic web application
-npm run build -- --target pwa # Progressive Web App (PWA)
-
-# Desktop
-npm run build -- --target electron # Electron 
-npm run build -- --target desktop # Currently the same as `electron`
-
-# Mobile
-npm run build -- --target android # Android
-npm run build -- --target ios # iOS (requires macOS)
-npm run build -- --target mobile # Inferred based on current platform
+pnpm build                          # Default target (web)
+pnpm build -- --target pwa          # Progressive Web App
+pnpm build -- --target desktop      # Desktop (Electron)
+pnpm build -- --target mobile       # Mobile (Capacitor)
 ```
 
-### Launching Your Application
-After building your application, you can launch it using the following commands:
+### Launching a Build
+After building, launch the output:
 
 ```bash
-npm run launch # Default target
-npm run launch -- --target [target] # Launches the specified target
+pnpm preview                        # Default target
+pnpm preview -- --target desktop    # Launch desktop build
 ```
 
-The outputs of any `build` command should be launched by the equivalent `launch` command.
-
-## Conclusion
-Congratulations! You've built your first cross-platform application using Commoners. 
-
-For more advanced features, check out the [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) on GitHub.
+## Next Steps
+- [Configuration](./guide/config.md) — Customize your app
+- [Services](./guide/services.md) — Add backend services
+- [Plugins](./guide/plugins.md) — Extend with plugins
+- [Build Automation](./guide/build-automation.md) — CI/CD workflows for all platforms
+- [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — Reference project with GitHub Actions CI for web, desktop, and mobile

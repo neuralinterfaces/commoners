@@ -254,6 +254,14 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0(vite@7.3.1(@types/node@20.19.17)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1))
 
+  packages/create-commoners:
+    devDependencies:
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
+
+  packages/create-commoners/template/src/services/http: {}
+
   packages/plugins/devices/ble:
     devDependencies:
       vite:
