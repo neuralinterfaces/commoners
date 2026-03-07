@@ -39,28 +39,21 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - `CargoService` helper implemented in `packages/core/assets/services/cargo.ts`
 - Auto-detects `.rs` source files, resolves Cargo project root, handles cross-platform binary naming
 
-### Starter Kit Overhaul — Release
-- The `commoners-starter-kit` repo is outdated (`commoners@0.0.60-alpha.5`) and too minimal — just a counter with no services, plugins, or pages
-- `create-commoners` source code was deleted (only compiled output remains); decide whether to restore or deprecate
-- Redesign the starter kit as a focused "learn Commoners in an hour" project demonstrating:
-  - At least one service (TypeScript HTTP)
-  - At least one plugin (e.g., splash screen)
-  - Multiple pages with navigation
-  - Multi-target config (PWA + desktop)
-  - Environment variable usage
-- Keep CI/CD workflows (already exist in `commoners-starter-kit`) but update for current Commoners version
-- Document in `/docs/getting-started.md` as the recommended starting point, replacing the current `create-vite` + manual setup flow
-- The starter kit should be simpler than `examples/demo` (which exercises every feature for testing) but comprehensive enough to show the real value of Commoners
+### ~~Starter Kit Overhaul~~ — Release (done)
+- `create-commoners` rebuilt from scratch with proper source code and Vite build
+- Template includes: TypeScript HTTP service, splash screen plugin, multi-page navigation, env vars, mobile-ready Capacitor deps
+- Scaffolds via `npm create commoners` / `pnpm create commoners`
 
 ## Low–Medium Lift
 
-### E2E Electron Auto-Close — Testing
+### ~~E2E Electron Auto-Close~~ — Testing (done)
 - ~~Ensure E2E tests complete; Electron should close down automatically~~ (resolved by Electron 40 upgrade)
-- Improve the test suite to check more known behaviors of the API
+- E2E tests expanded: PAGES navigation, service lifecycle (desktop), desktop metadata (`TARGET`, `ROOT`)
 
-### Fix GHA Build Tests — Testing (partial)
+### ~~Fix GHA Build Tests~~ — Testing (done)
 - CI restructured with lint/typecheck as non-blocking; core build tests passing
-- Remaining: full matrix validation across platforms
+- `ci.yml` split into `test-fast` (config + env) and `test-services` (Rust + compilation) jobs across OS/Node matrix
+- `testing.yml` triggers on `dev` branch; uses split test scripts for per-category failure isolation
 
 ### Validate Mobile Workflows — Mobile
 - Validate B@P iOS workflow end-to-end
@@ -73,6 +66,7 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Extend custom protocol support to plugins
 - Use custom protocol to load `searchQueryParams`
 - Only allow existing files for Vite dev mode and published apps (no spontaneous redirects)
+- **Architecture boundary (decided):** The `commoners` global API (quit, close, PAGES navigation, SERVICES lifecycle, plugin contexts) is the **generic desktop contract**. Electron-specific implementations in `packages/core/assets/electron/` should be treated as a **runtime adapter**. When adding protocol support, introduce a `DesktopRuntime` interface rather than adding more Electron-specific code to core. Key implication: `sendSync` (Electron-only) should not be part of the public API — use async `invoke` instead.
 
 ### Platform Enhancement — Design
 - Write a Platform Enhancement manifesto covering:
@@ -115,6 +109,7 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Swap Tauri for Electron when no Electron-specific plugins are used
 - Rust services would be native Tauri sidecars rather than spawned child processes
 - No existing implementation; requires research, design, and significant new code
+- **Architecture boundary (decided):** When evaluating Tauri, the existing `packages/core/assets/electron/` modules should be refactored behind a `DesktopRuntime` interface. The 6 Electron modules (config, security, ipc, window, protocol, lifecycle) each map to Tauri equivalents — the interface should abstract per-module rather than as a monolith.
 
 ### Vite Plugin Refactor — Architecture
 - Investigate refactoring the core build system as a Vite plugin

@@ -35,6 +35,56 @@ export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const localIP = getLocalIP()
 
 const e2eTests = {
+  pages: (output, { target }) => {
+    describe('Page navigation', () => {
+      test('PAGES contains expected page entries', async () => {
+        const pages = await output.page.evaluate(() => {
+          return commoners.READY.then(() => Object.keys(commoners.PAGES))
+        })
+        expect(pages).toContain('home')
+        expect(pages).toContain('services')
+      })
+
+      test('PAGES entries are callable functions', async () => {
+        const types = await output.page.evaluate(() => {
+          return commoners.READY.then(() =>
+            Object.fromEntries(Object.entries(commoners.PAGES).map(([k, v]) => [k, typeof v]))
+          )
+        })
+        Object.values(types).forEach(t => expect(t).toBe('function'))
+      })
+    })
+  },
+  serviceLifecycle: (output, { target }) => {
+    const normalizedTarget = getNormalizedTarget(target)
+    if (normalizedTarget !== 'desktop') return
+
+    describe('Service lifecycle (desktop)', () => {
+      test('Services have status property', async () => {
+        const statuses = await output.page.evaluate(() => {
+          return commoners.READY.then(() => {
+            const services = commoners.SERVICES
+            return Object.fromEntries(
+              Object.entries(services).map(([k, v]) => [k, typeof v.status])
+            )
+          })
+        })
+        Object.values(statuses).forEach(t => expect(t).toBe('function'))
+      })
+
+      test('Active services report running status', async () => {
+        const result = await output.page.evaluate(() => {
+          return commoners.READY.then(() => {
+            const services = commoners.SERVICES
+            const first = Object.values(services).find(s => s.status)
+            return first ? first.status() : null
+          })
+        })
+        // Active local services should have a truthy status
+        if (result !== null) expect(result).toBeTruthy()
+      })
+    })
+  },
   plugins: (output, { target }, isDev = true) => {
     describe('Plugin features are working as expected', () => {
       test('Will pass messages between contexts', async () => {
@@ -159,6 +209,10 @@ const e2eTests = {
           // expect('splash' in PLUGINS, "Splash plugin is not enabled").toBe(true);
           // expect('__testing' in PLUGINS, "Testing plugin is not enabled").toBe(true);
 
+          // Desktop metadata
+          expect(COMMONERS.TARGET, 'Target should be electron').toBe('electron')
+          expect(typeof COMMONERS.ROOT, 'ROOT should be a string').toBe('string')
+
           // Desktop controls
           expect(DESKTOP, 'Desktop flag is not the expected type').instanceOf(Object)
           expect('quit' in DESKTOP, 'Desktop flag does not have a quit function').toBe(true)
@@ -234,6 +288,8 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
     e2eTests.basic(output, { target })
     e2eTests.plugins(output, { target })
+    e2eTests.pages(output, { target })
+    e2eTests.serviceLifecycle(output, { target })
   })
 }
 
@@ -357,6 +413,8 @@ export const registerBuildTest = (
 
       e2eTests.basic(launchOutput, { target }, false)
       e2eTests.plugins(launchOutput, { target }, false)
+      e2eTests.pages(launchOutput, { target })
+      e2eTests.serviceLifecycle(launchOutput, { target })
     })
   })
 }
