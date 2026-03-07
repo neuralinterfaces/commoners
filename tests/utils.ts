@@ -217,6 +217,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
       'basic-python',
       'numpy',
       'cpp',
+      'rust',
       'dynamicNode',
     ]
 

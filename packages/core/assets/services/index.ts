@@ -34,6 +34,7 @@ const jsExtensions = ['.js', '.cjs', '.mjs']
 const precompileExtensions = {
   node: [{ from: '.ts', to: '.cjs' }],
   cpp: [{ from: '.cpp', to: '.exe' }],
+  rust: [{ from: '.rs', to: '.exe' }],
 }
 
 const autobuildExtensions = {
