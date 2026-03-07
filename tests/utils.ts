@@ -312,10 +312,10 @@ export const registerBuildTest = (
     const assetsBuilt = new Promise(res => (triggerAssetsBuilt = res))
     const buildComplete = new Promise(res => (triggerBuildComplete = res))
 
-    const skipPackageStep = isMobile
+    const skipNativePackaging = isMobile // Halt Capacitor native packaging in tests (no Xcode/Android Studio needed)
 
-    // NOTE: Desktop and mobile builds are not fully built
-    const describeFn = skipPackageStep ? describe.skip : describe
+    // Mobile builds are now testable via web preview
+    const describeFn = describe
 
     const buildWaitTime = isElectron || isMobile ? getMinutes(5) : undefined // Wait for five minutes (max) for Electron services to build
 
@@ -325,7 +325,7 @@ export const registerBuildTest = (
     const hooks = {
       onBuildAssets: assetDir => {
         triggerAssetsBuilt(assetDir)
-        if (skipPackageStep) return null
+        if (skipNativePackaging) return null
       },
     }
 
@@ -404,8 +404,10 @@ export const registerBuildTest = (
       const launchOutput = getMockOutput()
       beforeAll(async () => {
         // Wait for build to complete first
-        await assetsBuilt
-        const _output = await open(projectBase, opts, true)
+        const assetDir = await assetsBuilt
+        // For mobile builds, use the actual asset directory (web assets are in a temp dir, not the user outDir)
+        const launchOpts = isMobile ? { ...opts, outDir: assetDir } : opts
+        const _output = await open(projectBase, launchOpts, true)
         Object.assign(launchOutput, _output)
       })
 

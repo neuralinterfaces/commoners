@@ -304,7 +304,11 @@ export const checkDepsInstalled = async (config: ResolvedConfig) => {
   }
 }
 
-export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
+export const open = async (
+  { target, outDir }: MobileOptions,
+  config: ResolvedConfig,
+  options?: { headless?: boolean }
+) => {
   const { root } = config
 
   await checkDepsInstalled(config)
@@ -316,6 +320,8 @@ export const open = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     await runCommand(`npx @capacitor/assets generate --${target}`, { cwd: root })
     assets.cleanup(info)
   }
+
+  if (options?.headless) return // Skip opening IDE in CI/headless mode
 
   await runCommand(`npx cap open ${target}`, { cwd: root })
 }

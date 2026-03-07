@@ -10,7 +10,7 @@ import {
   createServices,
   resolveConfig,
 } from './index.js'
-import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile } from './globals.js'
+import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, vite } from './globals.js'
 import { onCleanup } from './cleanup.js'
 import { createLogger } from './assets/utils/logger.js'
 
@@ -182,7 +182,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       },
     } as {
       url?: string
-      frontend?: Awaited<ReturnType<typeof createServer>>
+      frontend?: Awaited<ReturnType<typeof createServer>> | { close: () => void | Promise<void> }
       services?: Awaited<ReturnType<typeof createAllServices>>
       close: () => void
     }
@@ -192,17 +192,31 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     // ------------------------------- Mobile -------------------------------
     if (isMobile(target)) {
       await initializeWebsocketPort()
-      
+
       const buildMetadata = await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
       startManager.services = await runDevelopmentPlugins(scopedConfig, hooks)
 
-      // Initialize and open the native IDE (Xcode for iOS, Android Studio for Android)
+      // In testing mode, serve the web assets for Playwright instead of opening IDE
+      if (process.env.__COMMONERS_TESTING) {
+        const __vite = await vite
+        const server = await __vite.preview({
+          build: { outDir: buildMetadata.web },
+          preview: { open: false },
+        })
+        const port = server.config.preview.port
+        startManager.url = `http://localhost:${port}`
+        startManager.frontend = server
+        return startManager
+      }
+
+      // Interactive mode: Initialize and open the native IDE (Xcode for iOS, Android Studio for Android)
       const mobile = await import('./mobile/index.js')
       const mobileOpts = { target: target as 'ios' | 'android', outDir: buildMetadata.web }
-      
+      const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
+
       await mobile.runInRoot(async (config) => {
         await mobile.init(mobileOpts, config)
-        await mobile.open(mobileOpts, config)
+        await mobile.open(mobileOpts, config, { headless: isHeadless })
       }, scopedConfig)
 
       return startManager

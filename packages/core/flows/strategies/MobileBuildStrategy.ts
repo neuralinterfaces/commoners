@@ -57,13 +57,18 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     context.hooks.emit({ type: 'build:mobile:start', mobileTarget: this.platform })
 
     const mobileOpts = { target: target as 'ios' | 'android', outDir: __outDir }
+    const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
 
     await mobile.runInRoot(async (config) => {
       await mobile.init(mobileOpts, config) // Initialize Capacitor
-      await mobile.open(mobileOpts, config) // Open in native IDE
+      await mobile.open(mobileOpts, config, { headless: isHeadless }) // Open in native IDE (skipped in CI)
     }, config)
 
-    logger.info(`${this.platform} project ready`, { message: `Open in Xcode/Android Studio to build` })
+    if (isHeadless) {
+      logger.info(`${this.platform} project synced (headless). Use native tooling to compile.`)
+    } else {
+      logger.info(`${this.platform} project ready`, { message: `Open in Xcode/Android Studio to build` })
+    }
   }
 
   async finalize(context: BuildContext): Promise<void> {

@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
+import { vite } from '../../globals.js'
 import { BuildError } from '../../errors.js'
 import * as mobile from '../../mobile/index.js'
 import { LaunchOutput } from '../../types.js'
@@ -18,6 +19,7 @@ const logger = createLogger('MobileLaunchStrategy')
  */
 export class MobileLaunchStrategy extends BaseLaunchStrategy {
   readonly platform: string
+  private server: any = null
 
   constructor(platform: 'ios' | 'android') {
     super()
@@ -55,6 +57,25 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
     const { outDir, target, config } = context
     const { root } = config
 
+    const isHeadless = process.env.__COMMONERS_TESTING
+      || process.env.CI === 'true'
+      || process.env.COMMONERS_HEADLESS === 'true'
+
+    if (isHeadless) {
+      // Serve web assets for testing/CI via Vite preview
+      const __vite = await vite
+      this.server = await __vite.preview({
+        build: { outDir },
+        preview: { open: false },
+      })
+      const port = this.server.config.preview.port
+      const url = `http://localhost:${port}`
+
+      logger.info(`${this.platform} app served for testing`, { url })
+      context.hooks.emit({ type: 'launch:ready', url, server: this.server })
+      return { url }
+    }
+
     logger.info(`Launching ${this.platform} app`, { outDir })
 
     // Launch mobile app (opens in native IDE/simulator)
@@ -68,5 +89,12 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
     context.hooks.emit({ type: 'launch:ready' })
 
     return { url: null }
+  }
+
+  async cleanup(_context: LaunchContext): Promise<void> {
+    if (this.server) {
+      await this.server.close()
+      this.server = null
+    }
   }
 }

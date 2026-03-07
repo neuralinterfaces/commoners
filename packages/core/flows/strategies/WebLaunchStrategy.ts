@@ -83,6 +83,7 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     logger.info('Vite preview server running', { url, host: resolvedHost, port: resolvedPort })
     context.hooks.emit({ type: 'launch:ready', url, server: this.server })
 
+    return { url }
   }
 
   async cleanup(context: LaunchContext): Promise<void> {

@@ -237,9 +237,11 @@ cli
   .option('--services', 'Force all services to rebuild')
   .option('--publish [type]', 'Publish the application', { default: 'always' })
   .option('--sign', 'Enable code signing (desktop target on Mac only)')
+  .option('--headless', 'Skip opening native IDEs (for CI or scripting)')
   .action(async (root, options) => {
     try {
-      const { config: configPath, service, services, sign, publish, stdin, ...overrides } = options
+      const { config: configPath, service, services, sign, publish, headless, stdin, ...overrides } = options
+      if (headless) process.env.COMMONERS_HEADLESS = 'true'
       const { target: manualTarget } = overrides
       overrides.build = { sign, publish }
 

@@ -55,6 +55,13 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - `ci.yml` split into `test-fast` (config + env) and `test-services` (Rust + compilation) jobs across OS/Node matrix
 - `testing.yml` triggers on `dev` branch; uses split test scripts for per-category failure isolation
 
+### ~~Headless Mobile Testing~~ — Testing (done)
+- Mobile `start` and `build` tests now run via Vite preview server (no Xcode/Android Studio required)
+- `start.ts` serves built web assets in testing mode instead of calling `mobile.open()`
+- `MobileLaunchStrategy` serves web assets via `vite.preview()` in headless/testing/CI mode
+- Tests exercise `commoners.MOBILE`, pages, plugins, services, and env variables
+- Activated by `__COMMONERS_TESTING`, `CI=true`, or `COMMONERS_HEADLESS=true`
+
 ### Validate Mobile Workflows — Mobile
 - Validate B@P iOS workflow end-to-end
 - Serial support on iOS and Android
@@ -95,6 +102,14 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Fix sandbox behavior on Windows
 - Note: extensive infrastructure already exists in `packages/core/utils/asar/`; work is mostly debugging and platform edge cases
 - Note: upgrading to `electron-builder@26` may have improved ASAR behavior — retest before deep-diving
+
+### Native Emulator Testing — Testing
+- Android: [`ReactiveCircus/android-emulator-runner`](https://github.com/ReactiveCircus/android-emulator-runner) + Appium/WebDriverIO
+- iOS: `macos-latest` runner + iOS Simulator + XCUITest or Appium
+- [`@onslip/automation`](https://github.com/niclas-niclas/niclas-niclas) for WebView testing in native containers
+- Create `tests/mobile-native.test.ts` with emulator-based E2E tests
+- Cost: ~$0.08/min macOS, 5-15 min/run — use `workflow_dispatch` trigger
+- Covers: native Capacitor plugins, native UI, app lifecycle, actual device behavior
 
 ### Automated Mobile Distribution — Mobile
 - Complete automated mobile distribution pipeline

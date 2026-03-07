@@ -6,6 +6,25 @@ Commoners relies on [Capacitor](https://capacitorjs.com) to generate the necessa
 
 One peculiar aspect of Capacitor is that mobile builds **require Capacitor plugins to be explicitly listed in your `package.json` file**, even if installed in `node_modules`.
 
+## CI / Headless Builds
+
+When `CI=true` (set automatically by GitHub Actions and most CI providers), commoners skips `npx cap open` and completes without launching a native IDE. This allows mobile builds to run headlessly in CI pipelines.
+
+You can also force headless mode locally:
+```bash
+# Using the CLI flag
+commoners build --target ios --headless
+
+# Using the environment variable
+CI=true commoners build --target android
+```
+
+After a headless build, the native project files are ready at:
+- **iOS**: `ios/` (open with Xcode or compile with `xcodebuild`)
+- **Android**: `android/` (open with Android Studio or compile with `./gradlew assembleDebug`)
+
+For CI workflow templates, see the [Build Automation](/guide/build-automation#mobile) documentation.
+
 ## iOS
 If you are building for iOS, you will need [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12) installed on your Mac. 
 
@@ -94,6 +113,52 @@ Then run the following command to publish your app:
 ```bash
 bundle exec fastlane closed_beta
 ``` -->
+
+## Testing
+
+Commoners supports two modes for mobile testing:
+
+### Web Preview Testing (Default)
+
+In testing and CI environments, mobile builds are served via a Vite preview server instead of opening a native IDE. Playwright connects to the preview URL and runs the same E2E tests used for web/PWA targets. This covers all JavaScript, services, pages, plugins, and DOM behavior without requiring Xcode, Android Studio, or any native tooling.
+
+This mode activates automatically when any of these conditions are true:
+- `__COMMONERS_TESTING` is set (via `@commoners/testing`)
+- `CI=true` (GitHub Actions, etc.)
+- `COMMONERS_HEADLESS=true`
+
+What this tests:
+- `commoners.MOBILE === true` flag
+- `commoners.PAGES` navigation
+- `commoners.PLUGINS` messaging
+- `commoners.SERVICES` HTTP integration
+- `commoners.ENV` environment variables
+- All web DOM/JavaScript behavior
+
+### Native Emulator Testing (Future)
+
+For full native coverage including Capacitor plugins, native UI, and device APIs, emulator-based testing is planned:
+
+**Android:**
+- Use [`ReactiveCircus/android-emulator-runner`](https://github.com/ReactiveCircus/android-emulator-runner) GitHub Action
+- Appium or WebDriverIO for WebView automation
+- `./gradlew connectedAndroidTest` for instrumented tests
+
+**iOS:**
+- Use `macos-latest` runner with iOS Simulator
+- XCUITest or Appium for native UI testing
+- [`@onslip/automation`](https://github.com/niclas-niclas/niclas-niclas) for WebView testing in native containers
+
+**Cost considerations:**
+- macOS runners: ~$0.08/min
+- Typical run: 5-15 minutes
+- Recommend manual trigger (`workflow_dispatch`) for native tests to control costs
+
+What native testing adds beyond web preview:
+- Native Capacitor plugin behavior (camera, filesystem, etc.)
+- Native UI rendering (status bar, gestures)
+- App lifecycle events (suspend/resume)
+- Actual emulator/device behavior
 
 ## Android
 If you are building for Android, you will need to install the following dependencies:
