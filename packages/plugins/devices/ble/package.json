@@ -9,10 +9,10 @@
     "build": "vite build"
   },
   "devDependencies": {
-    "vite": "^7.1.7"
+    "vite": "^7.3.1"
   },
   "peerDependencies": {
-    "@capacitor-community/bluetooth-le": "^6.0.0",
+    "@capacitor-community/bluetooth-le": "^8.1.2",
     "@commoners/solidarity": "1.0.0-alpha.2 || >=1.0.0 <2.0.0"
   },
   "peerDependenciesMeta": {
