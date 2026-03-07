@@ -154,11 +154,6 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Ensure platform-specific configs exist
     this.ensurePlatformConfigs(buildConfig)
 
-    // Set strong code-signing algorithm (Windows)
-    if (!buildConfig.win.signingHashAlgorithms) {
-      buildConfig.win.signingHashAlgorithms = ['sha256']
-    }
-
     // Configure Linux
     buildConfig.linux.executableName = buildConfig.productName
     Object.assign(buildConfig.linux, {
@@ -365,7 +360,6 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       buildConfig.mac.identity = null
 
       // Disable signing on Windows
-      buildConfig.win.sign = async () => {}
       buildConfig.win.forceCodeSigning = false
 
       // Remove environment variables that may interfere with signing
@@ -380,7 +374,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       logger.debug('Code signing enabled')
     }
 
-    buildConfig.includeSubNodeModules = true // Always grab workspace dependencies
+    // Note: includeSubNodeModules was removed in electron-builder 26; workspace dependencies are handled automatically
   }
 
   /**

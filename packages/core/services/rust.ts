@@ -8,6 +8,7 @@ export type CargoServiceProperties = Service & {
 
 export class CargoService {
   src: string
+  build: any
   publish: Service['publish']
 
   constructor(
@@ -34,6 +35,9 @@ export class CargoService {
 
       return `cd "${projectDir}" && cargo build --profile ${profile} ${cargoArgs} && ${cp} "target/${profile}/${binaryName}" "${resolve(outPath)}"`
     }
+
+    // Top-level build for dev mode (Rust always needs compilation, unlike Python)
+    this.build = build
 
     this.publish = publish ?? {
       src: name,

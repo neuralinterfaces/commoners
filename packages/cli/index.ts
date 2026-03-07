@@ -54,9 +54,10 @@ class CLIError extends CommonersError {
 const handleError = (error: Error) => {
   if (error instanceof CommonersError) {
     ui.error(error.message, error.details)
-    process.exit(1) // Exit with error code
+  } else {
+    ui.error(error.message)
   }
-  throw error // Re-throw unexpected errors
+  process.exit(1)
 }
 
 function preprocessTarget(target) {
