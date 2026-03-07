@@ -19,7 +19,7 @@ const getRandomNumber = () => Math.random().toString(36).substring(7)
 
 const getMinutes = minutes => minutes * 60 * 1000
 
-export const projectBase = join(__dirname, "..", "examples", "demo") // Refer to the demo project base outside of the tests directory
+export const projectBase = join(__dirname, '..', 'examples', 'demo') // Refer to the demo project base outside of the tests directory
 
 const getServices = async output => {
   if (output.page) {
@@ -35,7 +35,7 @@ export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const localIP = getLocalIP()
 
 const e2eTests = {
-  pages: (output, { target }) => {
+  pages: (output, { target: _target }) => {
     describe('Page navigation', () => {
       test('PAGES contains expected page entries', async () => {
         const pages = await output.page.evaluate(() => {
@@ -85,7 +85,7 @@ const e2eTests = {
       })
     })
   },
-  plugins: (output, { target }, isDev = true) => {
+  plugins: (output, { target: _target }, isDev = true) => {
     describe('Plugin features are working as expected', () => {
       test('Will pass messages between contexts', async () => {
         const randomId = getRandomNumber()
@@ -131,7 +131,9 @@ const e2eTests = {
       })
 
       test('Commoners global variable is properly defined', async () => {
-        const userPkg = require(join(projectBase, 'package.json'))
+        const userPkg = await import(join(projectBase, 'package.json'), {
+          with: { type: 'json' },
+        }).then(m => m.default)
 
         const COMMONERS = await output.page.evaluate(() => {
           const { commoners } = globalThis
@@ -258,7 +260,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
       Object.assign(output, _output)
     })
 
-    afterAll(() => output.cleanup())
+    afterAll(async () => await output.cleanup())
 
     test('All assets are generated', async () => checkAssets(projectBase, undefined, { target }))
 
@@ -293,7 +295,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
   })
 }
 
-type PublishOption = boolean | string | Function
+type PublishOption = boolean | string | ((...args: unknown[]) => unknown)
 type BuildOptions = { target?: string; publish?: PublishOption }
 
 export const registerBuildTest = (
@@ -347,7 +349,7 @@ export const registerBuildTest = (
     }, buildWaitTime)
 
     // Cleanup build outputs
-    afterAll(() => output.cleanup(EXTRA_OUTPUT_LOCATIONS))
+    afterAll(async () => await output.cleanup(EXTRA_OUTPUT_LOCATIONS))
 
     test('All build assets have been created', async () => {
       const baseDir = (await assetsBuilt) as string
