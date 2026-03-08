@@ -35,6 +35,7 @@ const precompileExtensions = {
   node: [{ from: '.ts', to: '.cjs' }],
   cpp: [{ from: '.cpp', to: '.exe' }],
   rust: [{ from: '.rs', to: '.exe' }],
+  wasm: [{ from: '.rs', to: '.wasm' }],
 }
 
 const autobuildExtensions = {
@@ -85,6 +86,18 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
   const isLocalMode = !!(isDesktopTarget || isServicesOnlyBuild)
 
   if (service.__src) return service // Pre-resolved service
+
+  // WASM services run in-browser, not as child processes — skip URL/PORT assignment
+  if (service.__wasm) {
+    const resolved = resolveServiceConfiguration(service)
+    return {
+      ...resolved,
+      __wasm: true,
+      type: 'wasm',
+      filepath: resolved.src && resolvePath(root, resolved.src),
+      ...(service.capabilities ? { capabilities: service.capabilities } : {}),
+    }
+  }
 
   const publishMode = isLocalMode ? 'local' : 'remote'
 
@@ -198,6 +211,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     env,
     protocol,
     ssl,
+    capabilities,
     __autobuild,
     __compile,
   } = resolvedWithoutSource
@@ -264,6 +278,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
 
     __autobuild,
     __compile,
+    ...(capabilities ? { capabilities } : {}),
   }
 }
 
@@ -363,6 +378,8 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     status: null,
 
     monitor,
+
+    ...(resolvedForBuild.capabilities ? { capabilities: resolvedForBuild.capabilities } : {}),
   }
 }
 
@@ -381,6 +398,9 @@ export async function start(
   config = await resolveService(config, id, opts)
 
   if (!config) return
+
+  // WASM services run in-browser — they are not started as child processes
+  if (config.__wasm || config.type === 'wasm') return
 
   const { filepath, monitor = {} } = config
 
@@ -563,11 +583,24 @@ export const sanitize = (
 ) => {
   return Object.entries(services)
 
-    .filter(([_, { url }]) => url)
+    .filter(([_, info]) => info.url || (info as any).__wasm || (info as any).type === 'wasm')
 
     .reduce((acc, [id, info]) => {
-      const { url } = info
-      acc[id] = { url }
+      const capabilities = (info as any).capabilities
+
+      if ((info as any).__wasm || (info as any).type === 'wasm') {
+        acc[id] = {
+          type: 'wasm',
+          url: (info as any).filepath || info.url,
+          ...(capabilities ? { capabilities } : {}),
+        }
+      } else {
+        const { url } = info
+        acc[id] = {
+          url,
+          ...(capabilities ? { capabilities } : {}),
+        }
+      }
 
       return acc
     }, {})

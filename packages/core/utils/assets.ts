@@ -25,9 +25,11 @@ import { createLogger } from '../assets/utils/logger.js'
 import {
   ResolvedConfig,
   ResolvedService,
+  ResolvedServices,
   PackageBuildInfo,
   ServiceRebuildOption,
 } from '../types.js'
+import { getPlugins, getServices } from './extensions.js'
 import { withExternalBuiltins } from '../vite/plugins/electron/inbuilt.js'
 import { getAllIcons } from '../assets/utils/icons.js'
 
@@ -294,7 +296,8 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false, 
     assets.copy.push(...getAllIcons(resolvedConfig.icon).filter(icon => icon).map(icon => getAbsolutePath(root, icon)))
 
   // Handle Provided Plugins
-  for (const [id, plugin] of Object.entries(resolvedConfig.plugins)) {
+  const plugins = getPlugins(resolvedConfig.extensions)
+  for (const [id, plugin] of Object.entries(plugins)) {
     const pluginAssets = { ...(plugin.assets ?? {}) }
 
     // Only bundle assets in production mode
@@ -363,7 +366,7 @@ export const getServicesToBuild = (
   dev = false
 ) => {
 
-  const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+  const resolvedServices = getServices(resolvedConfig.extensions)
   const servicesToBuild = Object.keys(resolvedServices).filter((name) => {
     const { __src, __compile, __autobuild } = resolvedServices[name]
     if (dev && !__compile && !__autobuild) return false // Skip services that don't have an original source or final filepath
@@ -391,7 +394,7 @@ export const getServiceAssets = (
   }
 
   // Handle Provided Services
-  const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+  const resolvedServices = getServices(resolvedConfig.extensions)
   const servicesToBuild = getServicesToBuild(resolvedConfig, dev)
   if (servicesToBuild.length === 0) return assets // No services to build
 
@@ -403,6 +406,18 @@ export const getServiceAssets = (
     }
 
     const { build, base, filepath, __src, __autobuild, ssl } = resolvedService
+
+    // WASM services: copy pkg/ output into web assets directory (not extraResources)
+    if ((resolvedService as any).__wasm || (resolvedService as any).type === 'wasm') {
+      if (filepath) {
+        assets.copy.push({
+          input: filepath,
+          output: join('services', name),
+          force: true,
+        } as any)
+      }
+      continue
+    }
 
     // Include SSL certificate files as extra resources for desktop builds
     if (ssl && !dev) {

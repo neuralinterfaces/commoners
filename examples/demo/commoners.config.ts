@@ -232,6 +232,15 @@ const config = defineConfig({
       },
     ]),
 
+    // Rust WASM (runs in-browser, no server process)
+    ...services.wasm.services([
+      {
+        name: 'rust-wasm',
+        src: join(root, './src/services/rust-wasm/src/lib.rs'),
+        capabilities: { provides: ['echo', 'math'] },
+      },
+    ]),
+
     dynamicNode: expressSrc, // Will auto-publish on desktop builds
 
     devOnly: {
