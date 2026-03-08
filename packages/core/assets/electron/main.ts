@@ -7,7 +7,7 @@
 
 import electron, { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join, extname, normalize } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
 
 import * as services from '../services/index'
@@ -18,7 +18,12 @@ import {
   ExtendedElectronBrowserWindow,
 } from '../../types'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons'
-import { toFilePath } from '../../utils/paths'
+// Inline toFilePath to avoid cross-directory import that breaks Rollup bundling
+const toFilePath = (urlOrPathname: string): string => {
+  if (urlOrPathname.startsWith('file://')) return fileURLToPath(urlOrPathname)
+  if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(urlOrPathname)) return urlOrPathname.slice(1)
+  return urlOrPathname
+}
 import { resolveHooks } from '../utils/hooks'
 
 // Import all modules
@@ -351,8 +356,8 @@ Security.runVerification(isProduction).then(async isValid => {
     Window.unregisterWindow(_id)
   })
 
-  ipcMain.handle(`commoners:location`, (_ev, id) => {
-    return Window.getWindowLocation(id)
+  ipcMain.on(`commoners:location`, (ev, id) => {
+    ev.returnValue = Window.getWindowLocation(id)
   })
 
   ipcMain.on(`commoners:window:ready:renderer:pong`, (_, id) => {
@@ -404,12 +409,12 @@ Security.runVerification(isProduction).then(async isValid => {
 
       const { active = {}, resolved = {}, close: closeService } = output
 
-      ipcMain.handle('commoners:services', () => services.sanitize(resolved))
+      ipcMain.on('commoners:services', ev => { ev.returnValue = services.sanitize(resolved) })
 
       // Track service status
       for (let id in resolved) {
         const isRemote = !(id in active)
-        IPC.serviceHandle(id, 'status', () => isRemote ? 'remote' : active[id].status)
+        IPC.serviceOn(id, 'status', ev => { ev.returnValue = isRemote ? 'remote' : active[id].status })
         IPC.serviceOn(id, 'close', () => isRemote || closeService(id))
       }
 

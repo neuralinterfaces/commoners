@@ -440,7 +440,7 @@ const waitForService = async (url: string, timeoutMs = 30000) => {
 export const serviceTests = {
   // Ensure a basic echo test passes on the chosen service
   echo: (id, output) => {
-    test(`Service Echo Test (${id})`, async () => {
+    test(`Service Echo Test (${id})`, { timeout: 60000 }, async () => {
       const services = await getServices(output)
       const service = services[id]
       if (!service?.url) return

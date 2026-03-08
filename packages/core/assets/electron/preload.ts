@@ -36,20 +36,18 @@ const args = (() => {
 
 const { __id } = args as PassedDesktopArgs
 
-// Use async invoke instead of sendSync for all IPC calls
-// Electron 40+ supports top-level await in preload scripts
-const services = await ipcRenderer.invoke('commoners:services')
-const __location = await ipcRenderer.invoke('commoners:location', __id)
+// Preload initialization must be synchronous — contextBridge.exposeInMainWorld
+// must run before the page loads. Use sendSync for initial data fetching.
+const services = ipcRenderer.sendSync('commoners:services')
+const __location = ipcRenderer.sendSync('commoners:location', __id)
 
 // Update URL search and hash for the current window without reloading
-// Defer to ensure window object is fully available
 if (typeof window !== 'undefined') {
   try {
     const url = new URL(window.location.href)
     for (let [key, value] of Object.entries(__location)) value && (url[key] = value)
     window.history.replaceState(null, '', url.toString())
   } catch (e) {
-    // If window isn't ready yet, defer to DOMContentLoaded
     window.addEventListener('DOMContentLoaded', () => {
       try {
         const url = new URL(window.location.href)
@@ -84,7 +82,7 @@ const TEMP_COMMONERS = {
 for (let id in TEMP_COMMONERS.services) {
   const service = TEMP_COMMONERS.services[id]
 
-  service.status = await ipcRenderer.invoke(`services:${id}:status`)
+  service.status = ipcRenderer.sendSync(`services:${id}:status`)
 
   const listeners = {
     closed: [],

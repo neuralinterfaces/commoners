@@ -6,9 +6,17 @@ import {
 } from '@commoners/solidarity'
 
 import { existsSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 
 import { EXTRA_OUTPUT_LOCATIONS, projectBase } from './utils'
 import { buildServices } from '@commoners/testing'
+
+const hasPyInstaller = (() => {
+  try { execSync('pyinstaller --version', { stdio: 'ignore' }); return true }
+  catch { return false }
+})()
+
+const pythonServices = ['basic-python', 'numpy']
 
 describe('All services with sources can be built individually', async () => {
   const config = await loadConfigFromFile(projectBase)
@@ -16,7 +24,10 @@ describe('All services with sources can be built individually', async () => {
   const serviceNames = Object.keys(config.services)
 
   for (const name of serviceNames) {
-    describe(`Check resolved service filepath for ${name}`, () => {
+    const isPython = pythonServices.includes(name)
+    const describeFn = isPython && !hasPyInstaller ? describe.skip : describe
+
+    describeFn(`Check resolved service filepath for ${name}`, () => {
       const service = config.services[name]
       const info = resolveServiceBuildInfo(service, name, {
         root: projectBase,
