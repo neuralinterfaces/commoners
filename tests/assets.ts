@@ -5,7 +5,12 @@ import { join } from 'node:path'
 import { existsSync, readdirSync } from 'node:fs'
 
 export const checkAssets = (projectBase, baseDir = '', { build = false, target = 'web' } = {}) => {
-  if (!baseDir) baseDir = join(projectBase, globalTempDir)
+  if (!baseDir) {
+    baseDir = join(projectBase, globalTempDir)
+    if (target === 'mobile' || target === 'ios' || target === 'android') {
+      baseDir = join(baseDir, 'mobile')
+    }
+  }
 
   const assetDir = join(baseDir, 'assets')
 

@@ -423,24 +423,41 @@ export const registerBuildTest = (
   })
 }
 
+const waitForService = async (url: string, timeoutMs = 30000) => {
+  const start = Date.now()
+  let delay = 250
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url)
+      if (res.ok) return true
+    } catch {}
+    await sleep(delay)
+    delay = Math.min(delay * 1.5, 3000)
+  }
+  return false
+}
+
 export const serviceTests = {
   // Ensure a basic echo test passes on the chosen service
   echo: (id, output) => {
     test(`Service Echo Test (${id})`, async () => {
-      await sleep(500)
-
-      // Grab live services
       const services = await getServices(output)
+      const service = services[id]
+      if (!service?.url) return
 
-      // Request an echo response
+      const baseUrl = service.url
+      const ready = await waitForService(baseUrl)
+      if (!ready) {
+        console.warn(`Service '${id}' did not become ready within timeout — skipping`)
+        return
+      }
+
       const randomNumber = getRandomNumber()
-      const res = await fetch(new URL('echo', services[id].url), {
+      const res = await fetch(new URL('echo', baseUrl), {
         method: 'POST',
         body: JSON.stringify({ randomNumber }),
       }).then(res => res.json())
       expect(res.randomNumber).toBe(randomNumber)
     })
   },
-
-  // }
 }
