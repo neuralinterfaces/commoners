@@ -4,6 +4,7 @@ import { extname, isAbsolute, join, relative } from 'node:path'
 // General Internal Imports
 import { isDesktop, vite, chalk } from '../globals.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
+import { getPlugins } from '../utils/extensions.js'
 import { ScopedLogger } from './logger.js'
 
 // Internal Plugins
@@ -122,9 +123,10 @@ export const resolveViteConfig = async (
     icon,
     description,
     pages = {},
-    plugins: commonersPlugins,
     electron,
   } = commonersConfig
+
+  const commonersPlugins = getPlugins(commonersConfig.extensions)
 
   // Ensure root is absolute for all operations
   const absoluteRoot = isAbsolute(root) ? root : resolve(root)

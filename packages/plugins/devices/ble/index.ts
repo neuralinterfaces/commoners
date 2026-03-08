@@ -44,6 +44,12 @@ const capacitorConfiguration = {
   },
 }
 
+export const capabilities = {
+  provides: ['bluetooth', 'ble', 'device-access'],
+  platforms: { web: true, desktop: true, mobile: true },
+  runtime: 'browser' as const,
+}
+
 // @capacitor-community/bluetooth-le must be installed by the user
 export const isSupported = {
   capacitor: capacitorConfiguration,

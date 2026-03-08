@@ -10,6 +10,7 @@ import {
   createServices,
   resolveConfig,
 } from './index.js'
+import { getPlugins, getServices } from './utils/extensions.js'
 import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, vite } from './globals.js'
 import { onCleanup } from './cleanup.js'
 import { createLogger } from './assets/utils/logger.js'
@@ -45,11 +46,12 @@ const initializeWebsocketPort = async () => {
 }
 
 const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterface) => {
-  const { target, services } = config
+  const { target } = config
+  const services = getServices(config.extensions)
   const { env } = process
 
   // Copy plugins to allow for modification when assigned as modules
-  const plugins = Object.entries({ ...(config.plugins || {}) }).reduce((acc, [name, plugin]) => {
+  const plugins = Object.entries(getPlugins(config.extensions)).reduce((acc, [name, plugin]) => {
     acc[name] = { ...plugin }
     return acc
   }, {}) as Record<string, Plugin>
@@ -143,9 +145,10 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
 export const services = async (config: UserConfig, resolvedServices, hooks: HooksInterface = createNoOpHooks()) => {
   const dev = true
   const resolvedConfig = await resolveConfig(config)
-  const { root, target, services } = resolvedConfig
+  const { root, target } = resolvedConfig
+  const allServices = getServices(resolvedConfig.extensions)
   await buildServices(resolvedConfig, { services: resolvedServices, dev, hooks }) // Build service outputs
-  resolvedServices = resolvedServices || services // Use all services if none are provided
+  resolvedServices = resolvedServices || allServices // Use all services if none are provided
   return await createAllServices(resolvedServices, { root, target, hooks }) // Create services
 }
 
@@ -163,7 +166,8 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     hooks.emit({ type: 'dev:start', config: resolvedConfig })
 
 
-    const { root, target, services, electron } = resolvedConfig
+    const { root, target, electron } = resolvedConfig
+    const services = getServices(resolvedConfig.extensions)
 
     const outDir = join(root, globalTempDir) // Temporary directory for the build
     const scopedConfig = { ...resolvedConfig, outDir }

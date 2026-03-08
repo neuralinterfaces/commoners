@@ -133,6 +133,22 @@ export type SpecificTargetType = 'ios' | 'android' | 'electron' | 'tauri' | 'web
 
 // export type PlatformType = typeof validDesktopTargets[number]
 
+// ------------------- Capabilities -------------------
+export type ExtensionRuntime = 'process' | 'wasm' | 'browser' | 'remote'
+
+export type PlatformSupport = {
+  web?: boolean
+  desktop?: boolean | 'electron' | 'tauri'
+  mobile?: boolean | 'ios' | 'android'
+}
+
+export type ExtensionCapabilities = {
+  provides?: string[]          // What this extension offers (e.g. ['bluetooth', 'scanning'])
+  platforms?: PlatformSupport  // Where it can run
+  runtime?: ExtensionRuntime   // How it's delivered
+  requires?: string[]          // Dependencies on other extension IDs
+}
+
 // ------------------- Services -------------------
 type BaseServiceMetadata = { src: string } | { url: string }
 
@@ -152,7 +168,7 @@ type SSLConfiguration = {
   __certSource?: string // Original source path for build-time asset collection
 }
 
-type ResolvedServices = { [x: string]: ResolvedService }
+export type ResolvedServices = { [x: string]: ResolvedService }
 
 type _ExtraServiceMetadata = {
   public?: boolean
@@ -193,6 +209,8 @@ export type ResolvedService = {
   // For Client
   url: string // What URL to use for service requests
   status: ServiceStatus
+
+  capabilities?: ExtensionCapabilities
 }
 
 export type ActiveService = ResolvedService & { process: ChildProcess }
@@ -280,6 +298,7 @@ export type SupportConfigurationWithCapacitor = Extract<SupportConfiguration, { 
 
 // Runs with special behaviors on desktop
 type HybridPlugin = {
+  capabilities?: ExtensionCapabilities
   isSupported?: SupportConfiguration
   load?: PluginLoadCallback
   desktop: DesktopPluginOptions // Prioritizes desktop support
@@ -287,11 +306,34 @@ type HybridPlugin = {
 
 // Runs on all targets
 type BasicPlugin = {
+  capabilities?: ExtensionCapabilities
   isSupported?: SupportConfiguration
   load?: PluginLoadCallback
 } & OptionalPluginBehaviors
 
 export type Plugin = BasicPlugin | HybridPlugin
+
+// ------------------- Extensions (Unified Plugin/Service) -------------------
+// An extension declared via the `extensions` config key.
+// Auto-classified as plugin, service, or both based on its properties.
+export type Extension = Plugin | UserService
+
+// Internal resolved representation — the canonical store
+export type ResolvedExtension = {
+  type: 'plugin' | 'service' | 'hybrid'
+  capabilities?: ExtensionCapabilities
+  plugin?: Plugin           // Present when extension has plugin behavior
+  service?: ResolvedService // Present when extension has service behavior
+}
+
+export type ResolvedExtensions = Record<string, ResolvedExtension>
+
+type ExposedExtension = {
+  type: 'plugin' | 'service' | 'hybrid'
+  capabilities?: ExtensionCapabilities
+}
+
+type ExposedExtensions = Record<string, ExposedExtension>
 
 // type ValidNestedProperty = TargetType | PlatformType | ModeType
 
@@ -371,6 +413,9 @@ export type BaseConfig = {
 
   // Service Options
   services?: { [x: string]: UserService }
+
+  // Unified Extensions (auto-classified into plugins/services)
+  extensions?: { [x: string]: Extension }
 }
 
 type BuildOptions = {
@@ -405,7 +450,7 @@ export type LaunchConfig = {
 export type ServiceRebuildOption = boolean | string[]
 
 export type BuildHooks = {
-  services?: ResolvedConfig['services']
+  services?: ResolvedServices
   onBuildAssets?: Function
   dev?: boolean
   rebuildServices?: ServiceRebuildOption
@@ -421,11 +466,12 @@ export type ServiceBuildOptions = {
   hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
-export type ResolvedConfig =Omit<BaseConfig, 'hooks'> & {
+export type ResolvedConfig = Omit<BaseConfig, 'hooks' | 'plugins' | 'services'> & {
   build?: BuildOptions
   hooks: HooksInterface // Resolved hooks interface
 
-  services: ResolvedServices
+  // Unified extensions — the sole internal store
+  extensions: ResolvedExtensions
 
   // package.json properties used in the library
   type?: 'module' | 'commonjs'
@@ -440,6 +486,7 @@ export type ResolvedConfig =Omit<BaseConfig, 'hooks'> & {
 type ExposedService = {
   url: string
   filepath: string
+  capabilities?: ExtensionCapabilities
 }
 
 type ExposedServices = {
@@ -451,6 +498,7 @@ type ExposedDesktopServices = {
     onClosed: () => void
     close: () => void
     status: ServiceStatus
+    capabilities?: ExtensionCapabilities
   }
 }
 
@@ -460,10 +508,16 @@ type ExposedPlugins = {
 
 type WS_URL = string
 
+type ExtensionMatch = {
+  type: 'plugin' | 'service' | 'hybrid'
+  capabilities: ExtensionCapabilities
+}
+
 type BaseCommonersGlobalObject = {
   NAME: string
   VERSION: string
   PLUGINS: ExposedPlugins
+  EXTENSIONS: ExposedExtensions
   READY: Promise<ExposedPlugins>
 
   TARGET: SpecificTargetType
@@ -475,6 +529,12 @@ type BaseCommonersGlobalObject = {
   PAGES: Record<string, (options: { search?: string; hash?: string }) => void>
 
   ROOT: string
+
+  CAPABILITIES: {
+    services: Record<string, ExtensionCapabilities>
+    plugins: Record<string, ExtensionCapabilities>
+  }
+  query: (filter: Partial<ExtensionCapabilities>) => Record<string, ExtensionMatch>
 
   __READY: Function // Resolve Function
   __PLUGINS?: RawPlugins // Raw Plugins

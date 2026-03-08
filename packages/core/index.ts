@@ -13,9 +13,16 @@ import { onCleanup } from './cleanup.js'
 
 import {
   ConfigResolveOptions,
+  Extension,
+  Plugin,
   ResolvedConfig,
+  ResolvedExtension,
+  ResolvedExtensions,
+  ResolvedService,
+  ResolvedServices,
   ServiceCreationOptions,
   UserConfig,
+  UserService,
 } from './types.js'
 import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
@@ -125,7 +132,46 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   return config
 }
 
+// ------------------- Extension Classification -------------------
+const pluginKeys = ['load', 'desktop', 'isSupported', 'start', 'ready', 'quit', 'assets']
+const serviceKeys = ['src', 'url', 'port', 'build', 'publish', 'ssl', 'env']
 
+function isPluginLike(ext: Extension): ext is Plugin {
+  if (typeof ext !== 'object' || ext === null) return false
+  return pluginKeys.some(key => key in ext)
+}
+
+function isServiceLike(ext: Extension): ext is UserService {
+  if (typeof ext === 'string') return true
+  if (typeof ext !== 'object' || ext === null) return false
+  return serviceKeys.some(key => key in ext)
+}
+
+function classifyExtensions(extensions: Record<string, Extension>): {
+  plugins: Record<string, Plugin>
+  services: Record<string, UserService>
+} {
+  const plugins: Record<string, Plugin> = {}
+  const services: Record<string, UserService> = {}
+
+  for (const [id, ext] of Object.entries(extensions)) {
+    const plugin = isPluginLike(ext)
+    const service = isServiceLike(ext)
+
+    if (plugin) plugins[id] = ext as Plugin
+    if (service) services[id] = ext as UserService
+    if (!plugin && !service) {
+      // Default: treat as plugin if it's an object with no recognized keys
+      plugins[id] = ext as Plugin
+    }
+  }
+
+  return { plugins, services }
+}
+
+// ------------------- Extension Helpers -------------------
+export { getPlugins, getServices } from './utils/extensions.js'
+import { getPlugins, getServices } from './utils/extensions.js'
 
 export async function resolveConfig(
   o: UserConfig = {},
@@ -149,7 +195,7 @@ export async function resolveConfig(
   const root = o.root ? (isAbsolute(o.root) ? o.root : resolve(o.root)) : process.cwd()
   o.root = root
 
-  const { services: ogServices, plugins, vite, ...temp } = o
+  const { services: ogServices, plugins, extensions, vite, ...temp } = o
 
   const userPkg = getJSON(join(root, 'package.json'))
 
@@ -179,8 +225,12 @@ export async function resolveConfig(
 
   if (o.outDir && !isAbsolute(o.outDir)) o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute
 
-  o.plugins = plugins ?? {} // Transfer the original plugins
-  o.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish
+  // Classify extensions and merge into plugins/services
+  const classified = extensions ? classifyExtensions(extensions) : { plugins: {}, services: {} }
+
+  const mergedPlugins: Record<string, Plugin> = { ...(plugins ?? {}), ...classified.plugins }
+  const mergedUserServices: Record<string, any> = { ...((ogServices as Record<string, any>) ?? {}), ...classified.services }
+
   o.vite = vite ?? {} // Transfer the original Vite config
 
   o.target = await ensureTargetConsistent(o.target)
@@ -212,7 +262,7 @@ export async function resolveConfig(
   // Check whether the selected services are valid
   if (services) {
     const selectedServices = typeof services === 'string' ? [ services ] : ( Array.isArray(services) ? services : Object.keys(services) )
-    const allServices = Object.keys(o.services)
+    const allServices = Object.keys(mergedUserServices)
     if (selectedServices) {
       if (!selectedServices.every(name => allServices.includes(name))) {
         const invalidServices = selectedServices.filter(name => !allServices.includes(name))
@@ -224,7 +274,42 @@ export async function resolveConfig(
     }
   }
 
-  o.services = await resolveAll(o.services, { target, build, services, root: o.root }) // Resolve selected services
+  const resolvedServices = await resolveAll(mergedUserServices, { target, build, services, root: o.root })
+
+  // Build canonical extensions record from merged plugins + resolved services
+  const resolvedExtensions: ResolvedExtensions = {}
+
+  for (const [id, plugin] of Object.entries(mergedPlugins)) {
+    resolvedExtensions[id] = {
+      type: 'plugin',
+      capabilities: (plugin as any).capabilities,
+      plugin: plugin as Plugin,
+    }
+  }
+
+  for (const [id, service] of Object.entries(resolvedServices)) {
+    if (resolvedExtensions[id]) {
+      // Same ID exists as plugin — this is a hybrid extension
+      resolvedExtensions[id].type = 'hybrid'
+      resolvedExtensions[id].service = service
+      // Merge capabilities (service caps may have runtime/platform info)
+      if (service.capabilities) {
+        resolvedExtensions[id].capabilities = {
+          ...resolvedExtensions[id].capabilities,
+          ...service.capabilities,
+        }
+      }
+    } else {
+      resolvedExtensions[id] = {
+        type: 'service',
+        capabilities: service.capabilities,
+        service,
+      }
+    }
+  }
+
+  o.extensions = resolvedExtensions
+
   Object.defineProperty(o, '__resolved', { value: true, writable: false }) // Resolution flag
   return o as ResolvedConfig
 }
@@ -272,6 +357,6 @@ export const configureForDesktop = (outDir, root = '', defaults = {}) => {
 }
 
 export const createServices = (
-  services: ResolvedConfig['services'],
+  services: ResolvedServices,
   opts: ServiceCreationOptions = {}
 ) => createAll(services, opts)

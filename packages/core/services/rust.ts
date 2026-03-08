@@ -1,4 +1,5 @@
 import { Service } from './types.js'
+import type { ExtensionCapabilities } from '../types.js'
 
 export type CargoServiceProperties = Service & {
   bin?: string      // Cargo binary name (defaults to service name)
@@ -10,6 +11,7 @@ export class CargoService {
   src: string
   build: any
   publish: Service['publish']
+  capabilities: ExtensionCapabilities
 
   constructor(
     service: CargoServiceProperties,
@@ -20,6 +22,12 @@ export class CargoService {
     const { name, src, publish, bin = name, cargoArgs = '', profile = 'release' } = service
 
     this.src = src
+
+    this.capabilities = {
+      runtime: 'process',
+      platforms: { desktop: true },
+      ...service.capabilities,
+    }
 
     const build = async ({ src: srcPath, out: outPath }) => {
       const { dirname, resolve } = await import('node:path')

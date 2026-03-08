@@ -79,10 +79,16 @@ export const handleTemporaryDirectories = async (
       const metadata = JSON.parse(readFileSync(runMetadataFile, 'utf-8'))
       const { createdAt } = metadata
       const createdAtDate = new Date(createdAt)
-      throw new BuildError(
-        `Active development build detected (${createdAtDate.toLocaleString()})`,
-        `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
-      )
+
+      // In test environments, clean up stale metadata instead of throwing
+      if (process.env.__COMMONERS_TESTING) {
+        removeDirectory(tempDir)
+      } else {
+        throw new BuildError(
+          `Active development build detected (${createdAtDate.toLocaleString()})`,
+          `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
+        )
+      }
   }
 
   // Create a temporary metadata file

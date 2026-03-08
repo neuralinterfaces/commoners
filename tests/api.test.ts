@@ -9,6 +9,7 @@ import {
   resolveServiceBuildInfo,
   configureForDesktop,
   createServices,
+  getServices,
   merge,
   getNormalizedTarget,
   getSpecificTarget,
@@ -71,7 +72,7 @@ describe('API: Configuration Resolution', () => {
       expect(resolved.root).toBe(projectBase)
       expect(resolved.target).toBeDefined()
       expect(resolved.hooks).toBeDefined()
-      expect(resolved.services).toBeTypeOf('object')
+      expect(getServices(resolved.extensions)).toBeTypeOf('object')
     })
 
     test('should apply target option', async () => {
@@ -83,13 +84,13 @@ describe('API: Configuration Resolution', () => {
     test('should filter services based on services option', async () => {
       const config = await loadConfigFromFile(projectBase)
       const resolved = await resolveConfig(config, { services: 'http' })
-      expect(Object.keys(resolved.services)).toContain('http')
+      expect(Object.keys(getServices(resolved.extensions))).toContain('http')
     })
 
     test('should handle array of services', async () => {
       const config = await loadConfigFromFile(projectBase)
       const resolved = await resolveConfig(config, { services: ['http', 'express'] })
-      const serviceKeys = Object.keys(resolved.services)
+      const serviceKeys = Object.keys(getServices(resolved.extensions))
       expect(serviceKeys).toContain('http')
       expect(serviceKeys).toContain('express')
     })

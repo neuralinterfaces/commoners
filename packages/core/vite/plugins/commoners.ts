@@ -8,6 +8,7 @@ import { getAssetLinkPath } from '../../utils/assets.js'
 import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from '../../assets/services/index.js'
+import { getServices } from '../../utils/extensions.js'
 import { getLocalIP } from '../../assets/services/ip.js'
 
 const virtualModuleId = 'commoners:env'
@@ -20,6 +21,7 @@ const ENV_VAR_NAMES = [
 
   'READY',
   'PLUGINS',
+  'EXTENSIONS',
 
   'DESKTOP',
   'MOBILE',
@@ -91,7 +93,26 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
       const relTo = join(_relTo, parent) // Resolve actual path in the assets
       const updatedConfigURL = getAssetLinkPath('commoners.config.mjs', assetOutDir, relTo)
 
-      const services = sanitize(resolvedConfig.services)
+      const services = sanitize(getServices(resolvedConfig.extensions))
+
+      // Build EXTENSIONS and CAPABILITIES from canonical extensions record (single pass)
+      const extensionsObject = {} as Record<string, any>
+      const serviceCapabilities = {} as Record<string, any>
+      const pluginCapabilities = {} as Record<string, any>
+
+      for (const [id, ext] of Object.entries(resolvedConfig.extensions || {})) {
+        const { type, capabilities } = ext
+        extensionsObject[id] = { type, ...(capabilities ? { capabilities } : {}) }
+
+        if (capabilities) {
+          if (type === 'service') serviceCapabilities[id] = capabilities
+          else if (type === 'plugin') pluginCapabilities[id] = capabilities
+          else { // hybrid
+            serviceCapabilities[id] = capabilities
+            pluginCapabilities[id] = capabilities
+          }
+        }
+      }
 
       const rawIconSrc = getIcon(resolvedConfig.icon)
       const resolvedIcon = rawIconSrc ? resolve(configRoot, rawIconSrc) : null
@@ -128,6 +149,13 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
         ENV: env,
 
         ROOT: relative(relTo, root).replaceAll(sep, posix.sep),
+
+        CAPABILITIES: {
+          services: serviceCapabilities,
+          plugins: pluginCapabilities,
+        },
+
+        EXTENSIONS: extensionsObject,
       }
 
       const faviconLink = rawIconSrc

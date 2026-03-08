@@ -9,6 +9,7 @@ import { chalk } from '../globals.js'
 import { onCleanup } from '../cleanup.js'
 
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfiguration } from '../types.js'
+import { getPlugins } from '../utils/extensions.js'
 import { DependencyError, PlatformError } from '../errors.js'
 import { TARGET_IOS, TARGET_ANDROID, MOBILE_IOS_PLIST_PATH, MOBILE_ANDROID_MANIFEST_PATH } from '../constants.js'
 
@@ -57,12 +58,14 @@ const getCapacitorPluginAccessor = (plugin: Plugin) => {
   }
 }
 
-const getCapacitorPluginAccessors = (plugins: ResolvedConfig['plugins']) =>
+const getCapacitorPluginAccessors = (plugins: Record<string, Plugin>) =>
   Object.values(plugins)
     .map(o => getCapacitorPluginAccessor(o))
     .filter(x => x)
 
-export const prebuild = ({ plugins, root }: ResolvedConfig) => {
+export const prebuild = (config: ResolvedConfig) => {
+  const { root } = config
+  const plugins = getPlugins(config.extensions)
   const require = getRequireForRoot(root)
 
   // Map Capacitor plugin information to their availiabity
@@ -80,7 +83,7 @@ type MobileOptions = {
 type ConfigOptions = {
   name: ResolvedConfig['name']
   appId: ResolvedConfig['appId']
-  plugins: ResolvedConfig['plugins']
+  plugins: Record<string, Plugin>
   outDir: string
   root: string
 }
@@ -119,14 +122,16 @@ export const openConfig = async ({ name, appId, plugins, outDir, root }: ConfigO
 }
 
 const addProjectTarget = async (target, config: ResolvedConfig, outDir: string) => {
-  const { name, appId, plugins, root } = config
+  const { name, appId, root } = config
+  const plugins = getPlugins(config.extensions)
   const { close } = await openConfig({ name, appId, plugins, outDir, root })
   await runCommand(`npx cap add ${target} && npx cap copy ${target}`, { cwd: root })
   close()
 }
 
 const syncProject = async (config: ResolvedConfig, outDir: string) => {
-  const { name, appId, target, plugins, root } = config
+  const { name, appId, target, root } = config
+  const plugins = getPlugins(config.extensions)
   const { close } = await openConfig({ name, appId, plugins, outDir, root })
   await runCommand(`npx cap sync ${target}`, { cwd: root })
   close()
@@ -142,7 +147,8 @@ export const runInRoot = async (fn: (config: ResolvedConfig) => Promise<void>, c
 }
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
-  const { plugins, root } = config
+  const { root } = config
+  const plugins = getPlugins(config.extensions)
 
   const projectBase = resolvePath(root, target)
 

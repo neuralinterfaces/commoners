@@ -1,4 +1,5 @@
 import { Service } from './types.js'
+import type { ExtensionCapabilities } from '../types.js'
 
 const defaultBuildArgs = '--hiddenimport pkg_resources.extern'
 
@@ -8,6 +9,7 @@ export type PyInstallerServiceProperties = Service & BuildConfiguration
 export class PyInstallerService {
   src: string
   publish: Service['publish']
+  capabilities: ExtensionCapabilities
 
   constructor(
     service: Service,
@@ -16,6 +18,12 @@ export class PyInstallerService {
     const out = `${outDir}/_${service.name}`
 
     const { name, src, publish } = service
+
+    this.capabilities = {
+      runtime: 'process',
+      platforms: { desktop: true },
+      ...service.capabilities,
+    }
 
     const sharedOptions = `-y --clean --distpath ${out}`
 

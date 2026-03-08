@@ -9,6 +9,7 @@ import { createLaunchFlow } from './flows/index.js'
 import { resolveConfig } from './index.js'
 import { globalWorkspacePath } from './globals.js'
 import { createAll } from './assets/services/index.js'
+import { getServices } from './utils/extensions.js'
 import { ValidationError } from './errors.js'
 
 import type { ConfigResolveOptions, LaunchConfig } from './types.js'
@@ -45,7 +46,8 @@ export const launchServices = async (
   getLogger().debug('Launching services')
 
   const resolvedConfig = await resolveConfig(config, { ...opts, build: true })
-  const { target, root, services } = resolvedConfig
+  const { target, root } = resolvedConfig
+  const services = getServices(resolvedConfig.extensions)
 
   const serviceNames = Object.keys(services)
   if (!serviceNames.length) {

@@ -5,6 +5,7 @@ import {
   pluginErrorMessage,
   sanitizePluginProperties,
 } from './utils'
+import { queryExtensions } from './capabilities'
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -14,6 +15,9 @@ const { __PLUGINS, WEB, DESKTOP, MOBILE, __READY, DEV } = ENV
 delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
+
+// Wire up capabilities query function (uses unified EXTENSIONS record)
+;(ENV as any).query = (filter) => queryExtensions((ENV as any).EXTENSIONS ?? {}, filter)
 
 if (__PLUGINS) {
   const devSocketListeners = { plugins: {} }
@@ -89,8 +93,6 @@ if (__PLUGINS) {
                 ...DESKTOP,
                 send: (channel, ...args) =>
                   TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
-                sendSync: (channel, ...args) =>
-                  TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),
                 invoke: (channel, ...args) =>
                   TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
                 on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
