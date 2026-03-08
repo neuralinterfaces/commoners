@@ -93,7 +93,7 @@ Security.runVerification(isProduction).then(async isValid => {
   }
 
   // ------------------------ Page Loading Helpers ------------------------
-  function getPageLocation(pathname: string = 'index.html', alt = false): string {
+  function getPageLocation(pathname: string = 'index.html', alt = false): string | null {
     if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
 
     // Normalize the pathname (resolve .. and . in paths)
@@ -105,8 +105,9 @@ Security.runVerification(isProduction).then(async isValid => {
 
     const location = isContained ? pathname : join(ASSET_ROOT_DIR, pathname)
 
-    // If location has an extension, return as is
+    // If location has an extension, verify it exists
     if (extname(location)) {
+      if (!existsSync(location)) return null // File does not exist
       return location
     }
 
@@ -134,6 +135,11 @@ Security.runVerification(isProduction).then(async isValid => {
 
     const location = getPageLocation(page)
 
+    if (!location) {
+      console.error(`[404] Page not found: ${page}`)
+      return ''
+    }
+
     try {
       new URL(location)
       win.loadURL(location)
@@ -146,6 +152,7 @@ Security.runVerification(isProduction).then(async isValid => {
       .then(() => location)
       .catch(() => {
         const altLocation = getPageLocation(page, true)
+        if (!altLocation) return ''
         loadFile(altLocation)
         return altLocation
       })
@@ -344,8 +351,8 @@ Security.runVerification(isProduction).then(async isValid => {
     Window.unregisterWindow(_id)
   })
 
-  ipcMain.on(`commoners:location`, (ev, id) => {
-    ev.returnValue = Window.getWindowLocation(id)
+  ipcMain.handle(`commoners:location`, (_ev, id) => {
+    return Window.getWindowLocation(id)
   })
 
   ipcMain.on(`commoners:window:ready:renderer:pong`, (_, id) => {
@@ -397,12 +404,12 @@ Security.runVerification(isProduction).then(async isValid => {
 
       const { active = {}, resolved = {}, close: closeService } = output
 
-      ipcMain.on('commoners:services', event => (event.returnValue = services.sanitize(resolved)))
+      ipcMain.handle('commoners:services', () => services.sanitize(resolved))
 
       // Track service status
       for (let id in resolved) {
         const isRemote = !(id in active)
-        IPC.serviceOn(id, 'status', event => (event.returnValue = isRemote ? 'remote' : active[id].status))
+        IPC.serviceHandle(id, 'status', () => isRemote ? 'remote' : active[id].status)
         IPC.serviceOn(id, 'close', () => isRemote || closeService(id))
       }
 
@@ -421,16 +428,50 @@ Security.runVerification(isProduction).then(async isValid => {
             const splitPath = updatedPathname.split('/')
             const serviceId = splitPath[0]
             const resolvedPath = splitPath.slice(1).join('/') + search + hash
-            const resolvedURL = new URL(resolvedPath, (services as any)[serviceId].url)
-            if ((services as any)[host]) return net.fetch(resolvedURL.href)
-            return new Response(`${resolvedPath} is not a valid request`, { status: 404 })
+            const serviceInfo = resolved[serviceId]
+            if (serviceInfo?.url) {
+              const resolvedURL = new URL(resolvedPath, serviceInfo.url)
+              return net.fetch(resolvedURL.href)
+            }
+            return new Response(`${serviceId} is not a valid service`, { status: 404 })
           }
 
+          if (host === 'plugins') {
+            const splitPath = updatedPathname.split('/')
+            const pluginId = splitPath[0]
+            const pluginPath = splitPath.slice(1).join('/')
+            const plugin = plugins[pluginId]
+            if (plugin?.assets) {
+              const assetKey = Object.keys(plugin.assets).find(k => pluginPath.startsWith(k) || pluginPath === k)
+              if (assetKey) {
+                const assetLocation = getPageLocation(join('plugins', pluginId, assetKey, pluginPath.slice(assetKey.length)))
+                if (!assetLocation) return new Response(`Plugin asset not found: ${pluginPath}`, { status: 404 })
+                try {
+                  return net.fetch(pathToFileURL(assetLocation).href)
+                } catch {
+                  return new Response(`Plugin asset not found: ${pluginPath}`, { status: 404 })
+                }
+              }
+            }
+            return new Response(`${pluginId} is not a valid plugin`, { status: 404 })
+          }
+
+          // Pages host: navigate window
           const resolvedPath =
             host === 'pages'
               ? updatedPathname
               : (updatedPathname ? `${host}${updatedPathname}` : host) + search + hash
-          loadPage(Window.restoreWindow()!, resolvedPath)
+
+          // Propagate search and hash from protocol URL to page location
+          const targetWindow = Window.restoreWindow()!
+          if (targetWindow) {
+            const __location = Window.getWindowLocation((targetWindow as ExtendedElectronBrowserWindow).__id)
+            if (__location) {
+              __location.search = search || undefined
+              __location.hash = hash || undefined
+            }
+          }
+          loadPage(targetWindow, resolvedPath)
         })
       }
 

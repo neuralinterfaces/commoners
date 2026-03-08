@@ -92,10 +92,10 @@ class ElectronWindow extends EventTarget {
     return id
   }
 
-  connect = id => {
-    const exists = this.context.sendSync('exists', id)
+  connect = async id => {
+    const exists = await this.context.invoke('exists', id)
     if (exists) this.#onId(id)
-    else console.error(`No window with ID ${id} is avaialable`)
+    else console.error(`No window with ID ${id} is available`)
     return exists
   }
 
@@ -220,7 +220,7 @@ export default (windows: Windows): Plugin => {
 
     assets,
 
-    load({ WEB }) {
+    async load({ WEB }) {
       if (WEB) {
         if (globalThis.COMMONERS_WINDOW_POPUP) {
           const eventTarget = new EventTarget()
@@ -274,17 +274,19 @@ export default (windows: Windows): Plugin => {
         return acc
       }, {})
 
-      const existingWindows = this.sendSync('windows')
-      Object.entries(existingWindows).forEach(([id, type]) => {
-        const win = new ElectronWindow(type, this)
-        const exists = win.connect(id)
-        const typeWindows = manager[type].windows
+      const existingWindows = await this.invoke('windows')
+      await Promise.all(
+        Object.entries(existingWindows).map(async ([id, type]) => {
+          const win = new ElectronWindow(type, this)
+          const exists = await win.connect(id)
+          const typeWindows = manager[type].windows
 
-        if (exists) {
-          win.addEventListener('closed', () => delete typeWindows[id])
-          typeWindows[id] = win
-        }
-      })
+          if (exists) {
+            win.addEventListener('closed', () => delete typeWindows[id])
+            typeWindows[id] = win
+          }
+        })
+      )
 
       return manager
     },
@@ -300,15 +302,15 @@ export default (windows: Windows): Plugin => {
 
       this.WINDOWS = {}
 
-      this.on('windows', ev => {
-        ev.returnValue = Object.entries(this.WINDOWS).reduce((acc, [id, win]) => {
+      this.handle('windows', () => {
+        return Object.entries(this.WINDOWS).reduce((acc, [id, win]) => {
           const type = this.getAttribute(win, 'type')
           if (type) acc[id] = type // Only provide windows spawned with this plugin
           return acc
         }, {})
       })
 
-      this.on('exists', (ev, id) => (ev.returnValue = !!this.WINDOWS[id]))
+      this.handle('exists', (_ev, id) => !!this.WINDOWS[id])
 
       // Close specific window if requested by the plugin
       this.on(`close`, (_, id) => this.WINDOWS[id]?.close())

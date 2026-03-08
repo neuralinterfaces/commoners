@@ -97,6 +97,17 @@ export function serviceOn(
 }
 
 /**
+ * Register a handler for service messages (async invoke pattern)
+ */
+export function serviceHandle(
+  id: string,
+  channel: string,
+  callback: (...args: any[]) => any
+): ListenerHandle {
+  return scopedHandle('services', id, channel, callback)
+}
+
+/**
  * Send a message to a plugin channel
  */
 export function pluginSend(pluginName: string, channel: string, ...args: any[]): void {

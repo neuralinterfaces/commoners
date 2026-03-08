@@ -9,7 +9,6 @@ type PassedDesktopArgs = {
 }
 
 const globalVariableName = '__commoners'
-const services = ipcRenderer.sendSync('commoners:services')
 
 // Parse arguments from process.argv (sandbox-compatible approach)
 // In sandbox mode, process.argv may be restricted, so we handle gracefully
@@ -37,7 +36,10 @@ const args = (() => {
 
 const { __id } = args as PassedDesktopArgs
 
-const __location = ipcRenderer.sendSync(`commoners:location`, __id)
+// Use async invoke instead of sendSync for all IPC calls
+// Electron 40+ supports top-level await in preload scripts
+const services = await ipcRenderer.invoke('commoners:services')
+const __location = await ipcRenderer.invoke('commoners:location', __id)
 
 // Update URL search and hash for the current window without reloading
 // Defer to ensure window object is fully available
@@ -74,7 +76,6 @@ const TEMP_COMMONERS = {
   once: (channel, listener) => ipcRenderer.once(channel, listener),
   send: (channel, ...args) => ipcRenderer.send(channel, ...args),
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
-  sendSync: (channel, ...args) => ipcRenderer.sendSync(channel, ...args),
   removeListener: (channel, listener) => ipcRenderer.removeListener(channel, listener),
   removeAllListeners: channel => ipcRenderer.removeAllListeners(channel),
 }
@@ -83,7 +84,7 @@ const TEMP_COMMONERS = {
 for (let id in TEMP_COMMONERS.services) {
   const service = TEMP_COMMONERS.services[id]
 
-  service.status = ipcRenderer.sendSync(`services:${id}:status`)
+  service.status = await ipcRenderer.invoke(`services:${id}:status`)
 
   const listeners = {
     closed: [],
