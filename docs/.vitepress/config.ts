@@ -42,17 +42,32 @@ export default defineConfig({
               { text: 'Node', link: '/guide/services/node' },
               { text: 'Python', link: '/guide/services/python' },
               { text: 'C++', link: '/guide/services/cpp' },
+              { text: 'Rust', link: '/guide/services/rust' },
             ],
           },
-          { text: 'Services', link: '/guide/services' },
           { text: 'Plugins', link: '/guide/plugins' },
+          { text: 'Platform Enhancement', link: '/guide/platform-enhancement' },
           { text: 'Testing', link: '/guide/testing' },
           { text: 'Release', link: '/guide/release' },
+          {
+            text: 'Walkthroughs',
+            items: [
+              { text: 'OpenAPI', link: '/guide/walkthroughs/openapi' },
+              { text: 'Local Services', link: '/guide/walkthroughs/local-services' },
+            ],
+          },
         ],
       },
       {
         text: 'Packages',
         items: [{ text: 'Plugins', link: '/packages/plugins' }],
+      },
+      {
+        text: 'Roadmap',
+        items: [
+          { text: 'Platform Enhancement', link: '/roadmap/platform-enhancement' },
+          { text: 'Walkthroughs', link: '/roadmap/walkthroughs' },
+        ],
       },
       {
         text: 'Reference',

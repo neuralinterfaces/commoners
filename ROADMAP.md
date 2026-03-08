@@ -62,36 +62,69 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Tests exercise `commoners.MOBILE`, pages, plugins, services, and env variables
 - Activated by `__COMMONERS_TESTING`, `CI=true`, or `COMMONERS_HEADLESS=true`
 
-### Validate Mobile Workflows — Mobile
-- Validate B@P iOS workflow end-to-end
-- Serial support on iOS and Android
+### ~~Validate Mobile Workflows~~ — Mobile (done)
+- Headless mobile testing via Vite preview server (see above)
+- Mobile workflow validation tests in `tests/mobile-workflow.test.ts`: Capacitor config generation, permission injection validation, dependency detection, build-to-assets verification
+- Serial plugin: Android USB serial support via Capacitor (`UsbSerial` manifest with `android.hardware.usb.host` feature and `USB_PERMISSION`)
+- iOS serial **not supported** due to Apple MFi program restrictions — documented in plugin source
+- Targeted script: `pnpm test:mobile-workflow`
+
+### ~~Fix Pre-existing Test Failures~~ — Testing (done)
+- Windows plugin `load` method: added `async` keyword (was using `await` in non-async function)
+- Mobile `checkAssets`: default `baseDir` now appends `/mobile` for mobile targets, matching `MobileBuildStrategy.getTempDir()`
+- Service echo tests: replaced single 500ms sleep with `waitForService()` retry utility (250ms→3s backoff, 30s timeout) — handles slow-compiled services (C++, Rust) and unavailable services (numpy without conda) gracefully
 
 ## Medium Lift
 
-### Custom Protocol — Architecture
+### ~~Extensions Unification~~ — Architecture (done)
+- Plugins and services unified under a canonical `extensions` record on `ResolvedConfig`
+- Each extension auto-classified as `'plugin'`, `'service'`, or `'hybrid'` via `classifyExtensions()`
+- New types: `Extension`, `ResolvedExtension`, `ResolvedExtensions`, `ExtensionCapabilities`
+- `config.plugins` and `config.services` remain as legacy accessor views with shared references
+- `EXTENSIONS` exposed on the `commoners` global at runtime
+- `commoners.query()` filters extensions by capabilities (platform, runtime, provides)
+- `queryExtensions()` utility in `packages/core/assets/capabilities.ts`
+- Adapter helpers `getPlugins()` / `getServices()` used throughout codebase
+- Plugin capabilities added: BLE (`bluetooth`, `ble`, `device-access`), Serial (`serial`, `device-access`)
+- Service capabilities added: `PyInstallerService`, `CargoService` set `{ runtime: 'process', platforms: { desktop: true } }`
+
+### ~~Electron IPC Async Migration~~ — Desktop (done)
+- Replaced all `ipcRenderer.sendSync()` calls with async `ipcRenderer.invoke()` for Electron 40+ compatibility
+- `ipcMain.on` with `ev.returnValue` → `ipcMain.handle` for `commoners:services`, `commoners:location`, service status
+- Added `serviceHandle()` to IPC module alongside existing `serviceOn()`
+- Removed `sendSync` from the exposed preload API and plugin desktop context
+- Windows plugin updated: `this.sendSync()` → `await this.invoke()`, `this.on()` → `this.handle()` for handlers
+
+## Medium Lift
+
+### Custom Protocol — Architecture (in progress)
 - Expose services and pages to custom protocol (foundation exists in `packages/core/assets/electron/modules/protocol.ts`)
 - Extend custom protocol support to plugins
 - Use custom protocol to load `searchQueryParams`
 - Only allow existing files for Vite dev mode and published apps (no spontaneous redirects)
 - **Architecture boundary (decided):** The `commoners` global API (quit, close, PAGES navigation, SERVICES lifecycle, plugin contexts) is the **generic desktop contract**. Electron-specific implementations in `packages/core/assets/electron/` should be treated as a **runtime adapter**. When adding protocol support, introduce a `DesktopRuntime` interface rather than adding more Electron-specific code to core. Key implication: `sendSync` (Electron-only) should not be part of the public API — use async `invoke` instead.
+- **Progress:** Protocol handler for `commoners://services/*` validates service existence; new `commoners://plugins/*` handler serves plugin assets; `commoners://pages/*` propagates search/hash params; `getPageLocation()` returns `null` for missing files with 404 logging
 
-### Platform Enhancement — Design
-- Write a Platform Enhancement manifesto covering:
-  - [Progressive enhancement](https://github.com/voorhoede/progressive-enhancement-resources)
-  - [Graceful degradation](https://stackoverflow.com/questions/2550431/what-is-the-difference-between-progressive-enhancement-and-graceful-degradation)
-  - [Platform enhancement](https://www.nngroup.com/articles/enhancement/)
-- Introduce platform-specific storage options with [conditional guards](https://vite.dev/guide/api-hmr#required-conditional-guard)
+### ~~Platform Enhancement~~ — Design (done)
+- Platform Enhancement guide written in `docs/guide/platform-enhancement.md`
+- Covers progressive enhancement, graceful degradation, and platform enhancement concepts
+- Documents `isSupported` API for platform-specific plugin gating
+- Documents service `publish` patterns for cross-platform availability
+- Platform-specific storage patterns with conditional guards remain as future work
 
-### WASM Service Compilation — Architecture
+### WASM Service Compilation — Architecture (in progress)
 - Compile Rust (and potentially C++) services to WebAssembly for browser-based execution
 - Enables running compiled services in PWA targets without a separate server process
-- Investigate `wasm-bindgen` + `wasm-pack` integration for Rust→WASM service builds
-- Pattern already proven in the SDK repo (`ubcap-protocol-wasm`, `ub-analysis` WASM targets)
-- Would pair naturally with the `CargoService` helper (Low Lift roadmap item)
+- **Progress:** `WasmCargoService` implemented in `packages/core/services/wasm.ts` wrapping `wasm-pack build`
+- WASM services marked with `__wasm: true` flag; build system skips URL/port assignment and process spawning
+- `sanitize()` sets `type: 'wasm'` and resolves `url` to the WASM asset filepath
+- Demo Rust WASM service in `examples/demo/src/services/rust-wasm/`
+- Exported via `services.wasm.services()` / `services.wasm.service()` helpers
+- Remaining: browser-side WASM instantiation, integration with capabilities query, C++ support
 
-### Walkthroughs — Documentation
-- How to use the OpenAPI standard to document services
-- How to set up a local service network using `commoners share` and `@commoners/local-services`
+### ~~Walkthroughs~~ — Documentation (done)
+- OpenAPI walkthrough: `docs/guide/walkthroughs/openapi.md` — Node/Express, Python/FastAPI, and Rust/utoipa examples
+- Local services walkthrough: `docs/guide/walkthroughs/local-services.md` — Bonjour/mDNS discovery via `@commoners/local-services`
 
 ## Medium–High Lift
 
@@ -125,6 +158,7 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Rust services would be native Tauri sidecars rather than spawned child processes
 - No existing implementation; requires research, design, and significant new code
 - **Architecture boundary (decided):** When evaluating Tauri, the existing `packages/core/assets/electron/` modules should be refactored behind a `DesktopRuntime` interface. The 6 Electron modules (config, security, ipc, window, protocol, lifecycle) each map to Tauri equivalents — the interface should abstract per-module rather than as a monolith.
+- **Progress:** `DesktopRuntime` interface defined in `packages/core/assets/runtime/types.ts` with sub-interfaces (`RuntimeIPC`, `RuntimeProtocol`, `RuntimeWindow`, `RuntimeLifecycle`). `createElectronRuntime()` adapter in `packages/core/assets/runtime/electron.ts` wraps existing Electron modules. Not yet fully integrated — preparatory work for runtime swappability.
 
 ### Vite Plugin Refactor — Architecture
 - Investigate refactoring the core build system as a Vite plugin
