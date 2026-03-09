@@ -11,11 +11,11 @@
     "preview": "commoners launch"
   },
   "dependencies": {
-    "@commoners/solidarity": "^1.0.0-alpha.2",
-    "@commoners/splash-screen": "^1.0.0-alpha.2"
+    "@commoners/solidarity": "^1.0.0-alpha.3",
+    "@commoners/splash-screen": "^1.0.0-alpha.3"
   },
   "devDependencies": {
-    "commoners": "^1.0.0-alpha.2",
+    "commoners": "^1.0.0-alpha.3",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0",

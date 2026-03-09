@@ -1,6 +1,6 @@
 {
   "name": "@commoners/serial",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "author": "Neural Interfaces",
   "license": "MIT",
   "repository": {
@@ -21,6 +21,6 @@
     "vite": "^7.3.1"
   },
   "peerDependencies": {
-    "@commoners/solidarity": "1.0.0-alpha.2 || >=1.0.0 <2.0.0"
+    "@commoners/solidarity": "1.0.0-alpha.3 || >=1.0.0 <2.0.0"
   }
 }

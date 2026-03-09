@@ -1,6 +1,6 @@
 {
   "name": "@commoners/bluetooth",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "author": "Neural Interfaces",
@@ -22,7 +22,7 @@
   },
   "peerDependencies": {
     "@capacitor-community/bluetooth-le": "^8.1.2",
-    "@commoners/solidarity": "1.0.0-alpha.2 || >=1.0.0 <2.0.0"
+    "@commoners/solidarity": "1.0.0-alpha.3 || >=1.0.0 <2.0.0"
   },
   "peerDependenciesMeta": {
     "@capacitor-community/bluetooth-le": {
