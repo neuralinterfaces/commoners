@@ -573,7 +573,7 @@ export const buildAssets = async (
       else {
         const outputExtension = extname(output)
 
-        if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output, { node: outputExtension === '.cjs' })
+        if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output, { node: outputExtension === '.cjs', desktop: isDesktopTarget })
         else {
           const baseConfig: ESBuildBuildOptions = {
             entryPoints: [input],
@@ -646,7 +646,7 @@ export const buildAssets = async (
   return outputs
 }
 
-export const bundleConfig = async (input, outFile, { node = false } = {}) => {
+export const bundleConfig = async (input, outFile, { node = false, desktop = false } = {}) => {
   const _vite = await vite
 
   const logLevel = 'silent'
@@ -664,7 +664,10 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
     const nodePolyfills = await import('vite-plugin-node-polyfills').then(
       ({ nodePolyfills }) => nodePolyfills
     )
-    plugins.push(nodePolyfills())
+    // In Electron (desktop), process is available via the preload script — polyfilling it
+    // replaces the real Node.js process with a browser mock that returns undefined for
+    // process.env, process.resourcesPath, etc.
+    plugins.push(nodePolyfills(desktop ? { globals: { process: false } } : undefined))
   }
 
   const config = _vite.defineConfig({
