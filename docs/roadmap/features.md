@@ -39,38 +39,72 @@ Getting desktop tests to pass reliably required solving several interrelated pro
 - Python services skip when PyInstaller unavailable (requires conda environment)
 - Rust service echo takes ~32s (waitForService timeout)
 
-## Desktop Runtime Abstraction
+---
 
-The long-term goal is to make the desktop runtime (Electron, Tauri) a **swappable implementation detail** that consumers don't need to think about. See [/critique.md](/critique.md) (Sections 6-8) for the full strategic analysis behind this roadmap.
+## Implementation Plans
 
-### Phase 1: Runtime Interface Isolation (in progress)
-- Define a `DesktopRuntime` interface that formalizes the existing compartmentalization between Electron-specific code (`packages/core/assets/electron/`) and target-agnostic code
-- Abstract IPC into a runtime-agnostic `send()` / `on()` / `invoke()` contract — **async `invoke`/`handle` migration completed** as prerequisite
-- Ensure service orchestration layer has no direct Electron imports
+Detailed implementation plans for all remaining roadmap items. Each document follows the template: Problem → Current State → Implementation Plan → File Inventory → Dependencies → Verification → Risks/Tradeoffs.
 
-### Phase 2: Tauri Desktop Backend
-- Create `packages/core/assets/tauri/` mirroring the Electron module structure (main, IPC, window, plugins, lifecycle)
-- Implement `TauriBuildStrategy` and `TauriLaunchStrategy` alongside existing Electron strategies
-- Auto-generate `tauri.conf.json` (including `externalBin` for services) from `commoners.config.ts`
-- Adapt service lifecycle management to use Tauri's `@tauri-apps/plugin-shell` sidecar API
-- Handle differences: no `fork()` for JS services (use HTTP/stdin-stdout), PyInstaller orphan process workaround, sidecar code-signing automation
+### Batch A — Independent (start now, parallel)
 
-**Why not just replace Electron?** Electron remains the only desktop runtime where `navigator.bluetooth`, `navigator.serial`, `navigator.usb`, and `navigator.hid` work on macOS and Linux. Apple and Mozilla have explicitly refused to implement these APIs. Tauri's system webview does not have them on 2 of 3 desktop platforms. For apps that use device communication via Web APIs, Electron is still required. For apps that don't, Tauri offers smaller binaries (~4MB vs ~100MB base, though the gap narrows significantly once backend services are bundled).
+| Document | Summary | Status |
+|----------|---------|--------|
+| [ASAR Integrity Hardening](./asar-hardening.md) | Fix macOS post-signing hash, make `rcedit` primary on Windows, sandbox testing, CI verification | Planned |
+| [Testing Gaps + Distribution](./testing-and-distribution.md) | Protocol E2E, WASM E2E, mobile build output, native emulators, app store CI/CD | Planned |
+| [Security Whitepaper](./security-whitepaper.md) | Threat model, Commoners-unique risks, security controls, security testing, proposed plugins | Planned |
 
-### Phase 3: Device Communication Abstraction
-- Introduce Commoners-level device APIs (`commoners.bluetooth`, `commoners.serial`, etc.) that abstract the underlying runtime
-- On Electron: delegates to `navigator.bluetooth` + Electron's permission/selection bridge (current behavior)
-- On Tauri: delegates to Rust-based plugins (`tauri-plugin-blec`, `tauri-plugin-serialplugin`) via `invoke()`
-- On Web (Chrome): delegates to `navigator.bluetooth` / `navigator.serial`
-- On Mobile: delegates to Capacitor plugins or Tauri mobile plugins depending on the runtime
-- The existing device selection modal (Web Component) works identically across all runtimes
+### Batch B — Sequential dependency chain
 
-**Why this matters**: Today, consumers call `navigator.bluetooth.requestDevice()` directly. This works in Chrome and Electron but does not exist in Tauri's webview on macOS/Linux. A Commoners-level abstraction makes consumer device code portable across ALL runtimes without changes -- enabling transparent Electron-to-Tauri migration even for hardware apps.
+| Document | Summary | Depends On | Status |
+|----------|---------|-----------|--------|
+| [Runtime Abstraction Completion](./runtime-abstraction-completion.md) | Route all 18+ Electron API calls through `DesktopRuntime`, plugin context wrapping, protocol sub-routes | — | Planned |
+| [Tauri Desktop Backend](./tauri-desktop-backend.md) | `TauriBuildStrategy`, `tauri.conf.json` auto-generation, `createTauriRuntime()`, sidecar service lifecycle | Runtime abstraction | Planned |
+| [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` API, per-runtime adapters, C++ WASM via Emscripten | Tauri backend | Planned |
 
-### Phase 4: Tauri Mobile Backend (longer term)
-- When Tauri's mobile plugin ecosystem matures (especially BLE -- currently 1 maintainer, pre-1.0, with known Android connectivity issues vs Capacitor's 28 contributors and stable v8.x)
-- Offer Tauri mobile as an alternative to Capacitor for mobile builds
-- Consumer code unchanged because it goes through Commoners' abstraction layers
+### Batch C — Independent (timing-sensitive)
 
-## Mobile
-1. Automated mobile build system for [iOS](https://github.com/dulvui/godot-ios-upload) and [Android](https://github.com/dulvui/godot-android-export0) on GitHub Actions.
+| Document | Summary | Status |
+|----------|---------|--------|
+| [Vite Evolution](./vite-evolution.md) | Audit 8 Rollup hooks + 3 esbuild usages for Rolldown compat, evaluate plugin refactor | Planned (track Vite 8 release) |
+
+### Dependency Graph
+
+```
+Batch A (start now, parallel)
+  asar-hardening.md ─────────────────── No prerequisites
+  testing-and-distribution.md ───────── No prerequisites
+  security-whitepaper.md ────────────── No prerequisites
+
+Batch B (sequential)
+  runtime-abstraction-completion.md ─── No prerequisites (Phase 1 started)
+      │
+      ▼
+  tauri-desktop-backend.md ──────────── Requires: runtime abstraction complete
+      │
+      ▼
+  device-communication-abstraction.md ─ Requires: Tauri backend functional
+
+Batch C (independent, timing-sensitive)
+  vite-evolution.md ─────────────────── Track Vite 8 release
+```
+
+### Reference Documents
+
+These existing documents provide technical analysis referenced by the implementation plans:
+
+- [Electron Coupling Audit](./electron-coupling-audit.md) — catalogs all Electron integration points (~2,000-2,500 lines), abstraction quality assessment, migration effort estimate
+- [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code-signing issues, mobile plugin maturity comparison, binary size analysis
+
+---
+
+## Long-Term
+
+### Phase 4: Tauri Mobile Backend
+
+When Tauri's mobile plugin ecosystem matures — especially BLE (currently 1 maintainer, pre-1.0, with known Android connectivity issues vs Capacitor's 28 contributors and stable v8.x) — offer Tauri mobile as an alternative to Capacitor for mobile builds. Consumer code unchanged because it goes through Commoners' abstraction layers. See [Tauri Integration Reference](./tauri-integration-reference.md) for detailed ecosystem comparison.
+
+Milestones to watch:
+- `tauri-plugin-blec` reaching 1.0 with working service discovery and multi-device support
+- More than 1 maintainer on critical device plugins
+- At least one documented production app using Tauri mobile + BLE in an app store
+- A WebUSB equivalent appearing in the Tauri plugin ecosystem

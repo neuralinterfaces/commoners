@@ -8,6 +8,21 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 ### electron-builder Pin (resolved)
 `electron-builder` was pinned to `24.13.3` due to breaking changes in the 25.x series around code signing and ASAR handling. Upgraded to `^26.8.1` — the signing and ASAR APIs have stabilized.
 
+## Deferred Items
+
+Items deferred from recent work, tracked in detailed implementation plans under [`docs/roadmap/`](./docs/roadmap/features.md).
+
+| Deferred Item | Origin | Tracked In |
+|--------------|--------|-----------|
+| Plugin protocol sub-route registration | Custom Protocol | [Runtime Abstraction Completion](./docs/roadmap/runtime-abstraction-completion.md) |
+| Full E2E protocol tests (build+launch Electron) | Custom Protocol | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
+| E2E WASM compilation test (requires Rust toolchain) | WASM Service Compilation | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
+| C++ WASM via Emscripten | WASM Service Compilation | [Device Communication Abstraction](./docs/roadmap/device-communication-abstraction.md) |
+| Mobile build output tests (5 areas) | Mobile Workflow Validation | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
+| 22 direct Electron API calls not routed through runtime | Tauri Investigation Phase 1 | [Runtime Abstraction Completion](./docs/roadmap/runtime-abstraction-completion.md) |
+| Preload `sendSync` elimination | Tauri Investigation Phase 1 | [Runtime Abstraction Completion](./docs/roadmap/runtime-abstraction-completion.md) |
+| Security threat model and controls | — | [Security Whitepaper](./docs/roadmap/security-whitepaper.md) |
+
 ## Upcoming
 
 ### Vite 8 / Rolldown Preparation — Architecture
@@ -112,13 +127,16 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 
 ## Medium Lift
 
-### Custom Protocol — Architecture (in progress)
+### ~~Custom Protocol~~ — Architecture (done)
 - Expose services and pages to custom protocol (foundation exists in `packages/core/assets/electron/modules/protocol.ts`)
-- Extend custom protocol support to plugins
-- Use custom protocol to load `searchQueryParams`
-- Only allow existing files for Vite dev mode and published apps (no spontaneous redirects)
-- **Architecture boundary (decided):** The `commoners` global API (quit, close, PAGES navigation, SERVICES lifecycle, plugin contexts) is the **generic desktop contract**. Electron-specific implementations in `packages/core/assets/electron/` should be treated as a **runtime adapter**. When adding protocol support, introduce a `DesktopRuntime` interface rather than adding more Electron-specific code to core. Key implication: `sendSync` (Electron-only) should not be part of the public API — use async `invoke` instead.
-- **Progress:** Protocol handler for `commoners://services/*` validates service existence; new `commoners://plugins/*` handler serves plugin assets; `commoners://pages/*` propagates search/hash params; `getPageLocation()` returns `null` for missing files with 404 logging
+- Protocol handler for `commoners://services/*` validates service existence and proxies to service URL
+- `commoners://plugins/*` handler serves plugin assets from the build output
+- `commoners://pages/*` validates page existence, propagates search/hash params, returns proper `Response` to `protocol.handle()`
+- `getPageLocation()` returns `null` for missing files in dev mode (no phantom pages); falls back to ASAR-compatible resolution in production
+- **Architecture boundary (decided):** The `commoners` global API (quit, close, PAGES navigation, SERVICES lifecycle, plugin contexts) is the **generic desktop contract**. Electron-specific implementations in `packages/core/assets/electron/` should be treated as a **runtime adapter**.
+- Unit tests for protocol utilities (`decodePath`, `normalizeAndCompare`, `isValidUrl`, `isCommonersUrl`, `isCommonersAsset`) in `tests/protocol.test.ts`
+- Targeted script: `pnpm test:protocol`
+- **Deferred:** Plugin protocol sub-route registration (better suited after Tauri Phase 2 via `RuntimeProtocol`); full E2E protocol tests (require building + launching Electron app)
 
 ### ~~Platform Enhancement~~ — Design (done)
 - Platform Enhancement guide written in `docs/guide/platform-enhancement.md`
@@ -127,15 +145,18 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Documents service `publish` patterns for cross-platform availability
 - Platform-specific storage patterns with conditional guards remain as future work
 
-### WASM Service Compilation — Architecture (in progress)
-- Compile Rust (and potentially C++) services to WebAssembly for browser-based execution
-- Enables running compiled services in PWA targets without a separate server process
-- **Progress:** `WasmCargoService` implemented in `packages/core/services/wasm.ts` wrapping `wasm-pack build`
+### ~~WASM Service Compilation~~ — Architecture (done)
+- Compile Rust services to WebAssembly for browser-based execution via `WasmCargoService` (`packages/core/services/wasm.ts`)
 - WASM services marked with `__wasm: true` flag; build system skips URL/port assignment and process spawning
 - `sanitize()` sets `type: 'wasm'` and resolves `url` to the WASM asset filepath
 - Demo Rust WASM service in `examples/demo/src/services/rust-wasm/`
 - Exported via `services.wasm.services()` / `services.wasm.service()` helpers
-- Remaining: browser-side WASM instantiation, integration with capabilities query, C++ support
+- `commoners:wasm` virtual module provides `loadWasmService()` and `isWasmService()` helpers with module caching
+- Service discovery via `commoners.query({ runtime: 'wasm' })` using `queryExtensions()`
+- Unit tests for WASM service constructor, build info resolution, sanitization, and extension queries in `tests/wasm.test.ts`
+- Documentation updated in `docs/guide/services/rust.md` with helper usage and discovery examples
+- Targeted script: `pnpm test:wasm`
+- **Deferred:** C++ WASM via Emscripten (separate feature requiring new service class); E2E WASM compilation test (requires Rust toolchain)
 
 ### ~~Walkthroughs~~ — Documentation (done)
 - OpenAPI walkthrough: `docs/guide/walkthroughs/openapi.md` — Node/Express, Python/FastAPI, and Rust/utoipa examples
