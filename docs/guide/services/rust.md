@@ -150,16 +150,53 @@ export default {
 
 ### Frontend Usage
 
+#### Using the `commoners:wasm` Helper (Recommended)
+
+The `commoners:wasm` virtual module provides type-safe helpers for loading WASM services. It handles module initialization and caching automatically:
+
 ```ts
-// WASM services are available in commoners.SERVICES with type: 'wasm'
+import { loadWasmService, isWasmService } from 'commoners:wasm'
+
+const service = commoners.SERVICES['rust-wasm']
+
+if (isWasmService(service)) {
+  const wasm = await loadWasmService(service)
+  const result = wasm.echo('Hello from WASM!')
+  const sum = wasm.add(2, 3) // 5
+}
+```
+
+`loadWasmService()` caches the loaded module, so subsequent calls with the same service return the cached instance without re-importing.
+
+#### Manual Loading
+
+You can also load WASM services manually via dynamic import:
+
+```ts
 const wasmService = commoners.SERVICES['rust-wasm']
 
 if (wasmService.type === 'wasm') {
-  // Import the WASM module from the asset path
   const wasm = await import(wasmService.url)
   const result = wasm.echo('Hello from WASM!')
 }
 ```
+
+### Service Discovery
+
+Use `commoners.query()` to find WASM services by their capabilities at runtime:
+
+```ts
+// Find all WASM services
+const wasmServices = commoners.query({ runtime: 'wasm' })
+
+// Find services that provide specific functionality
+const computeServices = commoners.query({ provides: ['compute'] })
+
+// Find web-compatible services
+const webServices = commoners.query({ platforms: { web: true } })
+```
+
+The query returns a record of matching extensions with their type and capabilities, which you can then use to load the corresponding service from `commoners.SERVICES`.
 
 ### Prerequisites
 

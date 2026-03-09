@@ -12,6 +12,8 @@
     "test:services": "vitest run tests/services.test.ts",
     "test:env": "vitest run tests/env.test.ts tests/service-env.test.ts",
     "test:mobile-workflow": "vitest run tests/mobile-workflow.test.ts",
+    "test:protocol": "vitest run tests/protocol.test.ts",
+    "test:wasm": "vitest run tests/wasm.test.ts",
     "coverage": "vitest run --coverage",
     "docs": "vitepress dev docs",
     "docs:build": "vitepress build docs",

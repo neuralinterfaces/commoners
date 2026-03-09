@@ -12,6 +12,7 @@ import { getServices } from '../../utils/extensions.js'
 import { getLocalIP } from '../../assets/services/ip.js'
 
 const virtualModuleId = 'commoners:env'
+const wasmVirtualModuleId = 'commoners:wasm'
 
 const ENV_VAR_NAMES = [
   'NAME',
@@ -56,11 +57,13 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
   const mobile = isMobile(target)
 
   const resolvedVirtualModuleId = '\0' + virtualModuleId
+  const resolvedWasmVirtualModuleId = '\0' + wasmVirtualModuleId
 
   return {
     name: 'commoners',
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId
+      if (id === wasmVirtualModuleId) return resolvedWasmVirtualModuleId
     },
     load(id) {
       if (id === resolvedVirtualModuleId) {
@@ -70,6 +73,26 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           'export default ENV',
         ]
         return lines.join('\n')
+      }
+
+      if (id === resolvedWasmVirtualModuleId) {
+        return [
+          'const _cache = new Map()',
+          '',
+          'export function isWasmService(service) {',
+          '  return service && service.type === "wasm"',
+          '}',
+          '',
+          'export async function loadWasmService(service) {',
+          '  if (!isWasmService(service)) throw new Error("Not a WASM service")',
+          '  const url = service.url',
+          '  if (_cache.has(url)) return _cache.get(url)',
+          '  const mod = await import(/* @vite-ignore */ url)',
+          '  if (mod.default && typeof mod.default === "function") await mod.default()',
+          '  _cache.set(url, mod)',
+          '  return mod',
+          '}',
+        ].join('\n')
       }
     },
 
