@@ -70,7 +70,7 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
         logger.debug('Emitting dev:server:error', { context })
         hooks.emit({
           type: 'dev:server:error',
-          error: new Error(`Unknown WS message context: ${context}`)
+          error: new Error(`Unknown WS message context: ${context}`),
         })
         return
       }
@@ -141,7 +141,11 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
   return serviceManager // Return the active services
 }
 
-export const services = async (config: UserConfig, resolvedServices, hooks: HooksInterface = createNoOpHooks()) => {
+export const services = async (
+  config: UserConfig,
+  resolvedServices,
+  hooks: HooksInterface = createNoOpHooks()
+) => {
   const dev = true
   const resolvedConfig = await resolveConfig(config)
   const { root, target } = resolvedConfig
@@ -154,16 +158,13 @@ export const services = async (config: UserConfig, resolvedServices, hooks: Hook
 const startServices = services
 
 export const app = async function (config: UserConfig, options: { hooks?: HooksInterface } = {}) {
-
   const resolvedConfig = await resolveConfig(config, { hooks: options.hooks })
   const hooks = resolvedConfig.hooks
 
   try {
-
     // Emit dev server start event
     logger.debug('Emitting dev:start', { target: resolvedConfig.target })
     hooks.emit({ type: 'dev:start', config: resolvedConfig })
-
 
     const { root, target, electron } = resolvedConfig
     const services = getServices(resolvedConfig.extensions)
@@ -220,7 +221,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       const mobileOpts = { target: target as 'ios' | 'android', outDir: buildMetadata.web }
       const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
 
-      await mobile.runInRoot(async (config) => {
+      await mobile.runInRoot(async config => {
         await mobile.init(mobileOpts, config)
         await mobile.open(mobileOpts, config, { headless: isHeadless })
       }, scopedConfig)
@@ -235,15 +236,15 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
       // Load Files in Dev Mode
       if (load === 'file') {
-        const outDir = await build(scopedConfig, { services, dev: true })
-        configureForDesktop(outDir, root)
+        const { artifact: builtOutDir } = await build(scopedConfig, { services, dev: true })
+        configureForDesktop(builtOutDir, root)
         await startElectronInstance(root, hooks) // Start the Electron instance
 
         logger.debug('Emitting dev:reload:unavailable', { target, loadMode: load })
         hooks.emit({
           type: 'dev:reload:unavailable',
           target,
-          reason: `Electron is running in ${load} mode`
+          reason: `Electron is running in ${load} mode`,
         })
         // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
       }
@@ -251,8 +252,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       // Use Vite to Load URLs in Dev Mode
       else {
         const assets = await getAppAssets(scopedConfig, true, outDir)
-        await buildAssets(assets, { outDir, root, target, dev: true })
-        .catch(err => {
+        await buildAssets(assets, { outDir, root, target, dev: true }).catch(err => {
           console.log('Error building assets:', err)
           throw err
         })
@@ -272,8 +272,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     // ------------------------------- Web -------------------------------
     await initializeWebsocketPort()
     const webAssets = await getAppAssets(scopedConfig, true, outDir)
-    await buildAssets(webAssets, { outDir, root, target, dev: true })
-    .catch(err => {
+    await buildAssets(webAssets, { outDir, root, target, dev: true }).catch(err => {
       console.log('Error building assets:', err)
       throw err
     })
@@ -288,17 +287,14 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     const protocol = frontend.config.server.https ? 'https' : 'http'
     const url = `${protocol}://${host || 'localhost'}:${port}`
     logger.debug('Emitting dev:server:ready', { target, url })
-    hooks.emit({ type: 'dev:server:ready', target, url  })
-
+    hooks.emit({ type: 'dev:server:ready', target, url })
 
     return startManager
-
-
   } catch (error) {
     logger.debug('Emitting dev:server:error', { error: (error as Error).message })
     hooks.emit({
       type: 'dev:server:error',
-      error: error as Error
+      error: error as Error,
     })
     throw error
   }

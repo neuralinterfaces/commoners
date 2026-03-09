@@ -23,9 +23,9 @@ const logger = createLogger('ElectronLaunchStrategy')
 function matchFile(directory: string, extensions: string[]): string | null {
   if (!existsSync(directory)) return null
   return (
-    readdirSync(directory).find((file) => {
+    readdirSync(directory).find(file => {
       const fileExtension = extname(file)
-      return extensions.some((ext) => fileExtension === ext)
+      return extensions.some(ext => fileExtension === ext)
     }) || null
   )
 }
@@ -167,15 +167,15 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
         detached: false,
       })
 
-      proc.stdout?.on('data', (data) => {
+      proc.stdout?.on('data', data => {
         console.error(`[ElectronLaunch:stdout] ${data.toString().trim()}`)
       })
 
-      proc.stderr?.on('data', (data) => {
+      proc.stderr?.on('data', data => {
         console.error(`[ElectronLaunch:stderr] ${data.toString().trim()}`)
       })
 
-      proc.on('error', (err) => {
+      proc.on('error', err => {
         console.error(`[ElectronLaunch] Spawn error: ${err.message}`)
       })
 
@@ -191,6 +191,40 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
       resolvedArgs.push('--args') // macOS-specific flag to pass additional arguments
     }
     resolvedArgs.push(...userArgs) // Add any additional arguments
+
+    // On Windows/Linux with remote debugging port, use spawn (fire-and-forget)
+    // instead of spawnProcess, which blocks forever waiting for the GUI app to exit.
+    // Same pattern as the macOS rdpPort path above.
+    if (PLATFORM !== 'mac' && rdpPort) {
+      console.error(`[ElectronLaunch] Spawning binary (fire-and-forget): ${runExecutableCommand}`)
+      console.error(`[ElectronLaunch] Args: ${JSON.stringify(resolvedArgs)}`)
+
+      const proc = spawn(runExecutableCommand, resolvedArgs, {
+        cwd: context.root,
+        env: { ...process.env, FORCE_COLOR: '1' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+      })
+
+      proc.stdout?.on('data', data => {
+        console.error(`[ElectronLaunch:stdout] ${data.toString().trim()}`)
+      })
+
+      proc.stderr?.on('data', data => {
+        console.error(`[ElectronLaunch:stderr] ${data.toString().trim()}`)
+      })
+
+      proc.on('error', err => {
+        console.error(`[ElectronLaunch] Spawn error: ${err.message}`)
+      })
+
+      proc.on('exit', (code, signal) => {
+        console.error(`[ElectronLaunch] Process exited: code=${code}, signal=${signal}`)
+      })
+
+      console.error(`[ElectronLaunch] Spawned PID: ${proc.pid}`)
+      return { url: null }
+    }
 
     // Launch the Electron app (uses `open` on macOS, direct binary on other platforms)
     await spawnProcess(
