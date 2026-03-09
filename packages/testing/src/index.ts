@@ -177,7 +177,27 @@ export const open = async (
 
   // Start development server for the project
   else {
-    const { url, close: cleanup } = await CommonersStart(updatedConfig)
+    // Pass hooks that log Electron stdout/stderr during testing.
+    // Without this, startup() emits to no-op hooks and Electron output is lost,
+    // making CDP connection failures impossible to diagnose.
+    const listeners: Record<string, Array<(event: any) => void>> = {}
+    const testHooks = {
+      emit: (event: any) => {
+        const handlers = listeners[event.type]
+        if (handlers) handlers.forEach(h => h(event))
+      },
+      on: (type: string, handler: (event: any) => void) => {
+        (listeners[type] = listeners[type] || []).push(handler)
+        return () => { listeners[type] = listeners[type].filter(h => h !== handler) }
+      },
+    }
+
+    if (isElectron) {
+      testHooks.on('dev:electron:stdout', (e) => console.log(`[Electron:stdout] ${String(e.data).trim()}`))
+      testHooks.on('dev:electron:stderr', (e) => console.log(`[Electron:stderr] ${String(e.data).trim()}`))
+    }
+
+    const { url, close: cleanup } = await CommonersStart(updatedConfig, { hooks: testHooks as any })
     Object.assign(states, { url, cleanup })
   }
 
@@ -200,34 +220,42 @@ export const open = async (
     let browser: Browser | null = null
     let delay = 500
 
+    // Try both IPv4 and IPv6 loopback — on some Windows configs Chromium binds to [::1] only
+    const cdpUrls = [`http://127.0.0.1:${cdpPort}`, `http://[::1]:${cdpPort}`]
+
     // Step 1: Wait for CDP HTTP endpoint
     let wsUrl: string | null = null
+    let activeCdpUrl = cdpUrl // Track which URL actually worked
     let pollAttempts = 0
     let lastError = ''
     let portBoundOnce = false
     while (Date.now() - start < cdpTimeout) {
       pollAttempts++
-      try {
-        const resp = await fetch(`${cdpUrl}/json/version`)
-        if (resp.ok) {
-          const data = await resp.json()
-          wsUrl = data.webSocketDebuggerUrl
-          console.log(`[CDP] Endpoint ready after ${Date.now() - start}ms (${pollAttempts} attempts)`)
-          break
-        } else {
-          const errText = `HTTP ${resp.status} ${resp.statusText}`
-          if (errText !== lastError) {
-            console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errText}`)
-            lastError = errText
+      for (const url of cdpUrls) {
+        try {
+          const resp = await fetch(`${url}/json/version`)
+          if (resp.ok) {
+            const data = await resp.json()
+            wsUrl = data.webSocketDebuggerUrl
+            activeCdpUrl = url
+            console.log(`[CDP] Endpoint ready at ${url} after ${Date.now() - start}ms (${pollAttempts} attempts)`)
+            break
+          } else {
+            const errText = `HTTP ${resp.status} ${resp.statusText}`
+            if (errText !== lastError) {
+              console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errText} (${url})`)
+              lastError = errText
+            }
+          }
+        } catch (e: any) {
+          const errMsg = e?.cause?.code || e?.code || e?.message || String(e)
+          if (errMsg !== lastError) {
+            console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errMsg}`)
+            lastError = errMsg
           }
         }
-      } catch (e: any) {
-        const errMsg = e?.cause?.code || e?.code || e?.message || String(e)
-        if (errMsg !== lastError) {
-          console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errMsg}`)
-          lastError = errMsg
-        }
       }
+      if (wsUrl) break
 
       // Periodic port-binding check (every ~5s) for extra diagnostics
       if (pollAttempts % 5 === 0 && !portBoundOnce) {
@@ -245,7 +273,7 @@ export const open = async (
     if (!wsUrl) {
       const diagnostics = await collectCdpDiagnostics(cdpPort, Date.now() - start)
       console.error(diagnostics)
-      throw new Error(`CDP endpoint not reachable after ${cdpTimeout}ms (${cdpUrl}). Last error: ${lastError}. See diagnostics above.`)
+      throw new Error(`CDP endpoint not reachable after ${cdpTimeout}ms (tried ${cdpUrls.join(', ')}). Last error: ${lastError}. See diagnostics above.`)
     }
 
     // Step 2: Close broken targets via raw CDP before Playwright connects.
@@ -325,14 +353,14 @@ export const open = async (
       console.log(`[CDP] Target cleanup warning: ${e.message}`)
     }
 
-    // Step 3: Connect via Playwright CDP
+    // Step 3: Connect via Playwright CDP (use the URL that responded in Step 1)
     try {
-      browser = await chromium.connectOverCDP(cdpUrl, { timeout: cdpTimeout })
+      browser = await chromium.connectOverCDP(activeCdpUrl, { timeout: cdpTimeout })
       console.log(`[CDP] Playwright connected after ${Date.now() - start}ms`)
     } catch (e: any) {
       const diagnostics = await collectCdpDiagnostics(cdpPort, Date.now() - start)
       console.error(diagnostics)
-      throw new Error(`CDP Playwright connection failed after ${cdpTimeout}ms (${cdpUrl}): ${(e.message || '').slice(0, 300)}`)
+      throw new Error(`CDP Playwright connection failed after ${cdpTimeout}ms (${activeCdpUrl}): ${(e.message || '').slice(0, 300)}`)
     }
 
     states.browser = browser
