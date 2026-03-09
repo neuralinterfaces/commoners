@@ -11,7 +11,7 @@
 
 import electron, { app, session, Session } from 'electron'
 import { ElectronSecuritySettings } from '../../../types'
-import { hasSignature, verifySignature, verifyAsarIntegrity } from '../security'
+import { hasSignature, verifySignature } from '../security'
 import { getDefaultSecuritySettings } from './config'
 
 
@@ -43,14 +43,6 @@ export function getSecuritySettings(
 export async function runVerification(isProduction: boolean): Promise<boolean> {
   // Verify that the application integrity is intact when running in production
   if (!isProduction) return true
-
-  // Check ASAR integrity first (if enabled via fuses, Electron will block startup automatically)
-  const asarCheck = verifyAsarIntegrity()
-  if (asarCheck.enabled) {
-    console.log('🔒 ASAR integrity validation is active')
-  } else if (asarCheck.error) {
-    console.warn(`⚠️  ASAR integrity check: ${asarCheck.error}`)
-  }
 
   const signatureExists = await hasSignature() // Check if the application has a valid signature
 

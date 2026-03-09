@@ -1,55 +1,5 @@
 import { execFileSync, execSync } from 'child_process'
-import { platform, homedir } from 'os'
-import { app } from 'electron'
-import { join } from 'path'
-import { existsSync, readFileSync } from 'fs'
-
-/**
- * Verify ASAR integrity (macOS and Windows)
- * This checks if the ASAR integrity validation is properly configured.
- * The actual validation is done by Electron via fuses at startup.
- */
-export function verifyAsarIntegrity(): { enabled: boolean; error?: string } {
-  try {
-    const execPath = process.execPath
-
-    if (process.platform === 'darwin') {
-      // macOS: Check Info.plist for ElectronAsarIntegrity
-      const appPath = execPath.split('/Contents/')[0]
-      const plistPath = join(appPath, 'Contents', 'Info.plist')
-
-      if (!existsSync(plistPath)) {
-        return { enabled: false, error: 'Info.plist not found' }
-      }
-
-      const plistContent = readFileSync(plistPath, 'utf8')
-
-      if (plistContent.includes('ElectronAsarIntegrity')) {
-        console.log('✅ ASAR integrity validation enabled (macOS)')
-        return { enabled: true }
-      }
-
-      return { enabled: false, error: 'ElectronAsarIntegrity not found in Info.plist' }
-    }
-    else if (process.platform === 'win32') {
-      // Windows: ASAR integrity is embedded in executable resources
-      // The actual verification is done by Electron via fuses
-      // We can only confirm it was configured by checking if app.asar exists
-      const asarPath = join(process.resourcesPath, 'app.asar')
-
-      if (existsSync(asarPath)) {
-        console.log('✅ ASAR integrity validation enabled (Windows)')
-        return { enabled: true }
-      }
-
-      return { enabled: false, error: 'app.asar not found' }
-    }
-
-    return { enabled: false, error: 'Platform not supported for ASAR integrity' }
-  } catch (err: any) {
-    return { enabled: false, error: err.message }
-  }
-}
+import { platform } from 'os'
 
 export function hasSignature(): boolean {
   try {

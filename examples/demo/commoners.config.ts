@@ -82,6 +82,10 @@ const config = defineConfig({
 
   // NOTE: Protocol definition is not yet tested...
   electron: {
+    security: {
+      asarIntegrity: false, // Enable ASAR integrity checks
+      sandbox: false, // Enable sandboxing for security
+    },
     protocol: { scheme: 'commoners', privileges: { supportFetchAPI: true } },
     hooks: customHooks
   },
