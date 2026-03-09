@@ -112,6 +112,18 @@ export function isCommonersAsset(
 }
 
 /**
+ * Check if a request origin is allowed for custom protocol access.
+ * Allows the app's own protocol, the dev server (in dev mode), and file:// origins.
+ */
+export function isAllowedOrigin(source: string, scheme: string, devServerUrl?: string): boolean {
+  if (!source) return true // No origin header means same-origin or internal navigation
+  const isAppOrigin = source.startsWith(`${scheme}://`)
+  const isDevOrigin = !!devServerUrl && source.startsWith(devServerUrl)
+  const isFileOrigin = source.startsWith('file://')
+  return isAppOrigin || isDevOrigin || isFileOrigin
+}
+
+/**
  * Register a custom protocol scheme
  */
 export function registerProtocolScheme(config: ProtocolConfig): void {

@@ -83,19 +83,50 @@ export async function runVerification(isProduction: boolean): Promise<boolean> {
 }
 
 /**
- * Setup Content Security Policy for the session
+ * Build the default CSP directive string.
+ * Allows self, inline styles/scripts (required for injected <script type="module"> blocks),
+ * and WASM evaluation. In dev mode, also allows the dev server for HMR websockets.
  */
-export function setupContentSecurityPolicy(sessionInstance: Session): void {
-  // You can add CSP configuration here
-  // Example:
-  // sessionInstance.webRequest.onHeadersReceived((details, callback) => {
-  //   callback({
-  //     responseHeaders: {
-  //       ...details.responseHeaders,
-  //       'Content-Security-Policy': ["default-src 'self'"]
-  //     }
-  //   })
-  // })
+function buildDefaultCSP(devServerUrl?: string): string {
+  const connectSrc = devServerUrl
+    ? `connect-src 'self' ${devServerUrl} ws:`
+    : `connect-src 'self'`
+
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    connectSrc,
+    "img-src 'self' data:",
+    "font-src 'self'",
+  ].join('; ')
+}
+
+/**
+ * Setup Content Security Policy for the session.
+ *
+ * @param sessionInstance - The Electron session to apply CSP to
+ * @param cspSetting - User override: string to use custom CSP, false to disable, undefined for default
+ * @param devServerUrl - The Vite dev server URL (used to allow HMR connections in dev mode)
+ */
+export function setupContentSecurityPolicy(
+  sessionInstance: Session,
+  cspSetting?: string | false,
+  devServerUrl?: string,
+): void {
+  // User explicitly disabled CSP
+  if (cspSetting === false) return
+
+  const csp = typeof cspSetting === 'string' ? cspSetting : buildDefaultCSP(devServerUrl)
+
+  sessionInstance.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp],
+      },
+    })
+  })
 }
 
 /**

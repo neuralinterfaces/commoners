@@ -364,6 +364,7 @@ export type ElectronSecuritySettings = {
   contextIsolation?: boolean // Enable context isolation (default: true)
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
   asarIntegrity?: boolean | { strict?: boolean } // Enable ASAR integrity checks (default: true)
+  csp?: string | false // Content Security Policy override. Set to false to disable CSP entirely.
 }
 
 export type ElectronOptions = {

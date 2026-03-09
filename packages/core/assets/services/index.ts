@@ -535,6 +535,7 @@ export async function start(
 
       if (childProcess.stdout && monitor.stdout !== false)
         childProcess.stdout.on('data', data => {
+          const wasStarting = !config.status
           config.status = true
           if (opts.onLog) opts.onLog(id, data)
           logger.debug('Emitting service:stdout', { service: label })
@@ -543,6 +544,25 @@ export async function start(
             service: label,
             data,
           })
+
+          // PID verification: on first stdout, verify the spawned PID owns the port
+          if (wasStarting && childProcess.pid && process.platform !== 'win32') {
+            try {
+              const port = resolvedURL.port
+              const { execSync } = require('node:child_process')
+              const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, { encoding: 'utf8', timeout: 3000 }).trim()
+              const listeningPids = output.split('\n').map(p => parseInt(p, 10)).filter(Boolean)
+              if (listeningPids.length > 0 && !listeningPids.includes(childProcess.pid)) {
+                hooks.emit({
+                  type: 'security:warning',
+                  message: `PID mismatch for service "${label}" on port ${port}: expected ${childProcess.pid}, found ${listeningPids.join(', ')}`,
+                  context: 'pid-verification',
+                })
+              }
+            } catch {
+              // lsof may fail in sandboxed environments or if port not yet bound — ignore
+            }
+          }
         })
 
       if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', data => {

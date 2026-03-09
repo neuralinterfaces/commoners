@@ -434,6 +434,9 @@ Security.runVerification(isProduction).then(async isValid => {
     await boundRunAppPlugins([resolvedServices])
 
     app.whenReady().then(async () => {
+      // Setup Content Security Policy
+      Security.setupContentSecurityPolicy(session.defaultSession, securitySettings.csp, DEV_SERVER_URL)
+
       // Setup STDIN commands
       Lifecycle.setupStdinCommands()
 

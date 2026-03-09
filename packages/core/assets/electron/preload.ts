@@ -60,6 +60,13 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// IPC channel allowlist — only channels with these prefixes may be used from the renderer
+const ALLOWED_CHANNEL_PREFIXES = ['commoners:', 'services:', 'plugins:']
+
+function isAllowedChannel(channel: string): boolean {
+  return ALLOWED_CHANNEL_PREFIXES.some(prefix => channel.startsWith(prefix))
+}
+
 const TEMP_COMMONERS = {
   quit: (message?: string) => ipcRenderer.send('commoners:quit', message),
 
@@ -70,12 +77,13 @@ const TEMP_COMMONERS = {
   services, // Ensure correct ports
 
   // Will be scoped by plugin in onload.ts
-  on: (channel, listener) => ipcRenderer.on(channel, listener),
-  once: (channel, listener) => ipcRenderer.once(channel, listener),
-  send: (channel, ...args) => ipcRenderer.send(channel, ...args),
-  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
-  removeListener: (channel, listener) => ipcRenderer.removeListener(channel, listener),
-  removeAllListeners: channel => ipcRenderer.removeAllListeners(channel),
+  // All IPC wrappers validate channel prefixes to prevent access to internal Electron channels
+  on: (channel, listener) => { if (isAllowedChannel(channel)) ipcRenderer.on(channel, listener) },
+  once: (channel, listener) => { if (isAllowedChannel(channel)) ipcRenderer.once(channel, listener) },
+  send: (channel, ...args) => { if (isAllowedChannel(channel)) ipcRenderer.send(channel, ...args) },
+  invoke: (channel, ...args) => isAllowedChannel(channel) ? ipcRenderer.invoke(channel, ...args) : Promise.reject(new Error(`Blocked IPC channel: ${channel}`)),
+  removeListener: (channel, listener) => { if (isAllowedChannel(channel)) ipcRenderer.removeListener(channel, listener) },
+  removeAllListeners: channel => { if (isAllowedChannel(channel)) ipcRenderer.removeAllListeners(channel) },
 }
 
 // Handle service interactions
