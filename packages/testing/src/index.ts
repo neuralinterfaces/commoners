@@ -16,11 +16,60 @@ import {
 import { removeDirectory } from '../../core/utils/files.js'
 
 import { join } from 'node:path'
+import { createConnection } from 'node:net'
+import { execSync } from 'node:child_process'
 
 import { chromium, Page, Browser } from 'playwright'
 import { ServiceBuildOptions } from '../../core/types.js'
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+/** Check if a TCP port has a listener by attempting a connection */
+const isPortBound = (port: number | string, host = '127.0.0.1'): Promise<boolean> =>
+  new Promise(resolve => {
+    const sock = createConnection({ port: Number(port), host })
+    sock.once('connect', () => { sock.destroy(); resolve(true) })
+    sock.once('error', () => { sock.destroy(); resolve(false) })
+    sock.setTimeout(1000, () => { sock.destroy(); resolve(false) })
+  })
+
+/** Get the PID owning a port (macOS/Linux only, best-effort) */
+const getPortOwner = (port: number | string): string | null => {
+  try {
+    if (process.platform === 'win32') {
+      const out = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, { encoding: 'utf8', timeout: 3000 })
+      const match = out.trim().match(/\s(\d+)\s*$/)
+      return match ? match[1] : null
+    }
+    const out = execSync(`lsof -ti :${port}`, { encoding: 'utf8', timeout: 3000 })
+    return out.trim().split('\n')[0] || null
+  } catch { return null }
+}
+
+/** Collect diagnostic info for CDP connection failures */
+const collectCdpDiagnostics = async (cdpPort: string, elapsed: number) => {
+  const diag: string[] = []
+  diag.push(`[CDP Diagnostics] Connection failed after ${elapsed}ms on port ${cdpPort}`)
+
+  // Check if port is bound at all
+  const bound = await isPortBound(cdpPort)
+  diag.push(`  Port ${cdpPort} bound: ${bound}`)
+
+  // Check what owns the port
+  const owner = getPortOwner(cdpPort)
+  diag.push(`  Port owner PID: ${owner || 'none/unknown'}`)
+
+  // Check platform
+  diag.push(`  Platform: ${process.platform}`)
+
+  // Check sandbox-related env vars
+  const sandboxVars = ['ELECTRON_DISABLE_SANDBOX', 'CHROME_DEVEL_SANDBOX']
+  for (const v of sandboxVars) {
+    if (process.env[v]) diag.push(`  ${v}=${process.env[v]}`)
+  }
+
+  return diag.join('\n')
+}
 
 type Output = {
   cleanup: Function
@@ -153,21 +202,51 @@ export const open = async (
 
     // Step 1: Wait for CDP HTTP endpoint
     let wsUrl: string | null = null
+    let pollAttempts = 0
+    let lastError = ''
+    let portBoundOnce = false
     while (Date.now() - start < cdpTimeout) {
+      pollAttempts++
       try {
         const resp = await fetch(`${cdpUrl}/json/version`)
         if (resp.ok) {
           const data = await resp.json()
           wsUrl = data.webSocketDebuggerUrl
-          console.log(`[CDP] Endpoint ready after ${Date.now() - start}ms`)
+          console.log(`[CDP] Endpoint ready after ${Date.now() - start}ms (${pollAttempts} attempts)`)
           break
+        } else {
+          const errText = `HTTP ${resp.status} ${resp.statusText}`
+          if (errText !== lastError) {
+            console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errText}`)
+            lastError = errText
+          }
         }
-      } catch {}
+      } catch (e: any) {
+        const errMsg = e?.cause?.code || e?.code || e?.message || String(e)
+        if (errMsg !== lastError) {
+          console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errMsg}`)
+          lastError = errMsg
+        }
+      }
+
+      // Periodic port-binding check (every ~5s) for extra diagnostics
+      if (pollAttempts % 5 === 0 && !portBoundOnce) {
+        const bound = await isPortBound(cdpPort)
+        if (bound) {
+          portBoundOnce = true
+          console.log(`[CDP] Port ${cdpPort} is now bound (poll #${pollAttempts}, ${Date.now() - start}ms)`)
+        }
+      }
+
       await sleep(delay)
       delay = Math.min(delay * 1.5, 3000)
     }
 
-    if (!wsUrl) throw new Error(`CDP endpoint not reachable after ${cdpTimeout}ms (${cdpUrl})`)
+    if (!wsUrl) {
+      const diagnostics = await collectCdpDiagnostics(cdpPort, Date.now() - start)
+      console.error(diagnostics)
+      throw new Error(`CDP endpoint not reachable after ${cdpTimeout}ms (${cdpUrl}). Last error: ${lastError}. See diagnostics above.`)
+    }
 
     // Step 2: Close broken targets via raw CDP before Playwright connects.
     // Packaged Electron builds may have a splash screen BrowserWindow whose HTML
@@ -249,9 +328,11 @@ export const open = async (
     // Step 3: Connect via Playwright CDP
     try {
       browser = await chromium.connectOverCDP(cdpUrl, { timeout: cdpTimeout })
-      console.log(`[CDP] Connected after ${Date.now() - start}ms`)
+      console.log(`[CDP] Playwright connected after ${Date.now() - start}ms`)
     } catch (e: any) {
-      throw new Error(`CDP connection to Electron timed out after ${cdpTimeout}ms (${cdpUrl}): ${(e.message || '').slice(0, 200)}`)
+      const diagnostics = await collectCdpDiagnostics(cdpPort, Date.now() - start)
+      console.error(diagnostics)
+      throw new Error(`CDP Playwright connection failed after ${cdpTimeout}ms (${cdpUrl}): ${(e.message || '').slice(0, 300)}`)
     }
 
     states.browser = browser
@@ -287,9 +368,21 @@ export const open = async (
 
     if (!states.page) {
       const pages = defaultContext.pages()
-      console.error(`[CDP] Page finding timed out. ${pages.length} page(s) available:`)
+      console.error(`[CDP] Page finding timed out after ${pageTimeout}ms. ${pages.length} page(s) available:`)
       for (const p of pages) {
-        try { console.error(`  - ${p.url()}`) } catch {}
+        try {
+          const url = p.url()
+          let evalResult = 'unknown'
+          try {
+            evalResult = await p.evaluate(() => {
+              const keys = Object.keys(globalThis).filter(k => k.startsWith('commoners') || k.startsWith('__commoners'))
+              return `globals: [${keys.join(', ')}], typeof commoners: ${typeof (globalThis as any).commoners}`
+            })
+          } catch (evalErr: any) {
+            evalResult = `evaluate failed: ${evalErr.message?.slice(0, 100)}`
+          }
+          console.error(`  - ${url} | ${evalResult}`)
+        } catch {}
       }
       throw new Error('Could not find main application page with commoners global')
     }

@@ -55,3 +55,4 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+service-hashes.json
