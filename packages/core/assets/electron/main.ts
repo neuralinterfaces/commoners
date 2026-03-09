@@ -199,7 +199,8 @@ Security.runVerification(isProduction).then(async isValid => {
     utils,
     createWindow,
     Window.restoreWindow,
-    runtime
+    runtime,
+    hooks
   )
 
   const boundRunAppPlugins = Plugins.createBoundRunAppPlugins(

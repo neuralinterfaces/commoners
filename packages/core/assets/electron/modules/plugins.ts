@@ -14,6 +14,7 @@ import { join, basename, extname } from 'node:path'
 import { runAppPlugins } from '../../plugins'
 import { pluginHandle, pluginOn, pluginSend, ListenerHandle } from './ipc'
 import type { DesktopRuntime } from '../../runtime/types'
+import type { HooksInterface } from '../../../types'
 
 /**
  * Plugin context for each plugin
@@ -32,6 +33,7 @@ export interface PluginContext {
   on: (channel: string, callback: (...args: any[]) => void, win?: BrowserWindow) => ListenerHandle
   setAttribute: (win: BrowserWindow, attr: string, value: any) => void
   getAttribute: (win: BrowserWindow, attr: string) => any
+  hooks: HooksInterface
   plugin: {
     assets: Record<string, string>
   }
@@ -49,7 +51,8 @@ export function initializePlugins(
   utils: any,
   createWindowFn: (page: string, opts: any) => Promise<BrowserWindow>,
   restoreWindowFn: () => BrowserWindow | null,
-  runtime?: DesktopRuntime
+  runtime?: DesktopRuntime,
+  hooks?: HooksInterface
 ): { plugins: Record<string, any>; contexts: Map<string, PluginContext> } {
   const contexts = new Map<string, PluginContext>()
 
@@ -112,6 +115,9 @@ export function initializePlugins(
         const scopedAttr = `window:${this.id}:${attr}`
         return (win as any)[scopedAttr]
       },
+
+      // Hooks interface for framework event bus
+      hooks: hooks || { emit: () => {}, on: () => () => {} },
 
       // Provide specific variables from the plugin
       plugin: {

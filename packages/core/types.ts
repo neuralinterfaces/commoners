@@ -261,6 +261,7 @@ type DesktopPluginContext = {
   ) => {
     remove: () => void
   }
+  hooks: HooksInterface
 
   setAttribute: (win, attr, value) => void
   getAttribute: (win, attr) => any

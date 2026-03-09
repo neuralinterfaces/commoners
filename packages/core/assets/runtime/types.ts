@@ -92,6 +92,7 @@ export interface RuntimePluginContext {
   open(): Promise<any | null>
   setAttribute(win: any, attr: string, value: any): void
   getAttribute(win: any, attr: string): any
+  hooks: { emit: (event: any) => void; on: (eventType: string, handler: (event: any) => void) => () => void }
   plugin: { assets: Record<string, string> }
 }
 
