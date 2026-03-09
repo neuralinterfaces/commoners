@@ -13,6 +13,7 @@ import { BrowserWindow } from 'electron'
 import { join, basename, extname } from 'node:path'
 import { runAppPlugins } from '../../plugins'
 import { pluginHandle, pluginOn, pluginSend, ListenerHandle } from './ipc'
+import type { DesktopRuntime } from '../../runtime/types'
 
 /**
  * Plugin context for each plugin
@@ -47,7 +48,8 @@ export function initializePlugins(
   electron: any,
   utils: any,
   createWindowFn: (page: string, opts: any) => Promise<BrowserWindow>,
-  restoreWindowFn: () => BrowserWindow | null
+  restoreWindowFn: () => BrowserWindow | null,
+  runtime?: DesktopRuntime
 ): { plugins: Record<string, any>; contexts: Map<string, PluginContext> } {
   const contexts = new Map<string, PluginContext>()
 
@@ -84,15 +86,20 @@ export function initializePlugins(
         return null
       },
       send: function (channel, ...args) {
+        if (runtime) return runtime.scopedIPC.pluginSend(this.id, channel, ...args)
         return pluginSend(this.id, channel, ...args)
       },
       handle: function (channel, callback, win?: BrowserWindow) {
-        const listener = pluginHandle(this.id, channel, callback)
-        if (win) (win as any).__listeners.push(listener) // Store the listener in the window
+        const listener = runtime
+          ? runtime.scopedIPC.pluginHandle(this.id, channel, callback)
+          : pluginHandle(this.id, channel, callback)
+        if (win) (win as any).__listeners.push(listener)
         return listener
       },
       on: function (channel, callback, win?: BrowserWindow) {
-        const listener = pluginOn(this.id, channel, callback)
+        const listener = runtime
+          ? runtime.scopedIPC.pluginOn(this.id, channel, callback)
+          : pluginOn(this.id, channel, callback)
         if (win) (win as any).__listeners.push(listener)
         return listener
       },

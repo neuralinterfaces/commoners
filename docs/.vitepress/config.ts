@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: 'Commoners',
-  description: 'Building Solidarity across Platforms',
+  description: 'Cross-platform apps with backend services in any language',
 
   head: [['link', { rel: 'icon', href: '/logo-min.png' }]],
 

@@ -2,16 +2,17 @@
  * Electron Runtime Adapter
  *
  * Implements the DesktopRuntime interface using Electron APIs.
- * Wraps the 6 existing Electron modules (config, security, ipc, window, protocol, lifecycle)
- * into a unified runtime interface.
+ * Wraps the existing Electron modules into a unified runtime interface.
  */
 
 import type {
   DesktopRuntime,
   RuntimeIPC,
+  RuntimeScopedIPC,
   RuntimeProtocol,
   RuntimeWindow,
   RuntimeLifecycle,
+  ListenerHandle,
   ProtocolSchemeConfig,
   ProtocolRequest,
   ProtocolResponse,
@@ -24,7 +25,7 @@ import * as Lifecycle from '../electron/modules/lifecycle.js'
 
 class ElectronIPC implements RuntimeIPC {
   send(channel: string, ...args: any[]): void {
-    const { ipcMain, BrowserWindow } = require('electron')
+    const { BrowserWindow } = require('electron')
     BrowserWindow.getAllWindows().forEach(win => IPC.send(win, channel, ...args))
   }
 
@@ -39,8 +40,6 @@ class ElectronIPC implements RuntimeIPC {
   }
 
   invoke(channel: string, ...args: any[]): Promise<any> {
-    // In the main process, invoke registers a handler
-    // This is exposed for symmetry; actual handler registration uses ipcMain.handle
     const { ipcMain } = require('electron')
     return new Promise((resolve, reject) => {
       ipcMain.once(channel, (_event, ...responseArgs) => resolve(responseArgs[0]))
@@ -55,6 +54,40 @@ class ElectronIPC implements RuntimeIPC {
   removeAllListeners(channel: string): void {
     const { ipcMain } = require('electron')
     ipcMain.removeAllListeners(channel)
+  }
+}
+
+class ElectronScopedIPC implements RuntimeScopedIPC {
+  scopedOn(type: string, id: string, channel: string, callback: (...args: any[]) => void): ListenerHandle {
+    return IPC.scopedOn(type, id, channel, callback)
+  }
+
+  scopedHandle(type: string, id: string, channel: string, callback: (...args: any[]) => any): ListenerHandle {
+    return IPC.scopedHandle(type, id, channel, callback)
+  }
+
+  scopedSend(type: string, id: string, channel: string, ...args: any[]): void {
+    IPC.scopedSend(type, id, channel, ...args)
+  }
+
+  serviceSend(id: string, channel: string, ...args: any[]): void {
+    IPC.serviceSend(id, channel, ...args)
+  }
+
+  serviceOn(id: string, channel: string, callback: (...args: any[]) => void): ListenerHandle {
+    return IPC.serviceOn(id, channel, callback)
+  }
+
+  pluginSend(id: string, channel: string, ...args: any[]): void {
+    IPC.pluginSend(id, channel, ...args)
+  }
+
+  pluginOn(id: string, channel: string, callback: (...args: any[]) => void): ListenerHandle {
+    return IPC.pluginOn(id, channel, callback)
+  }
+
+  pluginHandle(id: string, channel: string, callback: (...args: any[]) => any): ListenerHandle {
+    return IPC.pluginHandle(id, channel, callback)
   }
 }
 
@@ -84,8 +117,6 @@ class ElectronProtocol implements RuntimeProtocol {
 
 class ElectronWindow implements RuntimeWindow {
   async create(page?: string, options?: Record<string, any>): Promise<any> {
-    // Delegate to the registered createWindow function
-    // The actual window creation is orchestrated by main.ts
     throw new Error('Use createWindow from main.ts orchestrator instead')
   }
 
@@ -130,11 +161,14 @@ class ElectronLifecycle implements RuntimeLifecycle {
 }
 
 export function createElectronRuntime(): DesktopRuntime {
+  const electronModule = require('electron')
   return {
     name: 'electron',
     ipc: new ElectronIPC(),
+    scopedIPC: new ElectronScopedIPC(),
     protocol: new ElectronProtocol(),
     window: new ElectronWindow(),
     lifecycle: new ElectronLifecycle(),
+    native: electronModule,
   }
 }

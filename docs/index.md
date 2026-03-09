@@ -4,7 +4,7 @@ layout: home
 
 hero:
   name: Commoners
-  tagline: Cross-Platform Development for the Rest of Us
+  tagline: Build Cross-Platform Apps with Backend Services in Any Language
   image:
     src: /logo-min.png
     alt: Commoners
@@ -16,23 +16,22 @@ hero:
       text: Why Commoners?
       link: /why
 features:
-  - icon: 🌐
-    title: One Codebase. All Platforms.
-    details: Distribute on web, desktop, and mobile.
-  - icon: 💻
-    title: Web-First Development
-    details: Only HTML, CSS, and JavaScript required.
-  - icon: ⚡️
-    title: Blazing Fast
-    details: Built on Vite for an ideal developer experience.
-  - icon: 🔩
-    title: Modular Development
-    details: Use plugins to manage platform-specific code. 
   - icon: 🧩
-    title: Composable Architecture
-    details: Write services in any language.
-  - icon: 🏢
-    title: Built to Scale
-    details: Manage all your projects with one tool.
+    title: Multi-Language Services
+    details: Declare Python, Rust, C++, or Node backends in config. Auto-compiled, bundled, and deployed.
+  - icon: 🌐
+    title: One Config, All Platforms
+    details: Web, desktop (Electron), and mobile (iOS/Android) from a single commoners.config.ts.
+  - icon: 💻
+    title: Framework-Agnostic
+    details: HTML, CSS, and JavaScript. No React, Vue, or Dart required.
+  - icon: 🔀
+    title: Local + Remote Services
+    details: Services run locally on desktop, deploy remotely for web/mobile. Same code.
+  - icon: 🔩
+    title: Plugin System
+    details: Bluetooth, Serial, local service discovery. Platform-specific code stays separate.
+  - icon: ⚡️
+    title: Built on Vite
+    details: Hot reloading, fast builds, and modern tooling out of the box.
 ---
-

@@ -20,6 +20,14 @@ Build the project assets.
 #### Service Selection
 - `--service [name]` - Build a specific service. Can use multiple times. (`string`)
 
+### commoners share [root]
+Start services and advertise them on the local network via Bonjour/mDNS.
+- `[root]` - The root directory of the project (`string`)
+- `--service [name]` - Share specific service(s). Can use multiple times. (`string`)
+- `--port [port]` - Override port (single service only) (`number`)
+
+Other devices on the same network can discover shared services automatically (e.g. via `@commoners/local-services` plugin). Press Ctrl+C to stop sharing.
+
 ### commoners launch [path]
 Launch your built application.
 - `[path]` - The output directory of the build to launch (`string`)

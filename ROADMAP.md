@@ -44,6 +44,21 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 - Template includes: TypeScript HTTP service, splash screen plugin, multi-page navigation, env vars, mobile-ready Capacitor deps
 - Scaffolds via `npm create commoners` / `pnpm create commoners`
 
+### ~~Homepage & Why Page Messaging~~ — Documentation (done)
+- Rewrote homepage hero tagline and feature cards to lead with multi-language service orchestration
+- Restructured `docs/why.md` around the core differentiator (backend services across platforms)
+- Added competitor comparison table (Commoners vs Tauri vs Capacitor vs Quasar vs Expo)
+- Reframed Neural Interfaces origin story as proof rather than limitation
+- Updated site description in VitePress config
+
+### ~~`commoners share` CLI Command~~ — CLI (done)
+- New `commoners share` command starts services and advertises them on the local network via Bonjour/mDNS
+- `packages/core/share.ts`: `shareServices()` resolves config, builds services in dev mode, creates active services, publishes via `bonjour-service` (dynamic import)
+- CLI options: `--service <name>` to share specific services, `--port <port>` to override port (single service only)
+- Prints service URLs with local IP; clean shutdown on Ctrl+C (unpublish + close)
+- `bonjour-service` added as optional dependency to core package
+- Documented in `docs/reference/cli.md`
+
 ## Low–Medium Lift
 
 ### ~~E2E Electron Auto-Close~~ — Testing (done)
@@ -150,15 +165,15 @@ Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to w
 
 ## High Lift
 
-### Tauri Investigation — Desktop
+### Tauri Investigation — Desktop (Phase 1 done)
 - Compare how services are included in Electron vs the sidecar concept in Tauri
 - Tauri's sidecar model maps directly to compiled services (Rust, C++) — evaluate whether existing service compilation can target Tauri sidecars with minimal changes
 - Evaluate difficulty of providing Tauri analogues for all Electron-specific behaviors
 - Swap Tauri for Electron when no Electron-specific plugins are used
 - Rust services would be native Tauri sidecars rather than spawned child processes
-- No existing implementation; requires research, design, and significant new code
 - **Architecture boundary (decided):** When evaluating Tauri, the existing `packages/core/assets/electron/` modules should be refactored behind a `DesktopRuntime` interface. The 6 Electron modules (config, security, ipc, window, protocol, lifecycle) each map to Tauri equivalents — the interface should abstract per-module rather than as a monolith.
-- **Progress:** `DesktopRuntime` interface defined in `packages/core/assets/runtime/types.ts` with sub-interfaces (`RuntimeIPC`, `RuntimeProtocol`, `RuntimeWindow`, `RuntimeLifecycle`). `createElectronRuntime()` adapter in `packages/core/assets/runtime/electron.ts` wraps existing Electron modules. Not yet fully integrated — preparatory work for runtime swappability.
+- **Phase 1 complete:** `DesktopRuntime` interface extended with `RuntimeScopedIPC` (scoped IPC helpers for services/plugins), `RuntimePluginContext`, and `ListenerHandle`. `createElectronRuntime()` adapter implements all interfaces. `main.ts` now creates runtime at startup and routes service IPC (`serviceSend`, `serviceOn`) and plugin IPC (`pluginSend`, `pluginOn`, `pluginHandle`) through `runtime.scopedIPC.*`. Plugin context creation accepts optional `DesktopRuntime` parameter. Runtime exposes `native` property for Electron escape hatch.
+- **Remaining (Phase 2):** Renderer-side abstraction (preload still uses `ipcRenderer` directly), full `createWindow` delegation through runtime, abstracting `BrowserWindow` in plugin `desktop.load` hooks, implementing `TauriRuntime` adapter.
 
 ### Vite Plugin Refactor — Architecture
 - Investigate refactoring the core build system as a Vite plugin

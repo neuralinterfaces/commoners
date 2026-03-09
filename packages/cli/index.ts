@@ -3,6 +3,7 @@ import {
   buildServices,
   launch,
   launchServices,
+  shareServices,
   resolveServiceConfiguration,
   start,
   loadConfigFromFile,
@@ -218,6 +219,72 @@ cli
 
     } catch (error) { handleError(error) }
 
+  })
+
+// Share services on the local network
+cli
+  .command('share [root]', 'Start and advertise services on the local network')
+
+  .example('commoners share')
+  .example('commoners share --service api')
+  .example('commoners share --port 3000')
+
+  .option('--service <name>', 'Share specific service(s)')
+  .option('--port <port>', 'Override port (single service only)')
+
+  .action(async (root, options) => {
+    try {
+      const { config: configPath, service, port, stdin, ...overrides } = options
+      const config = await getConfig({ root, config: configPath, stdin })
+      if (!config) throw new CLIError('Configuration not found')
+      const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
+
+      const selectedServices = service
+        ? (typeof service === 'string' ? [service] : service)
+        : undefined
+
+      if (selectedServices && selectedServices.length > 1 && port)
+        throw new CLIError('Cannot specify port when sharing multiple services', 'Specify a single service to set a port')
+
+      hooks.ui.header('Sharing Services')
+
+      const result = await shareServices(
+        reconcile(config, overrides) as UserConfig,
+        { services: selectedServices, port: port ? parseInt(port, 10) : undefined, hooks }
+      )
+
+      const { active, localIP, cleanup } = result
+
+      const serviceEntries = Object.entries(active)
+      if (serviceEntries.length === 0) {
+        hooks.ui.error('No services were started')
+        process.exit(1)
+      }
+
+      for (const [id, svc] of serviceEntries) {
+        const url = (svc as any).url
+        if (url) {
+          // Show URL with local IP for network access
+          try {
+            const publicUrl = new URL(url)
+            publicUrl.hostname = localIP
+            hooks.ui.success(`${hooks.ui.target(id, { plain: true })}: ${publicUrl.href}`)
+          } catch {
+            hooks.ui.success(`${hooks.ui.target(id, { plain: true })}: ${url}`)
+          }
+        }
+      }
+
+      // Keep running until Ctrl+C
+      const onExit = () => {
+        hooks.ui.header('Stopping shared services...')
+        cleanup()
+        process.exit(0)
+      }
+      process.on('SIGINT', onExit)
+      process.on('SIGTERM', onExit)
+
+    } catch (error) { handleError(error) }
   })
 
 // Build the application using the specified settings

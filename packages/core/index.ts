@@ -65,6 +65,7 @@ export * from './assets/services/index.js' // Service Helpers
 export * as format from './utils/formatting.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
+export { shareServices } from './share.js'
 export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers

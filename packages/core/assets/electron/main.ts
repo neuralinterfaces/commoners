@@ -35,6 +35,11 @@ import * as Protocol from './modules/protocol'
 import * as Lifecycle from './modules/lifecycle'
 import * as Plugins from './modules/plugins'
 
+// Runtime abstraction (Phase 1)
+import { createElectronRuntime } from '../runtime/electron'
+import type { DesktopRuntime } from '../runtime/types'
+const runtime: DesktopRuntime = createElectronRuntime()
+
 // ------------------------ Configuration ------------------------
 const isProduction = !utils.is.dev
 const paths = Config.getPaths(isProduction)
@@ -190,7 +195,8 @@ Security.runVerification(isProduction).then(async isValid => {
     electron,
     utils,
     createWindow,
-    Window.restoreWindow
+    Window.restoreWindow,
+    runtime
   )
 
   const boundRunAppPlugins = Plugins.createBoundRunAppPlugins(
@@ -419,8 +425,8 @@ Security.runVerification(isProduction).then(async isValid => {
       // Create services
       const output = await services.createAll(resolvedServices, {
         ...baseServiceOptions,
-        onClosed: (id: string, code: number) => IPC.serviceSend(id, 'closed', code),
-        onLog: (id: string, msg: Buffer) => IPC.serviceSend(id, 'log', msg.toString()),
+        onClosed: (id: string, code: number) => runtime.scopedIPC.serviceSend(id, 'closed', code),
+        onLog: (id: string, msg: Buffer) => runtime.scopedIPC.serviceSend(id, 'log', msg.toString()),
         hooks,
       })
 
@@ -431,8 +437,8 @@ Security.runVerification(isProduction).then(async isValid => {
       // Track service status
       for (let id in resolved) {
         const isRemote = !(id in active)
-        IPC.serviceOn(id, 'status', ev => { ev.returnValue = isRemote ? 'remote' : active[id].status })
-        IPC.serviceOn(id, 'close', () => isRemote || closeService(id))
+        runtime.scopedIPC.serviceOn(id, 'status', ev => { ev.returnValue = isRemote ? 'remote' : active[id].status })
+        runtime.scopedIPC.serviceOn(id, 'close', () => isRemote || closeService(id))
       }
 
       // Custom protocol handler
