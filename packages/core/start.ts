@@ -25,7 +25,6 @@ import { getFreePorts } from './assets/services/network.js'
 
 import { startElectronInstance } from './vite/plugins/electron/index.js'
 import { buildAssets, getAppAssets } from './utils/assets.js'
-import { existsSync } from 'node:fs'
 
 const logger = createLogger('start')
 
@@ -170,7 +169,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     const services = getServices(resolvedConfig.extensions)
 
     const outDir = join(root, globalTempDir) // Temporary directory for the build
-    const scopedConfig = { ...resolvedConfig, outDir }
+    const scopedConfig = { ...resolvedConfig, outDir } as ResolvedConfig
+    // Preserve __resolved flag (non-enumerable, not copied by spread) so downstream
+    // functions that call resolveConfig() don't re-resolve with incompatible extensions format
+    Object.defineProperty(scopedConfig, '__resolved', { value: true })
     const filesystemManager = await handleTemporaryDirectories(scopedConfig)
 
     let closed
@@ -254,7 +256,9 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
           console.log('Error building assets:', err)
           throw err
         })
-        if (isDesktop(target)) await buildServices(scopedConfig, { dev: true, rebuild: true, hooks }) // Attempt to rebuild all
+        if (isDesktop(target)) {
+          await buildServices(scopedConfig, { dev: true, rebuild: true, hooks }) // Attempt to rebuild all
+        }
         configureForDesktop(outDir, root)
         const frontend = (startManager.frontend = await createServer(scopedConfig))
         startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server

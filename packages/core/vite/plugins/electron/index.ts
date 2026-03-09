@@ -143,7 +143,9 @@ export default async function commonersElectronPlugin({
             assignFromUserConfig.forEach(assignToConfig)
 
             const buildOptions = options.vite.build
-            buildOptions.watch ??= {}
+            // Disable watch mode in testing to prevent file-change-triggered reloads
+            // that would destroy the CDP page reference
+            if (!process.env.__COMMONERS_TESTING) buildOptions.watch ??= {}
             buildOptions.minify ??= false
 
             options.vite.plugins = [

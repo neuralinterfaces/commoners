@@ -55,7 +55,10 @@ export function scopedOn(
 }
 
 /**
- * Register a scoped IPC handler
+ * Register a scoped IPC handler.
+ * Replaces any existing handler for the same channel since ipcMain.handle
+ * only allows one handler per channel. This is needed because desktop.load
+ * runs for each window (e.g., splash + main).
  */
 export function scopedHandle(
   type: string,
@@ -64,8 +67,9 @@ export function scopedHandle(
   callback: (...args: any[]) => any
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
+  try { ipcMain.removeHandler(event) } catch {}
   ipcMain.handle(event, callback)
-  const remove = () => ipcMain.removeHandler(event)
+  const remove = () => { try { ipcMain.removeHandler(event) } catch {} }
   return { remove }
 }
 

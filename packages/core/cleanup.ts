@@ -64,6 +64,11 @@ export const exit = (code, force = true) => {
   return __EXITING.output = __exit(code, force)
 }
 
-const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
-exitEvents.forEach(event => process.on(event, (code) => exit(code, false))) // Register exit events, do not force exit though
-process.exit = exit as any
+// In testing mode, the test runner's afterAll handler is responsible for cleanup.
+// Registering exit event handlers here would cause premature cleanup (e.g., beforeExit
+// fires when the event loop is momentarily empty during test execution, killing Electron).
+if (!globalThis.process?.env?.__COMMONERS_TESTING) {
+  const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
+  exitEvents.forEach(event => process.on(event, (code) => exit(code, false))) // Register exit events, do not force exit though
+  process.exit = exit as any
+}

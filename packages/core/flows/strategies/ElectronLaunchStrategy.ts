@@ -125,6 +125,14 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
     if (PLATFORM === 'linux') {
       userArgs.add('--no-sandbox') // Ensure No Sandbox
     }
+
+    // Pass remote debugging port for testing
+    const rdpPort = process.env.COMMONERS_REMOTE_DEBUGGING_PORT
+    if (rdpPort) {
+      userArgs.add(`--remote-debugging-port=${rdpPort}`)
+      userArgs.add('--remote-allow-origins=*')
+    }
+
     if (PLATFORM === 'mac' && userArgs.size) {
       resolvedArgs.push('--args') // macOS-specific flag to pass additional arguments
     }

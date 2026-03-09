@@ -30,5 +30,6 @@
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0"
-  }
+  },
+  "main": "../../.commoners/electron/main.cjs"
 }

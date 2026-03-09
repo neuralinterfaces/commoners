@@ -14,7 +14,7 @@ export function load({ DESKTOP, ENV }) {
     env: originalEnv,
     echo: message => {
       if (DESKTOP)
-        return this.sendSync(echoEventName, message) // Electron Echo Test
+        return this.invoke(echoEventName, message) // Electron Echo Test (async IPC)
       else return message // Basic Echo Test
     },
     src,
@@ -23,6 +23,6 @@ export function load({ DESKTOP, ENV }) {
 
 export const desktop = {
   load: function () {
-    this.on(echoEventName, (ev, message) => (ev.returnValue = message))
+    this.handle(echoEventName, (ev, message) => message)
   },
 }

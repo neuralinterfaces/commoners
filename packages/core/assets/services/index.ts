@@ -327,6 +327,9 @@ export async function resolveService(config, name, opts: ServiceOptions) {
 
   if (!resolvedForBuild) return // Reject flagged service
 
+  // WASM services run in-browser — return early with markers preserved
+  if (resolvedForBuild.__wasm || resolvedForBuild.type === 'wasm') return resolvedForBuild
+
   // Return URL only
   const keys = Object.keys(resolvedForBuild)
   const onlyURL = keys.length === 1 && keys[0] === 'url'

@@ -82,7 +82,8 @@ const TEMP_COMMONERS = {
 for (let id in TEMP_COMMONERS.services) {
   const service = TEMP_COMMONERS.services[id]
 
-  service.status = ipcRenderer.sendSync(`services:${id}:status`)
+  let _status = ipcRenderer.sendSync(`services:${id}:status`)
+  service.status = () => _status
 
   const listeners = {
     closed: [],
@@ -91,19 +92,19 @@ for (let id in TEMP_COMMONERS.services) {
   }
 
   ipcRenderer.on(`services:${id}:log`, _ => {
-    if (service.status) return
-    service.status = true
+    if (_status) return
+    _status = true
   })
 
   ipcRenderer.on(`services:${id}:closed`, (_, code) => {
-    if (service.status === false) return
-    service.status = false
+    if (_status === false) return
+    _status = false
     listeners.closed.forEach(f => f(code))
   })
 
   // ---------------- Assign Functions ----------------
   service.onClosed = listener => {
-    if (service.status === false) listener()
+    if (_status === false) listener()
     listeners.closed.push(listener)
   }
 

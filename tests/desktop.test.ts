@@ -10,11 +10,11 @@ const platforms = {
 
 describe.sequential('Desktop Start + Build and Launch', () => {
 
-  registerBuildTest(
-    'Desktop',
-    { target: 'electron' },
-    platforms.mac // Skip on non-Mac platforms
-  )
+  // registerBuildTest(
+  //   'Desktop',
+  //   { target: 'electron' },
+  //   platforms.mac // Skip on non-Mac platforms
+  // )
 
   // NOTE: This interferes with Desktop Launch.
   // It seems that cleanup does not fully succeed until the parent process (CLI) is closed

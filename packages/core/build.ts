@@ -17,7 +17,7 @@ import type {
 } from './types.js'
 import type { Logger } from './assets/utils/logger.js'
 import { BuiltAppMetadata } from './flows/BuildFlow.js'
-import { globalServiceWorkspacePath } from './assets/services/paths.js'
+import { globalServiceWorkspacePath, globalTempServiceWorkspacePath } from './assets/services/paths.js'
 
 // Lazy logger instance (created on first use)
 let logger: Logger
@@ -52,7 +52,10 @@ export const buildServices = async (
 
   getLogger().debug('Building services', { dev, rebuild, serviceCount: services?.length })
 
-  const resolvedConfig = await resolveConfig(config, { services, build: true })
+  // In dev mode, resolve with build: false so service filepaths use the temp directory
+  // (.commoners/.tmp/services/) matching what the Electron main process expects.
+  // In production, resolve with build: true for the standard output directory.
+  const resolvedConfig = await resolveConfig(config, { services, build: !dev })
   const { hooks } = resolvedConfig
   const { root, target } = resolvedConfig
 
@@ -71,7 +74,8 @@ export const buildServices = async (
 
 
   const assets = await getServiceAssets(resolvedConfig, dev, rebuild, hooks)
-  const resolvedOutDir = outDir ?? resolve(join(root, globalServiceWorkspacePath))
+  const defaultServiceDir = dev ? globalTempServiceWorkspacePath : globalServiceWorkspacePath
+  const resolvedOutDir = outDir ?? resolve(join(root, defaultServiceDir))
   const results = await buildAssets(assets, { root, outDir: resolvedOutDir, target, dev })
 
   getLogger().debug('Emitting build:assets:complete', { phase: 'services', resultCount: results.length })

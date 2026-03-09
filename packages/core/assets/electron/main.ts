@@ -46,6 +46,23 @@ const { config, electron: electronOptions, plugins } = electronConfig
 const options = Config.parseOptions(electronConfig, isProduction)
 const { protocolOptions, windowOptions, securitySettings } = options
 
+// Set remote debugging port early — must happen before app.whenReady()
+// This is done here (not in the plugin start() hook) because Chromium reads
+// command-line switches during initialization, which may complete before the
+// async plugin lifecycle runs.
+if (process.env.__COMMONERS_TESTING) {
+  const testingPlugin = Object.values(plugins).find(
+    (p: any) => p.options?.remoteDebuggingPort
+  )
+  if (testingPlugin) {
+    const { remoteDebuggingPort, remoteAllowOrigins } = (testingPlugin as any).options
+    if (remoteDebuggingPort)
+      app.commandLine.appendSwitch('remote-debugging-port', `${remoteDebuggingPort}`)
+    if (remoteAllowOrigins)
+      app.commandLine.appendSwitch('remote-allow-origins', `${remoteAllowOrigins}`)
+  }
+}
+
 // ------------------------ Setup ------------------------
 Lifecycle.setupQuitHandler()
 Lifecycle.handleUncaughtExceptions()
@@ -484,7 +501,11 @@ Security.runVerification(isProduction).then(async isValid => {
 
       createMainWindow()
       app.on('activate', () => createMainWindow())
+    }).catch(err => {
+      console.error('[commoners:main] Error in app.whenReady chain:', err)
     })
+  }).catch(err => {
+    console.error('[commoners:main] Error in service resolution chain:', err)
   })
 
   // ------------------------ Lifecycle Handlers ------------------------
