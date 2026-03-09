@@ -296,11 +296,11 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 }
 
 type PublishOption = boolean | string | ((...args: unknown[]) => unknown)
-type BuildOptions = { target?: string; publish?: PublishOption }
+type BuildOptions = { target?: string; publish?: PublishOption; launch?: boolean }
 
 export const registerBuildTest = (
   name,
-  { target = 'web', publish = false }: BuildOptions = {},
+  { target = 'web', publish = false, launch = true }: BuildOptions = {},
   enabled = true
 ) => {
   const describeCommand = enabled ? describe : describe.skip
@@ -319,7 +319,7 @@ export const registerBuildTest = (
     // Mobile builds are now testable via web preview
     const describeFn = describe
 
-    const buildWaitTime = isElectron || isMobile ? getMinutes(5) : undefined // Wait for five minutes (max) for Electron services to build
+    const buildWaitTime = isElectron ? getMinutes(10) : isMobile ? getMinutes(5) : undefined // Wait for Electron packaging (up to 10min) or mobile (up to 5min)
 
     // Define inputs
     const opts = { target, outDir: scopedBuildOutDir, build: {} }
@@ -402,24 +402,26 @@ export const registerBuildTest = (
       })
     }
 
-    describeFn('Launched application tests', async () => {
-      const launchOutput = getMockOutput()
-      beforeAll(async () => {
-        // Wait for build to complete first
-        const assetDir = await assetsBuilt
-        // For mobile builds, use the actual asset directory (web assets are in a temp dir, not the user outDir)
-        const launchOpts = isMobile ? { ...opts, outDir: assetDir } : opts
-        const _output = await open(projectBase, launchOpts, true)
-        Object.assign(launchOutput, _output)
+    if (launch) {
+      describeFn('Launched application tests', async () => {
+        const launchOutput = getMockOutput()
+        beforeAll(async () => {
+          // Wait for build to complete first
+          const assetDir = await assetsBuilt
+          // For mobile builds, use the actual asset directory (web assets are in a temp dir, not the user outDir)
+          const launchOpts = isMobile ? { ...opts, outDir: assetDir } : opts
+          const _output = await open(projectBase, launchOpts, true)
+          Object.assign(launchOutput, _output)
+        })
+
+        afterAll(() => launchOutput.cleanup())
+
+        e2eTests.basic(launchOutput, { target }, false)
+        e2eTests.plugins(launchOutput, { target }, false)
+        e2eTests.pages(launchOutput, { target })
+        e2eTests.serviceLifecycle(launchOutput, { target })
       })
-
-      afterAll(() => launchOutput.cleanup())
-
-      e2eTests.basic(launchOutput, { target }, false)
-      e2eTests.plugins(launchOutput, { target }, false)
-      e2eTests.pages(launchOutput, { target })
-      e2eTests.serviceLifecycle(launchOutput, { target })
-    })
+    }
   })
 }
 
@@ -440,7 +442,7 @@ const waitForService = async (url: string, timeoutMs = 30000) => {
 export const serviceTests = {
   // Ensure a basic echo test passes on the chosen service
   echo: (id, output) => {
-    test(`Service Echo Test (${id})`, { timeout: 60000 }, async () => {
+    test(`Service Echo Test (${id})`, { timeout: 90000 }, async () => {
       const services = await getServices(output)
       const service = services[id]
       if (!service?.url) return

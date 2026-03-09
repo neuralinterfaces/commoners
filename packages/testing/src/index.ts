@@ -133,27 +133,126 @@ export const open = async (
   }
 
   // Launched Electron Instance
+  //
+  // CDP Connection Strategy:
+  // 1. Poll HTTP endpoint until CDP server is ready (~2-4s for packaged builds)
+  // 2. Close broken targets (e.g. splash screen with missing HTML) that would cause
+  //    Playwright to hang — these targets don't respond to CDP page commands, and
+  //    Playwright's Target.setAutoAttach + waitForDebuggerOnStart pauses them forever
+  // 3. Connect via Playwright's connectOverCDP
+  //
+  // IMPORTANT: Use 127.0.0.1, not localhost — avoids IPv6 resolution issues on some systems.
   if (isElectron) {
     const cdpPort = process.env.COMMONERS_REMOTE_DEBUGGING_PORT
-    const cdpUrl = `http://localhost:${cdpPort}`
+    const cdpUrl = `http://127.0.0.1:${cdpPort}`
 
-    // Retry CDP connection — Electron needs time to start and initialize
-    // the remote debugging server. Poll until the CDP endpoint responds.
     const cdpTimeout = 30_000
     const start = Date.now()
     let browser: Browser | null = null
     let delay = 500
+
+    // Step 1: Wait for CDP HTTP endpoint
+    let wsUrl: string | null = null
     while (Date.now() - start < cdpTimeout) {
       try {
-        browser = await chromium.connectOverCDP(cdpUrl)
-        break
-      } catch {
-        await sleep(delay)
-        delay = Math.min(delay * 1.5, 3000)
-      }
+        const resp = await fetch(`${cdpUrl}/json/version`)
+        if (resp.ok) {
+          const data = await resp.json()
+          wsUrl = data.webSocketDebuggerUrl
+          console.log(`[CDP] Endpoint ready after ${Date.now() - start}ms`)
+          break
+        }
+      } catch {}
+      await sleep(delay)
+      delay = Math.min(delay * 1.5, 3000)
     }
 
-    if (!browser) throw new Error(`CDP connection to Electron timed out after ${cdpTimeout}ms (${cdpUrl})`)
+    if (!wsUrl) throw new Error(`CDP endpoint not reachable after ${cdpTimeout}ms (${cdpUrl})`)
+
+    // Step 2: Close broken targets via raw CDP before Playwright connects.
+    // Packaged Electron builds may have a splash screen BrowserWindow whose HTML
+    // file is missing (404). This creates a CDP page target that accepts session
+    // attachment but never responds to Page.enable, Runtime.enable, etc.
+    // When Playwright's connectOverCDP sends Target.setAutoAttach with
+    // waitForDebuggerOnStart:true, the broken target gets paused forever,
+    // causing Playwright to hang for 30s and timeout.
+    // Fix: use raw WebSocket to close targets with empty URLs before Playwright connects.
+    try {
+      const closedTargets = await new Promise<number>((resolve) => {
+        const ws = new WebSocket(wsUrl!)
+        const timer = setTimeout(() => { ws.close(); resolve(0) }, 10000)
+
+        ws.addEventListener('open', () => {
+          ws.send(JSON.stringify({ id: 1, method: 'Target.getTargets' }))
+        })
+
+        ws.addEventListener('message', (event) => {
+          const data = JSON.parse(String(event.data))
+          if (data.id === 1 && data.result?.targetInfos) {
+            const targets = data.result.targetInfos as Array<{ targetId: string; url: string; type: string }>
+            // Close page targets with empty or missing URLs — these are broken windows
+            const broken = targets.filter(t => t.type === 'page' && (!t.url || t.url === '' || t.url === 'about:blank'))
+
+            if (broken.length === 0) {
+              clearTimeout(timer)
+              ws.close()
+              resolve(0)
+              return
+            }
+
+            let closedCount = 0
+            for (const t of broken) {
+              console.log(`[CDP] Closing broken target: ${t.targetId} (url: "${t.url}")`)
+              ws.send(JSON.stringify({
+                id: 100 + closedCount,
+                method: 'Target.closeTarget',
+                params: { targetId: t.targetId }
+              }))
+              closedCount++
+            }
+
+            // Wait briefly for close confirmations, then proceed
+            const closeTimer = setTimeout(() => {
+              clearTimeout(timer)
+              ws.close()
+              resolve(closedCount)
+            }, 2000)
+
+            let responses = 0
+            const origHandler = ws.onmessage
+            ws.addEventListener('message', (evt) => {
+              const msg = JSON.parse(String(evt.data))
+              if (msg.id && msg.id >= 100) {
+                responses++
+                if (responses >= closedCount) {
+                  clearTimeout(closeTimer)
+                  clearTimeout(timer)
+                  ws.close()
+                  resolve(closedCount)
+                }
+              }
+            })
+          }
+        })
+
+        ws.addEventListener('error', () => { clearTimeout(timer); resolve(0) })
+      })
+
+      if (closedTargets > 0) {
+        console.log(`[CDP] Closed ${closedTargets} broken target(s), waiting for cleanup...`)
+        await sleep(1000) // Give CDP server time to clean up closed targets
+      }
+    } catch (e: any) {
+      console.log(`[CDP] Target cleanup warning: ${e.message}`)
+    }
+
+    // Step 3: Connect via Playwright CDP
+    try {
+      browser = await chromium.connectOverCDP(cdpUrl, { timeout: cdpTimeout })
+      console.log(`[CDP] Connected after ${Date.now() - start}ms`)
+    } catch (e: any) {
+      throw new Error(`CDP connection to Electron timed out after ${cdpTimeout}ms (${cdpUrl}): ${(e.message || '').slice(0, 200)}`)
+    }
 
     states.browser = browser
     const defaultContext = browser.contexts()[0]
@@ -282,16 +381,32 @@ export const open = async (
       }
 
       // Close the start manager (Vite server, services, filesystem)
-      if (states.cleanup) await states.cleanup()
+      try {
+        if (states.cleanup) await states.cleanup()
+      } catch (e: any) {
+        console.warn(`[cleanup] Start manager close warning: ${e.message}`)
+      }
 
       // Run solidarity cleanup chain (kills Electron process tree via onCleanup handlers)
-      await cleanup()
+      try {
+        await cleanup()
+      } catch (e: any) {
+        console.warn(`[cleanup] Solidarity cleanup warning: ${e.message}`)
+      }
 
-      // Close Playwright browsers
-      if (states.browser) await states.browser.close()
+      // Close Playwright browsers (may already be disconnected)
+      try {
+        if (states.browser) await states.browser.close()
+      } catch (e: any) {
+        console.warn(`[cleanup] Browser close warning: ${e.message}`)
+      }
 
       // Close active servers
-      if (states.server) states.server.close()
+      try {
+        if (states.server) states.server.close()
+      } catch (e: any) {
+        console.warn(`[cleanup] Server close warning: ${e.message}`)
+      }
     },
   } as BrowserTestOutput
 

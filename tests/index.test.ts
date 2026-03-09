@@ -4,5 +4,7 @@
 import './config.test'
 import './start.test'
 import './build.test'
+import './desktop-build.test'
 import './desktop.test'
+import './desktop-zlaunch.test'
 import './services.test'

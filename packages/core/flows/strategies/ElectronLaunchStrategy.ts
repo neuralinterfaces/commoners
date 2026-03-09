@@ -6,6 +6,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { cpus } from 'node:os'
+import { spawn } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
 import { TARGET_ELECTRON } from '../../constants.js'
@@ -118,19 +119,72 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
     const resolvedArgs = [`"${fullPath}"`] // The path to the executable file
     const userArgs = new Set<string>() // User-provided arguments
 
-    // Set the appropriate command based on the platform
-    if (PLATFORM === 'windows' || PLATFORM === 'linux') {
-      runExecutableCommand = resolvedArgs.shift()! // Run executable directly
-    }
-    if (PLATFORM === 'linux') {
-      userArgs.add('--no-sandbox') // Ensure No Sandbox
-    }
-
-    // Pass remote debugging port for testing
+    // Pass remote debugging port and stability flags for testing
     const rdpPort = process.env.COMMONERS_REMOTE_DEBUGGING_PORT
     if (rdpPort) {
       userArgs.add(`--remote-debugging-port=${rdpPort}`)
       userArgs.add('--remote-allow-origins=*')
+    }
+    if (process.env.__COMMONERS_TESTING) {
+      userArgs.add('--in-process-gpu')
+      userArgs.add('--disable-dev-shm-usage')
+    }
+
+    // Set the appropriate command based on the platform
+    if (PLATFORM === 'windows' || PLATFORM === 'linux') {
+      runExecutableCommand = resolvedArgs.shift()! // Run executable directly
+    }
+
+    if (PLATFORM === 'linux') {
+      userArgs.add('--no-sandbox') // Ensure No Sandbox
+    }
+
+    // IMPORTANT: On macOS, we must directly invoke the binary inside the .app bundle
+    // instead of using the `open` command. The `open` command passes CLI flags via
+    // --args, but Chromium's `--remote-debugging-port` must be present during native
+    // init (before the browser process forks). The `open` command delivers args too
+    // late, so the CDP server never starts.
+    //
+    // We use `spawn` directly (not `spawnProcess`) because the binary runs
+    // indefinitely as a GUI app — `spawnProcess` would block forever.
+    //
+    // NOTE: Packaged builds may have a splash screen plugin that creates a broken
+    // CDP target (missing splash.html → empty page). The testing package closes
+    // these targets via raw CDP before Playwright connects. See testing/src/index.ts.
+    if (PLATFORM === 'mac' && rdpPort) {
+      const macOSDir = join(fullPath, 'Contents', 'MacOS')
+      const binName = readdirSync(macOSDir)[0]
+      const binPath = join(macOSDir, binName)
+      const allArgs = [...userArgs]
+
+      console.error(`[ElectronLaunch] Spawning binary: ${binPath}`)
+      console.error(`[ElectronLaunch] Args: ${JSON.stringify(allArgs)}`)
+
+      const proc = spawn(binPath, allArgs, {
+        cwd: context.root,
+        env: { ...process.env, FORCE_COLOR: '1' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+      })
+
+      proc.stdout?.on('data', (data) => {
+        console.error(`[ElectronLaunch:stdout] ${data.toString().trim()}`)
+      })
+
+      proc.stderr?.on('data', (data) => {
+        console.error(`[ElectronLaunch:stderr] ${data.toString().trim()}`)
+      })
+
+      proc.on('error', (err) => {
+        console.error(`[ElectronLaunch] Spawn error: ${err.message}`)
+      })
+
+      proc.on('exit', (code, signal) => {
+        console.error(`[ElectronLaunch] Process exited: code=${code}, signal=${signal}`)
+      })
+
+      console.error(`[ElectronLaunch] Spawned PID: ${proc.pid}`)
+      return { url: null }
     }
 
     if (PLATFORM === 'mac' && userArgs.size) {
@@ -138,7 +192,7 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
     }
     resolvedArgs.push(...userArgs) // Add any additional arguments
 
-    // Launch the Electron app
+    // Launch the Electron app (uses `open` on macOS, direct binary on other platforms)
     await spawnProcess(
       runExecutableCommand,
       resolvedArgs,

@@ -31,5 +31,5 @@
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0"
   },
-  "main": "../../.commoners/electron/main.cjs"
+  "main": ".commoners/.tmp/electron/main.cjs"
 }

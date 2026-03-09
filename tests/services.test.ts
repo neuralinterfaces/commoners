@@ -11,6 +11,7 @@ import { execSync } from 'node:child_process'
 import { EXTRA_OUTPUT_LOCATIONS, projectBase } from './utils'
 import { buildServices } from '@commoners/testing'
 
+// PyInstaller must be directly on PATH (e.g. via `conda activate commoners-demo`)
 const hasPyInstaller = (() => {
   try { execSync('pyinstaller --version', { stdio: 'ignore' }); return true }
   catch { return false }
