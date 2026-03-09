@@ -95,6 +95,9 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     pkg.main = 'main.cjs' // Entry point relative to the asar root
     writeFileSync(tempPkgPath, JSON.stringify(pkg, null, 2))
 
+    // Generate service binary hash manifest before packaging
+    await this.generateServiceHashManifest(context, __outDir)
+
     // Build electron-builder configuration
     const electronBuilderConfig = await this.buildElectronConfig(
       context,
@@ -394,12 +397,16 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     const { securitySettings } = parseOptions(config, true)
 
     // Check if security is completely disabled
-    if (securitySettings.asarIntegrity !== true) {
+    const { asarIntegrity } = securitySettings
+    if (asarIntegrity === false) {
       logger.debug('ASAR integrity disabled by configuration')
       return
     }
 
-    logger.debug('Configuring ASAR integrity validation')
+    // Parse strict option from asarIntegrity setting
+    const strict = typeof asarIntegrity === 'object' ? (asarIntegrity.strict ?? true) : true
+
+    logger.debug('Configuring ASAR integrity validation', { strict })
 
     // Import ASAR security utilities
     const {
@@ -409,7 +416,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     } = await import('../../utils/asar/security.js')
 
     // Create the integrity embedding hook
-    const embedIntegrity = makeAfterPackEmbedAsarIntegrity()
+    const embedIntegrity = makeAfterPackEmbedAsarIntegrity({ strict })
 
     // Chain afterPack hooks: embed integrity first, then flip fuses
     const existingAfterPack = buildConfig.afterPack as any
@@ -420,5 +427,44 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     ) as any
 
     logger.debug('ASAR integrity hooks configured')
+  }
+
+  /**
+   * Generate a SHA256 hash manifest of executable service binaries.
+   * Written to the build output so it's packaged into the ASAR,
+   * enabling runtime integrity verification before spawning services.
+   */
+  private async generateServiceHashManifest(
+    context: BuildContext,
+    outDir: string
+  ): Promise<void> {
+    const { existsSync, readFileSync, writeFileSync } = await import('node:fs')
+    const { extname } = await import('node:path')
+    const { sha256 } = await import('../../utils/asar/hash.js')
+    const { getServices } = await import('../../utils/extensions.js')
+
+    const services = getServices(context.config.extensions)
+    const hashes: Record<string, string> = {}
+
+    for (const [id, service] of Object.entries(services)) {
+      const { filepath } = service
+      if (!filepath) continue
+
+      const ext = extname(filepath)
+      const isExecutable = ext === '.exe' || ext === '' || !ext
+      if (!isExecutable) continue
+
+      if (!existsSync(filepath)) continue
+
+      const buf = readFileSync(filepath)
+      hashes[id] = sha256(buf)
+      logger.debug(`Service hash: ${id} -> ${hashes[id].slice(0, 12)}...`)
+    }
+
+    if (Object.keys(hashes).length > 0) {
+      const manifestPath = join(outDir, 'service-hashes.json')
+      writeFileSync(manifestPath, JSON.stringify(hashes, null, 2))
+      logger.info('Service hash manifest generated', { services: Object.keys(hashes) })
+    }
   }
 }

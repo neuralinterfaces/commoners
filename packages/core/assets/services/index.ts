@@ -24,6 +24,7 @@ type ServiceOptions = {
   services?: any // Truthy
   build?: boolean // Default: true
   hooks?: HooksInterface
+  hashManifest?: Record<string, string> | null // SHA256 hashes of service binaries for integrity verification
 }
 
 const WINDOWS = process.platform === 'win32'
@@ -494,6 +495,23 @@ export async function start(
           error: new Error(`File does not exist at ${resolvedFilepath}`),
           service: label,
         })
+      }
+
+      // Verify binary integrity when a hash manifest is available
+      if (isExecutable(ext) && opts.hashManifest?.[id]) {
+        const { createHash } = require('node:crypto')
+        const { readFileSync } = require('node:fs')
+        const actual = createHash('sha256').update(readFileSync(resolvedFilepath)).digest('hex')
+        if (actual !== opts.hashManifest[id]) {
+          hooks.emit({ type: 'security:service:integrity:fail', service: label, expected: opts.hashManifest[id], actual })
+          return hooks.emit({
+            type: 'service:launch:error',
+            error: new Error(`Service binary integrity check failed for ${label}: expected ${opts.hashManifest[id].slice(0, 12)}..., got ${actual.slice(0, 12)}...`),
+            service: label,
+            filepath: resolvedFilepath,
+          })
+        }
+        hooks.emit({ type: 'security:service:integrity:pass', service: label, hash: actual })
       }
 
       const resolvedProcessOptions = {

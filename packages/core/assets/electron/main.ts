@@ -150,8 +150,11 @@ Security.runVerification(isProduction).then(async isValid => {
     if (existsSync(index)) return index
     if (existsSync(html)) return html
 
-    // If neither exists, return index.html (for ASAR compatibility)
-    return alt ? html : index
+    // In production (ASAR), fall back since existsSync may not work for virtual directories
+    if (isProduction) return alt ? html : index
+
+    // In dev mode, no phantom pages — file must actually exist
+    return null
   }
 
   async function loadPage(win: BrowserWindow, page?: string): Promise<string> {
@@ -412,6 +415,18 @@ Security.runVerification(isProduction).then(async isValid => {
 
   if (config.name) app.setName(config.name)
 
+  // ------------------------ Service Hash Manifest ------------------------
+  let serviceHashManifest: Record<string, string> | null = null
+  if (isProduction) {
+    try {
+      const hashManifestPath = join(ASSET_ROOT_DIR, 'service-hashes.json')
+      if (existsSync(hashManifestPath)) {
+        const { readFileSync } = require('node:fs')
+        serviceHashManifest = JSON.parse(readFileSync(hashManifestPath, 'utf8'))
+      }
+    } catch {}
+  }
+
   // ------------------------ Service Resolution ------------------------
   const baseServiceOptions = { target: 'desktop', build: isProduction, root: PROJECT_ROOT_DIR }
 
@@ -428,6 +443,7 @@ Security.runVerification(isProduction).then(async isValid => {
         onClosed: (id: string, code: number) => runtime.scopedIPC.serviceSend(id, 'closed', code),
         onLog: (id: string, msg: Buffer) => runtime.scopedIPC.serviceSend(id, 'log', msg.toString()),
         hooks,
+        hashManifest: serviceHashManifest,
       })
 
       const { active = {}, resolved = {}, close: closeService } = output
@@ -448,6 +464,21 @@ Security.runVerification(isProduction).then(async isValid => {
         app.setAppUserModelId(`com.${scheme}`)
 
         protocol.handle(scheme, req => {
+          // Validate request origin to prevent cross-origin access
+          const origin = req.headers.get('origin') || ''
+          const referer = req.headers.get('referer') || ''
+          const source = origin || referer
+
+          if (source) {
+            const isAppOrigin = source.startsWith(`${scheme}://`)
+            const isDevOrigin = DEV_SERVER_URL && source.startsWith(DEV_SERVER_URL)
+            const isFileOrigin = source.startsWith('file://')
+            if (!isAppOrigin && !isDevOrigin && !isFileOrigin) {
+              hooks.emit({ type: 'security:protocol:blocked', origin: source, url: req.url })
+              return new Response('Forbidden', { status: 403 })
+            }
+          }
+
           const loadedURL = new URL(req.url)
           const { host, pathname, search, hash } = loadedURL
           const updatedPathname = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
@@ -484,11 +515,17 @@ Security.runVerification(isProduction).then(async isValid => {
             return new Response(`${pluginId} is not a valid plugin`, { status: 404 })
           }
 
-          // Pages host: navigate window
+          // Pages host: navigate window and return file content as Response
           const resolvedPath =
             host === 'pages'
               ? updatedPathname
-              : (updatedPathname ? `${host}${updatedPathname}` : host) + search + hash
+              : (updatedPathname ? `${host}${updatedPathname}` : host)
+
+          // Validate page exists before navigating
+          const pageLocation = getPageLocation(resolvedPath)
+          if (!pageLocation) {
+            return new Response(`Page not found: ${resolvedPath}`, { status: 404 })
+          }
 
           // Propagate search and hash from protocol URL to page location
           const targetWindow = Window.restoreWindow()!
@@ -498,8 +535,16 @@ Security.runVerification(isProduction).then(async isValid => {
               __location.search = search || undefined
               __location.hash = hash || undefined
             }
+            loadPage(targetWindow, resolvedPath)
           }
-          loadPage(targetWindow, resolvedPath)
+
+          // Return page content as Response to satisfy protocol.handle()
+          try {
+            const fetchUrl = DEV_SERVER_URL ? pageLocation : pathToFileURL(pageLocation).href
+            return net.fetch(fetchUrl)
+          } catch {
+            return new Response(`Failed to load page: ${resolvedPath}`, { status: 500 })
+          }
         })
       }
 

@@ -58,6 +58,10 @@ export type SecurityEvent =
   | { type: 'security:warning'; message: string; context?: string }
   | { type: 'security:integrity:start'; asarPath: string }
   | { type: 'security:integrity:complete'; asarPath: string; success: boolean }
+  | { type: 'security:protocol:blocked'; origin: string; url: string }
+  | { type: 'security:service:integrity:pass'; service: string; hash: string }
+  | { type: 'security:service:integrity:fail'; service: string; expected: string; actual: string }
+  | { type: 'security:asar:strict:error'; message: string }
 
 export type DevServerEvent =
   | { type: 'dev:start'; config: ResolvedConfig; }
@@ -359,7 +363,7 @@ export type ElectronSecuritySettings = {
   devTools?: boolean // Enable devTools (default: !isProduction)
   contextIsolation?: boolean // Enable context isolation (default: true)
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
-  asarIntegrity?: boolean // Enable ASAR integrity checks (default: true)
+  asarIntegrity?: boolean | { strict?: boolean } // Enable ASAR integrity checks (default: true)
 }
 
 export type ElectronOptions = {

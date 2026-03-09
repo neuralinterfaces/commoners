@@ -200,7 +200,12 @@ function logIntegritySetupStatus(): void {
   log('=====================================')
 }
 
-export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
+export function makeAfterPackEmbedAsarIntegrity(options?: {
+  mutateAsar?: MutateAsarFn
+  strict?: boolean
+}) {
+  const { mutateAsar, strict = true } = options ?? {}
+
   return async function afterPackOrArtifact(context: any & ArtifactCtx) {
     try {
       // Log current setup status for visibility
@@ -209,8 +214,11 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
       // FIRST: Validate dependencies before attempting anything
       const hasValidDeps = validateDependenciesForIntegrity()
       if (!hasValidDeps) {
+        if (strict) {
+          throw new Error('ASAR integrity embedding failed: required dependencies are missing. Install ffi-napi ref-napi or rcedit, or set asarIntegrity: { strict: false } to skip.')
+        }
         warn('Skipping ASAR integrity embedding due to missing dependencies')
-        return // Don't fail the build, just skip integrity
+        return
       }
 
       const isAfterPack = Boolean(context?.appOutDir)
@@ -400,7 +408,9 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
           await writeIntegrityResource(exeForWin, payload(jsonHash))
           log('Resource writing completed')
         } catch (e: any) {
-          // Don't fail the build if integrity embedding fails
+          if (strict) {
+            throw new Error(`Failed to write ASAR integrity resource to ${exeForWin}: ${e.message}`)
+          }
           warn('Failed to write integrity resource:', e.message)
           warn('Continuing build without ASAR integrity validation')
           return
@@ -521,16 +531,17 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
               })
 
               if (finalFullHash !== fullHash) {
-                error(`CRITICAL: ASAR file was modified after integrity embedding!`)
-                error(`Original hash: ${fullHash}`)
-                error(`Current hash: ${finalFullHash}`)
-                error(`This will cause the app to fail at startup.`)
+                const msg = `CRITICAL: ASAR file was modified after integrity embedding! Original: ${fullHash}, Current: ${finalFullHash}`
+                error(msg)
+                if (strict) throw new Error(msg)
               }
             } catch (e: any) {
+              if (strict) throw e
               warn('Failed to write full header fallback:', e.message)
               warn('Continuing build without verified integrity')
             }
           } catch (e: any) {
+            if (strict) throw e
             warn('Error during integrity verification:', e.message)
             warn('Continuing build - verification failed but resource may still be embedded')
           }
@@ -540,7 +551,7 @@ export function makeAfterPackEmbedAsarIntegrity(mutateAsar?: MutateAsarFn) {
         }
       }
     } catch (e: any) {
-      // Don't throw - log the error but allow build to continue
+      if (strict) throw e
       warn('ASAR integrity embedding failed:', e.message)
       warn('Build will continue without ASAR integrity validation')
       warn('To fix this issue, install dependencies: npm install ffi-napi ref-napi rcedit')
