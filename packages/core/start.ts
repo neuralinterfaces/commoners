@@ -179,19 +179,19 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     let closed
 
     const startManager = {
-      close: function () {
+      close: async function () {
         filesystemManager.close()
         if (closed) return
         closed = true
         const { frontend, services } = this
-        frontend?.close()
-        services?.close()
+        await frontend?.close()
+        await services?.close()
       },
     } as {
       url?: string
       frontend?: Awaited<ReturnType<typeof createServer>> | { close: () => void | Promise<void> }
       services?: Awaited<ReturnType<typeof createAllServices>>
-      close: () => void
+      close: () => void | Promise<void>
     }
 
     onCleanup(() => startManager.close())

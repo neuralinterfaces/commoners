@@ -42,10 +42,13 @@ export class CargoService {
       const projectDir = resolve(dirname(srcPath), '..')
       const isWindows = os.platform() === 'win32'
       const binaryName = isWindows ? `${bin}.exe` : bin
-      const cp = isWindows ? 'copy' : 'cp'
       const outputDir = getCargoOutputDir(buildProfile)
+      // On macOS/Linux, remove the old binary before copying to ensure a new inode.
+      // Overwriting in place (same inode) while zombie processes hold the old inode
+      // causes Apple Silicon code page cache issues that make new executions fail.
+      const cpCmd = isWindows ? `copy "target\\${outputDir}\\${binaryName}" "${resolve(outPath)}"` : `rm -f "${resolve(outPath)}" && cp "target/${outputDir}/${binaryName}" "${resolve(outPath)}"`
 
-      return `cd "${projectDir}" && cargo build --profile ${buildProfile} ${cargoArgs} && ${cp} "target/${outputDir}/${binaryName}" "${resolve(outPath)}"`
+      return `cd "${projectDir}" && cargo build --profile ${buildProfile} ${cargoArgs} && ${cpCmd}`
     }
 
     // Top-level build for dev mode (Rust always needs compilation, unlike Python)

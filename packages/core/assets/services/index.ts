@@ -514,18 +514,34 @@ export async function start(
         hooks.emit({ type: 'security:service:integrity:pass', service: label, hash: actual })
       }
 
-      const resolvedProcessOptions = {
+      const baseProcessOptions = {
         cwd,
         env,
-        stdio: ['pipe', 'pipe', 'pipe', 'ipc'] as ('pipe' | 'ipc')[], // Added 'ipc' for fork() communication
         shell: false,
         windowsHide: true,
         detached: false,
       }
 
-      if (jsExtensions.includes(ext)) childProcess = fork(resolvedFilepath, [], { ...resolvedProcessOptions, silent: true }) // Node Support
-      else if (ext === '.py') childProcess = spawn('python', [resolvedFilepath], resolvedProcessOptions)  // Python Support
-      else if (isExecutable(ext)) childProcess = spawn(resolvedFilepath, [], resolvedProcessOptions) // Executable Support
+      if (jsExtensions.includes(ext)) {
+        // Node.js files use fork() which supports IPC channels
+        childProcess = fork(resolvedFilepath, [], {
+          ...baseProcessOptions,
+          stdio: ['pipe', 'pipe', 'pipe', 'ipc'] as ('pipe' | 'ipc')[],
+          silent: true,
+        })
+      } else if (ext === '.py') {
+        // Python: no IPC channel — native processes don't support Node IPC
+        childProcess = spawn('python', [resolvedFilepath], {
+          ...baseProcessOptions,
+          stdio: ['pipe', 'pipe', 'pipe'] as 'pipe'[],
+        })
+      } else if (isExecutable(ext)) {
+        // Native executables: no IPC channel — passing 'ipc' to spawn() causes zombie processes
+        childProcess = spawn(resolvedFilepath, [], {
+          ...baseProcessOptions,
+          stdio: ['pipe', 'pipe', 'pipe'] as 'pipe'[],
+        })
+      }
     } catch (e) {
       error = e
     }
@@ -593,19 +609,45 @@ export async function start(
   }
 }
 
-const killProcess = p => {
-  try {
-    return p.kill()
-  } catch (e) {
-    console.error(`Failed to kill process ${p.pid}:`, e instanceof Error ? e.message : e)
-  }
+const KILL_TIMEOUT_MS = 3000
+
+const killProcess = (p): Promise<void> => {
+  return new Promise((resolve) => {
+    if (!p || !p.pid) return resolve()
+
+    let settled = false
+    const settle = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+
+    // Listen for actual exit
+    p.once('exit', settle)
+
+    // Send SIGTERM
+    try {
+      p.kill('SIGTERM')
+    } catch (e) {
+      console.error(`Failed to kill process ${p.pid}:`, e instanceof Error ? e.message : e)
+      return settle()
+    }
+
+    // SIGKILL fallback after timeout
+    setTimeout(() => {
+      if (settled) return
+      try { p.kill('SIGKILL') } catch {}
+      // Resolve even if SIGKILL doesn't trigger exit event
+      setTimeout(settle, 500)
+    }, KILL_TIMEOUT_MS)
+  })
 }
 
-export function close(id?: string) {
+export async function close(id?: string) {
   // Kill Specific Process
   if (id) {
     if (processes[id]) {
-      killProcess(processes[id])
+      await killProcess(processes[id])
       delete processes[id]
     } else {
       console.warn(`No process exists with id ${id}`)
@@ -614,7 +656,7 @@ export function close(id?: string) {
 
   // Kill All Processes
   else {
-    for (const id in processes) killProcess(processes[id])
+    await Promise.all(Object.values(processes).map(killProcess))
     processes = {}
   }
 }

@@ -572,7 +572,7 @@ Security.runVerification(isProduction).then(async isValid => {
     Window.setShuttingDown(true)
     try {
       await boundRunAppPlugins([Lifecycle.getQuitMessage()], 'quit')
-      services.close()
+      await services.close()
     } catch (err) {
       console.error(err)
     } finally {

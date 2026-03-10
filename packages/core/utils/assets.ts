@@ -175,13 +175,15 @@ async function buildService(
 
     // Dynamic Configuration
     let wasBuilt = null
+    let fromFunction = false
     if (typeof build === 'function') {
-      const ctx = { 
-        package: async (arg) => { 
+      fromFunction = true
+      const ctx = {
+        package: async (arg) => {
           const result = await packageFile(arg, hooks)
           wasBuilt = result.built
           return result.outDir
-        } 
+        }
     }
 
       build = await build.call(ctx, buildInfo)
@@ -205,8 +207,10 @@ async function buildService(
         return build // NOTE: Can be resolved by the above build function
       }
 
-      // Stop if the build is not required
-      if (!mustBuild({ out, force })) {
+      // Stop if the build is not required.
+      // Always re-run commands from custom build functions — they handle their
+      // own caching (e.g. Cargo) and the binary copy must be refreshed.
+      if (!fromFunction && !mustBuild({ out, force })) {
         logger.debug('Emitting service:build:cached', { service: name, src, out })
         return hooks.emit({ type: 'service:build:cached', service: name, src, out })
       }

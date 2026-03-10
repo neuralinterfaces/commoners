@@ -448,11 +448,8 @@ export const serviceTests = {
       if (!service?.url) return
 
       const baseUrl = service.url
-      const ready = await waitForService(baseUrl)
-      if (!ready) {
-        console.warn(`Service '${id}' did not become ready within timeout — skipping`)
-        return
-      }
+      const ready = await waitForService(baseUrl, 60000)
+      expect(ready, `Service '${id}' at ${baseUrl} did not become ready within 60s`).toBe(true)
 
       const randomNumber = getRandomNumber()
       const res = await fetch(new URL('echo', baseUrl), {
