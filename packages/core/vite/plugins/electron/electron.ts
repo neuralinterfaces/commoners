@@ -23,9 +23,11 @@ export const electronGlobalStates: { app?: ChildProcess } = {}
 let cleanupPromise = null
 const onExit = async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()) // Ensure cleanup is only done once
 
-export async function startup(root, hooks: HooksInterface = createNoOpHooks()) {
+export async function startup(root, hooks: HooksInterface = createNoOpHooks(), outDir?: string) {
 
-  const argv = ['.', '--no-sandbox']
+  // Point Electron at the outDir (which contains the temp package.json with main field)
+  // instead of '.' (which would read the host project's package.json)
+  const argv = [outDir || '.', '--no-sandbox']
 
   // In testing mode, minimize Chromium subprocesses to prevent crashes
   // that close the CDP page and cause test flakiness.

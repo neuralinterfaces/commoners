@@ -72,11 +72,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     logger.debug('Emitting build:electron:start', { name, appId })
     context.hooks.emit({ type: 'build:electron:start' })
 
-    // Configure package.json for Electron
+    // Configure package.json for Electron — writes temp package.json into __outDir
     const cwdRelativeOutDir = relative(process.cwd(), __outDir)
     const relativeOutDir = relative(root, __outDir)
 
-    configureForDesktop(cwdRelativeOutDir, root, {
+    configureForDesktop(__outDir, root, {
       name: name.toLowerCase().split(' ').join('-'),
       version: '0.0.0',
     })
@@ -84,16 +84,6 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Build Electron main and preload files
     const { buildElectronAssets } = await import('../../vite/plugins/electron/index.js')
     await buildElectronAssets(root, __outDir, true, { command: 'build', mode: 'production' }, {})
-
-    // Copy package.json to the temp directory for electron-builder
-    const { copyFileSync, readFileSync, writeFileSync } = await import('node:fs')
-    const pkgPath = join(root, 'package.json')
-    const tempPkgPath = join(__outDir, 'package.json')
-
-    // Read, modify main field to be relative to temp dir, and write
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
-    pkg.main = 'main.cjs' // Entry point relative to the asar root
-    writeFileSync(tempPkgPath, JSON.stringify(pkg, null, 2))
 
     // Generate service binary hash manifest before packaging
     await this.generateServiceHashManifest(context, __outDir)

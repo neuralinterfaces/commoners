@@ -1,10 +1,9 @@
 // Built-In Modules
-import { dirname, join, relative, normalize, resolve, isAbsolute } from 'node:path'
-import { existsSync, unlink, writeFileSync } from 'node:fs'
+import { dirname, join, relative, resolve, isAbsolute } from 'node:path'
+import { existsSync, mkdirSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
 import {
-  getDefaultMainLocation,
   templateDir,
   ensureTargetConsistent,
   globalTempDir,
@@ -318,42 +317,28 @@ export async function resolveConfig(
 const writePackageJSON = (o, root = '') =>
   writeFileSync(join(root, 'package.json'), JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
 
-// Ensure project can handle --desktop command
+// Ensure project can handle --desktop command.
+// Writes a package.json into the outDir (temp directory) instead of modifying the host
+// project's package.json. This avoids polluting the user's repo with transient state
+// and eliminates stale "main" fields if the build crashes before cleanup.
 export const configureForDesktop = (outDir, root = '', defaults = {}) => {
   const userPkg = getJSON(join(root, 'package.json'))
 
   const pkg = {
     ...defaults,
     ...userPkg,
+    main: 'main.cjs', // Entry point relative to outDir
   }
 
-  const resolvedOutDir = root ? relative(root, outDir) : outDir
-  const defaultMainLocation = getDefaultMainLocation(resolvedOutDir)
+  // Resolve outDir to absolute if needed
+  const absoluteOutDir = isAbsolute(outDir) ? outDir : resolve(root || process.cwd(), outDir)
 
-  if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
-    // Write back the original package.json on exit
-    let __reset = false
-    const reset = () => {
-      if (__reset) return
-      __reset = true
-      writePackageJSON(pkg, root)
-    }
-
-    onCleanup(reset)
-
-    writePackageJSON(
-      {
-        ...pkg,
-        main: defaultMainLocation,
-      },
-      root
-    )
-
-    return { reset }
-  }
+  // Write the Electron package.json into the temp outDir, not the host root
+  mkdirSync(absoluteOutDir, { recursive: true })
+  writePackageJSON(pkg, absoluteOutDir)
 
   return {
-    reset: () => {}, // No reset needed
+    reset: () => {}, // No host file was modified — nothing to reset
   }
 }
 

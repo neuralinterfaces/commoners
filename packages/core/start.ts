@@ -238,7 +238,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       if (load === 'file') {
         const { artifact: builtOutDir } = await build(scopedConfig, { services, dev: true })
         configureForDesktop(builtOutDir, root)
-        await startElectronInstance(root, hooks) // Start the Electron instance
+        await startElectronInstance(root, hooks, builtOutDir) // Start the Electron instance
 
         logger.debug('Emitting dev:reload:unavailable', { target, loadMode: load })
         hooks.emit({

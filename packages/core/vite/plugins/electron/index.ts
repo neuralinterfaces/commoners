@@ -102,7 +102,7 @@ export const buildElectronAssets = async (
   }
 }
 
-export const startElectronInstance = (root, hooks: HooksInterface = createNoOpHooks()) => startup(root, hooks)
+export const startElectronInstance = (root, hooks: HooksInterface = createNoOpHooks(), outDir?: string) => startup(root, hooks, outDir)
 
 export default async function commonersElectronPlugin({
   build,
@@ -156,14 +156,14 @@ export default async function commonersElectronPlugin({
 
                   if (options.onstart) {
                     options.onstart.call(this, {
-                      startup: () => startElectronInstance(root, hooks),
+                      startup: () => startElectronInstance(root, hooks, outDir),
                       reload() {
                         // hooks.emit({ type: 'electron:reload', config: userConfig })
                         if (electronGlobalStates.app) server.ws.send({ type: 'full-reload' })
-                        else startElectronInstance(root, hooks)
+                        else startElectronInstance(root, hooks, outDir)
                       },
                     })
-                  } else startElectronInstance(root, hooks)
+                  } else startElectronInstance(root, hooks, outDir)
                 },
               },
             ]
