@@ -71,6 +71,22 @@
     "vitepress": "^1.6.4",
     "vitest": "^4.0.18"
   },
+  "pnpm": {
+    "overrides": {
+      "rollup@>=4.40.0 <4.59.0": ">=4.59.0",
+      "glob@>=10.2.0 <10.5.0": ">=10.5.0",
+      "glob@>=11.0.0 <11.1.0": ">=11.1.0",
+      "tar@>=7.0.0 <7.5.8": ">=7.5.8",
+      "minimatch@>=3.0.0 <3.1.3": ">=3.1.3",
+      "minimatch@>=5.0.0 <5.1.7": ">=5.1.7",
+      "minimatch@>=8.0.0 <8.0.5": ">=8.0.5",
+      "minimatch@>=9.0.0 <9.0.6": ">=9.0.6",
+      "minimatch@>=10.0.0 <10.2.1": ">=10.2.1",
+      "@isaacs/brace-expansion@>=5.0.0 <5.0.1": ">=5.0.1",
+      "qs@>=6.7.0 <=6.14.1": ">=6.14.2",
+      "serialize-javascript@<6.0.2": ">=6.0.2"
+    }
+  },
   "packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b",
   "main": ".commoners/electron/main.cjs"
 }
