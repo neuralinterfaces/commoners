@@ -29,6 +29,9 @@ type ServiceOptions = {
 
 const WINDOWS = process.platform === 'win32'
 
+const MAX_PORT_RETRIES = 3
+const EARLY_EXIT_WINDOW_MS = 5000
+
 const jsExtensions = ['.js', '.cjs', '.mjs']
 
 // Ensure marked for Node.js usage
@@ -292,12 +295,13 @@ async function getServiceUrl(service) {
   const resolved = resolveServiceConfiguration(service)
   const { url, port, src, ssl, protocol } = resolved
 
-  if (!src) return url // Cannot generate URL without source file
+  if (!src) return { url, __portAutoAllocated: false } // Cannot generate URL without source file
 
   // Only modify URL if a source file is provided
   const _url = getLocalUrl(url)
 
   if (_url) {
+    const __portAutoAllocated = !port
     const resolvedPort = port || (await getFreePorts(1))[0]
     if (!_url.port) _url.port = resolvedPort.toString() // Use the specified port
 
@@ -306,10 +310,10 @@ async function getServiceUrl(service) {
     if (protocol) _url.protocol = protocol // Use custom protocol if provided
     else if (ssl?.key && ssl?.cert) _url.protocol = 'https:'
 
-    return _url.href
+    return { url: _url.href, __portAutoAllocated }
   }
 
-  return url
+  return { url, __portAutoAllocated: false }
 }
 
 export async function resolveService(config, name, opts: ServiceOptions) {
@@ -350,7 +354,8 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     __autobuild,
   } = resolvedForBuild
 
-  resolvedForBuild.url = await getServiceUrl({ src, url, port, ssl, protocol })
+  const { url: resolvedUrl, __portAutoAllocated } = await getServiceUrl({ src, url, port, ssl, protocol })
+  resolvedForBuild.url = resolvedUrl
 
   const isMobileTarget = isMobile(target)
 
@@ -374,6 +379,7 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     __src,
     __compile,
     __autobuild, // Flags
+    __portAutoAllocated,
 
     // For Client
     url: resolvedForBuild.url,
@@ -411,155 +417,184 @@ export async function start(
   if (!filepath) return
 
   if (filepath) {
-    let childProcess
     const ext = extname(filepath)
 
-    let error
-
-    const resolvedURL = new URL(config.url)
-
-    resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
-
     logger.debug('Emitting service:launch:start', { service: label, filepath })
-    hooks.emit({ type: 'service:launch:start',  service: label, filepath })
+    hooks.emit({ type: 'service:launch:start', service: label, filepath })
 
-    try {
-      const _cwd = process.cwd()
-      const { build, root = _cwd } = opts
-      const cwd = build ? _cwd : root
+    for (let attempt = 0; attempt <= MAX_PORT_RETRIES; attempt++) {
 
-      const mode = build ? 'production' : 'development'
-      const userEnv = loadEnvironmentVariables(mode, root)
+      // On retry, allocate a new port (only if port was auto-allocated)
+      if (attempt > 0) {
+        if (!config.__portAutoAllocated) break
+        const [newPort] = await getFreePorts(1)
+        const newUrl = new URL(config.url)
+        newUrl.port = newPort.toString()
+        config.url = newUrl.href
+        logger.debug(`[${label}] Retrying with new port ${newPort} (attempt ${attempt + 1}/${MAX_PORT_RETRIES + 1})`)
+      }
 
-      // Get service-specific env variables
-      const serviceEnv = config.env && typeof config.env === 'object' ? config.env : {}
+      let childProcess
+      let error
 
-      // Helper to resolve runtime SSL paths
-      function resolveRuntimePath(path: string): string {
-        // If path contains runtime marker, resolve it
-        if (path.startsWith('__RUNTIME_SSL__/')) {
-          const relativePath = path.replace('__RUNTIME_SSL__/', '')
+      const resolvedURL = new URL(config.url)
+      resolvedURL.hostname = config.public ? '0.0.0.0' : resolvedURL.hostname
 
-          // In Electron production, resolve from extraResources
-          if (typeof process !== 'undefined' && process.resourcesPath) {
-            const resolvedPath = resolve(process.resourcesPath, 'ssl', relativePath)
-            logger.debug(`[${label}] SSL path resolved from resources: ${path} -> ${resolvedPath}`)
+      try {
+        const _cwd = process.cwd()
+        const { build, root = _cwd } = opts
+        const cwd = build ? _cwd : root
+
+        const mode = build ? 'production' : 'development'
+        const userEnv = loadEnvironmentVariables(mode, root)
+
+        // Get service-specific env variables
+        const serviceEnv = config.env && typeof config.env === 'object' ? config.env : {}
+
+        // Helper to resolve runtime SSL paths
+        function resolveRuntimePath(path: string): string {
+          // If path contains runtime marker, resolve it
+          if (path.startsWith('__RUNTIME_SSL__/')) {
+            const relativePath = path.replace('__RUNTIME_SSL__/', '')
+
+            // In Electron production, resolve from extraResources
+            if (typeof process !== 'undefined' && process.resourcesPath) {
+              const resolvedPath = resolve(process.resourcesPath, 'ssl', relativePath)
+              logger.debug(`[${label}] SSL path resolved from resources: ${path} -> ${resolvedPath}`)
+              return resolvedPath
+            }
+
+            // Fallback to original resolution (shouldn't happen)
+            const resolvedPath = resolve(root, relativePath)
+            logger.debug(`[${label}] SSL path resolved from root: ${path} -> ${resolvedPath}`)
             return resolvedPath
           }
 
-          // Fallback to original resolution (shouldn't happen)
-          const resolvedPath = resolve(root, relativePath)
-          logger.debug(`[${label}] SSL path resolved from root: ${path} -> ${resolvedPath}`)
-          return resolvedPath
+          // In dev mode, paths should already be absolute
+          logger.debug(`[${label}] SSL path used as-is: ${path}`)
+          return path
         }
 
-        // In dev mode, paths should already be absolute
-        logger.debug(`[${label}] SSL path used as-is: ${path}`)
-        return path
-      }
+        // Add SSL certificate paths to environment if configured
+        const sslEnv = config.ssl ? {
+          SSL_KEY_PATH: resolveRuntimePath(config.ssl.key),
+          SSL_CERT_PATH: resolveRuntimePath(config.ssl.cert),
+        } : {}
 
-      // Add SSL certificate paths to environment if configured
-      const sslEnv = config.ssl ? {
-        SSL_KEY_PATH: resolveRuntimePath(config.ssl.key),
-        SSL_CERT_PATH: resolveRuntimePath(config.ssl.cert),
-      } : {}
+        if (config.ssl) {
+          logger.debug(`[${label}] SSL configuration:`)
+          logger.debug(`  - SSL_KEY_PATH: ${sslEnv.SSL_KEY_PATH}`)
+          logger.debug(`  - SSL_CERT_PATH: ${sslEnv.SSL_CERT_PATH}`)
+          logger.debug(`  - Key exists: ${existsSync(sslEnv.SSL_KEY_PATH)}`)
+          logger.debug(`  - Cert exists: ${existsSync(sslEnv.SSL_CERT_PATH)}`)
+        }
 
-      if (config.ssl) {
-        logger.debug(`[${label}] SSL configuration:`)
-        logger.debug(`  - SSL_KEY_PATH: ${sslEnv.SSL_KEY_PATH}`)
-        logger.debug(`  - SSL_CERT_PATH: ${sslEnv.SSL_CERT_PATH}`)
-        logger.debug(`  - Key exists: ${existsSync(sslEnv.SSL_KEY_PATH)}`)
-        logger.debug(`  - Cert exists: ${existsSync(sslEnv.SSL_CERT_PATH)}`)
-      }
+        // Share environment variables with the child process
+        const env = {
+          ...userEnv,
+          ...process.env,
+          ...serviceEnv,
+          ...sslEnv,
+          PORT: resolvedURL.port,
+          HOST: resolvedURL.hostname,
+        }
 
-      // Share environment variables with the child process
-      const env = {
-        ...userEnv,
-        ...process.env,
-        ...serviceEnv,
-        ...sslEnv,
-        PORT: resolvedURL.port,
-        HOST: resolvedURL.hostname,
-      }
+        const resolvedFilepath = resolve(
+          isExecutable(ext) && !ext && existsSync(filepath + '.exe') ? filepath + '.exe' : filepath
+        )
 
-      const resolvedFilepath = resolve(
-        isExecutable(ext) && !ext && existsSync(filepath + '.exe') ? filepath + '.exe' : filepath
-      )
+        const fileExists = existsSync(resolvedFilepath)
 
-      const fileExists = existsSync(resolvedFilepath)
-
-      if (!fileExists) {
-        logger.debug('Emitting service:launch:error', { service: label, filepath: resolvedFilepath })
-        return hooks.emit({
-          type: 'service:launch:error',
-          error: new Error(`File does not exist at ${resolvedFilepath}`),
-          service: label,
-        })
-      }
-
-      // Verify binary integrity when a hash manifest is available
-      if (isExecutable(ext) && opts.hashManifest?.[id]) {
-        const { createHash } = require('node:crypto')
-        const { readFileSync } = require('node:fs')
-        const actual = createHash('sha256').update(readFileSync(resolvedFilepath)).digest('hex')
-        if (actual !== opts.hashManifest[id]) {
-          hooks.emit({ type: 'security:service:integrity:fail', service: label, expected: opts.hashManifest[id], actual })
+        if (!fileExists) {
+          logger.debug('Emitting service:launch:error', { service: label, filepath: resolvedFilepath })
           return hooks.emit({
             type: 'service:launch:error',
-            error: new Error(`Service binary integrity check failed for ${label}: expected ${opts.hashManifest[id].slice(0, 12)}..., got ${actual.slice(0, 12)}...`),
+            error: new Error(`File does not exist at ${resolvedFilepath}`),
             service: label,
-            filepath: resolvedFilepath,
           })
         }
-        hooks.emit({ type: 'security:service:integrity:pass', service: label, hash: actual })
+
+        // Verify binary integrity when a hash manifest is available
+        if (isExecutable(ext) && opts.hashManifest?.[id]) {
+          const { createHash } = require('node:crypto')
+          const { readFileSync } = require('node:fs')
+          const actual = createHash('sha256').update(readFileSync(resolvedFilepath)).digest('hex')
+          if (actual !== opts.hashManifest[id]) {
+            hooks.emit({ type: 'security:service:integrity:fail', service: label, expected: opts.hashManifest[id], actual })
+            return hooks.emit({
+              type: 'service:launch:error',
+              error: new Error(`Service binary integrity check failed for ${label}: expected ${opts.hashManifest[id].slice(0, 12)}..., got ${actual.slice(0, 12)}...`),
+              service: label,
+              filepath: resolvedFilepath,
+            })
+          }
+          hooks.emit({ type: 'security:service:integrity:pass', service: label, hash: actual })
+        }
+
+        const baseProcessOptions = {
+          cwd,
+          env,
+          shell: false,
+          windowsHide: true,
+          detached: false,
+        }
+
+        if (jsExtensions.includes(ext)) {
+          // Node.js files use fork() which supports IPC channels
+          childProcess = fork(resolvedFilepath, [], {
+            ...baseProcessOptions,
+            stdio: ['pipe', 'pipe', 'pipe', 'ipc'] as ('pipe' | 'ipc')[],
+            silent: true,
+          })
+        } else if (ext === '.py') {
+          // Python: no IPC channel — native processes don't support Node IPC
+          childProcess = spawn('python', [resolvedFilepath], {
+            ...baseProcessOptions,
+            stdio: ['pipe', 'pipe', 'pipe'] as 'pipe'[],
+          })
+        } else if (isExecutable(ext)) {
+          // Native executables: no IPC channel — passing 'ipc' to spawn() causes zombie processes
+          childProcess = spawn(resolvedFilepath, [], {
+            ...baseProcessOptions,
+            stdio: ['pipe', 'pipe', 'pipe'] as 'pipe'[],
+          })
+        }
+      } catch (e) {
+        error = e
       }
 
-      const baseProcessOptions = {
-        cwd,
-        env,
-        shell: false,
-        windowsHide: true,
-        detached: false,
+      if (!childProcess) {
+        logger.debug('Emitting service:launch:error', { service: label, filepath })
+        hooks.emit({ type: 'service:launch:error', service: label, filepath, error })
+        return
       }
 
-      if (jsExtensions.includes(ext)) {
-        // Node.js files use fork() which supports IPC channels
-        childProcess = fork(resolvedFilepath, [], {
-          ...baseProcessOptions,
-          stdio: ['pipe', 'pipe', 'pipe', 'ipc'] as ('pipe' | 'ipc')[],
-          silent: true,
-        })
-      } else if (ext === '.py') {
-        // Python: no IPC channel — native processes don't support Node IPC
-        childProcess = spawn('python', [resolvedFilepath], {
-          ...baseProcessOptions,
-          stdio: ['pipe', 'pipe', 'pipe'] as 'pipe'[],
-        })
-      } else if (isExecutable(ext)) {
-        // Native executables: no IPC channel — passing 'ipc' to spawn() causes zombie processes
-        childProcess = spawn(resolvedFilepath, [], {
-          ...baseProcessOptions,
-          stdio: ['pipe', 'pipe', 'pipe'] as 'pipe'[],
-        })
+      // Detect startup success vs early exit (port conflict)
+      let startupSettled = false
+      let resolveStartup: (result: 'success' | 'retry') => void
+      const startupPromise = new Promise<'success' | 'retry'>((r) => { resolveStartup = r })
+
+      const settleStartup = (result: 'success' | 'retry') => {
+        if (startupSettled) return
+        startupSettled = true
+        resolveStartup(result)
       }
-    } catch (e) {
-      error = e
-    }
-    
 
-    if (childProcess) {
+      const startupTimeout = setTimeout(() => settleStartup('success'), EARLY_EXIT_WINDOW_MS)
 
-      if (childProcess.stdout && monitor.stdout !== false)
+      // Attach handlers immediately to avoid missing events
+      if (childProcess.stdout && monitor.stdout !== false) {
         childProcess.stdout.on('data', data => {
+          if (!startupSettled) {
+            clearTimeout(startupTimeout)
+            settleStartup('success')
+          }
+
           const wasStarting = !config.status
           config.status = true
           if (opts.onLog) opts.onLog(id, data)
           logger.debug('Emitting service:stdout', { service: label })
-          hooks.emit({
-            type: 'service:stdout',
-            service: label,
-            data,
-          })
+          hooks.emit({ type: 'service:stdout', service: label, data })
 
           // PID verification: on first stdout, verify the spawned PID owns the port
           if (wasStarting && childProcess.pid && process.platform !== 'win32') {
@@ -580,31 +615,60 @@ export async function start(
             }
           }
         })
+      }
 
-      if (childProcess.stderr && monitor.stderr !== false) childProcess.stderr.on('data', data => {
-        logger.debug('Emitting service:stderr', { service: label })
-        hooks.emit({ type: 'service:stderr', service: label, data })
-      })
+      if (childProcess.stderr && monitor.stderr !== false) {
+        childProcess.stderr.on('data', data => {
+          logger.debug('Emitting service:stderr', { service: label })
+          hooks.emit({ type: 'service:stderr', service: label, data })
+        })
+      }
 
-
-      // Notify of process closure gracefully
       childProcess.on('close', code => {
+        clearTimeout(startupTimeout)
         config.status = false
-        if (opts.onClosed) opts.onClosed(id, code)
-        delete processes[id]
-        logger.debug('Emitting service:exit', { service: label, code })
-        hooks.emit({ type: 'service:exit', service: label, code  })
+
+        if (!startupSettled) {
+          // Early exit during startup — don't notify caller yet
+          settleStartup(code !== 0 ? 'retry' : 'success')
+        } else {
+          // Normal runtime exit
+          if (opts.onClosed) opts.onClosed(id, code)
+          delete processes[id]
+          logger.debug('Emitting service:exit', { service: label, code })
+          hooks.emit({ type: 'service:exit', service: label, code })
+        }
       })
 
-
-      logger.debug('Emitting service:launch:complete', { service: label, url: resolvedURL.href, filepath })
-      hooks.emit({ type: 'service:launch:complete',  service: label, url: resolvedURL.href, filepath })
       processes[id] = childProcess
 
+      const startupResult = await startupPromise
+
+      if (startupResult === 'retry') {
+        delete processes[id]
+
+        if (config.__portAutoAllocated && attempt < MAX_PORT_RETRIES) {
+          config.status = null
+          logger.debug(`[${label}] Service exited early (likely port conflict), will retry`)
+          continue
+        }
+
+        // Exhausted retries or user-specified port — report failure
+        logger.debug('Emitting service:launch:error', { service: label, filepath })
+        hooks.emit({
+          type: 'service:launch:error',
+          service: label,
+          filepath,
+          error: new Error(`Service "${label}" exited immediately (possible port conflict on port ${resolvedURL.port})`),
+        })
+        return
+      }
+
+      // Startup succeeded
+      logger.debug('Emitting service:launch:complete', { service: label, url: resolvedURL.href, filepath })
+      hooks.emit({ type: 'service:launch:complete', service: label, url: resolvedURL.href, filepath })
+
       return { ...config, process: childProcess } as ActiveService
-    } else {
-      logger.debug('Emitting service:launch:error', { service: label, filepath })
-      hooks.emit({ type: 'service:launch:error', service: label, filepath, error })
     }
   }
 }

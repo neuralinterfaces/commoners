@@ -21,9 +21,10 @@ const cleanupElectronApp = async () => {
 export const electronGlobalStates: { app?: ChildProcess } = {}
 
 let cleanupPromise = null
-const onExit = async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()) // Ensure cleanup is only done once
 
 export async function startup(root, hooks: HooksInterface = createNoOpHooks(), outDir?: string) {
+
+  cleanupPromise = null // Reset stale promise from previous test/startup
 
   // Point Electron at the outDir (which contains the temp package.json with main field)
   // instead of '.' (which would read the host project's package.json)
@@ -81,7 +82,9 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks(), o
     logger.debug('Emitting dev:electron:stderr')
     hooks.emit({ type: 'dev:electron:stderr', data })
   }) // Print out any errors from Electron.app
-  cleanup.onCleanup(onExit) // Kill the process after the process exits
+  // Register a fresh cleanup handler each time so cleanup.ts's `called` flag
+  // from a previous invocation doesn't prevent the new Electron from being killed.
+  cleanup.onCleanup(async () => cleanupPromise || (cleanupPromise = cleanupElectronApp()))
   logger.debug('Emitting dev:electron:ready', { pid: app.pid })
   hooks.emit({ type: 'dev:electron:ready', app }) // Emit the start event
 
