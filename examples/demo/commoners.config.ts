@@ -156,7 +156,6 @@ const config = defineConfig({
     // TypeScript
     http: {
       src: httpSrc,
-      port: 2345, // Hardcoded port
     },
 
     // JavaScript

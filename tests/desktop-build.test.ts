@@ -1,5 +1,4 @@
-import { afterAll, describe } from 'vitest'
-import { execSync } from 'node:child_process'
+import { describe } from 'vitest'
 
 import { registerBuildTest } from './utils'
 
@@ -15,10 +14,4 @@ describe('Desktop Build', () => {
     { target: 'electron', launch: false },
     platforms.mac // Skip on non-Mac platforms
   )
-
-  // Ensure electron-builder's spawned processes are fully cleaned up
-  // to avoid port 8315 (CDP) conflicts with subsequent desktop tests
-  afterAll(() => {
-    try { execSync('lsof -ti :8315 | xargs kill -9', { stdio: 'ignore' }) } catch {}
-  })
 })
