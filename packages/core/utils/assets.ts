@@ -1,5 +1,5 @@
 // Built-In Modules
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import {
   dirname,
   extname,
@@ -16,16 +16,15 @@ import {
 // Internal Imports
 import { resolveConfigPath } from '../index.js'
 import { createNoOpHooks } from '../ui.js'
-import { copyAsset, copyAssetOld } from './copy.js'
+import { copyAsset } from './copy.js'
 import { encodePath } from './encode.js'
-import { chalk, isDesktop, rootDir, vite } from '../globals.js'
+import { isDesktop, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
 import { BuildError } from '../errors.js'
 import { createLogger } from '../assets/utils/logger.js'
 import {
   ResolvedConfig,
   ResolvedService,
-  ResolvedServices,
   PackageBuildInfo,
   ServiceRebuildOption,
 } from '../types.js'
@@ -117,8 +116,7 @@ export const getAssetLinkPath = (path, outDir, root = outDir) => {
   return result
 }
 
-export const packageFile = async (info: PackageBuildInfo, hooks = createNoOpHooks()) => {
-
+export const packageFile = async (info: PackageBuildInfo, _hooks = createNoOpHooks()) => {
   const { src, out, force } = info
 
   const outDir = dirname(out)
@@ -170,7 +168,6 @@ async function buildService(
   hooks.emit({ type: 'service:build:start', service: name, src, out })
 
   try {
-
     const startTime = performance.now()
 
     // Dynamic Configuration
@@ -179,12 +176,12 @@ async function buildService(
     if (typeof build === 'function') {
       fromFunction = true
       const ctx = {
-        package: async (arg) => {
+        package: async arg => {
           const result = await packageFile(arg, hooks)
           wasBuilt = result.built
           return result.outDir
-        }
-    }
+        },
+      }
 
       build = await build.call(ctx, buildInfo)
       if (!build) return // No file emitted
@@ -192,17 +189,26 @@ async function buildService(
 
     // Handle string build commands
     if (typeof build === 'string') {
-
       // Output path
       if (existsSync(build)) {
         const endTime = performance.now()
         if (typeof wasBuilt === 'boolean' && !wasBuilt) {
           logger.debug('Emitting service:build:cached', { service: name, src, out: build })
           hooks.emit({ type: 'service:build:cached', service: name, src, out: build })
-        }
-        else {
-          logger.debug('Emitting service:build:end', { service: name, src, out: build, duration: endTime - startTime })
-          hooks.emit({ type: 'service:build:end', service: name, src, out: build, duration: endTime - startTime })
+        } else {
+          logger.debug('Emitting service:build:end', {
+            service: name,
+            src,
+            out: build,
+            duration: endTime - startTime,
+          })
+          hooks.emit({
+            type: 'service:build:end',
+            service: name,
+            src,
+            out: build,
+            duration: endTime - startTime,
+          })
         }
         return build // NOTE: Can be resolved by the above build function
       }
@@ -218,8 +224,19 @@ async function buildService(
       // Terminal Command
       await spawnProcess(build, [], { cwd: root, label: name }, hooks)
       const endTime = performance.now()
-      logger.debug('Emitting service:build:end', { service: name, src, out, duration: endTime - startTime })
-      hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
+      logger.debug('Emitting service:build:end', {
+        service: name,
+        src,
+        out,
+        duration: endTime - startTime,
+      })
+      hooks.emit({
+        type: 'service:build:end',
+        service: name,
+        src,
+        out,
+        duration: endTime - startTime,
+      })
     }
 
     // Auto Build Configuration
@@ -227,17 +244,31 @@ async function buildService(
       const { built } = await packageFile(buildInfo, hooks)
       const endTime = performance.now()
       if (built) {
-        logger.debug('Emitting service:build:end', { service: name, src, out, duration: endTime - startTime })
-        hooks.emit({ type: 'service:build:end', service: name, src, out, duration: endTime - startTime })
-      }
-      else {
+        logger.debug('Emitting service:build:end', {
+          service: name,
+          src,
+          out,
+          duration: endTime - startTime,
+        })
+        hooks.emit({
+          type: 'service:build:end',
+          service: name,
+          src,
+          out,
+          duration: endTime - startTime,
+        })
+      } else {
         logger.debug('Emitting service:build:cached', { service: name, src, out })
         hooks.emit({ type: 'service:build:cached', service: name, src, out })
       }
     }
-
   } catch (error) {
-    logger.debug('Emitting service:build:error', { service: name, src, out, error: (error as Error).message })
+    logger.debug('Emitting service:build:error', {
+      service: name,
+      src,
+      out,
+      error: (error as Error).message,
+    })
     hooks.emit({ type: 'service:build:error', service: name, src, out, error })
     throw error // Re-throw the error for further handling
   }
@@ -246,7 +277,11 @@ async function buildService(
 // Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
-export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false, runtimeOutDir?: string) => {
+export const getAppAssets = async (
+  resolvedConfig: ResolvedConfig,
+  dev = false,
+  runtimeOutDir?: string
+) => {
   const { root, target } = resolvedConfig
   const outDir = runtimeOutDir ?? resolvedConfig.outDir
 
@@ -297,7 +332,11 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false, 
 
   // Copy All Icons
   if (resolvedConfig.icon && root)
-    assets.copy.push(...getAllIcons(resolvedConfig.icon).filter(icon => icon).map(icon => getAbsolutePath(root, icon)))
+    assets.copy.push(
+      ...getAllIcons(resolvedConfig.icon)
+        .filter(icon => icon)
+        .map(icon => getAbsolutePath(root, icon))
+    )
 
   // Handle Provided Plugins
   const plugins = getPlugins(resolvedConfig.extensions)
@@ -365,13 +404,9 @@ const resolveAssetInfo = (info, outDir, root) => {
   }
 }
 
-export const getServicesToBuild = (
-  resolvedConfig: ResolvedConfig,
-  dev = false
-) => {
-
+export const getServicesToBuild = (resolvedConfig: ResolvedConfig, dev = false) => {
   const resolvedServices = getServices(resolvedConfig.extensions)
-  const servicesToBuild = Object.keys(resolvedServices).filter((name) => {
+  const servicesToBuild = Object.keys(resolvedServices).filter(name => {
     const { __src, __compile, __autobuild } = resolvedServices[name]
     if (dev && !__compile && !__autobuild) return false // Skip services that don't have an original source or final filepath
     if (!__src) return false // Skip if source is undefined
@@ -381,14 +416,12 @@ export const getServicesToBuild = (
   return servicesToBuild
 }
 
-
 export const getServiceAssets = (
   resolvedConfig: ResolvedConfig,
   dev = false,
   rebuildServices: ServiceRebuildOption = true,
   hooks = createNoOpHooks()
 ) => {
-
   const { root } = resolvedConfig
 
   // Transfer configuration file and related services
@@ -403,7 +436,6 @@ export const getServiceAssets = (
   if (servicesToBuild.length === 0) return assets // No services to build
 
   for (const name of servicesToBuild) {
-
     const resolvedService = resolvedServices[name] as ResolvedService & {
       __src?: string
       __autobuild?: boolean
@@ -454,7 +486,6 @@ export const getServiceAssets = (
     // Compile service when not in development mode or when the service is not autobuilt
     if (allowCompilation) {
       bundleConfig.compile = async function ({ src, out }) {
-
         logger.debug('Emitting service:build', { service: name, src, out, method: 'compile' })
         hooks.emit({ type: 'service:build', service: name, src, out, method: 'compile' })
 
@@ -477,8 +508,19 @@ export const getServiceAssets = (
         const toCopy = output === null ? null : (output ?? base ?? filepath)
 
         if (!existsSync(toCopy)) {
-          logger.debug('Emitting service:build:error', { service: name, src, out, missingFile: toCopy })
-          hooks.emit({ type: 'service:build:error', service: name, src, out, error: new Error(`Missing build file: ${toCopy}`) })
+          logger.debug('Emitting service:build:error', {
+            service: name,
+            src,
+            out,
+            missingFile: toCopy,
+          })
+          hooks.emit({
+            type: 'service:build:error',
+            service: name,
+            src,
+            out,
+            error: new Error(`Missing build file: ${toCopy}`),
+          })
           return null // Do not try to copy or bundle the missing file
         }
 
@@ -506,11 +548,10 @@ export const buildAssets = async (
     dev?: boolean
   }
 ) => {
-
   const _vite = await vite
 
   const isDesktopTarget = isDesktop(target)
-    mkdirSync(outDir, { recursive: true }) // Ensure asset output directory exists
+  mkdirSync(outDir, { recursive: true }) // Ensure asset output directory exists
 
   const outputs: AssetOutput[] = []
 
@@ -528,13 +569,13 @@ export const buildAssets = async (
       continue // Skip if no result
     // Copy results.
     else if (existsSync(result)) {
-      if (!dev && isDesktopTarget) assets.copy.push({ input: result, output, extraResource: true, sign: true })
+      if (!dev && isDesktopTarget)
+        assets.copy.push({ input: result, output, extraResource: true, sign: true })
     }
 
     // Or attempt auto-bundle
-    else  toBundle.push({ ...resolvedInfo, extraResource: true, sign: true })
+    else toBundle.push({ ...resolvedInfo, extraResource: true, sign: true })
   }
-
 
   // Create an assets folder with copied assets (ESM)
   await Promise.all(
@@ -566,8 +607,8 @@ export const buildAssets = async (
           build: {
             emptyOutDir: false, // Ensure assets already built are maintained
             outDir, // Configure the output directory of the linked build assets
-            rollupOptions: { 
-              input
+            rollupOptions: {
+              input,
             },
           },
         })
@@ -577,7 +618,11 @@ export const buildAssets = async (
       else {
         const outputExtension = extname(output)
 
-        if (basename(input, extname(input)) == 'commoners.config') await bundleConfig(input, output, { node: outputExtension === '.cjs', desktop: isDesktopTarget })
+        if (basename(input, extname(input)) == 'commoners.config')
+          await bundleConfig(input, output, {
+            node: outputExtension === '.cjs',
+            desktop: isDesktopTarget,
+          })
         else {
           const baseConfig: ESBuildBuildOptions = {
             entryPoints: [input],
@@ -616,8 +661,7 @@ export const buildAssets = async (
         outputs.push(assetOutputInfo)
       }
     })
-  )
-  .catch(error => {
+  ).catch(error => {
     throw new BuildError(
       'Asset build failed',
       `Failed to build assets: ${error.message}. Stack: ${error.stack}`
@@ -632,11 +676,12 @@ export const buildAssets = async (
     const extraResource = isObject ? info.extraResource : false
     const forceSpecifiedLocation = extraResource || (isObject && info.force)
 
-
     // Ensure extra resources are copied to the output directory
-    const outputLocation = forceSpecifiedLocation ? locationToEncode : getAssetBuildPath(locationToEncode, outDir)
+    const outputLocation = forceSpecifiedLocation
+      ? locationToEncode
+      : getAssetBuildPath(locationToEncode, outDir)
     const isContained = outputLocation.startsWith(file) // Avoid duplication
-    const output: AssetOutput = { file:  isContained ? file : copyAsset( file, outputLocation)  }
+    const output: AssetOutput = { file: isContained ? file : copyAsset(file, outputLocation) }
 
     // Handle extra resources
     if (isObject) {
@@ -683,29 +728,56 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
     export default { fileURLToPath, pathToFileURL, URL, URLSearchParams };
   `
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- createRequire is the standard Node.js API for resolving package paths to absolute locations
-  const nodeAliases: Record<string, string> = node ? {} : (() => {
-    const { createRequire } = require('node:module')
-    const _require = createRequire(import.meta.url)
-    const pathBrowserify = _require.resolve('path-browserify')
-    const processBrowser = _require.resolve('process/browser')
-    return {
-      path: pathBrowserify,
-      'node:path': pathBrowserify,
-      'node:url': nodeUrlShimId,
-      ...(!desktop ? { process: processBrowser } : {}),
-    }
-  })()
+  const nodeAliases: Record<string, string> = node
+    ? {}
+    : (() => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { createRequire } = require('node:module')
+        const _require = createRequire(import.meta.url)
+        const pathBrowserify = _require.resolve('path-browserify')
+        const processBrowser = _require.resolve('process/browser')
+        return {
+          path: pathBrowserify,
+          'node:path': pathBrowserify,
+          'node:url': nodeUrlShimId,
+          ...(!desktop ? { process: processBrowser } : {}),
+        }
+      })()
 
   // Externalize Node built-ins that don't have browser equivalents and aren't
   // used in config bundles. Keep node:url and node:path aliased above.
-  const nodeExternals = node ? [] : [
-    'os', 'dgram', 'fs', 'child_process', 'net', 'tls', 'http', 'https',
-    'crypto', 'stream', 'zlib', 'dns', 'cluster', 'module',
-    'node:os', 'node:fs', 'node:child_process', 'node:net', 'node:tls',
-    'node:http', 'node:https', 'node:crypto', 'node:stream', 'node:zlib',
-    'node:dns', 'node:cluster', 'node:module', 'node:dgram',
-  ]
+  const nodeExternals = node
+    ? []
+    : [
+        'os',
+        'dgram',
+        'fs',
+        'child_process',
+        'net',
+        'tls',
+        'http',
+        'https',
+        'crypto',
+        'stream',
+        'zlib',
+        'dns',
+        'cluster',
+        'module',
+        'node:os',
+        'node:fs',
+        'node:child_process',
+        'node:net',
+        'node:tls',
+        'node:http',
+        'node:https',
+        'node:crypto',
+        'node:stream',
+        'node:zlib',
+        'node:dns',
+        'node:cluster',
+        'node:module',
+        'node:dgram',
+      ]
 
   const config = _vite.defineConfig({
     configFile: false, // Block loading any user-defined vite.config.ts file
@@ -717,11 +789,19 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
     plugins: [
       ...plugins,
       // Virtual module plugin to serve the node:url shim
-      ...(node ? [] : [{
-        name: 'node-url-shim',
-        resolveId(id) { return id === nodeUrlShimId ? id : null },
-        load(id) { return id === nodeUrlShimId ? nodeUrlShimCode : null },
-      }]),
+      ...(node
+        ? []
+        : [
+            {
+              name: 'node-url-shim',
+              resolveId(id) {
+                return id === nodeUrlShimId ? id : null
+              },
+              load(id) {
+                return id === nodeUrlShimId ? nodeUrlShimCode : null
+              },
+            },
+          ]),
     ],
 
     resolve: {
