@@ -18,11 +18,11 @@
   ],
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.1.2",
-    "@commoners/bluetooth": "1.0.0-alpha.3",
-    "@commoners/local-services": "0.0.62",
-    "@commoners/serial": "1.0.0-alpha.3",
-    "@commoners/splash-screen": "0.0.62",
-    "@commoners/windows": "1.0.0-alpha.3"
+    "@commoners/bluetooth": "workspace:*",
+    "@commoners/local-services": "workspace:*",
+    "@commoners/serial": "workspace:*",
+    "@commoners/splash-screen": "workspace:*",
+    "@commoners/windows": "workspace:*"
   },
   "devDependencies": {
     "@capacitor/android": "^8.2.0",

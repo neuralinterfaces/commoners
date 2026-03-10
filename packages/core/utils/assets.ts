@@ -664,21 +664,48 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
 
   const root = dirname(input)
 
-  if (!node) {
-    const nodePolyfills = await import('vite-plugin-node-polyfills').then(
-      ({ nodePolyfills }) => nodePolyfills
-    )
-    // In Electron (desktop), process is available via the preload script — polyfilling it
-    // replaces the real Node.js process with a browser mock that returns undefined for
-    // process.env, process.resourcesPath, etc.
-    // Exclude crypto polyfills: Electron has native Node.js crypto, web/mobile should use
-    // Web Crypto API. The browser polyfill (elliptic/bn.js) has known vulnerabilities.
-    const polyfillOptions = {
-      exclude: ['crypto', 'crypto-browserify'],
-      ...(desktop ? { globals: { process: false } } : {}),
+  // For browser targets, provide lightweight aliases for common Node.js built-ins.
+  // We avoid vite-plugin-node-polyfills because it pulls in node-stdlib-browser which
+  // includes crypto-browserify → elliptic (vulnerable, unnecessary for browser targets).
+  // Desktop (Electron) has native Node.js — only process needs to be excluded there
+  // since the preload script provides it.
+  // Shim for node:url — provides fileURLToPath for browser context.
+  // URL/URLSearchParams are globally available in all modern browsers.
+  const nodeUrlShimId = '\0node-url-shim'
+  const nodeUrlShimCode = `
+    export function fileURLToPath(url) {
+      if (typeof url === 'string') return url.startsWith('file://') ? url.slice(7) : url;
+      return url?.pathname || url?.href?.slice(7) || String(url);
     }
-    plugins.push(nodePolyfills(polyfillOptions))
-  }
+    export function pathToFileURL(p) { return new globalThis.URL('file://' + p); }
+    export const URL = globalThis.URL;
+    export const URLSearchParams = globalThis.URLSearchParams;
+    export default { fileURLToPath, pathToFileURL, URL, URLSearchParams };
+  `
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- createRequire is the standard Node.js API for resolving package paths to absolute locations
+  const nodeAliases: Record<string, string> = node ? {} : (() => {
+    const { createRequire } = require('node:module')
+    const _require = createRequire(import.meta.url)
+    const pathBrowserify = _require.resolve('path-browserify')
+    const processBrowser = _require.resolve('process/browser')
+    return {
+      path: pathBrowserify,
+      'node:path': pathBrowserify,
+      'node:url': nodeUrlShimId,
+      ...(!desktop ? { process: processBrowser } : {}),
+    }
+  })()
+
+  // Externalize Node built-ins that don't have browser equivalents and aren't
+  // used in config bundles. Keep node:url and node:path aliased above.
+  const nodeExternals = node ? [] : [
+    'os', 'dgram', 'fs', 'child_process', 'net', 'tls', 'http', 'https',
+    'crypto', 'stream', 'zlib', 'dns', 'cluster', 'module',
+    'node:os', 'node:fs', 'node:child_process', 'node:net', 'node:tls',
+    'node:http', 'node:https', 'node:crypto', 'node:stream', 'node:zlib',
+    'node:dns', 'node:cluster', 'node:module', 'node:dgram',
+  ]
 
   const config = _vite.defineConfig({
     configFile: false, // Block loading any user-defined vite.config.ts file
@@ -687,7 +714,19 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
     base: './',
     root,
 
-    plugins,
+    plugins: [
+      ...plugins,
+      // Virtual module plugin to serve the node:url shim
+      ...(node ? [] : [{
+        name: 'node-url-shim',
+        resolveId(id) { return id === nodeUrlShimId ? id : null },
+        load(id) { return id === nodeUrlShimId ? nodeUrlShimCode : null },
+      }]),
+    ],
+
+    resolve: {
+      alias: nodeAliases,
+    },
 
     build: {
       lib: {
@@ -699,7 +738,10 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
       outDir,
 
       rollupOptions: {
-        external: ['os', 'dgram'], // Ensure Node.js modules are treated as external
+        external: nodeExternals,
+        // For Node.js builds, inline dynamic imports to produce a single file.
+        // Code-split chunks break in vitest's ESM loader (incorrect path resolution).
+        ...(node ? { output: { inlineDynamicImports: true } } : {}),
         plugins: [
           importMetaResolvePlugin(), // Ensure import.meta.url is resolved correctly within each source file
         ],
