@@ -30,6 +30,12 @@ const ENV_VAR_NAMES = [
 
   'DEV',
   'PROD',
+
+  'TARGET',
+  'ENV',
+  'PAGES',
+  'ROOT',
+  'CAPABILITIES',
 ]
 
 const TAGS = {
@@ -68,9 +74,10 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
     load(id) {
       if (id === resolvedVirtualModuleId) {
         const lines = [
-          'const ENV = globalThis.commoners',
-          ...ENV_VAR_NAMES.map(name => `export const ${name} = ENV.${name}`),
-          'export default ENV',
+          'const __commoners = globalThis.commoners',
+          ...ENV_VAR_NAMES.map(name => `export const ${name} = __commoners.${name}`),
+          'export const query = __commoners.query',
+          'export default __commoners',
         ]
         return lines.join('\n')
       }

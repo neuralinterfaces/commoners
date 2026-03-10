@@ -1,5 +1,5 @@
 // Built-In Modules
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import {
   dirname,
   extname,
@@ -444,13 +444,14 @@ export const getServiceAssets = (
     const { build, base, filepath, __src, __autobuild, ssl } = resolvedService
 
     // WASM services: copy pkg/ output into web assets directory (not extraResources)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal __wasm marker not on public type
     if ((resolvedService as any).__wasm || (resolvedService as any).type === 'wasm') {
       if (filepath) {
         assets.copy.push({
           input: filepath,
           output: join('services', name),
           force: true,
-        } as any)
+        })
       }
       continue
     }
@@ -477,11 +478,11 @@ export const getServiceAssets = (
 
     const allowCompilation = !(dev && __autobuild)
 
-    const bundleConfig = {
+    const bundleConfig: CoreAssetInfo & { compile?: BuildFunction } = {
       input: __src,
       output: filepath,
       force: true,
-    } as any
+    }
 
     // Compile service when not in development mode or when the service is not autobuilt
     if (allowCompilation) {
@@ -622,6 +623,7 @@ export const buildAssets = async (
           await bundleConfig(input, output, {
             node: outputExtension === '.cjs',
             desktop: isDesktopTarget,
+            target,
           })
         else {
           const baseConfig: ESBuildBuildOptions = {
@@ -695,7 +697,74 @@ export const buildAssets = async (
   return outputs
 }
 
-export const bundleConfig = async (input, outFile, { node = false, desktop = false } = {}) => {
+// Properties consumed by each runtime context.
+// Browser (.mjs): only plugins are read from the config import (onload.ts).
+// Electron (.cjs): main process reads name, icon, electron, plugins, services, hooks.
+const BROWSER_CONFIG_KEYS = ['plugins']
+const ELECTRON_CONFIG_KEYS = ['name', 'icon', 'electron', 'plugins', 'services', 'hooks']
+
+// Keys to strip from each runtime context.
+// Browser strips: Electron-specific hooks + service internals + build-time only props
+// Electron strips: browser-only lifecycle hooks + build-time only props
+const BROWSER_STRIP_KEYS = [
+  'desktop',
+  'src',
+  'url',
+  'port',
+  'build',
+  'publish',
+  'ssl',
+  'env',
+  'assets',
+]
+// NOTE: `assets` is NOT stripped from Electron — main process reads plugin.assets for protocol handler
+const ELECTRON_STRIP_KEYS = ['load', 'isSupported', 'start', 'ready', 'quit']
+
+/**
+ * Generate a wrapper module that imports the real config and re-exports
+ * only the properties consumed by the target runtime.
+ */
+function generateStrippedEntry(configImportPath: string, node: boolean): string {
+  const keepKeys = node ? ELECTRON_CONFIG_KEYS : BROWSER_CONFIG_KEYS
+  const propsExpr = keepKeys.map(k => `${k}: _cfg.${k}`).join(', ')
+
+  // Strip irrelevant keys from plugin/extension/service objects per runtime.
+  const stripKeys = node ? ELECTRON_STRIP_KEYS : BROWSER_STRIP_KEYS
+
+  return [
+    `import _cfg from '${configImportPath}';`,
+    // Strip extensions at the property level so hybrid extensions only carry
+    // the properties relevant to this runtime context.
+    `function _stripExt(exts) {`,
+    `  if (!exts || typeof exts !== 'object') return exts;`,
+    `  var out = {};`,
+    `  for (var id in exts) {`,
+    `    var ext = exts[id];`,
+    `    if (typeof ext !== 'object' || ext === null) { out[id] = ext; continue; }`,
+    `    var s = {};`,
+    `    for (var k in ext) {`,
+    // Keep the property if it's NOT in the strip list (i.e. keep unknown keys too)
+    `      if (${JSON.stringify(stripKeys)}.indexOf(k) === -1) s[k] = ext[k];`,
+    `    }`,
+    `    out[id] = s;`,
+    `  }`,
+    `  return out;`,
+    `}`,
+    `var _out = { ${propsExpr} };`,
+    // Apply per-property stripping to plugins/extensions
+    `if (_out.plugins) _out.plugins = _stripExt(_out.plugins);`,
+    `if (_out.extensions) _out.extensions = _stripExt(_out.extensions);`,
+    // For Electron: also strip plugin-side keys from services
+    ...(node ? [`if (_out.services) _out.services = _stripExt(_out.services);`] : []),
+    `export default _out;`,
+  ].join('\n')
+}
+
+export const bundleConfig = async (
+  input,
+  outFile,
+  { node = false, desktop = false, target = '' } = {}
+) => {
   const _vite = await vite
 
   const logLevel = 'silent'
@@ -708,6 +777,18 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
   const plugins = []
 
   const root = dirname(input)
+
+  // --- Automatic config stripping ---
+  // Generate a temp entry that imports the real config and re-exports only the
+  // properties consumed by this runtime context. This prevents leaking service
+  // configuration (build commands, ports, file paths) into browser bundles and
+  // keeps Electron bundles free of browser-only config.
+  const configImportPath = input.replace(/\\/g, '/') // Normalize Windows paths
+  const strippedEntryPath = join(
+    root,
+    `.commoners-config-entry${extension === '.cjs' ? '.cjs' : '.mjs'}`
+  )
+  writeFileSync(strippedEntryPath, generateStrippedEntry(configImportPath, node))
 
   // For browser targets, provide lightweight aliases for common Node.js built-ins.
   // We avoid vite-plugin-node-polyfills because it pulls in node-stdlib-browser which
@@ -804,13 +885,29 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
           ]),
     ],
 
+    // User-facing target guards for dead-code elimination in config files.
+    // Usage: if (__COMMONERS_DESKTOP__) { /* desktop-only plugin */ }
+    // Targets: web, desktop, mobile (universal) + electron, tauri, ios, android (subtargets)
+    define: {
+      __COMMONERS_TARGET__: JSON.stringify(target),
+      __COMMONERS_DESKTOP__: JSON.stringify(desktop),
+      __COMMONERS_MOBILE__: JSON.stringify(
+        target === 'mobile' || target === 'ios' || target === 'android'
+      ),
+      __COMMONERS_WEB__: JSON.stringify(target === 'web' || target === 'pwa'),
+      __COMMONERS_ELECTRON__: JSON.stringify(target === 'electron' || target === 'desktop'),
+      __COMMONERS_TAURI__: JSON.stringify(target === 'tauri'),
+      __COMMONERS_IOS__: JSON.stringify(target === 'ios'),
+      __COMMONERS_ANDROID__: JSON.stringify(target === 'android'),
+    },
+
     resolve: {
       alias: nodeAliases,
     },
 
     build: {
       lib: {
-        entry: input,
+        entry: strippedEntryPath,
         formats: [format],
         fileName: () => outFileName,
       },
@@ -819,9 +916,6 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
 
       rollupOptions: {
         external: nodeExternals,
-        // For Node.js builds, inline dynamic imports to produce a single file.
-        // Code-split chunks break in vitest's ESM loader (incorrect path resolution).
-        ...(node ? { output: { inlineDynamicImports: true } } : {}),
         plugins: [
           importMetaResolvePlugin(), // Ensure import.meta.url is resolved correctly within each source file
         ],
@@ -831,7 +925,19 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
 
   const resolvedConfig = node ? withExternalBuiltins(config) : config
 
-  const results = (await _vite.build(resolvedConfig)) as any[] // RollupOutput[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Vite build() returns RollupOutput | RollupOutput[]
+  let results: any[]
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cast needed for RollupOutput[]
+    results = (await _vite.build(resolvedConfig)) as any[]
+  } finally {
+    // Clean up the temp stripped-config entry file
+    try {
+      unlinkSync(strippedEntryPath)
+    } catch {
+      /* ignore cleanup errors */
+    }
+  }
 
   // Always return a flat list of the output file locations
   return results

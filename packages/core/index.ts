@@ -1,5 +1,5 @@
 // Built-In Modules
-import { dirname, join, relative, resolve, isAbsolute } from 'node:path'
+import { dirname, join, resolve, isAbsolute } from 'node:path'
 import { existsSync, mkdirSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
@@ -26,7 +26,6 @@ import {
 import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
-import { bundleConfig } from './utils/assets.js'
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
 
@@ -68,6 +67,7 @@ export { shareServices } from './share.js'
 export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers
+export { lazy } from './assets/utils/index.js' // Lazy factory helper for tree-shaking
 export { Logger, LogLevel, createLogger, getLogger, configureLogger, setGlobalLogLevel, setGlobalUI, getGlobalUI } from './assets/utils/logger.js' // Logging
 
 // ------------------ Configuration File Handling ------------------
@@ -115,14 +115,29 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
 
   if (configPath) {
     const configOutputPath = join(resolvedRoot, globalTempDir, `commoners.config.mjs`)
-    const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
+
+    // Use esbuild directly — faster than Vite's Rollup pipeline, produces a single
+    // file (no code-split chunks), and doesn't need browser polyfills.
+    const esbuild = await import('esbuild')
+    mkdirSync(dirname(configOutputPath), { recursive: true })
+    await esbuild.build({
+      entryPoints: [configPath],
+      bundle: true,
+      platform: 'node',
+      format: 'esm',
+      outfile: configOutputPath,
+      logLevel: 'silent',
+      // Rewrite import.meta.url to the *source* config file so getDirname() etc.
+      // resolve paths relative to the project root, not the temp output directory.
+      define: { 'import.meta.url': JSON.stringify(pathToFileURL(configPath).href) },
+    })
 
     const fileURL = pathToFileURL(configOutputPath).href
 
     try {
       config = (await import(fileURL)).default as UserConfig
     } finally {
-      onCleanup(() => outputFiles.forEach(file => unlink(file, () => {})))
+      onCleanup(() => unlink(configOutputPath, () => {}))
     }
   }
 

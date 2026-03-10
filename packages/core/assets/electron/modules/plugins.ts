@@ -12,6 +12,7 @@
 import { BrowserWindow } from 'electron'
 import { join, basename, extname } from 'node:path'
 import { runAppPlugins } from '../../plugins'
+import { resolveLazy } from '../../utils'
 import { pluginHandle, pluginOn, pluginSend, ListenerHandle } from './ipc'
 import type { DesktopRuntime } from '../../runtime/types'
 import type { HooksInterface } from '../../../types'
@@ -63,7 +64,7 @@ export function initializePlugins(
   }, {} as Record<string, any>)
 
   // Create contexts for each plugin
-  Object.entries(PLUGINS).forEach(([id, plugin]) => {
+  for (const [id, plugin] of Object.entries(PLUGINS)) {
     const { assets = {} } = plugin
 
     const context: PluginContext = {
@@ -132,7 +133,7 @@ export function initializePlugins(
     }
 
     contexts.set(id, context)
-  })
+  }
 
   return { plugins: PLUGINS, contexts }
 }
@@ -176,7 +177,11 @@ export async function runPluginHook(
   const plugin = plugins[pluginId]
   if (!plugin) return
 
-  const desktopState = plugin.desktop ?? {}
+  // Resolve lazy desktop object, then cache
+  let desktopState = await resolveLazy(plugin.desktop)
+  desktopState = desktopState ?? {}
+  plugin.desktop = desktopState
+
   const hook = desktopState[hookType]
 
   if (!hook) return

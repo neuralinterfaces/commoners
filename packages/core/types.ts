@@ -220,6 +220,14 @@ export type ResolvedService = {
 export type ActiveService = ResolvedService & { process: ChildProcess }
 export type ActiveServices = { [x: string]: ActiveService }
 
+// ------------------- Lazy Factories -------------------
+/**
+ * Property that can be provided eagerly or as a lazy factory for tree-shaking.
+ * Lazy factories must be created with the `lazy()` helper from `@commoners/solidarity`.
+ * Example: `desktop: lazy(() => import('./desktop-hooks'))`
+ */
+export type Lazy<T> = T | (() => Promise<T>)
+
 // ------------------- Plugins -------------------
 type BaseLoadedPlugin = { [x: string]: any } | Function | any
 type LoadedPlugin = BaseLoadedPlugin | Promise<BaseLoadedPlugin>
@@ -282,9 +290,9 @@ type PluginLoadCallback = (this: IpcRenderer, env: CommonersGlobalObject) => Loa
 
 type OptionalPluginBehaviors = {
   assets?: Record<string, string>
-  start?: (this: DesktopPluginContext, services: ResolvedServices, id: string) => void
-  ready?: (this: DesktopPluginContext, services: ActiveServices, id: string) => void
-  quit?: (this: DesktopPluginContext, id: string) => void
+  start?: Lazy<(this: DesktopPluginContext, services: ResolvedServices, id: string) => void>
+  ready?: Lazy<(this: DesktopPluginContext, services: ActiveServices, id: string) => void>
+  quit?: Lazy<(this: DesktopPluginContext, id: string) => void>
 }
 
 type IsSupportedOption = false | SupportQuery
@@ -305,15 +313,15 @@ export type SupportConfigurationWithCapacitor = Extract<SupportConfiguration, { 
 type HybridPlugin = {
   capabilities?: ExtensionCapabilities
   isSupported?: SupportConfiguration
-  load?: PluginLoadCallback
-  desktop: DesktopPluginOptions // Prioritizes desktop support
+  load?: Lazy<PluginLoadCallback>
+  desktop: Lazy<DesktopPluginOptions> // Prioritizes desktop support
 } & OptionalPluginBehaviors
 
 // Runs on all targets
 type BasicPlugin = {
   capabilities?: ExtensionCapabilities
   isSupported?: SupportConfiguration
-  load?: PluginLoadCallback
+  load?: Lazy<PluginLoadCallback>
 } & OptionalPluginBehaviors
 
 export type Plugin = BasicPlugin | HybridPlugin

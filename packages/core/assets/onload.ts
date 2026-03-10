@@ -3,6 +3,7 @@ import {
   asyncFilter,
   isPluginLoadable,
   pluginErrorMessage,
+  resolveLazy,
   sanitizePluginProperties,
 } from './utils'
 import { queryExtensions } from './capabilities'
@@ -75,11 +76,12 @@ if (__PLUGINS) {
     } catch (e) {
       return false
     }
-  }).then(supported => {
-    const sanitized = supported.map(([id, o]) => {
-      const { load } = sanitizePluginProperties(o, TARGET)
+  }).then(async supported => {
+    const sanitized = await Promise.all(supported.map(async ([id, o]) => {
+      let { load } = sanitizePluginProperties(o, TARGET)
+      load = await resolveLazy(load)
       return { id, load }
-    })
+    }))
 
     sanitized.forEach(async ({ id, load }) => {
       loaded[id] = undefined // Register that all supported plugins are technically loaded

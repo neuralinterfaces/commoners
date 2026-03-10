@@ -1,4 +1,4 @@
-import { isPluginFeatureSupported } from '../utils/index.js'
+import { isPluginFeatureSupported, resolveLazy } from '../utils/index.js'
 
 export async function runAppPlugins(args: any[] = [], type = 'start') {
   return await Promise.all(
@@ -29,7 +29,12 @@ export async function runAppPlugins(args: any[] = [], type = 'start') {
       )
       if (!featureIsSupported) return
 
-      return plugin[type].call(this.contexts[id], ...args, id)
+      // Resolve lazy factory if present, then cache
+      let method = await resolveLazy(plugin[type])
+      if (method) {
+        plugin[type] = method
+        return method.call(this.contexts[id], ...args, id)
+      }
     })
   )
 }

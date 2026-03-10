@@ -350,37 +350,10 @@ export async function writeIntegrityResource(
   await new Promise((resolve) => setTimeout(resolve, 100))
 
   let lastError: Error | null = null
-  let ffiAttempted = false
   let rceditAttempted = false
+  let ffiAttempted = false
 
-  // Try FFI first with retry
-  if (deps.ffiAvailable && ffiAvailable) {
-    ffiAttempted = true
-    logger.info('Attempting FFI-based integrity embedding...')
-
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await new Promise((resolve) => setTimeout(resolve, attempt * 100)) // Progressive delay
-        writeIntegrityResourceFFI(exePath, payloadJson)
-        logger.info(
-          `FFI resource writing succeeded on attempt ${attempt + 1}`
-        )
-        return
-      } catch (e: any) {
-        lastError = e
-        logger.warn(
-          `FFI resource writing attempt ${attempt + 1} failed:`,
-          e.message
-        )
-        if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 200)) // Wait before retry
-        }
-      }
-    }
-    logger.warn('All FFI attempts failed, trying rcedit fallback...')
-  }
-
-  // Fallback to rcedit with retry
+  // Try rcedit first (more reliable, fewer native dependencies)
   if (deps.rceditAvailable) {
     rceditAttempted = true
     logger.info('Attempting rcedit-based integrity embedding...')
@@ -397,6 +370,33 @@ export async function writeIntegrityResource(
         lastError = e
         logger.warn(
           `rcedit attempt ${attempt + 1} failed:`,
+          e.message
+        )
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 200)) // Wait before retry
+        }
+      }
+    }
+    logger.warn('All rcedit attempts failed, trying FFI fallback...')
+  }
+
+  // Fallback to FFI with retry
+  if (deps.ffiAvailable && ffiAvailable) {
+    ffiAttempted = true
+    logger.info('Attempting FFI-based integrity embedding...')
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 100)) // Progressive delay
+        writeIntegrityResourceFFI(exePath, payloadJson)
+        logger.info(
+          `FFI resource writing succeeded on attempt ${attempt + 1}`
+        )
+        return
+      } catch (e: any) {
+        lastError = e
+        logger.warn(
+          `FFI resource writing attempt ${attempt + 1} failed:`,
           e.message
         )
         if (attempt < 2) {
