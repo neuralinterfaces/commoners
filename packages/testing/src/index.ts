@@ -421,54 +421,68 @@ export const open = async (
     const elapsed = () => `${((Date.now() - testStart) / 1000).toFixed(1)}s`
     let pageNeedsRecovery = false
 
-    const findPage = async () => {
-      try {
-        const pages = defaultContext.pages()
-        for (const p of pages) {
-          try {
-            const hasCommoners = await p.evaluate(() => typeof globalThis.commoners !== 'undefined')
-            if (hasCommoners) return p
-          } catch {}
-        }
-      } catch {}
+    const findPage = async (retries = 5, backoffMs = 500) => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const pages = defaultContext.pages()
+          for (const p of pages) {
+            try {
+              const hasCommoners = await p.evaluate(() => typeof globalThis.commoners !== 'undefined')
+              if (hasCommoners) return p
+            } catch {}
+          }
+        } catch {}
+        if (attempt < retries - 1) await sleep(backoffMs * (attempt + 1))
+      }
       return null
     }
 
-    states.page.on('close', () => {
-      console.warn(`[CDP] Page closed at ${elapsed()}`)
-      pageNeedsRecovery = true
-    })
-    states.page.on('crash', () => {
-      console.warn(`[CDP] Page crashed at ${elapsed()}`)
-      pageNeedsRecovery = true
-    })
+    const registerPageEventListeners = (page: Page) => {
+      page.on('close', () => {
+        console.warn(`[CDP] Page closed at ${elapsed()}`)
+        pageNeedsRecovery = true
+      })
+      page.on('crash', () => {
+        console.warn(`[CDP] Page crashed at ${elapsed()}`)
+        pageNeedsRecovery = true
+      })
+    }
+
+    registerPageEventListeners(states.page)
     browser.on('disconnected', () => console.warn(`[CDP] Browser disconnected at ${elapsed()}`))
 
-    // Wrap the page in a proxy that auto-recovers on stale page references
+    // Wrap the page in a proxy that auto-recovers on stale page references.
+    // Intercepts all function calls (not just evaluate) so that any method
+    // invoked after a page close/crash triggers recovery first.
+    let currentPage: Page = states.page
     const createRecoverablePageProxy = (page: Page): Page => {
+      currentPage = page
       return new Proxy(page, {
         get(target, prop, receiver) {
-          if (prop === 'evaluate' || prop === 'evaluateHandle' || prop === '$eval' || prop === '$$eval') {
-            return async (...args: any[]) => {
-              if (pageNeedsRecovery) {
-                console.log(`[CDP] Attempting page recovery at ${elapsed()}...`)
-                const newPage = await findPage()
-                if (newPage) {
-                  console.log(`[CDP] Page recovered at ${elapsed()}`)
-                  states.page = createRecoverablePageProxy(newPage)
-                  pageNeedsRecovery = false
-                  newPage.on('close', () => {
-                    console.warn(`[CDP] Recovered page closed at ${elapsed()}`)
-                    pageNeedsRecovery = true
-                  })
-                  return (newPage as any)[prop](...args)
-                }
-                console.warn(`[CDP] Page recovery failed at ${elapsed()}`)
+          const value = Reflect.get(target, prop, receiver)
+          // Only intercept function calls — property reads (url, etc.) pass through
+          if (typeof value !== 'function') return value
+          // Skip event listener methods and internal props to avoid infinite loops
+          if (typeof prop === 'string' && (prop.startsWith('on') || prop === 'then' || prop === 'removeListener' || prop === 'listenerCount'))
+            return value
+
+          return async (...args: any[]) => {
+            if (pageNeedsRecovery) {
+              console.log(`[CDP] Attempting page recovery before ${String(prop)}() at ${elapsed()}...`)
+              const newPage = await findPage()
+              if (newPage) {
+                console.log(`[CDP] Page recovered at ${elapsed()}`)
+                currentPage = newPage
+                pageNeedsRecovery = false
+                registerPageEventListeners(newPage)
+                // Update the proxy target via states.page so the getter returns this proxy
+                states.page = createRecoverablePageProxy(newPage)
+                return (newPage as any)[prop](...args)
               }
-              return (target as any)[prop](...args)
+              console.warn(`[CDP] Page recovery failed at ${elapsed()}, calling on stale page`)
             }
+            return (currentPage as any)[prop](...args)
           }
-          return Reflect.get(target, prop, receiver)
         },
       }) as Page
     }
@@ -524,7 +538,11 @@ export const open = async (
 
       // Close active servers
       try {
-        if (states.server) states.server.close()
+        if (states.server) await new Promise<void>((resolve) => {
+          states.server.close(() => resolve())
+          // Fallback if close callback never fires
+          setTimeout(resolve, 3000)
+        })
       } catch (e: any) {
         console.warn(`[cleanup] Server close warning: ${e.message}`)
       }
