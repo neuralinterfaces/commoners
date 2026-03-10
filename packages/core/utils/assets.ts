@@ -671,7 +671,13 @@ export const bundleConfig = async (input, outFile, { node = false, desktop = fal
     // In Electron (desktop), process is available via the preload script — polyfilling it
     // replaces the real Node.js process with a browser mock that returns undefined for
     // process.env, process.resourcesPath, etc.
-    plugins.push(nodePolyfills(desktop ? { globals: { process: false } } : undefined))
+    // Exclude crypto polyfills: Electron has native Node.js crypto, web/mobile should use
+    // Web Crypto API. The browser polyfill (elliptic/bn.js) has known vulnerabilities.
+    const polyfillOptions = {
+      exclude: ['crypto', 'crypto-browserify'],
+      ...(desktop ? { globals: { process: false } } : {}),
+    }
+    plugins.push(nodePolyfills(polyfillOptions))
   }
 
   const config = _vite.defineConfig({
