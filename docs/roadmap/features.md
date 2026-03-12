@@ -31,6 +31,7 @@ Getting desktop tests to pass reliably required solving several interrelated pro
 | Suite | Result | Notes |
 |-------|--------|-------|
 | Desktop (start + launch) | 18/18 pass | 3 consecutive stable runs |
+| Desktop (Windows) | 14/14 pass | Required disabling `app.enableSandbox()` — see [Sandbox Investigation](./sandbox-investigation.md) |
 | Start (web + mobile) | 32/32 pass | |
 | API | 48/48 pass | |
 
@@ -38,6 +39,7 @@ Getting desktop tests to pass reliably required solving several interrelated pro
 - Desktop build test (`registerBuildTest`) commented out — built app interferes with launch test when run sequentially. Needs isolated execution.
 - Python services skip when PyInstaller unavailable (requires conda environment)
 - Rust service echo takes ~32s (waitForService timeout)
+- C++/Rust service echo tests require toolchains on PATH (auto-skipped if missing)
 
 ---
 
@@ -93,6 +95,7 @@ Batch C (independent, timing-sensitive)
 These existing documents provide technical analysis referenced by the implementation plans:
 
 - [Windows Verification Checklist](./windows-verification.md) — single-page handoff for testing builds, signing, and known gaps on Windows
+- [Sandbox Investigation](./sandbox-investigation.md) — `app.enableSandbox()` freezes Electron on Windows; currently using per-window sandbox workaround
 - [Electron Coupling Audit](./electron-coupling-audit.md) — catalogs all Electron integration points (~2,000-2,500 lines), abstraction quality assessment, migration effort estimate
 - [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code-signing issues, mobile plugin maturity comparison, binary size analysis
 

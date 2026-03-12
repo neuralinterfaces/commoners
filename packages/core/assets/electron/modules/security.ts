@@ -14,7 +14,6 @@ import { ElectronSecuritySettings } from '../../../types'
 import { hasSignature, verifySignature, verifyAsarIntegrity } from '../security'
 import { getDefaultSecuritySettings } from './config'
 
-
 /**
  * Get security settings with defaults applied
  */
@@ -88,9 +87,7 @@ export async function runVerification(isProduction: boolean): Promise<boolean> {
  * and WASM evaluation. In dev mode, also allows the dev server for HMR websockets.
  */
 function buildDefaultCSP(devServerUrl?: string): string {
-  const connectSrc = devServerUrl
-    ? `connect-src 'self' ${devServerUrl} ws:`
-    : `connect-src 'self'`
+  const connectSrc = devServerUrl ? `connect-src 'self' ${devServerUrl} ws:` : `connect-src 'self'`
 
   return [
     "default-src 'self'",
@@ -112,7 +109,7 @@ function buildDefaultCSP(devServerUrl?: string): string {
 export function setupContentSecurityPolicy(
   sessionInstance: Session,
   cspSetting?: string | false,
-  devServerUrl?: string,
+  devServerUrl?: string
 ): void {
   // User explicitly disabled CSP
   if (cspSetting === false) return
@@ -133,8 +130,12 @@ export function setupContentSecurityPolicy(
  * Apply security settings to the app
  */
 export function applySecuritySettings(securitySettings: ElectronSecuritySettings): void {
-  if (securitySettings.sandbox) app.enableSandbox() // Enable sandboxing if specified
-
+  // Note: app.enableSandbox() is intentionally NOT called here.
+  // On Windows, app.enableSandbox() freezes the main process event loop when
+  // BrowserWindow.loadURL() is called, preventing any page from loading.
+  // Instead, sandbox is applied per-window via webPreferences.sandbox in
+  // getWebPreferencesSecuritySettings(), which achieves the same isolation
+  // without the Windows-specific freeze.
   // Apply other security settings as needed
   // Most security settings are applied per-window via webPreferences
 }
@@ -146,7 +147,6 @@ export function applySecuritySettings(securitySettings: ElectronSecuritySettings
 export function getWebPreferencesSecuritySettings(
   securitySettings: ElectronSecuritySettings
 ): Partial<ElectronSecuritySettings> {
-  
   const webPreferencesSecuritySettings = [
     'sandbox',
     'devTools',

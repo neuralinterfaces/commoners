@@ -88,6 +88,16 @@ Run the built `.exe` and confirm:
 
 These are non-blocking issues documented for future work. None prevent shipping.
 
+### `app.enableSandbox()` freezes event loop (fixed, investigation deferred)
+
+**File:** `packages/core/assets/electron/modules/security.ts`
+
+`app.enableSandbox()` completely freezes the Electron main process event loop on Windows when `BrowserWindow.loadURL()` is called. No events fire, no Promises resolve, no setTimeout callbacks execute. This caused the desktop dev test to find 0 pages (all 14 tests failed) and Neurotique to segfault at startup.
+
+**Fix:** Removed `app.enableSandbox()`. Sandbox is applied per-window via `webPreferences.sandbox` through `getWebPreferencesSecuritySettings()`, which provides equivalent renderer-process isolation without the freeze.
+
+**Long-term:** See [Sandbox Investigation](./sandbox-investigation.md) for root cause analysis tasks.
+
 ### Port ownership verification (minor)
 
 **File:** `packages/core/assets/services/index.ts` (lines 600-616)
@@ -117,4 +127,5 @@ Tests for Python (`basic-python`, `numpy`), C++ (`cpp`), and Rust (`rust`) servi
 - [Desktop Targets — Windows](../guide/targets/desktop.md#windows) — signing docs, env vars, config examples
 - [Build Automation](../guide/build-automation.md) — CI workflow templates for Windows
 - [ASAR Integrity Hardening](./asar-hardening.md) — deeper rcedit/FFI analysis
+- [Sandbox Investigation](./sandbox-investigation.md) — `app.enableSandbox()` Windows freeze analysis and long-term tasks
 - [Features Roadmap](./features.md) — overall project status
