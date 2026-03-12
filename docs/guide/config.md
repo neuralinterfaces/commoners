@@ -143,14 +143,61 @@ The `electron` property defines the Electron options of your application. This v
 ```js
 export default {
     electron: {
-        nodeIntegration: true
+        nodeIntegration: true,
         window: {
             width: 800,
             height: 600,
-        }
+        },
     },
 }
 ```
+
+#### `electron.build`
+Pass any [electron-builder configuration](https://www.electron.build/configuration) directly. Your values are merged with the Commoners defaults, with your config taking precedence.
+
+```js
+export default {
+    electron: {
+        build: {
+            appId: 'com.example.myapp',
+            win: {
+                target: ['nsis', 'portable'],
+                rfc3161TimeStampServer: 'http://timestamp.digicert.com',
+            },
+            mac: {
+                target: ['dmg', 'zip'],
+                category: 'public.app-category.developer-tools',
+            },
+            nsis: {
+                oneClick: false,
+                allowToChangeInstallationDirectory: true,
+            },
+        },
+    },
+}
+```
+
+#### `electron.security`
+Configure security features for the Electron build.
+
+```js
+export default {
+    electron: {
+        security: {
+            // Enable or disable ASAR integrity validation (default: true when signing)
+            asarIntegrity: true,
+
+            // Or pass options:
+            // asarIntegrity: { strict: true },
+
+            // Disable ASAR integrity entirely:
+            // asarIntegrity: false,
+        },
+    },
+}
+```
+
+When `build.sign` or `build.publish` is enabled, ASAR integrity hashes are automatically embedded into the application binary and verified at runtime via Electron fuses. See [Desktop Targets](./targets/desktop) for platform-specific signing details.
 
 ### Vite
 The `vite` property defines the Vite options of your application. This value is used to configure the Vite options of your application.

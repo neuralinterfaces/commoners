@@ -365,6 +365,39 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       logger.debug('Code signing disabled')
     } else {
       logger.debug('Code signing enabled')
+
+      // Platform-specific certificate validation
+      if (process.platform === 'win32') {
+        const hasCert = process.env.WIN_CSC_LINK || process.env.CSC_LINK
+        if (!hasCert) {
+          throw new Error(
+            'Windows code signing requested but no certificate found. ' +
+              'Set WIN_CSC_LINK (or CSC_LINK) to the path or URL of your .pfx certificate file. ' +
+              'To build without signing, omit --sign and --publish flags.'
+          )
+        }
+
+        if (!process.env.WIN_CSC_KEY_PASSWORD) {
+          logger.warn(
+            'WIN_CSC_KEY_PASSWORD is not set — electron-builder will prompt for it or fail if non-interactive'
+          )
+        }
+
+        // Ensure electron-builder errors instead of silently producing unsigned builds
+        buildConfig.win.forceCodeSigning = true
+      }
+
+      if (process.platform === 'darwin') {
+        const missingMacVars = ['APPLE_ID', 'APPLE_ID_PASSWORD', 'APPLE_TEAM_ID'].filter(
+          (v) => !process.env[v]
+        )
+        if (missingMacVars.length > 0) {
+          logger.warn(
+            `macOS notarization may fail — missing env vars: ${missingMacVars.join(', ')}. ` +
+              'Set these for successful notarization via @electron/notarize.'
+          )
+        }
+      }
     }
 
     // Note: includeSubNodeModules was removed in electron-builder 26; workspace dependencies are handled automatically

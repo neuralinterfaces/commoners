@@ -77,6 +77,9 @@
     "typescript": "^5.0.0",
     "vite-plugin-static-copy": "^3.2.0"
   },
+  "optionalDependencies": {
+    "rcedit": "^4.0.1"
+  },
   "peerDependencies": {
     "@capacitor/android": "^8.2.0",
     "@capacitor/assets": "^3.0.5",
