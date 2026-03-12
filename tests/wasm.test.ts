@@ -1,4 +1,5 @@
 import { expect, test, describe } from 'vitest'
+import path from 'node:path'
 
 import { resolveServiceBuildInfo, sanitize } from '@commoners/solidarity'
 import { WasmCargoService } from '../packages/core/services/wasm'
@@ -80,7 +81,7 @@ describe('WASM Services', () => {
         build: false,
       })
 
-      expect(result.filepath).toBe('/project/services/wasm/src/lib.rs')
+      expect(result.filepath).toBe(path.resolve('/project', 'services/wasm/src/lib.rs'))
     })
 
     test('preserves capabilities through resolution', () => {
@@ -137,7 +138,7 @@ describe('WASM Services', () => {
 
     test('filters out services without url or wasm marker', () => {
       const services = {
-        'normal': { filepath: '/some/path' } as any,
+        normal: { filepath: '/some/path' } as any,
         'my-wasm': { __wasm: true, filepath: '/assets/wasm.js' } as any,
       }
 

@@ -1,4 +1,9 @@
 import { defineConfig } from 'vite'
+import { builtinModules } from 'node:module'
+
+// Externalize all Node.js builtins (both bare and node:-prefixed) so they
+// are not bundled into the library output.
+const nodeBuiltins = builtinModules.flatMap(m => [m, `node:${m}`])
 
 export default defineConfig({
   plugins: [],
@@ -10,7 +15,7 @@ export default defineConfig({
       fileName: format => `index.${format === 'es' ? 'mjs' : 'cjs'}`,
     },
     rollupOptions: {
-      external: ['os', 'dgram'], // Ensure Node.js modules are treated as external
+      external: nodeBuiltins,
     },
   },
 })

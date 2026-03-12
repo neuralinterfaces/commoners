@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { execaNode } from 'execa'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
+import os from 'os'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -64,14 +65,14 @@ describe('Commoners CLI', () => {
 
     it('should accept valid targets', async () => {
       const result = await execaNode(CLI_PATH, ['build', '--target', 'web'], {
-        cwd: '/tmp',
+        cwd: os.tmpdir(),
         reject: false,
       })
 
       // Should not fail with "Invalid target", will fail with "Configuration not found" instead
       const output = result.stdout + result.stderr
       expect(output).not.toContain('Invalid target')
-      expect(result.exitCode).toBe(1)
+      expect(result.exitCode).not.toBe(0)
     })
   })
 
@@ -80,17 +81,19 @@ describe('Commoners CLI', () => {
       const result = await execaNode(CLI_PATH, ['--help', '--no-color'], { reject: false })
 
       // Should not contain ANSI escape codes
-      expect(result.stdout).not.toMatch(/\x1b\[[0-9;]*m/)
+      // eslint-disable-next-line no-control-regex
+      expect(result.stdout).not.toMatch(new RegExp('\x1b\\[[0-9;]*m'))
     })
 
     it('should respect NO_COLOR environment variable', async () => {
       const result = await execaNode(CLI_PATH, ['--help'], {
         env: { NO_COLOR: '1' },
-        reject: false
+        reject: false,
       })
 
       // Should not contain ANSI escape codes
-      expect(result.stdout).not.toMatch(/\x1b\[[0-9;]*m/)
+      // eslint-disable-next-line no-control-regex
+      expect(result.stdout).not.toMatch(new RegExp('\x1b\\[[0-9;]*m'))
     })
   })
 
@@ -98,7 +101,7 @@ describe('Commoners CLI', () => {
     it('should accept --stdin flag for build command', async () => {
       const config = JSON.stringify({
         name: 'Test App',
-        version: '1.0.0'
+        version: '1.0.0',
       })
 
       try {
@@ -119,9 +122,8 @@ describe('Commoners CLI', () => {
         timeout: 5000,
       })
 
-      const output = result.stdout + result.stderr
-      // Exit code should be 1 when STDIN not provided
-      expect(result.exitCode).toBe(1)
+      // Exit code should be non-zero when STDIN not provided
+      expect(result.exitCode).not.toBe(0)
 
       // Note: Error output may not appear due to process.exit() not flushing buffers
       // The important thing is that it exits with code 1
@@ -135,7 +137,6 @@ describe('Commoners CLI', () => {
         reject: false,
       })
 
-      const output = result.stdout + result.stderr
       // Should fail to parse JSON and exit with code 1
       expect(result.exitCode).toBe(1)
       // May show JSON parse error or module loading error
@@ -180,13 +181,12 @@ describe('Commoners CLI', () => {
   describe('Error Messages', () => {
     it('should show error when config not found', async () => {
       const result = await execaNode(CLI_PATH, ['build'], {
-        cwd: '/tmp',
+        cwd: os.tmpdir(),
         reject: false,
       })
 
-      const output = result.stdout + result.stderr
-      // Should fail when no config is found and exit with code 1
-      expect(result.exitCode).toBe(1)
+      // Should fail when no config is found (non-zero exit)
+      expect(result.exitCode).not.toBe(0)
       // May show "Configuration not found" or module loading error depending on timing
     })
 

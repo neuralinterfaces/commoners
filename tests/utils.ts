@@ -9,7 +9,17 @@ import { verifyAsarIntegrity, printVerificationResult } from './asar/verify'
 import config from '../examples/demo/commoners.config'
 
 import { join } from 'node:path'
+import { execSync } from 'node:child_process'
 import { getLocalIP } from '../packages/core/assets/services/ip'
+
+const hasCommand = (cmd: string): boolean => {
+  try {
+    execSync(process.platform === 'win32' ? `where ${cmd}` : `which ${cmd}`, { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
 
 export const EXTRA_OUTPUT_LOCATIONS = ['build']
 
@@ -270,10 +280,9 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
       // 'manual',
       'manualAutobuild',
       // 'manualCustomLocation',
-      'basic-python',
-      'numpy',
-      'cpp',
-      'rust',
+      ...(hasCommand('python') || hasCommand('python3') ? ['basic-python', 'numpy'] : []),
+      ...(hasCommand('g++') ? ['cpp'] : []),
+      ...(hasCommand('cargo') ? ['rust'] : []),
       'dynamicNode',
     ]
 
@@ -432,7 +441,9 @@ const waitForService = async (url: string, timeoutMs = 30000) => {
     try {
       const res = await fetch(url)
       if (res.ok) return true
-    } catch {}
+    } catch {
+      /* retry */
+    }
     await sleep(delay)
     delay = Math.min(delay * 1.5, 3000)
   }

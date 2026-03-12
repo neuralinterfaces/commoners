@@ -12,6 +12,7 @@ import {
   posix,
   basename,
 } from 'node:path'
+import { createRequire } from 'node:module'
 
 // Internal Imports
 import { resolveConfigPath } from '../index.js'
@@ -812,11 +813,22 @@ export const bundleConfig = async (
   const nodeAliases: Record<string, string> = node
     ? {}
     : (() => {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { createRequire } = require('node:module')
         const _require = createRequire(import.meta.url)
-        const pathBrowserify = _require.resolve('path-browserify')
-        const processBrowser = _require.resolve('process/browser')
+
+        // Resolve browser polyfills. In pnpm strict mode, these may not be
+        // hoisted to the bundled dist location. Fall back to resolving from
+        // the @commoners/solidarity package entry which has them as direct deps.
+        const resolvePolyfill = (id: string) => {
+          try {
+            return _require.resolve(id)
+          } catch {
+            const fallback = createRequire(_require.resolve('@commoners/solidarity'))
+            return fallback.resolve(id)
+          }
+        }
+
+        const pathBrowserify = resolvePolyfill('path-browserify')
+        const processBrowser = resolvePolyfill('process/browser')
         return {
           path: pathBrowserify,
           'node:path': pathBrowserify,
@@ -918,6 +930,24 @@ export const bundleConfig = async (
         external: nodeExternals,
         plugins: [
           importMetaResolvePlugin(), // Ensure import.meta.url is resolved correctly within each source file
+          // Fix inter-chunk imports on Windows: Vite/Rollup may generate absolute
+          // paths lacking the drive letter (e.g. /examples/demo/...) for code-split
+          // chunks. Since all chunks share the same outDir, rewrite to relative.
+          {
+            name: 'fix-windows-chunk-paths',
+            renderChunk(code: string) {
+              // Match import/export from paths and dynamic import() paths that
+              // start with "/" — these are broken on Windows (no drive letter).
+              const fixed = code.replace(
+                /((?:from|import)\s*\(\s*['"]|from\s+['"])(\/[^'"]+)(['"])/g,
+                (_match, prefix, absPath, suffix) => {
+                  const filename = absPath.substring(absPath.lastIndexOf('/') + 1)
+                  return prefix + './' + filename + suffix
+                }
+              )
+              return fixed !== code ? fixed : null
+            },
+          },
         ],
       },
     },

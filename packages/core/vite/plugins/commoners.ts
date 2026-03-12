@@ -137,7 +137,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
         if (capabilities) {
           if (type === 'service') serviceCapabilities[id] = capabilities
           else if (type === 'plugin') pluginCapabilities[id] = capabilities
-          else { // hybrid
+          else {
+            // hybrid
             serviceCapabilities[id] = capabilities
             pluginCapabilities[id] = capabilities
           }
@@ -212,7 +213,12 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
 
                 const { __id } = args ?? {}
 
-                const GLOBAL = globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject)}\`)
+                // Double-escape backslashes so they survive the template literal.
+                // On Windows, JSON.stringify produces paths like "C:\\Users\\..." where \\
+                // is a JSON-escaped backslash. Inside a JS template literal, \\ is interpreted
+                // as a single backslash, producing invalid JSON (e.g. unrecognized escape
+                // sequences). Doubling the backslashes preserves them through the template.
+                const GLOBAL = globalThis.commoners = JSON.parse(\`${JSON.stringify(globalObject).replaceAll('\\', '\\\\')}\`)
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
                 if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, close, ...args } // Ensure desktop is configured properly at the start
 

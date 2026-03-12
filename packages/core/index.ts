@@ -3,11 +3,7 @@ import { dirname, join, resolve, isAbsolute } from 'node:path'
 import { existsSync, mkdirSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
-import {
-  templateDir,
-  ensureTargetConsistent,
-  globalTempDir,
-} from './globals.js'
+import { templateDir, ensureTargetConsistent, globalTempDir } from './globals.js'
 import { onCleanup } from './cleanup.js'
 
 import {
@@ -15,9 +11,7 @@ import {
   Extension,
   Plugin,
   ResolvedConfig,
-  ResolvedExtension,
   ResolvedExtensions,
-  ResolvedService,
   ResolvedServices,
   ServiceCreationOptions,
   UserConfig,
@@ -52,7 +46,6 @@ export {
   BuildError,
 } from './errors.js'
 
-
 const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path))
 
 // Top-Level Package Exports
@@ -68,7 +61,16 @@ export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers
 export { lazy } from './assets/utils/index.js' // Lazy factory helper for tree-shaking
-export { Logger, LogLevel, createLogger, getLogger, configureLogger, setGlobalLogLevel, setGlobalUI, getGlobalUI } from './assets/utils/logger.js' // Logging
+export {
+  Logger,
+  LogLevel,
+  createLogger,
+  getLogger,
+  configureLogger,
+  setGlobalLogLevel,
+  setGlobalUI,
+  getGlobalUI,
+} from './assets/utils/logger.js' // Logging
 
 // ------------------ Configuration File Handling ------------------
 export const resolveConfigPath = (base = '') =>
@@ -82,10 +84,8 @@ const isCommonersProject = async (root: string = process.cwd()) => {
   let failError: ConfigurationError | undefined
 
   // Root does not exist
-  if (root && !rootExists) failError = new ConfigurationError(
-      'Invalid Commoners project',
-      `This path does not exist.`
-    )
+  if (root && !rootExists)
+    failError = new ConfigurationError('Invalid Commoners project', `This path does not exist.`)
 
   if (failError) {
     logger.error(failError.message, { root, reason: failError.details })
@@ -130,6 +130,12 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
       // Rewrite import.meta.url to the *source* config file so getDirname() etc.
       // resolve paths relative to the project root, not the temp output directory.
       define: { 'import.meta.url': JSON.stringify(pathToFileURL(configPath).href) },
+      // esbuild wraps CJS deps in __commonJS which uses __require (a require polyfill).
+      // In .mjs files, require() is unavailable. Inject createRequire so __require works.
+      // Use the output file URL (not import.meta.url, which is overridden by define above).
+      banner: {
+        js: `import { createRequire as __bundled_createRequire } from 'node:module';const require = __bundled_createRequire(${JSON.stringify(pathToFileURL(configOutputPath).href)});`,
+      },
     })
 
     const fileURL = pathToFileURL(configOutputPath).href
@@ -186,7 +192,6 @@ function classifyExtensions(extensions: Record<string, Extension>): {
 
 // ------------------- Extension Helpers -------------------
 export { getPlugins, getServices } from './utils/extensions.js'
-import { getPlugins, getServices } from './utils/extensions.js'
 
 export async function resolveConfig(
   o: UserConfig = {},
@@ -198,14 +203,13 @@ export async function resolveConfig(
     // Advanced Service Configuration
     services,
 
-    hooks: hooksOverride
+    hooks: hooksOverride,
   }: ConfigResolveOptions = {}
 ) {
-
   const isResolved = (o as Record<string, any>).__resolved
 
   if (isResolved) return o as ResolvedConfig
-  
+
   // Always use absolute root path for consistent path resolution
   const root = o.root ? (isAbsolute(o.root) ? o.root : resolve(o.root)) : process.cwd()
   o.root = root
@@ -215,16 +219,14 @@ export async function resolveConfig(
   const userPkg = getJSON(join(root, 'package.json'))
 
   // Merge Config and package.json (transformed name)
-  const { 
+  const {
     hooks, // Do not copy
     electron = {},
-    ...rest 
+    ...rest
   } = temp
 
-  const { 
-    hooks: electronHooks, // Do not copy
-    ...electronRest 
-  } = electron
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { hooks: _electronHooks, ...electronRest } = electron
 
   o = merge(structuredClone({ ...rest, electron: electronRest }), {
     ...userPkg,
@@ -238,13 +240,17 @@ export async function resolveConfig(
 
   o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
 
-  if (o.outDir && !isAbsolute(o.outDir)) o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute
+  if (o.outDir && !isAbsolute(o.outDir))
+    o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute
 
   // Classify extensions and merge into plugins/services
   const classified = extensions ? classifyExtensions(extensions) : { plugins: {}, services: {} }
 
   const mergedPlugins: Record<string, Plugin> = { ...(plugins ?? {}), ...classified.plugins }
-  const mergedUserServices: Record<string, any> = { ...((ogServices as Record<string, any>) ?? {}), ...classified.services }
+  const mergedUserServices: Record<string, any> = {
+    ...((ogServices as Record<string, any>) ?? {}),
+    ...classified.services,
+  }
 
   o.vite = vite ?? {} // Transfer the original Vite config
 
@@ -276,7 +282,12 @@ export async function resolveConfig(
 
   // Check whether the selected services are valid
   if (services) {
-    const selectedServices = typeof services === 'string' ? [ services ] : ( Array.isArray(services) ? services : Object.keys(services) )
+    const selectedServices =
+      typeof services === 'string'
+        ? [services]
+        : Array.isArray(services)
+          ? services
+          : Object.keys(services)
     const allServices = Object.keys(mergedUserServices)
     if (selectedServices) {
       if (!selectedServices.every(name => allServices.includes(name))) {
@@ -289,7 +300,12 @@ export async function resolveConfig(
     }
   }
 
-  const resolvedServices = await resolveAll(mergedUserServices, { target, build, services, root: o.root })
+  const resolvedServices = await resolveAll(mergedUserServices, {
+    target,
+    build,
+    services,
+    root: o.root,
+  })
 
   // Build canonical extensions record from merged plugins + resolved services
   const resolvedExtensions: ResolvedExtensions = {}
@@ -357,7 +373,5 @@ export const configureForDesktop = (outDir, root = '', defaults = {}) => {
   }
 }
 
-export const createServices = (
-  services: ResolvedServices,
-  opts: ServiceCreationOptions = {}
-) => createAll(services, opts)
+export const createServices = (services: ResolvedServices, opts: ServiceCreationOptions = {}) =>
+  createAll(services, opts)
