@@ -12,8 +12,9 @@ nsis:
 win:
   signAndEditExecutable: true # Ensures the executable is signed and edited for Windows builds
   verifyUpdateCodeSignature: true # Ensures the update code signature is verified for Windows builds
-  rfc3161TimeStampServer: "http://timestamp.digicert.com" # RFC 3161 timestamp for long-term signature validity
-  timeStampServer: "http://timestamp.digicert.com" # Authenticode timestamp server fallback
+  signtoolOptions:
+    rfc3161TimeStampServer: 'http://timestamp.digicert.com' # RFC 3161 timestamp for long-term signature validity
+    timeStampServer: 'http://timestamp.digicert.com' # Authenticode timestamp server fallback
 
 mac:
   entitlementsInherit: build/entitlements.mac.plist # AUGMENTED

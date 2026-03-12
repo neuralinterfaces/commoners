@@ -627,6 +627,12 @@ export const buildAssets = async (
             target,
           })
         else {
+          // Externalize packages that cannot be bundled: Electron runtime,
+          // native .node addons, and optional dependencies that may not be
+          // installed.  platform: 'node' auto-externalizes Node built-ins
+          // (fs, path, etc.) but NOT these.
+          const assetExternals = ['electron', '*.node', '@aws-sdk/*']
+
           const baseConfig: ESBuildBuildOptions = {
             entryPoints: [input],
             bundle: true,
@@ -644,7 +650,7 @@ export const buildAssets = async (
             buildForBrowser({
               outfile: output,
               platform: 'node',
-              // external: ["*.node"],
+              external: assetExternals,
               plugins: [nativeNodeModulesPlugin()],
             })
 

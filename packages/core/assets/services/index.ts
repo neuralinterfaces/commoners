@@ -15,7 +15,7 @@ const logger = createLogger('services')
 
 const createNoOpHooks = (): HooksInterface => ({
   emit: () => {},
-  on: () => () => {}
+  on: () => () => {},
 })
 
 type ServiceOptions = {
@@ -62,7 +62,7 @@ export const isValidURL = s => {
   try {
     new URL(s)
     return true
-  } catch (err) {
+  } catch {
     return false
   }
 }
@@ -83,7 +83,6 @@ const publishKeys = {
 export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
   // MOVED HERE
   const { root, target, services, build: isBuildProcess = true } = opts
-
 
   const isServicesOnlyBuild = !!services
   const isDesktopTarget = isDesktop(target)
@@ -118,7 +117,8 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     hasModeSpecificConfig && resolved.publish[publishMode]
   )
 
-  const { local, remote, ...publishConfig } = basePublish || {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { local: _local, remote: _remote, ...publishConfig } = basePublish || {}
 
   const blockBuild = hasModeSpecificConfig ? modePublish === false : basePublish === false
 
@@ -157,7 +157,7 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     const { base: publishBase, src: publishSrc } = resolvedPublishConfig
 
     const isConfigured = publishBase || publishSrc
-    
+
     Object.assign(resolvedWithoutSource, {
       base: isConfigured ? publishBase : outLocation,
       src:
@@ -219,7 +219,6 @@ export function resolveServiceBuildInfo(service, name, opts: ServiceOptions) {
     __autobuild,
     __compile,
   } = resolvedWithoutSource
-
 
   // Resolve filepath
   const fullFile = filepath && resolvePath(root, filepath)
@@ -307,7 +306,8 @@ async function getServiceUrl(service) {
 
     // Auto-update protocol to https when SSL is configured
 
-    if (protocol) _url.protocol = protocol // Use custom protocol if provided
+    if (protocol)
+      _url.protocol = protocol // Use custom protocol if provided
     else if (ssl?.key && ssl?.cert) _url.protocol = 'https:'
 
     return { url: _url.href, __portAutoAllocated }
@@ -354,7 +354,13 @@ export async function resolveService(config, name, opts: ServiceOptions) {
     __autobuild,
   } = resolvedForBuild
 
-  const { url: resolvedUrl, __portAutoAllocated } = await getServiceUrl({ src, url, port, ssl, protocol })
+  const { url: resolvedUrl, __portAutoAllocated } = await getServiceUrl({
+    src,
+    url,
+    port,
+    ssl,
+    protocol,
+  })
   resolvedForBuild.url = resolvedUrl
 
   const isMobileTarget = isMobile(target)
@@ -396,11 +402,7 @@ export async function resolveService(config, name, opts: ServiceOptions) {
 const isExecutable = ext => ext === '.exe' || !ext
 
 // Create and monitor arbitary processes
-export async function start(
-  config, 
-  id, 
-  opts
-) {
+export async function start(config, id, opts) {
   const label = id ?? 'commoners-service'
 
   const { hooks = createNoOpHooks() } = opts
@@ -423,7 +425,6 @@ export async function start(
     hooks.emit({ type: 'service:launch:start', service: label, filepath })
 
     for (let attempt = 0; attempt <= MAX_PORT_RETRIES; attempt++) {
-
       // On retry, allocate a new port (only if port was auto-allocated)
       if (attempt > 0) {
         if (!config.__portAutoAllocated) break
@@ -431,7 +432,9 @@ export async function start(
         const newUrl = new URL(config.url)
         newUrl.port = newPort.toString()
         config.url = newUrl.href
-        logger.debug(`[${label}] Retrying with new port ${newPort} (attempt ${attempt + 1}/${MAX_PORT_RETRIES + 1})`)
+        logger.debug(
+          `[${label}] Retrying with new port ${newPort} (attempt ${attempt + 1}/${MAX_PORT_RETRIES + 1})`
+        )
       }
 
       let childProcess
@@ -460,7 +463,9 @@ export async function start(
             // In Electron production, resolve from extraResources
             if (typeof process !== 'undefined' && process.resourcesPath) {
               const resolvedPath = resolve(process.resourcesPath, 'ssl', relativePath)
-              logger.debug(`[${label}] SSL path resolved from resources: ${path} -> ${resolvedPath}`)
+              logger.debug(
+                `[${label}] SSL path resolved from resources: ${path} -> ${resolvedPath}`
+              )
               return resolvedPath
             }
 
@@ -476,10 +481,12 @@ export async function start(
         }
 
         // Add SSL certificate paths to environment if configured
-        const sslEnv = config.ssl ? {
-          SSL_KEY_PATH: resolveRuntimePath(config.ssl.key),
-          SSL_CERT_PATH: resolveRuntimePath(config.ssl.cert),
-        } : {}
+        const sslEnv = config.ssl
+          ? {
+              SSL_KEY_PATH: resolveRuntimePath(config.ssl.key),
+              SSL_CERT_PATH: resolveRuntimePath(config.ssl.cert),
+            }
+          : {}
 
         if (config.ssl) {
           logger.debug(`[${label}] SSL configuration:`)
@@ -506,7 +513,10 @@ export async function start(
         const fileExists = existsSync(resolvedFilepath)
 
         if (!fileExists) {
-          logger.debug('Emitting service:launch:error', { service: label, filepath: resolvedFilepath })
+          logger.debug('Emitting service:launch:error', {
+            service: label,
+            filepath: resolvedFilepath,
+          })
           return hooks.emit({
             type: 'service:launch:error',
             error: new Error(`File does not exist at ${resolvedFilepath}`),
@@ -516,14 +526,23 @@ export async function start(
 
         // Verify binary integrity when a hash manifest is available
         if (isExecutable(ext) && opts.hashManifest?.[id]) {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { createHash } = require('node:crypto')
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const { readFileSync } = require('node:fs')
           const actual = createHash('sha256').update(readFileSync(resolvedFilepath)).digest('hex')
           if (actual !== opts.hashManifest[id]) {
-            hooks.emit({ type: 'security:service:integrity:fail', service: label, expected: opts.hashManifest[id], actual })
+            hooks.emit({
+              type: 'security:service:integrity:fail',
+              service: label,
+              expected: opts.hashManifest[id],
+              actual,
+            })
             return hooks.emit({
               type: 'service:launch:error',
-              error: new Error(`Service binary integrity check failed for ${label}: expected ${opts.hashManifest[id].slice(0, 12)}..., got ${actual.slice(0, 12)}...`),
+              error: new Error(
+                `Service binary integrity check failed for ${label}: expected ${opts.hashManifest[id].slice(0, 12)}..., got ${actual.slice(0, 12)}...`
+              ),
               service: label,
               filepath: resolvedFilepath,
             })
@@ -572,7 +591,9 @@ export async function start(
       // Detect startup success vs early exit (port conflict)
       let startupSettled = false
       let resolveStartup: (result: 'success' | 'retry') => void
-      const startupPromise = new Promise<'success' | 'retry'>((r) => { resolveStartup = r })
+      const startupPromise = new Promise<'success' | 'retry'>(r => {
+        resolveStartup = r
+      })
 
       const settleStartup = (result: 'success' | 'retry') => {
         if (startupSettled) return
@@ -600,9 +621,16 @@ export async function start(
           if (wasStarting && childProcess.pid && process.platform !== 'win32') {
             try {
               const port = resolvedURL.port
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
               const { execSync } = require('node:child_process')
-              const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, { encoding: 'utf8', timeout: 3000 }).trim()
-              const listeningPids = output.split('\n').map(p => parseInt(p, 10)).filter(Boolean)
+              const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, {
+                encoding: 'utf8',
+                timeout: 3000,
+              }).trim()
+              const listeningPids = output
+                .split('\n')
+                .map(p => parseInt(p, 10))
+                .filter(Boolean)
               if (listeningPids.length > 0 && !listeningPids.includes(childProcess.pid)) {
                 hooks.emit({
                   type: 'security:warning',
@@ -623,6 +651,25 @@ export async function start(
           hooks.emit({ type: 'service:stderr', service: label, data })
         })
       }
+
+      childProcess.on('error', err => {
+        clearTimeout(startupTimeout)
+        config.status = false
+        delete processes[id]
+        logger.debug('Emitting service:launch:error (spawn error)', {
+          service: label,
+          error: err.message,
+        })
+        hooks.emit({
+          type: 'service:launch:error',
+          service: label,
+          filepath,
+          error: new Error(
+            `Failed to start service "${label}": ${err.message}${'code' in err && err.code === 'ENOENT' ? `. Ensure the command is available on PATH.` : ''}`
+          ),
+        })
+        settleStartup('retry')
+      })
 
       childProcess.on('close', code => {
         clearTimeout(startupTimeout)
@@ -659,14 +706,25 @@ export async function start(
           type: 'service:launch:error',
           service: label,
           filepath,
-          error: new Error(`Service "${label}" exited immediately (possible port conflict on port ${resolvedURL.port})`),
+          error: new Error(
+            `Service "${label}" exited immediately (possible port conflict on port ${resolvedURL.port})`
+          ),
         })
         return
       }
 
       // Startup succeeded
-      logger.debug('Emitting service:launch:complete', { service: label, url: resolvedURL.href, filepath })
-      hooks.emit({ type: 'service:launch:complete', service: label, url: resolvedURL.href, filepath })
+      logger.debug('Emitting service:launch:complete', {
+        service: label,
+        url: resolvedURL.href,
+        filepath,
+      })
+      hooks.emit({
+        type: 'service:launch:complete',
+        service: label,
+        url: resolvedURL.href,
+        filepath,
+      })
 
       return { ...config, process: childProcess } as ActiveService
     }
@@ -676,7 +734,7 @@ export async function start(
 const KILL_TIMEOUT_MS = 3000
 
 const killProcess = (p): Promise<void> => {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     if (!p || !p.pid) return resolve()
 
     let settled = false
@@ -700,7 +758,11 @@ const killProcess = (p): Promise<void> => {
     // SIGKILL fallback after timeout
     setTimeout(() => {
       if (settled) return
-      try { p.kill('SIGKILL') } catch {}
+      try {
+        p.kill('SIGKILL')
+      } catch {
+        /* SIGKILL may fail if process already exited */
+      }
       // Resolve even if SIGKILL doesn't trigger exit event
       setTimeout(settle, 500)
     }, KILL_TIMEOUT_MS)

@@ -3,15 +3,27 @@
  * Implements the Template Method pattern for build operations
  */
 
-import { join, resolve, dirname, relative, isAbsolute } from 'node:path'
+import { join, resolve, relative, isAbsolute } from 'node:path'
 import { createLogger } from '../assets/utils/logger.js'
-import type { UserConfig, BuildHooks, HooksInterface, ResolvedConfig, ServiceRebuildOption } from '../types.js'
+import type {
+  UserConfig,
+  BuildHooks,
+  HooksInterface,
+  ResolvedConfig,
+  ServiceRebuildOption,
+} from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
 import { resolveViteConfig } from '../vite/index.js'
 import { ScopedLogger } from '../vite/logger.js'
 import { removeDirectory } from '../utils/files.js'
-import { globalWorkspacePath, globalTempDir, handleTemporaryDirectories, vite, isDesktop } from '../globals.js'
+import {
+  globalWorkspacePath,
+  globalTempDir,
+  handleTemporaryDirectories,
+  vite,
+  isDesktop,
+} from '../globals.js'
 import { globalServiceWorkspacePath } from '../assets/services/paths.js'
 
 const resolveOutDir = (context: BuildContext): string => context.__outDir || context.outDir
@@ -56,7 +68,7 @@ export interface BuildStrategy {
   getOutputDir(root: string, target: string, isDev: boolean): string
 }
 
-type BuildServiceRebuildOptions = { force?: boolean, outDir?: string } | ServiceRebuildOption
+type BuildServiceRebuildOptions = { force?: boolean; outDir?: string } | ServiceRebuildOption
 
 /**
  * Build context shared across all build steps
@@ -71,6 +83,7 @@ export interface BuildContext {
   dev: boolean
   overwrite: boolean
   rebuildServices: BuildServiceRebuildOptions
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   onBuildAssets?: Function | null
   assets: any[] // Collection of built assets
 }
@@ -107,10 +120,7 @@ export class BuildFlow {
   /**
    * Build application using appropriate platform strategy
    */
-  async buildApp(
-    config: UserConfig = {},
-    options: BuildHooks = {}
-  ): Promise<BuiltAppMetadata> {
+  async buildApp(config: UserConfig = {}, options: BuildHooks = {}): Promise<BuiltAppMetadata> {
     const {
       onBuildAssets,
       dev = false,
@@ -125,7 +135,8 @@ export class BuildFlow {
     try {
       // Resolve configuration
       const resolvedConfig = await resolveConfig(config, { build: true })
-      const { root, target, build = {} } = resolvedConfig
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { root, target, build: _build = {} } = resolvedConfig
 
       this.logger.info('Starting build', { target, dev, root })
 
@@ -157,23 +168,25 @@ export class BuildFlow {
         overwrite,
         rebuildServices,
         onBuildAssets,
-        assets: []
+        assets: [],
       }
 
       // Execute build flow using strategy
       await this.executeBuildFlow(context, strategy)
 
       // Emit build complete event
-      this.logger.debug('Emitting build:complete', { config: resolvedConfig.name, outDir: context.outDir })
+      this.logger.debug('Emitting build:complete', {
+        config: resolvedConfig.name,
+        outDir: context.outDir,
+      })
       hooks.emit({ type: 'build:complete', config: resolvedConfig, outDir: context.outDir })
 
       this.logger.info('Build completed successfully', { outDir: context.outDir })
 
       return {
-        artifact: context.outDir,
-        web: context.__outDir
+        artifact: dev ? context.__outDir : context.outDir,
+        web: context.__outDir,
       }
-      
     } catch (error) {
       this.logger.debug('Emitting build:error', { error: (error as Error).message })
       hooks.emit({
@@ -189,10 +202,7 @@ export class BuildFlow {
   /**
    * Execute the build flow (Template Method)
    */
-  private async executeBuildFlow(
-    context: BuildContext,
-    strategy: BuildStrategy
-  ): Promise<void> {
+  private async executeBuildFlow(context: BuildContext, strategy: BuildStrategy): Promise<void> {
     const { dev } = context
 
     // Step 1: Prepare build environment
@@ -206,7 +216,7 @@ export class BuildFlow {
 
     // Step 4: Build services (if applicable)
     if (context.rebuildServices) await this.buildServices(context)
-      
+
     // Step 5: Execute custom asset callback
     if (context.onBuildAssets) {
       const outDir = resolveOutDir(context)
@@ -250,9 +260,10 @@ export class BuildFlow {
       hooks,
     })
 
-
     const _vite = await vite
-    const customViteLogger = new ScopedLogger((...args) => customViteLogger.call(() => hooks.emit({ type: 'log', args })))
+    const customViteLogger = new ScopedLogger((...args) =>
+      customViteLogger.call(() => hooks.emit({ type: 'log', args }))
+    )
     await _vite.build({ ...resolvedViteConfig, customLogger: customViteLogger })
     customViteLogger.close()
 
@@ -277,18 +288,26 @@ export class BuildFlow {
    * Build services
    */
   private async buildServices(context: BuildContext): Promise<void> {
-
     const { config, dev, hooks, root, target, rebuildServices } = context
     const servicesToBuild = getServicesToBuild(config, dev)
     if (servicesToBuild.length === 0) return this.logger.debug('No services to build')
 
-    this.logger.debug('Emitting build:assets:start', { phase: 'services', services: servicesToBuild })
+    this.logger.debug('Emitting build:assets:start', {
+      phase: 'services',
+      services: servicesToBuild,
+    })
     hooks.emit({ type: 'build:assets:start', phase: 'services', services: servicesToBuild })
 
-    const isRebuildConfig = rebuildServices && typeof rebuildServices === 'object' && !Array.isArray(rebuildServices)
-    const resolvedOutDir = (isRebuildConfig ? rebuildServices.outDir : "") || (context.__outDir || resolve(join(root, globalServiceWorkspacePath)))
+    const isRebuildConfig =
+      rebuildServices && typeof rebuildServices === 'object' && !Array.isArray(rebuildServices)
+    const resolvedOutDir =
+      (isRebuildConfig ? rebuildServices.outDir : '') ||
+      context.__outDir ||
+      resolve(join(root, globalServiceWorkspacePath))
 
-    const resolvedRebuild = (isRebuildConfig ? rebuildServices.force : rebuildServices) as ServiceRebuildOption
+    const resolvedRebuild = (
+      isRebuildConfig ? rebuildServices.force : rebuildServices
+    ) as ServiceRebuildOption
     const assets = await getServiceAssets(config, dev, resolvedRebuild, hooks)
     const results = await buildAssets(assets, { root, outDir: resolvedOutDir, target, dev })
     context.assets.push(...results)
@@ -310,7 +329,8 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
   abstract canHandle(target: string): boolean
 
   async prepare(context: BuildContext): Promise<void> {
-    const { config, root, dev, overwrite } = context
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { config, root, dev: _dev, overwrite: _overwrite } = context
 
     // Ensure root is absolute
     const absoluteRoot = isAbsolute(root) ? root : resolve(root)
@@ -324,28 +344,26 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
       handleTemporaryDirectories(modifiedConfig)
       context.__outDir = tempDir // Already absolute since we use absoluteRoot
       this.logger.debug('Using temporary directory', { tempDir })
-    }
-
-    else await removeDirectory(context.outDir) // Clear output directory if not using temp dir
+    } else await removeDirectory(context.outDir) // Clear output directory if not using temp dir
   }
 
-  async build(context: BuildContext): Promise<void> {
+  async build(_context: BuildContext): Promise<void> {
     // Default: no additional build steps
     this.logger.debug(`No additional build steps for ${this.platform}`)
   }
 
-  async finalize(context: BuildContext): Promise<void> {
+  async finalize(_context: BuildContext): Promise<void> {
     this.logger.debug(`No finalization steps for ${this.platform}`)
   }
 
-  getOutputDir(root: string, target: string, isDev: boolean): string {
+  getOutputDir(root: string, target: string, _isDev: boolean): string {
     return join(root, globalWorkspacePath, target)
   }
 
   /**
    * Check if platform should use temporary directory
    */
-  protected shouldUseTempDir(target: string): boolean {
+  protected shouldUseTempDir(_target: string): boolean {
     return false
   }
 

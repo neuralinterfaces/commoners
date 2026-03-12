@@ -116,7 +116,7 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
 
     // Build launch command based on platform
     let runExecutableCommand = 'open' // Default to macOS command
-    const resolvedArgs = [`"${fullPath}"`] // The path to the executable file
+    const resolvedArgs = [fullPath] // The path to the executable file
     const userArgs = new Set<string>() // User-provided arguments
 
     // Pass remote debugging port and stability flags for testing
