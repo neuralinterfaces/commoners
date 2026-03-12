@@ -92,6 +92,7 @@ Batch C (independent, timing-sensitive)
 
 These existing documents provide technical analysis referenced by the implementation plans:
 
+- [Windows Verification Checklist](./windows-verification.md) — single-page handoff for testing builds, signing, and known gaps on Windows
 - [Electron Coupling Audit](./electron-coupling-audit.md) — catalogs all Electron integration points (~2,000-2,500 lines), abstraction quality assessment, migration effort estimate
 - [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code-signing issues, mobile plugin maturity comparison, binary size analysis
 
