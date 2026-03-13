@@ -53,3 +53,14 @@ jobs:
       - name: Check for outdated dependencies
         run: pnpm outdated || true
         continue-on-error: true
+
+      - name: Install and run Cargo audit
+        if: hashFiles('**/Cargo.toml') != ''
+        run: |
+          cargo install cargo-audit --quiet
+          cargo audit
+        continue-on-error: true
+
+      - name: Check for copyleft licenses
+        run: npx license-checker --production --failOn 'GPL-2.0;GPL-3.0;AGPL-3.0'
+        continue-on-error: true

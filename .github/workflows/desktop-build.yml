@@ -74,9 +74,14 @@ jobs:
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
-      # Unsigned build (on push to main)
-      - name: Build unsigned desktop app
-        if: github.event_name == 'push'
+      # Ad-hoc signed build on push (macOS only) — tests ASAR integrity without certificates
+      - name: Build ad-hoc signed desktop app (macOS)
+        if: runner.os == 'macOS' && github.event_name == 'push'
+        run: pnpm exec commoners build --target desktop --sign
+
+      # Unsigned build (on push, Windows only)
+      - name: Build unsigned desktop app (Windows)
+        if: runner.os == 'Windows' && github.event_name == 'push'
         run: pnpm exec commoners build --target desktop
 
       # Upload build artifacts
@@ -101,20 +106,15 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
 
-      # Verify ASAR integrity on macOS signed builds
+      # Full ASAR integrity verification on macOS
       - name: Verify ASAR integrity (macOS)
-        if: runner.os == 'macOS' && (github.event_name == 'release' || inputs.sign)
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           APP=$(find .commoners/electron -name '*.app' -maxdepth 2 | head -1)
           if [ -n "$APP" ]; then
-            ASAR="$APP/Contents/Resources/app.asar"
-            if [ -f "$ASAR" ]; then
-              echo "ASAR archive found: $ASAR"
-              echo "Size: $(du -h "$ASAR" | cut -f1)"
-            else
-              echo "::warning::ASAR archive not found at expected path"
-            fi
+            chmod +x tests/asar/ci-verify-asar-integrity.sh
+            tests/asar/ci-verify-asar-integrity.sh "$APP"
           else
             echo "::warning::.app bundle not found in build output"
           fi

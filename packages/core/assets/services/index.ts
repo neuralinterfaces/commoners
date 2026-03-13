@@ -434,6 +434,22 @@ export async function start(config, id, opts) {
   if (filepath) {
     const ext = extname(filepath)
 
+    // Warn when a fixed port is used instead of OS-assigned random port
+    if (!config.__portAutoAllocated && config.url) {
+      try {
+        const port = new URL(config.url).port
+        if (port) {
+          hooks.emit({
+            type: 'security:info',
+            message: `Service "${label}" uses fixed port ${port}. OS-assigned ports are recommended for production.`,
+            context: 'port-randomization',
+          })
+        }
+      } catch {
+        // Ignore invalid URLs
+      }
+    }
+
     logger.debug('Emitting service:launch:start', { service: label, filepath })
     hooks.emit({ type: 'service:launch:start', service: label, filepath })
 

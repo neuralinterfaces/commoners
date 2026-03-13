@@ -227,6 +227,86 @@ try {
   // plist not available — tests will be skipped
 }
 
+// ────────────────────────────────────────────────────────
+// 5a. macOS ad-hoc signing integration (macOS only)
+// ────────────────────────────────────────────────────────
+
+describe.skipIf(process.platform !== 'darwin' || !plistAvailable)(
+  'macOS ad-hoc signing preserves plist integrity',
+  () => {
+    test('codesign --sign - does not modify Info.plist hash', async () => {
+      const { mkdirSync, writeFileSync: writeFS, readFileSync: readFS, chmodSync } = await import(
+        'node:fs'
+      )
+      const { execSync } = await import('node:child_process')
+      const {
+        writePlistIntegrity,
+        readPlistIntegrity,
+      } = await import('../packages/core/utils/asar/macos-plist')
+
+      // 1. Create a synthetic .app bundle structure
+      const appDir = join(tmpDir, 'Test.app')
+      const contentsDir = join(appDir, 'Contents')
+      const macosDir = join(contentsDir, 'MacOS')
+      const resourcesDir = join(contentsDir, 'Resources')
+
+      mkdirSync(macosDir, { recursive: true })
+      mkdirSync(resourcesDir, { recursive: true })
+
+      // 2. Create a synthetic ASAR file
+      const header = { files: { 'index.html': { offset: '0', size: 42 } } }
+      const asar = buildSyntheticAsar(header)
+      const asarPath = join(resourcesDir, 'app.asar')
+      writeFS(asarPath, asar)
+
+      // 3. Create a minimal executable (shell script as placeholder)
+      const execPath = join(macosDir, 'Test')
+      writeFS(execPath, '#!/bin/bash\nexit 0\n')
+      chmodSync(execPath, 0o755)
+
+      // 4. Write a minimal Info.plist
+      const plistPath = join(contentsDir, 'Info.plist')
+      const minimalPlist = buildPlist({
+        CFBundleIdentifier: 'com.test.adhoc',
+        CFBundleName: 'Test',
+        CFBundleExecutable: 'Test',
+        CFBundlePackageType: 'APPL',
+      })
+      writeFS(plistPath, minimalPlist, 'utf8')
+
+      // 5. Compute hash and embed via writePlistIntegrity
+      const jsonHeaderBytes = readJsonHeaderBytes(asarPath)
+      expect(jsonHeaderBytes).not.toBeNull()
+      const asarHash = sha256(jsonHeaderBytes!)
+      writePlistIntegrity(plistPath, asarHash)
+
+      // Verify hash was written
+      const preSignHash = readPlistIntegrity(plistPath)
+      expect(preSignHash).toBe(asarHash)
+
+      // 6. Run codesign --sign - (ad-hoc signing)
+      execSync(`codesign --sign - --force --deep "${appDir}"`, {
+        encoding: 'utf8',
+        timeout: 30000,
+      })
+
+      // 7. Read back hash from Info.plist — should still match
+      const postSignHash = readPlistIntegrity(plistPath)
+      expect(postSignHash).toBe(asarHash)
+
+      // Also verify against the actual ASAR file
+      const recomputedBytes = readJsonHeaderBytes(asarPath)
+      expect(recomputedBytes).not.toBeNull()
+      const recomputedHash = sha256(recomputedBytes!)
+      expect(postSignHash).toBe(recomputedHash)
+    })
+  }
+)
+
+// ────────────────────────────────────────────────────────
+// 5b. Plist round-trip (macOS only)
+// ────────────────────────────────────────────────────────
+
 describe.skipIf(!plistAvailable)('Plist round-trip', () => {
   test('writePlistIntegrity + readPlistIntegrity round-trips correctly', async () => {
     const { writePlistIntegrity, readPlistIntegrity } = await import(
