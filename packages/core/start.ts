@@ -11,7 +11,7 @@ import {
   resolveConfig,
 } from './index.js'
 import { getPlugins, getServices } from './utils/extensions.js'
-import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, vite } from './globals.js'
+import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, isTauri, isTauriMobile, isCapacitorMobile, vite } from './globals.js'
 import { onCleanup } from './cleanup.js'
 import { createLogger } from './assets/utils/logger.js'
 
@@ -196,8 +196,19 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     onCleanup(() => startManager.close())
 
-    // ------------------------------- Mobile -------------------------------
-    if (isMobile(target)) {
+    // ------------------------------- Tauri (Desktop + Mobile) -------------------------------
+    if (isTauri(target)) {
+      const assets = await getAppAssets(scopedConfig, true, outDir)
+      await buildAssets(assets, { outDir, root, target, dev: true })
+      await buildServices(scopedConfig, { dev: true, rebuild: true, hooks })
+      // Tauri Vite plugin handles spawning `tauri dev` (or `tauri ios dev` / `tauri android dev`)
+      const frontend = (startManager.frontend = await createServer(scopedConfig))
+      startManager.url = frontend.resolvedUrls.local[0]
+      return startManager
+    }
+
+    // ------------------------------- Capacitor Mobile -------------------------------
+    if (isCapacitorMobile(target)) {
       await initializeWebsocketPort()
 
       const buildMetadata = await build(scopedConfig, { services, dev: true }) // Build the frontend and assets for mobile
@@ -217,8 +228,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       }
 
       // Interactive mode: Initialize and open the native IDE (Xcode for iOS, Android Studio for Android)
+      // Extract bare platform name for Capacitor CLI (ios-capacitor → ios, android-capacitor → android)
       const mobile = await import('./mobile/index.js')
-      const mobileOpts = { target: target as 'ios' | 'android', outDir: buildMetadata.web }
+      const capTarget = (target.startsWith('ios') ? 'ios' : 'android') as 'ios' | 'android'
+      const mobileOpts = { target: capTarget, outDir: buildMetadata.web }
       const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
 
       await mobile.runInRoot(async config => {
@@ -231,17 +244,6 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     // ------------------------------- Desktop -------------------------------
     if (isDesktop(target)) {
-
-      // ------------------------------- Tauri Desktop -------------------------------
-      if (target === 'tauri') {
-        const assets = await getAppAssets(scopedConfig, true, outDir)
-        await buildAssets(assets, { outDir, root, target, dev: true })
-        await buildServices(scopedConfig, { dev: true, rebuild: true, hooks })
-        // Tauri Vite plugin handles spawning `tauri dev`
-        const frontend = (startManager.frontend = await createServer(scopedConfig))
-        startManager.url = frontend.resolvedUrls.local[0]
-        return startManager
-      }
 
       // ------------------------------- Electron Desktop -------------------------------
       const electronDevOptions = electron?.dev || {}

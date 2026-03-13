@@ -932,13 +932,13 @@ export const bundleConfig = async (
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
       __COMMONERS_MOBILE__: JSON.stringify(
-        target === 'mobile' || target === 'ios' || target === 'android'
+        target === 'mobile' || target.startsWith('ios') || target.startsWith('android')
       ),
       __COMMONERS_WEB__: JSON.stringify(target === 'web' || target === 'pwa'),
       __COMMONERS_ELECTRON__: JSON.stringify(target === 'electron' || target === 'desktop'),
-      __COMMONERS_TAURI__: JSON.stringify(target === 'tauri'),
-      __COMMONERS_IOS__: JSON.stringify(target === 'ios'),
-      __COMMONERS_ANDROID__: JSON.stringify(target === 'android'),
+      __COMMONERS_TAURI__: JSON.stringify(target === 'tauri' || target === 'ios-tauri' || target === 'android-tauri'),
+      __COMMONERS_IOS__: JSON.stringify(target === 'ios' || target === 'ios-capacitor' || target === 'ios-tauri'),
+      __COMMONERS_ANDROID__: JSON.stringify(target === 'android' || target === 'android-capacitor' || target === 'android-tauri'),
     },
 
     resolve: {

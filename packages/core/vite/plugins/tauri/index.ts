@@ -15,10 +15,18 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolveServerUrl } from '../electron/server.js'
 import type { HooksInterface, ResolvedConfig } from '../../../types.js'
+import { isTauriMobile } from '../../../globals.js'
 
 type Plugin = import('vite').Plugin
 
 let tauriProcess: ChildProcess | null = null
+
+/** Get the Tauri CLI subcommand for the target (e.g., 'dev', 'ios dev', 'android dev') */
+function getTauriDevCommand(target: string): string[] {
+  if (target === 'ios-tauri') return ['tauri', 'ios', 'dev']
+  if (target === 'android-tauri') return ['tauri', 'android', 'dev']
+  return ['tauri', 'dev']
+}
 
 export default async function tauriPlugin({
   root,
@@ -93,6 +101,22 @@ fn main() {
             'fn main() {\n  tauri_build::build()\n}\n'
           )
 
+          // lib.rs (mobile entry point, needed for tauri mobile targets)
+          if (isTauriMobile(config?.target)) {
+            writeFileSync(
+              join(srcDir, 'lib.rs'),
+              `#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+`
+            )
+          }
+
           // tauri.conf.json with devUrl
           const windowConfig = tauriConfig.window || config?.electron?.window || {}
           const tauriConf = {
@@ -139,8 +163,9 @@ fn main() {
             )
           )
 
-          // Spawn tauri dev
-          tauriProcess = spawn('npx', ['tauri', 'dev'], {
+          // Spawn tauri dev (or tauri ios dev / tauri android dev for mobile)
+          const devCommand = getTauriDevCommand(config?.target || 'tauri')
+          tauriProcess = spawn('npx', devCommand, {
             cwd: outDir,
             env: { ...process.env },
             stdio: ['ignore', 'pipe', 'pipe'],

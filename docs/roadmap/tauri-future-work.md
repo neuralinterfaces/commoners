@@ -15,16 +15,17 @@ The initial Tauri backend implementation provides:
 
 ## Future Work
 
-### 1. Tauri Mobile Targets
+### 1. ~~Tauri Mobile Targets~~ (DONE)
 
-**Priority:** Medium
-**Complexity:** High
+Basic Tauri mobile support implemented via `--target ios-tauri` and `--target android-tauri`:
+- `TauriMobileBuildStrategy` and `TauriMobileLaunchStrategy` created
+- Target naming standardized: `<platform>-<backend>` (e.g., `ios-capacitor`, `ios-tauri`)
+- Capacitor remains the default mobile backend (`ios` → `ios-capacitor`)
+- Tauri mobile generates `src-tauri/` with `lib.rs` mobile entry point
 
-Tauri v2 supports iOS and Android, but the mobile ecosystem is too immature for production use. The current implementation is desktop-only. When Tauri mobile stabilizes:
-
-- Add `--target tauri-ios` and `--target tauri-android` support
-- Integrate with the existing `MobileBuildStrategy` or create `TauriMobileBuildStrategy`
-- Keep Capacitor as the default mobile backend; Tauri mobile as opt-in
+Remaining work:
+- E2E testing with actual Tauri mobile toolchain
+- Service sidecar support on mobile (currently no `externalBin` on mobile builds)
 
 ### 2. SEA (Single Executable Application) for JS Services
 

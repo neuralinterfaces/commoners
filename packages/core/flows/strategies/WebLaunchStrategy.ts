@@ -27,7 +27,7 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     return (
       target === 'web' ||
       target === 'pwa' ||
-      (!target.includes('electron') && !target.includes('tauri') && !target.includes('ios') && !target.includes('android'))
+      (!target.includes('electron') && !target.includes('tauri') && !target.includes('ios') && !target.includes('android') && !target.includes('capacitor'))
     )
   }
 

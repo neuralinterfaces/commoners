@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
-import { TARGET_TAURI } from '../../constants.js'
+import { TARGET_DESKTOP_TAURI } from '../../constants.js'
 import { PLATFORM } from '../../globals.js'
 import { BuildError } from '../../errors.js'
 import type { LaunchOutput } from '../../types.js'
@@ -67,7 +67,7 @@ export class TauriLaunchStrategy extends BaseLaunchStrategy {
   readonly platform = 'tauri'
 
   canHandle(target: string): boolean {
-    return target === TARGET_TAURI
+    return target === TARGET_DESKTOP_TAURI
   }
 
   async prepare(context: LaunchContext): Promise<void> {

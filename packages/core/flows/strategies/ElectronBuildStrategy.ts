@@ -6,7 +6,7 @@
 import { join, relative, isAbsolute } from 'node:path'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
-import { TARGET_ELECTRON, DIR_ELECTRON } from '../../constants.js'
+import { TARGET_DESKTOP_ELECTRON, DIR_ELECTRON } from '../../constants.js'
 import { parseOptions } from '../../assets/electron/modules/config.js'
 
 import {
@@ -40,7 +40,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   readonly platform = 'electron'
 
   canHandle(target: string): boolean {
-    return target === TARGET_ELECTRON || target === 'electron'
+    return target === TARGET_DESKTOP_ELECTRON
   }
 
   protected shouldUseTempDir(target: string): boolean {

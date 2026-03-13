@@ -356,9 +356,13 @@ export class DefaultHooks extends Hooks {
       case 'pwa': return 'PWA'
       case 'electron': return 'Desktop'
       case 'mobile': return 'Mobile'
-      case 'ios': return 'iOS'
-      case 'android': return 'Android'
+      case 'ios':
+      case 'ios-capacitor': return 'iOS'
+      case 'android':
+      case 'android-capacitor': return 'Android'
       case 'tauri': return 'Tauri'
+      case 'ios-tauri': return 'iOS (Tauri)'
+      case 'android-tauri': return 'Android (Tauri)'
       default: return target
     }
   }

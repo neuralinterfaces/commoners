@@ -35,17 +35,38 @@ describe('Tauri Target Resolution', () => {
 })
 
 // ────────────────────────────────────────────────────────
-// 2. Strategy canHandle (tested via dynamic import to avoid circular deps)
+// 2. Standardized Target Naming
 // ────────────────────────────────────────────────────────
 
-describe('Tauri Constants and Strategy Registration', () => {
-  // NOTE: Strategy classes cannot be imported directly in tests due to a pre-existing
-  // circular dependency: BuildFlow/LaunchFlow → index.ts → launch.ts → flows/index.ts → strategies.
-  // Strategy canHandle is tested indirectly through constants and the build system.
+describe('Standardized Target Naming', () => {
+  test('TARGET_DESKTOP_ELECTRON constant is "electron"', async () => {
+    const { TARGET_DESKTOP_ELECTRON } = await import('../packages/core/constants')
+    expect(TARGET_DESKTOP_ELECTRON).toBe('electron')
+  })
 
-  test('TARGET_TAURI constant is "tauri"', async () => {
-    const { TARGET_TAURI } = await import('../packages/core/constants')
-    expect(TARGET_TAURI).toBe('tauri')
+  test('TARGET_DESKTOP_TAURI constant is "tauri"', async () => {
+    const { TARGET_DESKTOP_TAURI } = await import('../packages/core/constants')
+    expect(TARGET_DESKTOP_TAURI).toBe('tauri')
+  })
+
+  test('TARGET_IOS_CAPACITOR constant is "ios-capacitor"', async () => {
+    const { TARGET_IOS_CAPACITOR } = await import('../packages/core/constants')
+    expect(TARGET_IOS_CAPACITOR).toBe('ios-capacitor')
+  })
+
+  test('TARGET_ANDROID_CAPACITOR constant is "android-capacitor"', async () => {
+    const { TARGET_ANDROID_CAPACITOR } = await import('../packages/core/constants')
+    expect(TARGET_ANDROID_CAPACITOR).toBe('android-capacitor')
+  })
+
+  test('TARGET_IOS_TAURI constant is "ios-tauri"', async () => {
+    const { TARGET_IOS_TAURI } = await import('../packages/core/constants')
+    expect(TARGET_IOS_TAURI).toBe('ios-tauri')
+  })
+
+  test('TARGET_ANDROID_TAURI constant is "android-tauri"', async () => {
+    const { TARGET_ANDROID_TAURI } = await import('../packages/core/constants')
+    expect(TARGET_ANDROID_TAURI).toBe('android-tauri')
   })
 
   test('DIR_TAURI constant is "tauri"', async () => {
@@ -57,10 +78,85 @@ describe('Tauri Constants and Strategy Registration', () => {
     const { validDesktopTargets } = await import('@commoners/solidarity')
     expect(validDesktopTargets).toContain('tauri')
   })
+
+  test('validMobileTargets includes tauri mobile targets', async () => {
+    const { validMobileTargets } = await import('@commoners/solidarity')
+    expect(validMobileTargets).toContain('ios-tauri')
+    expect(validMobileTargets).toContain('android-tauri')
+  })
+
+  test('validMobileTargets includes capacitor mobile targets', async () => {
+    const { validMobileTargets } = await import('@commoners/solidarity')
+    expect(validMobileTargets).toContain('ios-capacitor')
+    expect(validMobileTargets).toContain('android-capacitor')
+  })
 })
 
 // ────────────────────────────────────────────────────────
-// 3. Generated Tauri Configuration
+// 3. Target Resolution: Shorthand → Specific
+// ────────────────────────────────────────────────────────
+
+describe('Target Shorthand Resolution', () => {
+  test('ios resolves to ios-capacitor', () => {
+    expect(getSpecificTarget('ios')).toBe('ios-capacitor')
+  })
+
+  test('android resolves to android-capacitor', () => {
+    expect(getSpecificTarget('android')).toBe('android-capacitor')
+  })
+
+  test('desktop resolves to electron', () => {
+    expect(getSpecificTarget('desktop')).toBe('electron')
+  })
+
+  test('tauri stays as tauri (already specific)', () => {
+    expect(getSpecificTarget('tauri')).toBe('tauri')
+  })
+
+  test('ios-tauri stays as ios-tauri (already specific)', () => {
+    expect(getSpecificTarget('ios-tauri')).toBe('ios-tauri')
+  })
+
+  test('android-tauri stays as android-tauri (already specific)', () => {
+    expect(getSpecificTarget('android-tauri')).toBe('android-tauri')
+  })
+
+  test('ios-capacitor stays as ios-capacitor (already specific)', () => {
+    expect(getSpecificTarget('ios-capacitor')).toBe('ios-capacitor')
+  })
+
+  test('android-capacitor stays as android-capacitor (already specific)', () => {
+    expect(getSpecificTarget('android-capacitor')).toBe('android-capacitor')
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 4. isMobile with new targets
+// ────────────────────────────────────────────────────────
+
+describe('isMobile with standardized targets', () => {
+  const { isMobile } = require('@commoners/solidarity')
+
+  test('recognizes all mobile targets', () => {
+    expect(isMobile('mobile')).toBe(true)
+    expect(isMobile('ios')).toBe(true)
+    expect(isMobile('android')).toBe(true)
+    expect(isMobile('ios-capacitor')).toBe(true)
+    expect(isMobile('android-capacitor')).toBe(true)
+    expect(isMobile('ios-tauri')).toBe(true)
+    expect(isMobile('android-tauri')).toBe(true)
+  })
+
+  test('rejects non-mobile targets', () => {
+    expect(isMobile('web')).toBe(false)
+    expect(isMobile('desktop')).toBe(false)
+    expect(isMobile('electron')).toBe(false)
+    expect(isMobile('tauri')).toBe(false)
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 5. Generated Tauri Configuration
 // ────────────────────────────────────────────────────────
 
 describe('Generated tauri.conf.json', () => {
@@ -202,7 +298,7 @@ describe('Generated tauri.conf.json — overrides', () => {
 })
 
 // ────────────────────────────────────────────────────────
-// 4. Generated Capabilities
+// 6. Generated Capabilities
 // ────────────────────────────────────────────────────────
 
 describe('Generated capabilities/default.json', () => {
@@ -238,7 +334,7 @@ describe('Generated capabilities/default.json', () => {
 })
 
 // ────────────────────────────────────────────────────────
-// 5. Cargo.toml and main.rs Templates
+// 7. Cargo.toml and main.rs Templates
 // ────────────────────────────────────────────────────────
 
 describe('Cargo.toml template', () => {
@@ -294,21 +390,15 @@ describe('main.rs template', () => {
 })
 
 // ────────────────────────────────────────────────────────
-// 6. Web strategies exclude tauri
+// 8. Web strategies exclude tauri targets
 // ────────────────────────────────────────────────────────
 
-describe('Web strategies exclude tauri', () => {
-  // NOTE: Strategy classes cannot be imported directly due to circular dependency.
-  // The exclusion is verified by checking that the WebBuildStrategy source code
-  // contains the tauri exclusion, and by the target resolution tests above.
-
+describe('Web strategies exclude tauri targets', () => {
   test('tauri is not a web or PWA target', () => {
     expect(isDesktop('tauri')).toBe(true)
-    // If isDesktop returns true, web strategies (which check !isDesktop) won't handle it
   })
 
   test('tauri is recognized as a specific target type', () => {
-    // getSpecificTarget returns tauri as-is (not mapped to electron or web)
     expect(getSpecificTarget('tauri')).toBe('tauri')
   })
 })

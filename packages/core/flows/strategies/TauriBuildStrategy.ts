@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, writeFileSync, copyFileSync, chmodSync, cpSync }
 import { execSync } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
-import { TARGET_TAURI, DIR_TAURI } from '../../constants.js'
+import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
 import { getServices } from '../../utils/extensions.js'
@@ -38,7 +38,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
   private hostTriple = ''
 
   canHandle(target: string): boolean {
-    return target === TARGET_TAURI
+    return target === TARGET_DESKTOP_TAURI
   }
 
   protected shouldUseTempDir(): boolean {

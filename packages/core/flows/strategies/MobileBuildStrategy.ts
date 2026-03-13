@@ -5,7 +5,7 @@
 import { join } from 'node:path'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
-import { DIR_MOBILE } from '../../constants.js'
+import { DIR_MOBILE, TARGET_IOS_CAPACITOR, TARGET_ANDROID_CAPACITOR } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import * as mobile from '../../mobile/index.js'
 
@@ -23,7 +23,7 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
   }
 
   canHandle(target: string): boolean {
-    return target === this.platform
+    return target === (this.platform === 'ios' ? TARGET_IOS_CAPACITOR : TARGET_ANDROID_CAPACITOR)
   }
 
   protected shouldUseTempDir(target: string): boolean {
@@ -56,7 +56,8 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     logger.debug('Emitting build:mobile:start', { platform: this.platform, target })
     context.hooks.emit({ type: 'build:mobile:start', mobileTarget: this.platform })
 
-    const mobileOpts = { target: target as 'ios' | 'android', outDir: __outDir }
+    // Extract bare platform name for Capacitor CLI (ios-capacitor → ios)
+    const mobileOpts = { target: this.platform as 'ios' | 'android', outDir: __outDir }
     const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
 
     await mobile.runInRoot(async (config) => {

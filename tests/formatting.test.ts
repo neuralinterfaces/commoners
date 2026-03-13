@@ -33,8 +33,18 @@ describe('API: Formatting Utilities', () => {
       expect(displayName).toBe('iOS')
     })
 
+    test('should format ios-capacitor target', () => {
+      const displayName = format.getTargetDisplayName('ios-capacitor')
+      expect(displayName).toBe('iOS')
+    })
+
     test('should format android target', () => {
       const displayName = format.getTargetDisplayName('android')
+      expect(displayName).toBe('Android')
+    })
+
+    test('should format android-capacitor target', () => {
+      const displayName = format.getTargetDisplayName('android-capacitor')
       expect(displayName).toBe('Android')
     })
 
@@ -43,8 +53,19 @@ describe('API: Formatting Utilities', () => {
       expect(displayName).toBe('Tauri')
     })
 
+    test('should format ios-tauri target', () => {
+      const displayName = format.getTargetDisplayName('ios-tauri')
+      expect(displayName).toBe('iOS (Tauri)')
+    })
+
+    test('should format android-tauri target', () => {
+      const displayName = format.getTargetDisplayName('android-tauri')
+      expect(displayName).toBe('Android (Tauri)')
+    })
+
     test('should handle all valid targets', () => {
-      const targets = ['web', 'pwa', 'electron', 'mobile', 'ios', 'android', 'tauri']
+      const targets = ['web', 'pwa', 'electron', 'mobile', 'ios', 'android', 'tauri',
+        'ios-capacitor', 'android-capacitor', 'ios-tauri', 'android-tauri']
 
       targets.forEach(target => {
         const displayName = format.getTargetDisplayName(target as any)
@@ -83,6 +104,8 @@ describe('API: Formatting Utilities', () => {
         { input: 'mobile', expected: 'Building Mobile application...' },
         { input: 'ios', expected: 'Building iOS application...' },
         { input: 'android', expected: 'Building Android application...' },
+        { input: 'ios-tauri', expected: 'Building iOS (Tauri) application...' },
+        { input: 'android-tauri', expected: 'Building Android (Tauri) application...' },
       ]
 
       targets.forEach(({ input, expected }) => {
