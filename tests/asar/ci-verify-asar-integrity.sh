@@ -82,18 +82,29 @@ if [[ "$APP_PATH" == *.app ]]; then
     fi
 
     # Check 4: Hash verification
+    # ASAR uses a 12-byte prelude: len0 (4 bytes LE) + headerSize (4 bytes LE) + jsonLen (4 bytes LE)
+    # The JSON header starts at offset 12 and is jsonLen bytes long.
     echo "[4/5] Verifying hash computation..."
     if [ -n "$PLIST_HASH" ] && [ -f "$ASAR_PATH" ]; then
-        # Try JSON header
-        JSON_HASH=$(dd if="$ASAR_PATH" bs=16 count=1 2>/dev/null | shasum -a 256 | awk '{print $1}')
+        # Parse the 12-byte prelude to get jsonLen
+        PRELUDE=$(dd if="$ASAR_PATH" bs=1 count=12 2>/dev/null | od -An -tx1 | tr -d ' \n')
+        # jsonLen is bytes 8-11 (little-endian)
+        B8=$(echo "$PRELUDE" | cut -c17-18)
+        B9=$(echo "$PRELUDE" | cut -c19-20)
+        B10=$(echo "$PRELUDE" | cut -c21-22)
+        B11=$(echo "$PRELUDE" | cut -c23-24)
+        JSON_LEN=$((16#${B11}${B10}${B9}${B8}))
 
-        if [ "$PLIST_HASH" = "$JSON_HASH" ]; then
-            echo "  ✅ PASS: Hash matches (JSON header mode)"
-        else
-            # Try full header
-            HEADER_SIZE=$(dd if="$ASAR_PATH" bs=1 count=8 2>/dev/null | od -An -tu4 | awk '{print $1 + $2 + 8}')
-            if [ -n "$HEADER_SIZE" ] && [ "$HEADER_SIZE" -gt 0 ]; then
-                FULL_HASH=$(dd if="$ASAR_PATH" bs=1 count="$HEADER_SIZE" 2>/dev/null | shasum -a 256 | awk '{print $1}')
+        if [ "$JSON_LEN" -gt 0 ] 2>/dev/null; then
+            # Hash just the JSON header bytes (offset 12, length jsonLen)
+            JSON_HASH=$(dd if="$ASAR_PATH" bs=1 skip=12 count="$JSON_LEN" 2>/dev/null | shasum -a 256 | awk '{print $1}')
+
+            if [ "$PLIST_HASH" = "$JSON_HASH" ]; then
+                echo "  ✅ PASS: Hash matches (JSON header mode)"
+            else
+                # Try full header (prelude + JSON)
+                FULL_SIZE=$((12 + JSON_LEN))
+                FULL_HASH=$(dd if="$ASAR_PATH" bs=1 count="$FULL_SIZE" 2>/dev/null | shasum -a 256 | awk '{print $1}')
 
                 if [ "$PLIST_HASH" = "$FULL_HASH" ]; then
                     echo "  ✅ PASS: Hash matches (full header mode)"
@@ -104,10 +115,10 @@ if [[ "$APP_PATH" == *.app ]]; then
                     echo "     Full:     $FULL_HASH"
                     ERRORS=$((ERRORS + 1))
                 fi
-            else
-                echo "  ⚠️  WARN: Could not verify hash"
-                WARNINGS=$((WARNINGS + 1))
             fi
+        else
+            echo "  ⚠️  WARN: Could not parse ASAR prelude (jsonLen=$JSON_LEN)"
+            WARNINGS=$((WARNINGS + 1))
         fi
     else
         echo "  ⚠️  SKIP: Cannot verify (missing data)"

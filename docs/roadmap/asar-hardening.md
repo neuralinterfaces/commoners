@@ -108,6 +108,8 @@ Both `hash.ts` (lines 22-34) and `debug.ts` (lines 66-93) already use identical 
 - [ ] CI: automated build-and-verify job passes on macOS and Windows (macOS: `ci-verify-asar-integrity.sh` ready; Windows pending)
 - [x] Hash inconsistency fixed: `hash.ts` and `debug.ts` use same prelude parsing (verified — both use 12-byte prelude)
 - [x] Strict mode implemented: `makeAfterPackEmbedAsarIntegrity()` defaults to `strict: true`
+- [x] Test verification scripts fixed: `tests/asar/verify.ts` and `ci-verify-asar-integrity.sh` now use correct 12-byte prelude parsing (matching `hash.ts`)
+- [x] ASAR unit tests: `tests/asar.test.ts` — 17 tests covering hash computation, prelude parsing, plist round-trip, and regression against old 16-byte bug
 
 ---
 

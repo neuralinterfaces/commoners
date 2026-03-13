@@ -34,44 +34,64 @@ function sha256(data: Buffer): string {
 }
 
 /**
- * Read the JSON header (first 16 bytes) from ASAR
+ * Read the JSON header bytes from ASAR.
+ * ASAR uses a 12-byte prelude: len0 (4), headerSize (4), jsonLen (4).
+ * Returns just the JSON bytes (at offset 12, length jsonLen), or null on failure.
  */
 function readJsonHeaderBytes(asarPath: string): Buffer | null {
+  const fs = require('fs')
+  let fd = -1
   try {
-    const fd = require('fs').openSync(asarPath, 'r')
-    const buffer = Buffer.alloc(16)
-    require('fs').readSync(fd, buffer, 0, 16, 0)
-    require('fs').closeSync(fd)
-    return buffer
+    fd = fs.openSync(asarPath, 'r')
+    const pre = Buffer.alloc(12)
+    if (fs.readSync(fd, pre, 0, 12, 0) !== 12) return null
+
+    const len0 = pre.readUInt32LE(0)
+    const headerSize = pre.readUInt32LE(4)
+    const jsonLen = pre.readUInt32LE(8)
+
+    // Validate header structure
+    if (len0 !== 4 || headerSize !== 4 + jsonLen || jsonLen <= 0) return null
+
+    const json = Buffer.alloc(jsonLen)
+    if (fs.readSync(fd, json, 0, jsonLen, 12) !== jsonLen) return null
+
+    return json
   } catch (e) {
     return null
+  } finally {
+    if (fd >= 0) {
+      try { fs.closeSync(fd) } catch {}
+    }
   }
 }
 
 /**
- * Read the full header from ASAR
+ * Read the full ASAR header (12-byte prelude + JSON bytes).
+ * Returns the complete header buffer, or null on failure.
  */
 function readFullHeaderBytes(asarPath: string): Buffer | null {
+  const fs = require('fs')
+  let fd = -1
   try {
-    const fd = require('fs').openSync(asarPath, 'r')
+    fd = fs.openSync(asarPath, 'r')
+    const pre = Buffer.alloc(12)
+    if (fs.readSync(fd, pre, 0, 12, 0) !== 12) return null
 
-    // Read first 8 bytes to get header sizes
-    const sizeBuffer = Buffer.alloc(8)
-    require('fs').readSync(fd, sizeBuffer, 0, 8, 0)
+    const jsonLen = pre.readUInt32LE(8)
+    if (jsonLen <= 0) return null
 
-    // Parse sizes (little-endian)
-    const size1 = sizeBuffer.readUInt32LE(0)
-    const size2 = sizeBuffer.readUInt32LE(4)
-    const headerSize = size1 + size2 + 8
+    const full = Buffer.alloc(12 + jsonLen)
+    pre.copy(full, 0, 0, 12)
+    if (fs.readSync(fd, full, 12, jsonLen, 12) !== jsonLen) return null
 
-    // Read entire header
-    const header = Buffer.alloc(headerSize)
-    require('fs').readSync(fd, header, 0, headerSize, 0)
-    require('fs').closeSync(fd)
-
-    return header
+    return full
   } catch (e) {
     return null
+  } finally {
+    if (fd >= 0) {
+      try { fs.closeSync(fd) } catch {}
+    }
   }
 }
 

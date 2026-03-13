@@ -308,6 +308,9 @@ The following P0 fixes were implemented and merged. Test coverage gaps are liste
 | Protocol path handling tests | `tests/security.test.ts` | Done |
 | IPC edge case tests | `tests/security.test.ts` | Done |
 | Protocol E2E tests (desktop) | `tests/utils.ts` (`e2eTests.protocol`) | Done |
+| ASAR hash computation unit tests | `tests/asar.test.ts` (17 tests) | Done |
+| ASAR verification script fix (12-byte prelude) | `tests/asar/verify.ts`, `tests/asar/ci-verify-asar-integrity.sh` | Done |
+| Plist round-trip tests | `tests/asar.test.ts` (write/read/validate) | Done |
 
 ### Test Coverage Gaps
 
@@ -317,7 +320,7 @@ These items require platform-specific or integration testing:
 |-----|--------|-------------|
 | Windows ASAR integrity embedding (strict errors) | Requires Windows + `ffi-napi`/`rcedit` | Windows CI runner with dependencies installed |
 | Windows service binary `.exe` hashing | Extension detection differs on Windows | Windows CI runner with compiled services |
-| ASAR prelude parsing against real `.asar` files | Needs an actual packaged Electron build | `pnpm demo:build` then inspect `.asar` header hashes |
+| ASAR prelude parsing against real `.asar` files | Synthetic ASAR tests cover parsing logic; real `.asar` validation is end-to-end | `pnpm demo:build` then run `tests/asar/ci-verify-asar-integrity.sh` |
 | Strict mode throwing on missing dependencies | Needs electron-builder run without FFI/rcedit | Remove `ffi-napi` and run `pnpm demo:build` with `asarIntegrity: true` |
 | Service hash manifest generation | Requires `ElectronBuildStrategy.build()` with compiled services | `pnpm demo:build` then verify `service-hashes.json` in build output |
 | Service hash verification at runtime | Requires packaged Electron app with `service-hashes.json` | `pnpm demo:launch` after modifying a service binary — should fail |
