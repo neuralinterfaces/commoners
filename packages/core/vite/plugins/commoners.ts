@@ -1,6 +1,6 @@
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 import { createHash } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 
 import { getIcon } from '../../assets/utils/icons.js'
 
@@ -266,6 +266,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           const scriptBody = scriptMatch[1]
           const hash = createHash('sha256').update(scriptBody, 'utf8').digest('base64')
           const hashesPath = join(actualOutDir, 'script-hashes.json')
+          mkdirSync(dirname(hashesPath), { recursive: true })
           writeFileSync(hashesPath, JSON.stringify({ inlineScriptHash: `'sha256-${hash}'` }))
         }
       }

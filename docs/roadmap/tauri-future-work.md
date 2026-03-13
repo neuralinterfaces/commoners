@@ -155,3 +155,37 @@ Users must install to use Tauri:
 - **Rust toolchain** (`rustc`, `cargo`) — https://rustup.rs/
 - **`@tauri-apps/cli`** — `npm install -D @tauri-apps/cli`
 - **Platform prerequisites** — see https://v2.tauri.app/start/prerequisites/
+
+---
+
+## Build Overhead & Bloat Reduction
+
+### Current Overhead (Web Target, Blank App)
+
+| Metric | Raw Vite | Commoners | Overhead |
+|--------|----------|-----------|----------|
+| Build time | ~210ms | ~330ms | +120ms |
+| Output size | 4.0K (1 file) | 32K (5 files) | +28K |
+
+Breakdown of the 28K overhead:
+- `icon-*.png` (12K) — default app icon (ships even if unused)
+- `onload-*.mjs` (7.1K) — plugin runtime loader
+- `commoners.config-*.mjs` (550B) — browser config bundle
+- `commoners.config.cjs` (527B) — Electron config bundle (shipped even for web)
+- `index.html` grows by ~2.9K (inline bootstrap script)
+
+### Bloat Reduction Opportunities
+
+1. **Tree-shake unused assets** — skip `commoners.config.cjs` for non-Electron targets, skip icon if not configured
+2. **Lazy-load onload.mjs** — defer plugin loading to reduce critical path (~7K savings)
+3. **Minify inline bootstrap script** — the 2.9K inline script in `index.html` could be minified
+4. **Conditional icon bundling** — only include default icon if no custom icon configured
+
+### TODO: Multi-Target Benchmarks
+
+Extend `examples/bench/benchmark.sh` to measure overhead for all build targets:
+- **Electron** — binary size, node_modules contribution, startup time
+- **Tauri** — binary size comparison vs Electron
+- **PWA** — service worker overhead, manifest size
+- **Mobile (Capacitor)** — web assets size injected into native project
+- **Mobile (Tauri)** — compare with Capacitor mobile overhead
