@@ -707,13 +707,13 @@ export const buildAssets = async (
 // Properties consumed by each runtime context.
 // Browser (.mjs): only plugins are read from the config import (onload.ts).
 // Electron (.cjs): main process reads name, icon, electron, plugins, services, hooks.
-const BROWSER_CONFIG_KEYS = ['plugins']
-const ELECTRON_CONFIG_KEYS = ['name', 'icon', 'electron', 'plugins', 'services', 'hooks']
+export const BROWSER_CONFIG_KEYS = ['plugins']
+export const ELECTRON_CONFIG_KEYS = ['name', 'icon', 'electron', 'plugins', 'services', 'hooks']
 
 // Keys to strip from each runtime context.
 // Browser strips: Electron-specific hooks + service internals + build-time only props
 // Electron strips: browser-only lifecycle hooks + build-time only props
-const BROWSER_STRIP_KEYS = [
+export const BROWSER_STRIP_KEYS = [
   'desktop',
   'src',
   'url',
@@ -727,7 +727,32 @@ const BROWSER_STRIP_KEYS = [
 // NOTE: `assets` is NOT stripped from Electron — main process reads plugin.assets for protocol handler
 // Only strip renderer-side keys from Electron config — the main process needs
 // start/ready/quit/isSupported to run the plugin lifecycle.
-const ELECTRON_STRIP_KEYS = ['load']
+export const ELECTRON_STRIP_KEYS = ['load']
+
+/**
+ * Strip keys from extension/plugin/service objects per runtime context.
+ * Used by generateStrippedEntry at build time and exported for testing.
+ */
+export function stripExtensionKeys(
+  exts: Record<string, any>,
+  stripKeys: string[]
+): Record<string, any> {
+  if (!exts || typeof exts !== 'object') return exts
+  const out: Record<string, any> = {}
+  for (const id in exts) {
+    const ext = exts[id]
+    if (typeof ext !== 'object' || ext === null) {
+      out[id] = ext
+      continue
+    }
+    const s: Record<string, any> = {}
+    for (const k in ext) {
+      if (!stripKeys.includes(k)) s[k] = ext[k]
+    }
+    out[id] = s
+  }
+  return out
+}
 
 /**
  * Generate a wrapper module that imports the real config and re-exports
@@ -912,13 +937,19 @@ export const bundleConfig = async (
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
       __COMMONERS_MOBILE__: JSON.stringify(
-        target === 'mobile' || target === 'ios' || target === 'android'
+        target === 'mobile' || target.startsWith('ios') || target.startsWith('android')
       ),
       __COMMONERS_WEB__: JSON.stringify(target === 'web' || target === 'pwa'),
       __COMMONERS_ELECTRON__: JSON.stringify(target === 'electron' || target === 'desktop'),
-      __COMMONERS_TAURI__: JSON.stringify(target === 'tauri'),
-      __COMMONERS_IOS__: JSON.stringify(target === 'ios'),
-      __COMMONERS_ANDROID__: JSON.stringify(target === 'android'),
+      __COMMONERS_TAURI__: JSON.stringify(
+        target === 'tauri' || target === 'ios-tauri' || target === 'android-tauri'
+      ),
+      __COMMONERS_IOS__: JSON.stringify(
+        target === 'ios' || target === 'ios-capacitor' || target === 'ios-tauri'
+      ),
+      __COMMONERS_ANDROID__: JSON.stringify(
+        target === 'android' || target === 'android-capacitor' || target === 'android-tauri'
+      ),
     },
 
     resolve: {

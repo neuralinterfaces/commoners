@@ -153,6 +153,57 @@ const e2eTests = {
         if (result.skipped || result.error) return
         expect(result.ok).toBe(true)
       })
+
+      test('commoners://plugins/ returns 404 for invalid plugin', async () => {
+        const result = await output.page.evaluate(async () => {
+          try {
+            const response = await fetch('commoners://plugins/nonexistent/asset')
+            return { ok: response.ok, status: response.status }
+          } catch (e) {
+            return { error: (e as Error).message }
+          }
+        })
+
+        if (!result.error) {
+          expect(result.ok).toBe(false)
+          expect(result.status).toBe(404)
+        }
+      })
+
+      test('commoners://services/ returns 404 for invalid service', async () => {
+        const result = await output.page.evaluate(async () => {
+          try {
+            const response = await fetch('commoners://services/nonexistent')
+            return { ok: response.ok, status: response.status }
+          } catch (e) {
+            return { error: (e as Error).message }
+          }
+        })
+
+        if (!result.error) {
+          expect(result.ok).toBe(false)
+          expect(result.status).toBe(404)
+        }
+      })
+
+      test('commoners://services/ proxies to active service', async () => {
+        const result = await output.page.evaluate(async () => {
+          try {
+            const services = await commoners.READY.then(() => commoners.SERVICES)
+            // Find first service with a URL
+            const entry = Object.entries(services).find(([, s]) => s.url)
+            if (!entry) return { skipped: true }
+            const [id] = entry
+            const response = await fetch(`commoners://services/${id}`)
+            return { ok: response.ok, status: response.status, serviceId: id }
+          } catch (e) {
+            return { error: (e as Error).message }
+          }
+        })
+
+        if (result.skipped || result.error) return
+        expect(result.ok).toBe(true)
+      })
     })
   },
   pluginLifecycle: (output, { target: _target }) => {
