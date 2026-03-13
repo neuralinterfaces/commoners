@@ -3,7 +3,7 @@
  * Generates a src-tauri/ project and invokes `tauri build`
  */
 
-import { join, isAbsolute } from 'node:path'
+import { join, dirname, isAbsolute } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, chmodSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
@@ -11,6 +11,7 @@ import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
+import { getIcon } from '../../assets/utils/icons.js'
 import { getServices } from '../../utils/extensions.js'
 import {
   generateCargoToml,
@@ -46,7 +47,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
   }
 
   protected getTempDir(root: string): string {
-    return join(root, globalTempDir, DIR_TAURI)
+    return join(root, globalTempDir, DIR_TAURI, 'dist')
   }
 
   async prepare(context: BuildContext): Promise<void> {
@@ -90,14 +91,17 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { config, outDir, __outDir } = context
+    const { config, outDir, stagingDir } = context
     const { name, appId, version } = config
     const tauriConfig = (config as any).tauri || {}
 
     logger.info('Starting Tauri packaging', { name, appId })
     context.hooks.emit({ type: 'build:tauri:start' } as any)
 
-    const srcTauriDir = join(__outDir, 'src-tauri')
+    // stagingDir is the Vite output dir (e.g. .commoners/.tmp/tauri/dist/)
+    // src-tauri/ goes in the parent so it's not inside frontendDist
+    const tauriRoot = dirname(stagingDir)
+    const srcTauriDir = join(tauriRoot, 'src-tauri')
     const srcDir = join(srcTauriDir, 'src')
     const binDir = join(srcTauriDir, 'binaries')
     const capDir = join(srcTauriDir, 'capabilities')
@@ -150,12 +154,33 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       serviceIds.push(id)
     }
 
+    // Prepare icon: Tauri requires RGBA PNGs, so convert if needed
+    const iconDir = join(srcTauriDir, 'icons')
+    mkdirSync(iconDir, { recursive: true })
+    let tauriIconPaths: string[] = []
+
+    const rawIconSrc = getIcon(config.icon)
+    if (rawIconSrc) {
+      const resolvedIconPath = isAbsolute(rawIconSrc) ? rawIconSrc : join(config.root, rawIconSrc)
+      if (existsSync(resolvedIconPath)) {
+        const destIcon = join(iconDir, 'icon.png')
+        copyFileSync(resolvedIconPath, destIcon)
+        // Convert to RGBA using sips (macOS) — Tauri requires RGBA format
+        if (process.platform === 'darwin') {
+          try {
+            execSync(`sips -s format png "${destIcon}" --out "${destIcon}"`, { stdio: 'pipe' })
+          } catch { /* conversion failed, try as-is */ }
+        }
+        tauriIconPaths = ['icons/icon.png']
+      }
+    }
+
     // Generate tauri.conf.json
     const tauriConf = generateTauriConf({
       name,
       appId,
       version,
-      icon: config.icon,
+      icon: tauriIconPaths,
       tauriConfig,
       electronWindow: config.electron?.window,
       externalBins,
@@ -167,10 +192,10 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     writeFileSync(join(capDir, 'default.json'), JSON.stringify(capabilities, null, 2))
 
     // Invoke tauri build
-    logger.info('Running tauri build...', { cwd: __outDir })
+    logger.info('Running tauri build...', { cwd: tauriRoot })
     try {
       execSync('npx tauri build', {
-        cwd: __outDir,
+        cwd: tauriRoot,
         stdio: 'inherit',
         env: { ...process.env },
         timeout: 600000, // 10 minute timeout

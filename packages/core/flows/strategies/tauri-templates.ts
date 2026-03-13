@@ -63,7 +63,7 @@ export function generateTauriConf(opts: {
     identifier: sanitizedId,
     version: version || '0.1.0',
     build: {
-      frontendDist: '../',
+      frontendDist: '../dist/',
     },
     app: {
       windows: [

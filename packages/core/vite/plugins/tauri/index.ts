@@ -10,7 +10,7 @@
  * Full build packaging is handled by TauriBuildStrategy.
  */
 
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolveServerUrl } from '../electron/server.js'
@@ -52,8 +52,9 @@ export default async function tauriPlugin({
           const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
           const tauriConfig = (config as any)?.tauri || {}
 
-          // Generate src-tauri/ in the outDir (temp dir)
-          const srcTauriDir = join(outDir, 'src-tauri')
+          // Generate src-tauri/ in the parent of outDir (outDir is the dist/ subdir)
+          const tauriRoot = dirname(outDir)
+          const srcTauriDir = join(tauriRoot, 'src-tauri')
           const srcDir = join(srcTauriDir, 'src')
           const capDir = join(srcTauriDir, 'capabilities')
 
@@ -166,7 +167,7 @@ pub fn run() {
           // Spawn tauri dev (or tauri ios dev / tauri android dev for mobile)
           const devCommand = getTauriDevCommand(config?.target || 'tauri')
           tauriProcess = spawn('npx', devCommand, {
-            cwd: outDir,
+            cwd: tauriRoot,
             env: { ...process.env },
             stdio: ['ignore', 'pipe', 'pipe'],
             shell: true,

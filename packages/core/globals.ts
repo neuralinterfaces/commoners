@@ -64,7 +64,7 @@ export { electronVersion }
 
 export const globalTempDir = join(globalWorkspacePath, '.tmp')
 
-let __selectedTempDir: string
+let activeStagingDir: string
 export const handleTemporaryDirectories = async (
   config,
   overwrite = false,
@@ -74,7 +74,7 @@ export const handleTemporaryDirectories = async (
   const tempDir = config.outDir || resolve(config.root, globalTempDir)
 
   const { cleanupOnExit = true } = options
-  const canOverwrite = overwrite && __selectedTempDir === tempDir
+  const canOverwrite = overwrite && activeStagingDir === tempDir
   const runMetadataFile = join(tempDir, 'commoners.metadata.json')
   const hasTempMetadata = existsSync(runMetadataFile)
   const isOverWritten = canOverwrite && hasTempMetadata
@@ -102,7 +102,7 @@ export const handleTemporaryDirectories = async (
 
   let removed = false
 
-  __selectedTempDir = tempDir
+  activeStagingDir = tempDir
   const clearTemporaryFiles = () => {
     if (removed) return // Prevent double-calling
     removed = true

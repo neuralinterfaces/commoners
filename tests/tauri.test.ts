@@ -182,8 +182,8 @@ describe('Generated tauri.conf.json', () => {
     expect(conf.version).toBe('1.2.3')
   })
 
-  test('frontendDist points to parent directory', () => {
-    expect(conf.build.frontendDist).toBe('../')
+  test('frontendDist points to dist subdirectory', () => {
+    expect(conf.build.frontendDist).toBe('../dist/')
   })
 
   test('window dimensions come from config', () => {

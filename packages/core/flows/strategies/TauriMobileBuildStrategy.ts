@@ -3,7 +3,7 @@
  * Generates a src-tauri/ project and invokes `tauri ios build` or `tauri android build`
  */
 
-import { join, isAbsolute } from 'node:path'
+import { join, dirname, isAbsolute } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
@@ -41,7 +41,7 @@ export class TauriMobileBuildStrategy extends BaseBuildStrategy {
   }
 
   protected getTempDir(root: string): string {
-    return join(root, globalTempDir, DIR_TAURI)
+    return join(root, globalTempDir, DIR_TAURI, 'dist')
   }
 
   async prepare(context: BuildContext): Promise<void> {
@@ -94,14 +94,17 @@ export class TauriMobileBuildStrategy extends BaseBuildStrategy {
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { config, outDir, __outDir } = context
+    const { config, outDir, stagingDir } = context
     const { name, appId, version } = config
     const tauriConfig = (config as any).tauri || {}
 
     logger.info(`Starting Tauri ${this.mobileTarget} packaging`, { name, appId })
     context.hooks.emit({ type: 'build:mobile:start', mobileTarget: this.mobileTarget } as any)
 
-    const srcTauriDir = join(__outDir, 'src-tauri')
+    // stagingDir is the Vite output dir (e.g. .commoners/.tmp/tauri/dist/)
+    // src-tauri/ goes in the parent so it's not inside frontendDist
+    const tauriRoot = dirname(stagingDir)
+    const srcTauriDir = join(tauriRoot, 'src-tauri')
     const srcDir = join(srcTauriDir, 'src')
     const capDir = join(srcTauriDir, 'capabilities')
 
@@ -153,7 +156,7 @@ pub fn run() {
     logger.info(`Initializing Tauri ${this.mobileTarget}...`)
     try {
       execSync(`npx tauri ${this.mobileTarget} init`, {
-        cwd: __outDir,
+        cwd: tauriRoot,
         stdio: 'inherit',
         env: { ...process.env },
         timeout: 120000,
@@ -166,11 +169,11 @@ pub fn run() {
     }
 
     // Build for mobile platform
-    logger.info(`Running tauri ${this.mobileTarget} build...`, { cwd: __outDir })
+    logger.info(`Running tauri ${this.mobileTarget} build...`, { cwd: tauriRoot })
     const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
     try {
       execSync(`npx tauri ${this.mobileTarget} build`, {
-        cwd: __outDir,
+        cwd: tauriRoot,
         stdio: 'inherit',
         env: { ...process.env },
         timeout: 600000,

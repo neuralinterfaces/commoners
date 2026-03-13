@@ -37,19 +37,19 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
   async prepare(context: BuildContext): Promise<void> {
     await super.prepare(context)
 
-    const { config, __outDir } = context
+    const { config, stagingDir } = context
 
-    logger.info(`Preparing ${this.platform} build`, { outDir: __outDir })
+    logger.info(`Preparing ${this.platform} build`, { outDir: stagingDir })
 
     // Run Capacitor prebuild
-    const configCopy = { ...config, target: context.target, outDir: __outDir }
+    const configCopy = { ...config, target: context.target, outDir: stagingDir }
     await mobile.prebuild(configCopy)
 
     logger.debug(`${this.platform} prebuild completed`)
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { config, __outDir, target } = context
+    const { config, stagingDir, target } = context
 
     logger.info(`Building ${this.platform} app`)
 
@@ -57,7 +57,7 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     context.hooks.emit({ type: 'build:mobile:start', mobileTarget: this.platform })
 
     // Extract bare platform name for Capacitor CLI (ios-capacitor → ios)
-    const mobileOpts = { target: this.platform as 'ios' | 'android', outDir: __outDir }
+    const mobileOpts = { target: this.platform as 'ios' | 'android', outDir: stagingDir }
     const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
 
     await mobile.runInRoot(async (config) => {

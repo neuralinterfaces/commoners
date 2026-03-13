@@ -64,7 +64,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   }
 
   async build(context: BuildContext): Promise<void> {
-    const { config, root, outDir, __outDir } = context
+    const { config, root, outDir, stagingDir } = context
     const { name, appId } = config
 
     logger.info('Starting Electron packaging', { name, appId })
@@ -72,21 +72,21 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     logger.debug('Emitting build:electron:start', { name, appId })
     context.hooks.emit({ type: 'build:electron:start' })
 
-    // Configure package.json for Electron — writes temp package.json into __outDir
-    const cwdRelativeOutDir = relative(process.cwd(), __outDir)
-    const relativeOutDir = relative(root, __outDir)
+    // Configure package.json for Electron — writes temp package.json into stagingDir
+    const cwdRelativeOutDir = relative(process.cwd(), stagingDir)
+    const relativeOutDir = relative(root, stagingDir)
 
-    configureForDesktop(__outDir, root, {
+    configureForDesktop(stagingDir, root, {
       name: name.toLowerCase().split(' ').join('-'),
       version: '0.0.0',
     })
 
     // Build Electron main and preload files
     const { buildElectronAssets } = await import('../../vite/plugins/electron/index.js')
-    await buildElectronAssets(root, __outDir, true, { command: 'build', mode: 'production' }, {})
+    await buildElectronAssets(root, stagingDir, true, { command: 'build', mode: 'production' }, {})
 
     // Generate service binary hash manifest before packaging
-    await this.generateServiceHashManifest(context, __outDir)
+    await this.generateServiceHashManifest(context, stagingDir)
 
     // Build electron-builder configuration
     const electronBuilderConfig = await this.buildElectronConfig(
@@ -118,7 +118,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     cwdRelativeOutDir: string,
     relativeOutDir: string
   ): Promise<any> {
-    const { config, root, outDir, __outDir } = context
+    const { config, root, outDir, stagingDir } = context
     const { name, electron, appId, icon } = config
 
     const buildConfig = merge(
@@ -168,7 +168,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     )
 
     // Configure icons
-    this.configureIcons(buildConfig, icon, root, __outDir)
+    this.configureIcons(buildConfig, icon, root, stagingDir)
 
     // Configure paths
     this.configurePaths(buildConfig, root)
@@ -237,12 +237,12 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     signIgnore: string[]
   ): Promise<void> {
 
-    const { config, __outDir, root, target, assets } = context
+    const { config, stagingDir, root, target, assets } = context
     const { getAppAssets, buildAssets } = await import('../../utils/assets.js')
 
     // Build app assets (config, plugins, etc.)
-    const appAssetCollection = await getAppAssets(config, false, __outDir)
-    const appAssets = await buildAssets(appAssetCollection, { outDir: __outDir, root, target })
+    const appAssetCollection = await getAppAssets(config, false, stagingDir)
+    const appAssets = await buildAssets(appAssetCollection, { outDir: stagingDir, root, target })
 
 
     const allAssets = [ ...appAssets, ...assets ]
