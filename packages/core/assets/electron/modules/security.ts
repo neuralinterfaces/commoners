@@ -83,17 +83,23 @@ export async function runVerification(isProduction: boolean): Promise<boolean> {
 
 /**
  * Build the default CSP directive string.
- * Allows self, inline styles/scripts (required for injected <script type="module"> blocks),
- * and WASM evaluation. In dev mode, also allows the dev server for HMR websockets.
+ * Allows self, inline styles (required for Vite CSS injection), and WASM evaluation.
+ * In production, replaces 'unsafe-inline' in script-src with a sha256 hash of the
+ * inline script. In dev mode, keeps 'unsafe-inline' because HMR changes script content.
  */
-function buildDefaultCSP(devServerUrl?: string): string {
-  const connectSrc = devServerUrl ? `connect-src 'self' ${devServerUrl} ws:` : `connect-src 'self'`
+function buildDefaultCSP(devServerUrl?: string, serviceUrls?: string[], scriptHash?: string): string {
+  const connectSources = ["'self'"]
+  if (devServerUrl) connectSources.push(devServerUrl, 'ws:')
+  if (serviceUrls) connectSources.push(...serviceUrls)
+
+  // Use hash instead of 'unsafe-inline' in script-src when available (production)
+  const scriptInline = scriptHash || "'unsafe-inline'"
 
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+    `script-src 'self' ${scriptInline} 'wasm-unsafe-eval'`,
     "style-src 'self' 'unsafe-inline'",
-    connectSrc,
+    `connect-src ${connectSources.join(' ')}`,
     "img-src 'self' data:",
     "font-src 'self'",
   ].join('; ')
@@ -105,16 +111,20 @@ function buildDefaultCSP(devServerUrl?: string): string {
  * @param sessionInstance - The Electron session to apply CSP to
  * @param cspSetting - User override: string to use custom CSP, false to disable, undefined for default
  * @param devServerUrl - The Vite dev server URL (used to allow HMR connections in dev mode)
+ * @param serviceUrls - URLs of resolved services to allow in connect-src
+ * @param scriptHash - SHA-256 hash of inline script for production CSP (replaces 'unsafe-inline')
  */
 export function setupContentSecurityPolicy(
   sessionInstance: Session,
   cspSetting?: string | false,
-  devServerUrl?: string
+  devServerUrl?: string,
+  serviceUrls?: string[],
+  scriptHash?: string
 ): void {
   // User explicitly disabled CSP
   if (cspSetting === false) return
 
-  const csp = typeof cspSetting === 'string' ? cspSetting : buildDefaultCSP(devServerUrl)
+  const csp = typeof cspSetting === 'string' ? cspSetting : buildDefaultCSP(devServerUrl, serviceUrls, scriptHash)
 
   sessionInstance.webRequest.onHeadersReceived((details, callback) => {
     callback({

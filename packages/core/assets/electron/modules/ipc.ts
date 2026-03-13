@@ -10,6 +10,28 @@
  */
 
 import { BrowserWindow, ipcMain } from 'electron'
+import { validateIPCMessage } from './ipc-channels'
+
+/**
+ * Module-level hooks reference for emitting security events.
+ * Set via setHooks() after hooks are resolved in main.ts.
+ */
+let _hooks: any = null
+
+/**
+ * Set the hooks interface for IPC validation event emission.
+ */
+export function setHooks(hooks: any): void {
+  _hooks = hooks
+}
+
+/**
+ * Log and optionally emit a validation failure.
+ */
+function logValidationFailure(channel: string, failure: string): void {
+  console.warn(`[IPC validation] ${failure}`)
+  _hooks?.emit?.({ type: 'security:ipc:validation-fail', channel, message: failure })
+}
 
 /**
  * Listener handle with remove method
@@ -40,7 +62,7 @@ function getScopedIdentifier(type: string, source: string, attr: string): string
 }
 
 /**
- * Register a scoped IPC listener
+ * Register a scoped IPC listener with argument validation
  */
 export function scopedOn(
   type: string,
@@ -49,13 +71,19 @@ export function scopedOn(
   callback: (...args: any[]) => void
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
-  ipcMain.on(event, callback)
-  const remove = () => ipcMain.removeListener(event, callback)
+  const wrappedCallback = (...args: any[]) => {
+    // args[0] is IpcMainEvent — validate the rest
+    const failure = validateIPCMessage(event, args.slice(1))
+    if (failure) logValidationFailure(event, failure)
+    callback(...args)
+  }
+  ipcMain.on(event, wrappedCallback)
+  const remove = () => ipcMain.removeListener(event, wrappedCallback)
   return { remove }
 }
 
 /**
- * Register a scoped IPC handler.
+ * Register a scoped IPC handler with argument validation.
  * Replaces any existing handler for the same channel since ipcMain.handle
  * only allows one handler per channel. This is needed because desktop.load
  * runs for each window (e.g., splash + main).
@@ -68,7 +96,13 @@ export function scopedHandle(
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
   try { ipcMain.removeHandler(event) } catch {}
-  ipcMain.handle(event, callback)
+  const wrappedCallback = (...args: any[]) => {
+    // args[0] is IpcMainInvokeEvent — validate the rest
+    const failure = validateIPCMessage(event, args.slice(1))
+    if (failure) logValidationFailure(event, failure)
+    return callback(...args)
+  }
+  ipcMain.handle(event, wrappedCallback)
   const remove = () => { try { ipcMain.removeHandler(event) } catch {} }
   return { remove }
 }

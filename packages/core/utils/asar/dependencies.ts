@@ -4,6 +4,7 @@
  */
 
 import { createLogger } from '../../assets/utils/logger.js'
+import { detectArchitectureMismatch } from './windows-ffi.js'
 
 const logger = createLogger('asar-integrity')
 
@@ -12,12 +13,14 @@ export interface DependencyStatus {
   rcedit: boolean
   plist: boolean
   fuses: boolean
+  architectureWarning?: string
 }
 
 /**
  * Check which integrity dependencies are available
+ * @param targetArch - Optional target architecture for cross-compilation mismatch detection
  */
-export function checkDependencies(): DependencyStatus {
+export function checkDependencies(targetArch?: string): DependencyStatus {
   const status: DependencyStatus = {
     ffi: false,
     rcedit: false,
@@ -46,6 +49,11 @@ export function checkDependencies(): DependencyStatus {
     require('plist')
     status.plist = true
   } catch {}
+
+  const archWarning = detectArchitectureMismatch(targetArch)
+  if (archWarning) {
+    status.architectureWarning = archWarning
+  }
 
   return status
 }

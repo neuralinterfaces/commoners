@@ -78,6 +78,9 @@ Security.runVerification(isProduction).then(async isValid => {
 
   const hooks = await resolveHooks(electronOptions.hooks, config.hooks)
 
+  // Provide hooks to IPC module for validation event emission
+  IPC.setHooks(hooks)
+
   // ------------------------ Helper Functions ------------------------
   const callbacks = new IPC.CallbackManager()
 
@@ -418,12 +421,22 @@ Security.runVerification(isProduction).then(async isValid => {
 
   // ------------------------ Service Hash Manifest ------------------------
   let serviceHashManifest: Record<string, string> | null = null
+  let inlineScriptHash: string | undefined
   if (isProduction) {
     try {
       const hashManifestPath = join(ASSET_ROOT_DIR, 'service-hashes.json')
       if (existsSync(hashManifestPath)) {
         const { readFileSync } = require('node:fs')
         serviceHashManifest = JSON.parse(readFileSync(hashManifestPath, 'utf8'))
+      }
+    } catch {}
+
+    try {
+      const scriptHashPath = join(ASSET_ROOT_DIR, 'script-hashes.json')
+      if (existsSync(scriptHashPath)) {
+        const { readFileSync } = require('node:fs')
+        const scriptHashes = JSON.parse(readFileSync(scriptHashPath, 'utf8'))
+        inlineScriptHash = scriptHashes.inlineScriptHash
       }
     } catch {}
   }
@@ -435,8 +448,13 @@ Security.runVerification(isProduction).then(async isValid => {
     await boundRunAppPlugins([resolvedServices])
 
     app.whenReady().then(async () => {
+      // Collect service URLs for CSP connect-src
+      const serviceUrls = Object.values(resolvedServices)
+        .map((s: any) => s.url)
+        .filter(Boolean) as string[]
+
       // Setup Content Security Policy
-      Security.setupContentSecurityPolicy(session.defaultSession, securitySettings.csp, DEV_SERVER_URL)
+      Security.setupContentSecurityPolicy(session.defaultSession, securitySettings.csp, DEV_SERVER_URL, serviceUrls, inlineScriptHash)
 
       // Setup STDIN commands
       Lifecycle.setupStdinCommands()

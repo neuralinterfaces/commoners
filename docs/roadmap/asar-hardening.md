@@ -40,26 +40,23 @@ Electron's ASAR integrity feature embeds cryptographic hashes into the applicati
 
 ## Implementation Plan
 
-### Step 1: Verify macOS on electron-builder 26.x
+### ~~Step 1: Verify macOS on electron-builder 26.x~~ (done)
 
 **Goal:** Determine if upgrading to `electron-builder@^26.8.1` fixed the post-signing hash mismatch.
 
-1. Create a minimal test: build a signed macOS app with ASAR integrity enabled
-2. Verify the hash in `Info.plist` matches the actual `app.asar` after code signing
-3. If fixed: document and close. If not: investigate whether `afterSign` hook timing can re-embed the hash
+Verified: ad-hoc code signing (`codesign --sign -`) does NOT modify `Info.plist` contents, so the embedded ASAR hash survives signing. Integration test added in `tests/asar.test.ts` (macOS-only). `ElectronBuildStrategy.configureCodeSigning()` now falls back to ad-hoc signing (`mac.identity = '-'`) when no Apple Developer certificates are available, enabling ASAR integrity testing without real certificates.
 
-**Files:** `macos-plist.ts`, `security.ts` (afterSign hook chain)
+**Files:** `macos-plist.ts`, `security.ts`, `ElectronBuildStrategy.ts`, `tests/asar.test.ts`
 
-### Step 2: Make `rcedit` the primary Windows strategy
+### ~~Step 2: Make `rcedit` the primary Windows strategy~~ (done)
 
 **Goal:** Replace `ffi-napi` as the first-choice Windows resource writer.
 
-1. In `windows-ffi.ts`, swap the priority: try `rcedit` first, fall back to FFI
-2. Validate `rcedit` can write and read back the integrity resource correctly
-3. Add architecture detection to `dependencies.ts` — warn if FFI native module arch doesn't match target
-4. Consider removing FFI path entirely if `rcedit` proves reliable across all Windows targets
+Code already uses rcedit first (lines 356-381 in `windows-ffi.ts`) with FFI as fallback (lines 383-407). Fixed misleading comments and log messages that said the opposite. Added `detectArchitectureMismatch()` to `windows-ffi.ts` and integrated it into `checkDependencies()` in `dependencies.ts` with optional `targetArch` parameter. Fixed 6 misleading log messages in `security.ts` to accurately describe rcedit as primary and FFI as fallback.
 
-**Files:** `windows-ffi.ts`, `dependencies.ts`
+**Remaining (Windows-only):** Real rcedit/FFI integration testing, architecture mismatch detection on actual Windows, end-to-end `writeIntegrityResource` on real `.exe`.
+
+**Files:** `windows-ffi.ts`, `dependencies.ts`, `security.ts`, `tests/security.test.ts`
 
 ### ~~Step 3: Fix hash calculation inconsistency~~ (done)
 
@@ -79,15 +76,13 @@ Both `hash.ts` (lines 22-34) and `debug.ts` (lines 66-93) already use identical 
 
 **Files:** `security.ts`, `ElectronBuildStrategy.ts`
 
-### Step 6: CI verification job
+### ~~Step 6: CI verification job~~ (done)
 
 **Goal:** Automated verification that ASAR integrity is correctly embedded.
 
-1. Add a CI job that builds a signed (or self-signed) app on each platform
-2. Extract and verify the embedded hash matches the actual ASAR
-3. Run on `workflow_dispatch` (expensive) with periodic scheduled runs
+Implemented: `desktop-build.yml` now runs ad-hoc signed builds on macOS push events and uses the full `ci-verify-asar-integrity.sh` script to validate ASAR integrity (hash match, plist structure, fuse sentinel). Windows verification pending.
 
-**Files:** `.github/workflows/` (new or extended)
+**Files:** `.github/workflows/desktop-build.yml`, `tests/asar/ci-verify-asar-integrity.sh`
 
 ---
 
@@ -102,10 +97,12 @@ Both `hash.ts` (lines 22-34) and `debug.ts` (lines 66-93) already use identical 
 
 ## Verification
 
-- [ ] macOS: signed app launches with ASAR integrity fuse enabled
+- [x] macOS: ad-hoc signed app preserves ASAR integrity hash (integration test in `tests/asar.test.ts`)
+- [x] CI: automated build-and-verify job passes on macOS (ad-hoc signing + `ci-verify-asar-integrity.sh`)
+- [ ] macOS: fully signed app launches with ASAR integrity fuse enabled (requires Apple Developer cert)
 - [ ] Windows: `rcedit`-embedded hash validates on app startup
 - [ ] Windows sandbox: app launches with `contextIsolation: true` + `sandbox: true`
-- [ ] CI: automated build-and-verify job passes on macOS and Windows (macOS: `ci-verify-asar-integrity.sh` ready; Windows pending)
+- [ ] CI: Windows automated build-and-verify job
 - [x] Hash inconsistency fixed: `hash.ts` and `debug.ts` use same prelude parsing (verified — both use 12-byte prelude)
 - [x] Strict mode implemented: `makeAfterPackEmbedAsarIntegrity()` defaults to `strict: true`
 - [x] Test verification scripts fixed: `tests/asar/verify.ts` and `ci-verify-asar-integrity.sh` now use correct 12-byte prelude parsing (matching `hash.ts`)

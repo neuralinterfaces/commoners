@@ -1,4 +1,6 @@
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
+import { createHash } from 'node:crypto'
+import { writeFileSync } from 'node:fs'
 
 import { getIcon } from '../../assets/utils/icons.js'
 
@@ -256,6 +258,17 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
 
             </script>\n
             `
+
+      // Compute SHA-256 hash of the inline script body for CSP in production builds
+      if (!dev) {
+        const scriptMatch = highPriority.match(/<script type="module">([\s\S]*?)<\/script>/)
+        if (scriptMatch) {
+          const scriptBody = scriptMatch[1]
+          const hash = createHash('sha256').update(scriptBody, 'utf8').digest('base64')
+          const hashesPath = join(actualOutDir, 'script-hashes.json')
+          writeFileSync(hashesPath, JSON.stringify({ inlineScriptHash: `'sha256-${hash}'` }))
+        }
+      }
 
       return `${beforeHead}${TAGS.head.start}${highPriority}${headContent}${lowPriority}${TAGS.head.end}${afterHead}`
     },

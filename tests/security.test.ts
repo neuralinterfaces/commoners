@@ -5,6 +5,16 @@ import {
   normalizeAndCompare,
   isCommonersAsset,
 } from '../packages/core/assets/electron/modules/protocol'
+import {
+  validateIPCMessage,
+  CHANNEL_REGISTRY,
+  SCOPED_CHANNEL_VALIDATORS,
+} from '../packages/core/assets/electron/modules/ipc-channels'
+import {
+  checkWindowsDependencies,
+  detectArchitectureMismatch,
+} from '../packages/core/utils/asar/windows-ffi'
+import { checkDependencies } from '../packages/core/utils/asar/dependencies'
 
 // ────────────────────────────────────────────────────────
 // 1. IPC Channel Allowlisting
@@ -152,14 +162,18 @@ describe('Service Binary Integrity', () => {
 // ────────────────────────────────────────────────────────
 
 // Mirror the buildDefaultCSP function from security.ts (not exported, so replicated here)
-function buildDefaultCSP(devServerUrl?: string): string {
-  const connectSrc = devServerUrl ? `connect-src 'self' ${devServerUrl} ws:` : `connect-src 'self'`
+function buildDefaultCSP(devServerUrl?: string, serviceUrls?: string[], scriptHash?: string): string {
+  const connectSources = ["'self'"]
+  if (devServerUrl) connectSources.push(devServerUrl, 'ws:')
+  if (serviceUrls) connectSources.push(...serviceUrls)
+
+  const scriptInline = scriptHash || "'unsafe-inline'"
 
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+    `script-src 'self' ${scriptInline} 'wasm-unsafe-eval'`,
     "style-src 'self' 'unsafe-inline'",
-    connectSrc,
+    `connect-src ${connectSources.join(' ')}`,
     "img-src 'self' data:",
     "font-src 'self'",
   ].join('; ')
@@ -315,5 +329,291 @@ describe('IPC Channel Edge Cases', () => {
     expect(isAllowedChannel('Commoners:quit')).toBe(false)
     expect(isAllowedChannel('SERVICES:http')).toBe(false)
     expect(isAllowedChannel('Plugins:splash')).toBe(false)
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 8. Port Randomization
+// ────────────────────────────────────────────────────────
+
+describe('Port Randomization', () => {
+  test('getFreePorts returns valid unique ports in range 1024-65535', async () => {
+    const { getFreePorts } = await import(
+      '../packages/core/assets/services/network'
+    )
+    const ports = await getFreePorts(5)
+    expect(ports).toHaveLength(5)
+    const unique = new Set(ports)
+    expect(unique.size).toBe(5)
+    for (const port of ports) {
+      expect(port).toBeGreaterThanOrEqual(1024)
+      expect(port).toBeLessThanOrEqual(65535)
+    }
+  })
+
+  test('getFreePorts(1) returns a single-element array', async () => {
+    const { getFreePorts } = await import(
+      '../packages/core/assets/services/network'
+    )
+    const ports = await getFreePorts(1)
+    expect(ports).toHaveLength(1)
+    expect(typeof ports[0]).toBe('number')
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 9. CSP with Service URLs
+// ────────────────────────────────────────────────────────
+
+describe('CSP with Service URLs', () => {
+  test('Service URLs are included in connect-src', () => {
+    const csp = buildDefaultCSP(undefined, [
+      'http://localhost:3000',
+      'http://localhost:4000',
+    ])
+    expect(csp).toContain('http://localhost:3000')
+    expect(csp).toContain('http://localhost:4000')
+    expect(csp).toContain("connect-src 'self' http://localhost:3000 http://localhost:4000")
+  })
+
+  test('Service URLs combine with dev server URL', () => {
+    const csp = buildDefaultCSP('http://localhost:5173', [
+      'http://localhost:3000',
+    ])
+    expect(csp).toContain('http://localhost:5173')
+    expect(csp).toContain('ws:')
+    expect(csp).toContain('http://localhost:3000')
+  })
+
+  test('Empty service URLs array does not affect CSP', () => {
+    const cspWithEmpty = buildDefaultCSP(undefined, [])
+    const cspWithout = buildDefaultCSP()
+    expect(cspWithEmpty).toBe(cspWithout)
+  })
+
+  test('Production CSP with service URLs omits ws:', () => {
+    const csp = buildDefaultCSP(undefined, ['http://localhost:3000'])
+    expect(csp).not.toContain('ws:')
+    expect(csp).toContain('http://localhost:3000')
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 10. Service Binary Integrity Edge Cases
+// ────────────────────────────────────────────────────────
+
+describe('Service Binary Integrity Edge Cases', () => {
+  test('Empty manifest has no entries to verify', () => {
+    const manifest: Record<string, string> = {}
+    expect(Object.keys(manifest)).toHaveLength(0)
+    expect(manifest['anyService']).toBeUndefined()
+  })
+
+  test('Missing service ID returns undefined from manifest', () => {
+    const manifest: Record<string, string> = {
+      http: createHash('sha256').update(Buffer.from('binary-content')).digest('hex'),
+    }
+    expect(manifest['http']).toBeDefined()
+    expect(manifest['nonexistent']).toBeUndefined()
+  })
+
+  test('Manifest with multiple services has independent hashes', () => {
+    const hash1 = createHash('sha256').update(Buffer.from('binary-1')).digest('hex')
+    const hash2 = createHash('sha256').update(Buffer.from('binary-2')).digest('hex')
+    const manifest: Record<string, string> = { svc1: hash1, svc2: hash2 }
+    expect(manifest['svc1']).not.toBe(manifest['svc2'])
+    expect(manifest['svc1']).toBe(hash1)
+    expect(manifest['svc2']).toBe(hash2)
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 11. IPC Message Schema Validation
+// ────────────────────────────────────────────────────────
+
+describe('IPC Message Schema Validation', () => {
+  test('commoners:quit accepts 0 args', () => {
+    expect(validateIPCMessage('commoners:quit', [])).toBeNull()
+  })
+
+  test('commoners:quit accepts 1 string arg', () => {
+    expect(validateIPCMessage('commoners:quit', ['shutdown'])).toBeNull()
+  })
+
+  test('commoners:quit rejects number arg', () => {
+    const result = validateIPCMessage('commoners:quit', [42])
+    expect(result).toContain('expected string')
+    expect(result).toContain('got number')
+  })
+
+  test('commoners:quit rejects too many args', () => {
+    const result = validateIPCMessage('commoners:quit', ['a', 'b'])
+    expect(result).toContain('at most 1')
+  })
+
+  test('commoners:close requires 1 number arg', () => {
+    expect(validateIPCMessage('commoners:close', [1])).toBeNull()
+  })
+
+  test('commoners:close rejects 0 args', () => {
+    const result = validateIPCMessage('commoners:close', [])
+    expect(result).toContain('at least 1')
+  })
+
+  test('commoners:close rejects string arg', () => {
+    const result = validateIPCMessage('commoners:close', ['notanumber'])
+    expect(result).toContain('expected number')
+    expect(result).toContain('got string')
+  })
+
+  test('commoners:services accepts 0 args', () => {
+    expect(validateIPCMessage('commoners:services', [])).toBeNull()
+  })
+
+  test('commoners:plugins:loaded requires 2 args (number, string)', () => {
+    expect(validateIPCMessage('commoners:plugins:loaded', [1, 'splash'])).toBeNull()
+  })
+
+  test('commoners:plugins:loaded rejects wrong types', () => {
+    const result = validateIPCMessage('commoners:plugins:loaded', ['notnum', 123])
+    expect(result).toContain('expected number')
+  })
+
+  test('Unknown channels return null (pass-through)', () => {
+    expect(validateIPCMessage('unknown:channel', [1, 2, 3])).toBeNull()
+    expect(validateIPCMessage('custom:event', [])).toBeNull()
+  })
+
+  test('Scoped status expects 0 args', () => {
+    expect(validateIPCMessage('services:http:status', [])).toBeNull()
+    const result = validateIPCMessage('services:http:status', ['extra'])
+    expect(result).toContain('at most 0')
+  })
+
+  test('Scoped closed validates number', () => {
+    expect(validateIPCMessage('services:http:closed', [0])).toBeNull()
+    const result = validateIPCMessage('services:http:closed', ['notnum'])
+    expect(result).toContain('expected number')
+  })
+
+  test('Scoped log validates string', () => {
+    expect(validateIPCMessage('plugins:splash:log', ['hello'])).toBeNull()
+    const result = validateIPCMessage('plugins:splash:log', [42])
+    expect(result).toContain('expected string')
+  })
+
+  test('Registry completeness: all validators have minArgs <= maxArgs', () => {
+    for (const [channel, validator] of Object.entries(CHANNEL_REGISTRY)) {
+      expect(validator.minArgs).toBeLessThanOrEqual(validator.maxArgs)
+    }
+    for (const [attr, validator] of Object.entries(SCOPED_CHANNEL_VALIDATORS)) {
+      expect(validator.minArgs).toBeLessThanOrEqual(validator.maxArgs)
+    }
+  })
+
+  test('Registry completeness: argType indices are in range', () => {
+    for (const [channel, validator] of Object.entries(CHANNEL_REGISTRY)) {
+      if (validator.argTypes) {
+        expect(validator.argTypes.length).toBeLessThanOrEqual(validator.maxArgs)
+      }
+    }
+    for (const [attr, validator] of Object.entries(SCOPED_CHANNEL_VALIDATORS)) {
+      if (validator.argTypes) {
+        expect(validator.argTypes.length).toBeLessThanOrEqual(validator.maxArgs)
+      }
+    }
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 12. Windows ASAR Dependencies (Non-Windows Safe)
+// ────────────────────────────────────────────────────────
+
+describe('Windows ASAR Dependencies', () => {
+  test('checkWindowsDependencies returns ffi/rcedit false on non-Windows', () => {
+    const status = checkWindowsDependencies()
+    if (process.platform !== 'win32') {
+      expect(status.ffiAvailable).toBe(false)
+      expect(status.rceditAvailable).toBe(false)
+    }
+  })
+
+  test('checkDependencies returns expected shape', () => {
+    const deps = checkDependencies()
+    expect(typeof deps.ffi).toBe('boolean')
+    expect(typeof deps.rcedit).toBe('boolean')
+    expect(typeof deps.plist).toBe('boolean')
+    expect(typeof deps.fuses).toBe('boolean')
+  })
+
+  test('detectArchitectureMismatch returns null on non-Windows', () => {
+    if (process.platform !== 'win32') {
+      expect(detectArchitectureMismatch('x64')).toBeNull()
+      expect(detectArchitectureMismatch('arm64')).toBeNull()
+    }
+  })
+
+  test('detectArchitectureMismatch returns null when no targetArch', () => {
+    expect(detectArchitectureMismatch()).toBeNull()
+    expect(detectArchitectureMismatch(undefined)).toBeNull()
+  })
+
+  test('checkDependencies with targetArch includes architectureWarning field', () => {
+    const deps = checkDependencies('arm64')
+    if (process.platform !== 'win32') {
+      expect(deps.architectureWarning).toBeUndefined()
+    }
+    // On any platform, the field should be either string or undefined
+    expect(
+      deps.architectureWarning === undefined || typeof deps.architectureWarning === 'string'
+    ).toBe(true)
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 13. CSP with Script Hash
+// ────────────────────────────────────────────────────────
+
+describe('CSP with Script Hash', () => {
+  const testHash = "'sha256-" + createHash('sha256').update('test script', 'utf8').digest('base64') + "'"
+
+  test('Production CSP with hash: script-src contains hash, no unsafe-inline', () => {
+    const csp = buildDefaultCSP(undefined, undefined, testHash)
+    expect(csp).toContain(testHash)
+    // script-src should have the hash, not unsafe-inline
+    const scriptSrc = csp.split(';').find(d => d.trim().startsWith('script-src'))!
+    expect(scriptSrc).toContain(testHash)
+    expect(scriptSrc).not.toContain("'unsafe-inline'")
+    // style-src should still have unsafe-inline
+    const styleSrc = csp.split(';').find(d => d.trim().startsWith('style-src'))!
+    expect(styleSrc).toContain("'unsafe-inline'")
+  })
+
+  test('Dev CSP without hash: retains unsafe-inline', () => {
+    const csp = buildDefaultCSP('http://localhost:5173')
+    expect(csp).toContain("'unsafe-inline'")
+    const scriptSrc = csp.split(';').find(d => d.trim().startsWith('script-src'))!
+    expect(scriptSrc).toContain("'unsafe-inline'")
+  })
+
+  test('style-src always retains unsafe-inline regardless of hash', () => {
+    const csp = buildDefaultCSP(undefined, undefined, testHash)
+    const styleSrc = csp.split(';').find(d => d.trim().startsWith('style-src'))!
+    expect(styleSrc).toContain("'unsafe-inline'")
+  })
+
+  test('Hash format matches sha256 pattern', () => {
+    expect(testHash).toMatch(/^'sha256-[A-Za-z0-9+/]+=*'$/)
+  })
+
+  test('wasm-unsafe-eval always present regardless of hash', () => {
+    const csp = buildDefaultCSP(undefined, undefined, testHash)
+    expect(csp).toContain('wasm-unsafe-eval')
+  })
+
+  test('Service URLs still in connect-src when hash is set', () => {
+    const csp = buildDefaultCSP(undefined, ['http://localhost:3000'], testHash)
+    expect(csp).toContain('http://localhost:3000')
+    expect(csp).toContain(testHash)
   })
 })

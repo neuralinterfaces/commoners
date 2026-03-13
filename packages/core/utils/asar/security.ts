@@ -101,11 +101,11 @@ function validateDependenciesForIntegrity(): boolean {
       '=====================================',
       'Required dependencies for Windows ASAR integrity are missing:',
       '',
-      'FFI libraries (preferred method):',
+      'FFI libraries (fallback method):',
       `  Error: ${deps.ffiError || 'Unknown error'}`,
       '  Install with: npm install ffi-napi ref-napi',
       '',
-      'rcedit (fallback method):',
+      'rcedit (primary method):',
       `  Error: ${deps.rceditError || 'Unknown error'}`,
       '  Install with: npm install rcedit',
       '',
@@ -131,11 +131,8 @@ function validateDependenciesForIntegrity(): boolean {
   }
 
   if (!deps.ffiAvailable) {
-    warn('FFI libraries not available, will use rcedit fallback method')
+    warn('FFI libraries not available, rcedit (primary method) will be used')
     warn(`FFI error: ${deps.ffiError}`)
-    warn(
-      'For better performance and verification, consider installing: npm install ffi-napi ref-napi'
-    )
   }
 
   if (!deps.rceditAvailable) {
@@ -144,10 +141,12 @@ function validateDependenciesForIntegrity(): boolean {
   }
 
   // Log successful setup
-  if (deps.ffiAvailable) {
-    log('FFI libraries available - using preferred integrity embedding method')
+  if (deps.ffiAvailable && deps.rceditAvailable) {
+    log('Both methods available — rcedit tried first, FFI as fallback')
   } else if (deps.rceditAvailable) {
-    log('rcedit available - using fallback integrity embedding method')
+    log('rcedit available - primary integrity embedding method')
+  } else if (deps.ffiAvailable) {
+    log('FFI available - fallback integrity embedding method (rcedit not found)')
   }
 
   return true
