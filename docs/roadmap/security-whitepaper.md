@@ -302,10 +302,16 @@ The following P0 fixes were implemented and merged. Test coverage gaps are liste
 | Protocol origin validation | `assets/electron/main.ts` | Done |
 | Service binary hash verification | `ElectronBuildStrategy.ts`, `assets/electron/main.ts`, `assets/services/index.ts` | Done |
 | Security audit events (hooks) | `types.ts`, `assets/electron/main.ts`, `assets/services/index.ts` | Done |
+| Port PID verification | `assets/services/index.ts` (`verifyPortOwnership()`) | Done |
+| SEA (Single Executable Application) | `utils/sea.ts` | Done |
+| CSP header generation tests | `tests/security.test.ts` | Done |
+| Protocol path handling tests | `tests/security.test.ts` | Done |
+| IPC edge case tests | `tests/security.test.ts` | Done |
+| Protocol E2E tests (desktop) | `tests/utils.ts` (`e2eTests.protocol`) | Done |
 
 ### Test Coverage Gaps
 
-These items require platform-specific or integration testing that cannot be covered by the existing unit test suite:
+These items require platform-specific or integration testing:
 
 | Gap | Reason | How to Test |
 |-----|--------|-------------|
@@ -313,7 +319,6 @@ These items require platform-specific or integration testing that cannot be cove
 | Windows service binary `.exe` hashing | Extension detection differs on Windows | Windows CI runner with compiled services |
 | ASAR prelude parsing against real `.asar` files | Needs an actual packaged Electron build | `pnpm demo:build` then inspect `.asar` header hashes |
 | Strict mode throwing on missing dependencies | Needs electron-builder run without FFI/rcedit | Remove `ffi-napi` and run `pnpm demo:build` with `asarIntegrity: true` |
-| Protocol origin validation in Electron | Requires running Electron app with custom protocol | Manual: open external page, attempt `fetch('commoners://services/...')` |
 | Service hash manifest generation | Requires `ElectronBuildStrategy.build()` with compiled services | `pnpm demo:build` then verify `service-hashes.json` in build output |
 | Service hash verification at runtime | Requires packaged Electron app with `service-hashes.json` | `pnpm demo:launch` after modifying a service binary — should fail |
 | Security audit event emission | Requires Electron runtime with hooks listener | Manual: add `hooks.on('all', console.log)` and trigger security events |

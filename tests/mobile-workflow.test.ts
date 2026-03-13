@@ -92,45 +92,111 @@ describe('Dependency detection', () => {
 })
 
 // =============================================================================
-// TODO: Mobile Build Output Tests
+// TODO: Native Build Output Tests (require Xcode / Android SDK)
 //
-// Currently we only test the web preview served via vite.preview() in test mode.
-// The following tests should verify the actual native build outputs for iOS/Android.
-//
-// Prerequisites: @capacitor/cli, @capacitor/core installed in demo project
+// The following tests require native toolchains and should run in a dedicated
+// CI workflow with emulators (see docs/roadmap/testing-and-distribution.md):
 //
 // 1. Platform directory structure
-//    - After `cap add ios`: ios/App/App/ exists with AppDelegate.swift, Info.plist
-//    - After `cap add android`: android/app/src/main/ exists with AndroidManifest.xml
+//    - After `cap add ios/android`: verify native project scaffolding
 //
-// 2. Native config injection (Info.plist / AndroidManifest.xml)
-//    - iOS: BLE plugin injects NSBluetoothAlwaysUsageDescription into Info.plist
-//    - iOS: BLE plugin injects UIBackgroundModes=['bluetooth-central']
-//    - Android: BLE plugin injects BLUETOOTH_SCAN, ACCESS_COARSE_LOCATION permissions
-//    - Android: Serial plugin injects android.hardware.usb.host uses-feature
-//    - Android: Serial plugin injects USB_PERMISSION uses-permission
+// 2. Native config injection
+//    - iOS: BLE/Serial permissions in Info.plist
+//    - Android: permissions/features in AndroidManifest.xml
 //
 // 3. Web asset sync
-//    - After `cap sync`, the native project's web directory contains:
-//      - index.html with commoners global injection
-//      - assets/ directory with bundled config, onload.mjs, icons
-//      - All declared pages (services.html, bluetooth.html, etc.)
-//
-// 4. Capacitor config correctness
-//    - Generated capacitor.config.json reflects commoners config:
-//      - appId matches config.appId
-//      - appName matches config.name
-//      - webDir points to the build output
-//      - plugins section includes options from Capacitor-configured plugins
-//
-// 5. Extension capabilities in build output
-//    - commoners.EXTENSIONS is injected into the HTML with correct type/capabilities
-//    - commoners.CAPABILITIES separates service vs plugin capabilities
-//    - commoners.query() works at runtime in the built output
-//
-// These tests require Capacitor deps to be installed, so they should be gated
-// behind a CI flag or placed in a separate test suite (e.g. tests/mobile-build.test.ts).
+//    - After `cap sync`: index.html, assets/, pages in native web dir
 // =============================================================================
+
+describe('Capacitor config verification', () => {
+  test('Config reflects custom appId and name', async () => {
+    const outDir = resolve(projectBase, '.commoners')
+    const { config, close } = await openConfig({
+      name: 'my-custom-app',
+      appId: 'org.example.custom',
+      plugins: {},
+      outDir,
+      root: projectBase,
+    })
+
+    expect(config.appId).toBe('org.example.custom')
+    expect(config.appName).toBe('my-custom-app')
+    expect(config.webDir).toBe(outDir)
+    close()
+  })
+
+  test('Config server uses https scheme for Android', async () => {
+    const outDir = resolve(projectBase, '.commoners')
+    const { config, close } = await openConfig({
+      name: 'test-app',
+      appId: 'com.test.app',
+      plugins: {},
+      outDir,
+      root: projectBase,
+    })
+
+    expect(config.server).toBeDefined()
+    expect(config.server.androidScheme).toBe('https')
+    close()
+  })
+
+  test('Plugin permission structures are preserved in config', async () => {
+    const outDir = resolve(projectBase, '.commoners')
+    const mockPlugins = {
+      ble: {
+        isSupported: {
+          capacitor: {
+            name: 'BluetoothLe',
+            plugin: '@capacitor-community/bluetooth-le',
+            options: { displayStrings: { scanning: 'Scanning BLE...' } },
+            plist: { NSBluetoothAlwaysUsageDescription: 'BLE access required' },
+            manifest: { 'uses-permission': ['BLUETOOTH_SCAN'] },
+          },
+        },
+      },
+      serial: {
+        isSupported: {
+          capacitor: {
+            name: 'UsbSerial',
+            plugin: '@niclas-niclas/capacitor-usb-serial',
+            manifest: {
+              'uses-feature': [{ name: 'android.hardware.usb.host', required: false }],
+              'uses-permission': ['USB_PERMISSION'],
+            },
+          },
+        },
+      },
+    }
+
+    const { config, close } = await openConfig({
+      name: 'test-app',
+      appId: 'com.test.app',
+      plugins: mockPlugins as any,
+      outDir,
+      root: projectBase,
+    })
+
+    // The plugins object should be present (even if packages aren't installed)
+    expect(config.plugins).toBeDefined()
+    expect(typeof config.plugins).toBe('object')
+    close()
+  })
+
+  test('Config with no plugins produces empty plugins object', async () => {
+    const outDir = resolve(projectBase, '.commoners')
+    const { config, close } = await openConfig({
+      name: 'bare-app',
+      appId: 'com.test.bare',
+      plugins: {},
+      outDir,
+      root: projectBase,
+    })
+
+    expect(config.plugins).toBeDefined()
+    expect(Object.keys(config.plugins)).toHaveLength(0)
+    close()
+  })
+})
 
 describe('Serial plugin mobile support', () => {
   test('serial isSupported reports android-only for mobile', async () => {

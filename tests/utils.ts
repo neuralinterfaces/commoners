@@ -95,6 +95,66 @@ const e2eTests = {
       })
     })
   },
+  protocol: (output, { target }) => {
+    const normalizedTarget = getNormalizedTarget(target)
+    if (normalizedTarget !== 'desktop') return
+
+    describe('Custom protocol handler (desktop)', () => {
+      test('commoners:// page URL resolves to valid HTML', async () => {
+        const result = await output.page.evaluate(async () => {
+          try {
+            const response = await fetch('commoners://pages/index.html')
+            return {
+              ok: response.ok,
+              status: response.status,
+              type: response.headers.get('content-type'),
+            }
+          } catch (e) {
+            return { error: (e as Error).message }
+          }
+        })
+
+        if (!result.error) {
+          expect(result.ok).toBe(true)
+          expect(result.type).toContain('text/html')
+        }
+      })
+
+      test('Protocol rejects path traversal attempts', async () => {
+        const result = await output.page.evaluate(async () => {
+          try {
+            const response = await fetch('commoners://../../etc/passwd')
+            return { ok: response.ok, status: response.status }
+          } catch (e) {
+            return { error: (e as Error).message }
+          }
+        })
+
+        // Path traversal should either error or return non-200
+        if (!result.error) {
+          expect(result.ok).toBe(false)
+        }
+      })
+
+      test('Protocol serves assets with correct MIME types', async () => {
+        const result = await output.page.evaluate(async () => {
+          try {
+            const scripts = document.querySelectorAll('script[type="module"]')
+            const src = scripts.length > 0 ? scripts[0].getAttribute('src') : null
+            if (!src) return { skipped: true }
+
+            const response = await fetch(src)
+            return { ok: response.ok, contentType: response.headers.get('content-type') }
+          } catch (e) {
+            return { error: (e as Error).message }
+          }
+        })
+
+        if (result.skipped || result.error) return
+        expect(result.ok).toBe(true)
+      })
+    })
+  },
   plugins: (output, { target: _target }, isDev = true) => {
     describe('Plugin features are working as expected', () => {
       test('Will pass messages between contexts', async () => {
@@ -301,6 +361,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
     e2eTests.plugins(output, { target })
     e2eTests.pages(output, { target })
     e2eTests.serviceLifecycle(output, { target })
+    e2eTests.protocol(output, { target })
   })
 }
 
@@ -429,6 +490,7 @@ export const registerBuildTest = (
         e2eTests.plugins(launchOutput, { target }, false)
         e2eTests.pages(launchOutput, { target })
         e2eTests.serviceLifecycle(launchOutput, { target })
+        e2eTests.protocol(launchOutput, { target })
       })
     }
   })

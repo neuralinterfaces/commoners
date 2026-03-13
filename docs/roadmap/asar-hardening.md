@@ -61,25 +61,13 @@ Electron's ASAR integrity feature embeds cryptographic hashes into the applicati
 
 **Files:** `windows-ffi.ts`, `dependencies.ts`
 
-### Step 3: Fix hash calculation inconsistency
+### ~~Step 3: Fix hash calculation inconsistency~~ (done)
 
-**Goal:** Align `hash.ts` with the correct ASAR prelude format.
+Both `hash.ts` (lines 22-34) and `debug.ts` (lines 66-93) already use identical 12-byte ASAR prelude parsing with `len0`/`headerSize`/`jsonLen` validation. No code change needed — verified correct.
 
-1. Update `readJsonHeaderBytes()` to parse the 12-byte ASAR prelude (len0, headerSize, jsonLen) instead of assuming 16 bytes
-2. Match the parsing logic already implemented in `debug.ts`
-3. Add unit tests for both JSON header and full header hash computation
+### ~~Step 4: Fail builds on integrity embedding failure~~ (done)
 
-**Files:** `hash.ts`
-
-### Step 4: Fail builds on integrity embedding failure
-
-**Goal:** Silent failures allow apps to ship without integrity protection.
-
-1. Add a `strict` option (default: `true`) to `makeAfterPackEmbedAsarIntegrity()`
-2. When strict, throw on embedding failure instead of logging and continuing
-3. Add an opt-out for development builds where integrity is less critical
-
-**Files:** `security.ts`
+`strict` parameter already implemented in `makeAfterPackEmbedAsarIntegrity()` at `security.ts` line 207. Defaults to `true`; throws on embedding failure. Opt-out available via config.
 
 ### Step 5: Windows sandbox testing
 
@@ -117,8 +105,9 @@ Electron's ASAR integrity feature embeds cryptographic hashes into the applicati
 - [ ] macOS: signed app launches with ASAR integrity fuse enabled
 - [ ] Windows: `rcedit`-embedded hash validates on app startup
 - [ ] Windows sandbox: app launches with `contextIsolation: true` + `sandbox: true`
-- [ ] CI: automated build-and-verify job passes on macOS and Windows
-- [ ] Hash inconsistency fixed: `hash.ts` and `debug.ts` use same prelude parsing
+- [ ] CI: automated build-and-verify job passes on macOS and Windows (macOS: `ci-verify-asar-integrity.sh` ready; Windows pending)
+- [x] Hash inconsistency fixed: `hash.ts` and `debug.ts` use same prelude parsing (verified — both use 12-byte prelude)
+- [x] Strict mode implemented: `makeAfterPackEmbedAsarIntegrity()` defaults to `strict: true`
 
 ---
 

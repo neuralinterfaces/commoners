@@ -22,19 +22,22 @@ Several test areas were deferred during recent work and need to be tracked and i
 
 | Suite | Tests | Status | Script |
 |-------|-------|--------|--------|
-| Protocol (unit) | 18 | Pass | `pnpm test:protocol` |
-| WASM (unit) | 18 | Pass | `pnpm test:wasm` |
-| Mobile workflow | 6 | Pass | `pnpm test:mobile-workflow` |
+| Protocol (unit) | 27 | Pass | `pnpm test:protocol` |
+| WASM (unit + E2E) | 18 (+ 2 gated behind `wasm-pack`) | Pass | `pnpm test:wasm` |
+| Mobile workflow | 10 | Pass | `pnpm test:mobile-workflow` |
+| Security | 41 | Pass | `pnpm test:security` |
+| SEA | 4 | Pass | `vitest run tests/sea.test.ts` |
+| Port PID verification | 4 | Pass | `vitest run tests/port-pid.test.ts` |
 | Desktop (start) | 18 | Pass (flaky in full suite) | `pnpm test:desktop` |
-| Desktop (build+launch) | 10 | Pass | `pnpm test:desktop-zlaunch` |
+| Desktop (build+launch) | 10 + 3 protocol E2E | Pass | `pnpm test:desktop-zlaunch` |
 | Start (web + mobile) | 32 | Pass | `pnpm test:start` |
 | API | 48 | Pass | `pnpm test:config` |
 | Services | Varies | Python skips without conda | `pnpm test:services` |
 
 ### Deferred Items (from ROADMAP.md)
 
-- Full E2E protocol tests (deferred from Custom Protocol work)
-- E2E WASM compilation test (deferred from WASM Service Compilation work)
+- ~~Full E2E protocol tests~~ — added to desktop-zlaunch launch context
+- ~~E2E WASM compilation test~~ — added, gated behind `wasm-pack` availability
 - Mobile testing TODO gaps (from `tests/mobile-workflow.test.ts` lines 94-133)
 
 ---
