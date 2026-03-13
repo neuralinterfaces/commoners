@@ -30,7 +30,7 @@
     "postinstall": "pnpm exec playwright install chromium"
   },
   "dependencies": {
-    "@commoners/solidarity": "1.0.0-alpha.3 || >=1.0.0 <2.0.0",
+    "@commoners/solidarity": ">=1.0.0-alpha.0",
     "playwright": "^1.58.2",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"

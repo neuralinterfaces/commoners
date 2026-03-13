@@ -61,11 +61,21 @@ class ElectronIPC implements RuntimeIPC {
 }
 
 class ElectronScopedIPC implements RuntimeScopedIPC {
-  scopedOn(type: string, id: string, channel: string, callback: (...args: any[]) => void): ListenerHandle {
+  scopedOn(
+    type: string,
+    id: string,
+    channel: string,
+    callback: (...args: any[]) => void
+  ): ListenerHandle {
     return IPC.scopedOn(type, id, channel, callback)
   }
 
-  scopedHandle(type: string, id: string, channel: string, callback: (...args: any[]) => any): ListenerHandle {
+  scopedHandle(
+    type: string,
+    id: string,
+    channel: string,
+    callback: (...args: any[]) => any
+  ): ListenerHandle {
     return IPC.scopedHandle(type, id, channel, callback)
   }
 
@@ -189,9 +199,9 @@ class ElectronSession implements RuntimeSession {
 }
 
 class ElectronLifecycle implements RuntimeLifecycle {
-  onReady(callback: () => void | Promise<void>): void {
+  onReady(callback: () => void | Promise<void>) {
     const { app } = require('electron')
-    app.whenReady().then(callback)
+    return app.whenReady().then(callback)
   }
 
   onActivate(callback: () => void): void {
@@ -201,7 +211,7 @@ class ElectronLifecycle implements RuntimeLifecycle {
 
   onBeforeQuit(callback: () => void | Promise<void>): void {
     const { app } = require('electron')
-    app.on('before-quit', async (ev) => {
+    app.on('before-quit', async ev => {
       ev.preventDefault()
       await callback()
       app.exit()

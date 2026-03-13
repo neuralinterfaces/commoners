@@ -23,8 +23,18 @@ export interface RuntimeIPC {
 }
 
 export interface RuntimeScopedIPC {
-  scopedOn(type: string, id: string, channel: string, callback: (...args: any[]) => void): ListenerHandle
-  scopedHandle(type: string, id: string, channel: string, callback: (...args: any[]) => any): ListenerHandle
+  scopedOn(
+    type: string,
+    id: string,
+    channel: string,
+    callback: (...args: any[]) => void
+  ): ListenerHandle
+  scopedHandle(
+    type: string,
+    id: string,
+    channel: string,
+    callback: (...args: any[]) => any
+  ): ListenerHandle
   scopedSend(type: string, id: string, channel: string, ...args: any[]): void
 
   // Convenience helpers
@@ -90,7 +100,7 @@ export interface RuntimeApp {
 }
 
 export interface RuntimeLifecycle {
-  onReady(callback: () => void | Promise<void>): void
+  onReady(callback: () => void | Promise<void>): Promise<void>
   onActivate(callback: () => void): void
   onBeforeQuit(callback: () => void | Promise<void>): void
   quit(): void
@@ -110,7 +120,10 @@ export interface RuntimePluginContext {
   open(): Promise<any | null>
   setAttribute(win: any, attr: string, value: any): void
   getAttribute(win: any, attr: string): any
-  hooks: { emit: (event: any) => void; on: (eventType: string, handler: (event: any) => void) => () => void }
+  hooks: {
+    emit: (event: any) => void
+    on: (eventType: string, handler: (event: any) => void) => () => void
+  }
   plugin: { assets: Record<string, string> }
 }
 
