@@ -62,29 +62,28 @@ export function restoreWindow(): BrowserWindow | null {
 /**
  * Enforce single instance of the application
  */
-export function makeSingleInstance(onSecondInstance?: () => void): void {
+export function makeSingleInstance(
+  onSecondInstance?: () => void,
+  opts?: {
+    requestLock: () => boolean
+    exit: () => void
+    onSecond: (cb: () => void) => void
+  }
+): void {
   if (process.mas) return
 
-  if (!app.requestSingleInstanceLock()) {
+  const requestLock = opts?.requestLock ?? (() => app.requestSingleInstanceLock())
+  const exit = opts?.exit ?? (() => app.exit())
+  const onSecond = opts?.onSecond ?? ((cb: () => void) => app.on('second-instance', cb))
+
+  if (!requestLock()) {
     console.error('Another instance of this application is already running.')
-    app.exit() // Skip quit callbacks
+    exit() // Skip quit callbacks
   } else {
-    app.on('second-instance', () => {
+    onSecond(() => {
       if (onSecondInstance) onSecondInstance()
       else restoreWindow()
     })
-  }
-}
-
-/**
- * Queue a function to run when the next window is ready
- */
-export function onNextWindowReady(f: (win: BrowserWindow) => any): void {
-  const windows = BrowserWindow.getAllWindows()
-  if (windows.length === 0) {
-    context.readyQueue.push(f) // No windows yet
-  } else {
-    windows.forEach(win => f(win)) // Call immediately if windows already exist
   }
 }
 
@@ -201,9 +200,10 @@ export function setupWindowBehaviors(win: ExtendedElectronBrowserWindow): void {
  */
 export async function createMainWindow(
   createWindowFn: (page?: string, options?: ElectronWindowOptions, toIgnore?: string[], isMain?: boolean) => Promise<BrowserWindow>,
-  windowOptions: ElectronWindowOptions
+  windowOptions: ElectronWindowOptions,
+  getAllWindows?: () => BrowserWindow[]
 ): Promise<BrowserWindow | undefined> {
-  const windows = BrowserWindow.getAllWindows()
+  const windows = getAllWindows ? getAllWindows() : BrowserWindow.getAllWindows()
   const existingMain = windows.find(o => (o as ExtendedElectronBrowserWindow).__main)
 
   if (existingMain) return undefined // Force only one main window

@@ -9,10 +9,15 @@
  * - Security settings application
  */
 
-import electron, { app } from 'electron'
 import { ElectronSecuritySettings } from '../../../types'
 import { hasSignature, verifySignature, verifyAsarIntegrity } from '../security'
 import { getDefaultSecuritySettings } from './config'
+
+export interface VerificationCallbacks {
+  showErrorBox: (title: string, content: string) => void
+  getAppName: () => string
+  quit: () => void
+}
 
 /**
  * Get security settings with defaults applied
@@ -39,7 +44,10 @@ export function getSecuritySettings(
  * Returns true if verification passes or is not required
  * Returns false if verification fails (app should exit)
  */
-export async function runVerification(isProduction: boolean): Promise<boolean> {
+export async function runVerification(
+  isProduction: boolean,
+  callbacks: VerificationCallbacks
+): Promise<boolean> {
   // Verify that the application integrity is intact when running in production
   if (!isProduction) return true
 
@@ -58,8 +66,8 @@ export async function runVerification(isProduction: boolean): Promise<boolean> {
 
     if (!isValid) {
       const messageBase = `This application has an invalid signature, which indicates a security issue or corruption.`
-      electron.dialog.showErrorBox(
-        `${app.getName()} Integrity Check Failed`,
+      callbacks.showErrorBox(
+        `${callbacks.getAppName()} Integrity Check Failed`,
         `${messageBase}\n\nPlease contact support or reinstall the application.`
       )
 
@@ -67,14 +75,14 @@ export async function runVerification(isProduction: boolean): Promise<boolean> {
       if (globalThis.COMMONERS_QUIT) {
         globalThis.COMMONERS_QUIT(messageBase)
       } else {
-        app.quit()
+        callbacks.quit()
       }
 
       return false
     }
   } else {
     console.warn(
-      `⚠️  ${app.getName()} does not appear to be signed. Please ensure that the application is intentionally unsigned.`
+      `⚠️  ${callbacks.getAppName()} does not appear to be signed. Please ensure that the application is intentionally unsigned.`
     )
   }
 

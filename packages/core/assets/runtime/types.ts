@@ -84,12 +84,17 @@ export interface RuntimeProtocol {
 export interface RuntimeWindow {
   create(page?: string, options?: Record<string, any>): Promise<any>
   getById(id: string | number): any | null
+  getAll(): any[]
   restore(): any | null
   close(id: string | number): void
 }
 
 export interface RuntimeShell {
   openExternal(url: string): Promise<void>
+}
+
+export interface RuntimeDialog {
+  showErrorBox(title: string, content: string): void
 }
 
 export interface RuntimeApp {
@@ -137,6 +142,7 @@ export interface DesktopRuntime {
   readonly shell: RuntimeShell
   readonly app: RuntimeApp
   readonly session: RuntimeSession
+  readonly dialog: RuntimeDialog
 
   /** Access to the underlying native module (e.g. Electron's `electron` object) */
   readonly native?: any

@@ -5,7 +5,7 @@
  * to specialized modules. It serves as the entry point and orchestrator.
  */
 
-import electron, { BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 import { join, extname, normalize } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
@@ -35,10 +35,13 @@ import * as Protocol from './modules/protocol'
 import * as Lifecycle from './modules/lifecycle'
 import * as Plugins from './modules/plugins'
 
-// Runtime abstraction (Phase 1)
+// Runtime abstraction
 import { createElectronRuntime } from '../runtime/electron'
 import type { DesktopRuntime } from '../runtime/types'
 const runtime: DesktopRuntime = createElectronRuntime()
+
+// Configure IPC module with runtime backend
+IPC.setIPCBackend(runtime.native.ipcMain, () => runtime.window.getAll())
 
 // ------------------------ Configuration ------------------------
 const isProduction = !utils.is.dev
@@ -69,11 +72,15 @@ if (process.env.__COMMONERS_TESTING) {
 }
 
 // ------------------------ Setup ------------------------
-Lifecycle.setupQuitHandler()
-Lifecycle.handleUncaughtExceptions()
+Lifecycle.setupQuitHandler(() => runtime.lifecycle.quit())
+Lifecycle.handleUncaughtExceptions((title, content) => runtime.dialog.showErrorBox(title, content))
 
 // Block application startup until verification is complete
-Security.runVerification(isProduction).then(async isValid => {
+Security.runVerification(isProduction, {
+  showErrorBox: (title, content) => runtime.dialog.showErrorBox(title, content),
+  getAppName: () => runtime.app.getName(),
+  quit: () => runtime.lifecycle.quit(),
+}).then(async isValid => {
   if (!isValid) return
 
   const hooks = await resolveHooks(electronOptions.hooks, config.hooks)
@@ -198,7 +205,7 @@ Security.runVerification(isProduction).then(async isValid => {
     plugins,
     viteAssetsPath,
     isProduction,
-    electron,
+    runtime.native,
     utils,
     createWindow,
     Window.restoreWindow,
@@ -219,7 +226,7 @@ Security.runVerification(isProduction).then(async isValid => {
     toIgnore: string[] = [],
     isMainWindow: boolean = false
   ): Promise<BrowserWindow> {
-    if (typeof options === 'function') options = options.call(electron)
+    if (typeof options === 'function') options = options.call(runtime.native)
     const { onInitialized, ...coreOptions } = options
 
     const copy = structuredClone({ ...defaultWindowConfig, ...coreOptions })
@@ -352,7 +359,7 @@ Security.runVerification(isProduction).then(async isValid => {
 
     const loadPromise = loadPage(win, page)
 
-    if (onInitialized) onInitialized.call(electron, win)
+    if (onInitialized) onInitialized.call(runtime.native, win)
 
     await loadPromise
       .then(async location => {
@@ -374,7 +381,7 @@ Security.runVerification(isProduction).then(async isValid => {
   }
 
   async function createMainWindow(): Promise<BrowserWindow | undefined> {
-    return Window.createMainWindow(createWindow, windowOptions)
+    return Window.createMainWindow(createWindow, windowOptions, () => runtime.window.getAll())
   }
 
   // ------------------------ IPC Handlers ------------------------
@@ -409,12 +416,16 @@ Security.runVerification(isProduction).then(async isValid => {
   runtime.ipc.on(`commoners:window:ready:main:pong`, (_, id) => callbacks.run(`ready:main:${id}`))
 
   // ------------------------ Single Instance ------------------------
-  Window.makeSingleInstance(Window.restoreWindow)
+  Window.makeSingleInstance(Window.restoreWindow, {
+    requestLock: () => runtime.native.app.requestSingleInstanceLock(),
+    exit: () => runtime.lifecycle.exit(),
+    onSecond: (cb) => runtime.native.app.on('second-instance', cb),
+  })
 
   // ------------------------ Protocol Registration ------------------------
   const hasCustomProtocol = !!protocolOptions.scheme
   if (hasCustomProtocol) {
-    Protocol.registerProtocolScheme(protocolOptions)
+    runtime.protocol.registerScheme(protocolOptions)
   }
 
   if (config.name) runtime.app.setName(config.name)
@@ -457,7 +468,7 @@ Security.runVerification(isProduction).then(async isValid => {
       Security.setupContentSecurityPolicy(csp => runtime.session.setupCSP(csp), securitySettings.csp, DEV_SERVER_URL, serviceUrls, inlineScriptHash)
 
       // Setup STDIN commands
-      Lifecycle.setupStdinCommands()
+      Lifecycle.setupStdinCommands(() => runtime.window.getAll())
 
       // Create services
       const output = await services.createAll(resolvedServices, {
@@ -482,13 +493,12 @@ Security.runVerification(isProduction).then(async isValid => {
       // Custom protocol handler
       if (hasCustomProtocol) {
         const { scheme } = protocolOptions
-        const { protocol } = electron
         runtime.app.setAppUserModelId(`com.${scheme}`)
 
-        protocol.handle(scheme, req => {
+        runtime.protocol.handleRequest(scheme, async req => {
           // Validate request origin to prevent cross-origin access
-          const origin = req.headers.get('origin') || ''
-          const referer = req.headers.get('referer') || ''
+          const origin = req.headers['origin'] || ''
+          const referer = req.headers['referer'] || ''
           const source = origin || referer
 
           if (source) {
@@ -582,8 +592,13 @@ Security.runVerification(isProduction).then(async isValid => {
   })
 
   // ------------------------ Lifecycle Handlers ------------------------
-  Lifecycle.setupSignalHandlers(Window.setShuttingDown)
-  Lifecycle.setupDefaultWindowAllClosedHandler()
+  Lifecycle.setupSignalHandlers(Window.setShuttingDown, {
+    quit: () => runtime.lifecycle.quit(),
+    onReady: (cb) => runtime.lifecycle.onReady(cb),
+  })
+  Lifecycle.setupDefaultWindowAllClosedHandler(
+    (cb) => runtime.native.app.on('window-all-closed', cb)
+  )
 
   runtime.lifecycle.onBeforeQuit(async () => {
     Window.setShuttingDown(true)

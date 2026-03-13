@@ -27,6 +27,7 @@ export interface PluginContext {
   WEB: boolean
   electron: any
   utils: any
+  runtime?: DesktopRuntime
   createWindow: (page: string, opts: any) => Promise<BrowserWindow>
   open: () => Promise<BrowserWindow | null | undefined>
   send: (channel: string, ...args: any[]) => void
@@ -77,6 +78,9 @@ export function initializePlugins(
       // Packaged Electron Utilities
       electron,
       utils,
+
+      // Runtime abstraction
+      runtime,
 
       // Helper Functions
       createWindow: (page: string, opts: any) => createWindowFn(page, opts),
