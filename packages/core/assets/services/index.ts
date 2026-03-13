@@ -1,7 +1,7 @@
 import { isAbsolute, extname, join, resolve, sep, relative } from 'node:path'
 import { getFreePorts } from './network.js'
 
-import { spawn, fork } from 'node:child_process'
+import { spawn, fork, execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { ResolvedService, ActiveServices, ActiveService, HooksInterface } from '../../types.js'
 
@@ -47,6 +47,19 @@ const autobuildExtensions = {
 }
 
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+
+/** Verify that the expected PID owns the given port. Returns null on platforms/errors where check is unavailable. */
+export function verifyPortOwnership(port: string, expectedPid: number): { match: boolean; pids: number[] } | null {
+  if (process.platform === 'win32') return null
+  try {
+    const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, { encoding: 'utf8', timeout: 3000 }).trim()
+    const pids = output.split('\n').map(p => parseInt(p, 10)).filter(Boolean)
+    if (pids.length === 0) return null
+    return { match: pids.includes(expectedPid), pids }
+  } catch {
+    return null
+  }
+}
 
 const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root, path))
 
@@ -421,6 +434,22 @@ export async function start(config, id, opts) {
   if (filepath) {
     const ext = extname(filepath)
 
+    // Warn when a fixed port is used instead of OS-assigned random port
+    if (!config.__portAutoAllocated && config.url) {
+      try {
+        const port = new URL(config.url).port
+        if (port) {
+          hooks.emit({
+            type: 'security:info',
+            message: `Service "${label}" uses fixed port ${port}. OS-assigned ports are recommended for production.`,
+            context: 'port-randomization',
+          })
+        }
+      } catch {
+        // Ignore invalid URLs
+      }
+    }
+
     logger.debug('Emitting service:launch:start', { service: label, filepath })
     hooks.emit({ type: 'service:launch:start', service: label, filepath })
 
@@ -618,28 +647,14 @@ export async function start(config, id, opts) {
           hooks.emit({ type: 'service:stdout', service: label, data })
 
           // PID verification: on first stdout, verify the spawned PID owns the port
-          if (wasStarting && childProcess.pid && process.platform !== 'win32') {
-            try {
-              const port = resolvedURL.port
-              // eslint-disable-next-line @typescript-eslint/no-require-imports
-              const { execSync } = require('node:child_process')
-              const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, {
-                encoding: 'utf8',
-                timeout: 3000,
-              }).trim()
-              const listeningPids = output
-                .split('\n')
-                .map(p => parseInt(p, 10))
-                .filter(Boolean)
-              if (listeningPids.length > 0 && !listeningPids.includes(childProcess.pid)) {
-                hooks.emit({
-                  type: 'security:warning',
-                  message: `PID mismatch for service "${label}" on port ${port}: expected ${childProcess.pid}, found ${listeningPids.join(', ')}`,
-                  context: 'pid-verification',
-                })
-              }
-            } catch {
-              // lsof may fail in sandboxed environments or if port not yet bound — ignore
+          if (wasStarting && childProcess.pid) {
+            const result = verifyPortOwnership(resolvedURL.port, childProcess.pid)
+            if (result && !result.match) {
+              hooks.emit({
+                type: 'security:warning',
+                message: `PID mismatch for service "${label}" on port ${resolvedURL.port}: expected ${childProcess.pid}, found ${result.pids.join(', ')}`,
+                context: 'pid-verification',
+              })
             }
           }
         })

@@ -391,7 +391,16 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
         const missingMacVars = ['APPLE_ID', 'APPLE_ID_PASSWORD', 'APPLE_TEAM_ID'].filter(
           (v) => !process.env[v]
         )
-        if (missingMacVars.length > 0) {
+        const hasCSCLink = !!process.env.CSC_LINK
+
+        if (missingMacVars.length > 0 && !hasCSCLink) {
+          // No certificates — use ad-hoc signing (works locally, not distributable)
+          buildConfig.mac.identity = '-'
+          logger.info(
+            'Using ad-hoc code signing (no Apple Developer certificates found). ' +
+              'ASAR integrity will be embedded. App can run locally but cannot be distributed.'
+          )
+        } else if (missingMacVars.length > 0) {
           logger.warn(
             `macOS notarization may fail — missing env vars: ${missingMacVars.join(', ')}. ` +
               'Set these for successful notarization via @electron/notarize.'

@@ -62,6 +62,8 @@ export type SecurityEvent =
   | { type: 'security:service:integrity:pass'; service: string; hash: string }
   | { type: 'security:service:integrity:fail'; service: string; expected: string; actual: string }
   | { type: 'security:asar:strict:error'; message: string }
+  | { type: 'security:ipc:validation-fail'; channel: string; message: string }
+  | { type: 'security:info'; message: string; context?: string }
 
 export type DevServerEvent =
   | { type: 'dev:start'; config: ResolvedConfig; }

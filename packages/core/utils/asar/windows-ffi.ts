@@ -63,7 +63,7 @@ export function isFFIAvailable(): boolean {
 }
 
 /**
- * Write integrity resource using FFI (preferred method)
+ * Write integrity resource using FFI (fallback method)
  * @throws Error if FFI is not available or writing fails
  */
 export function writeIntegrityResourceFFI(exePath: string, payloadJson: string): void {
@@ -246,7 +246,7 @@ export function readIntegrityResource(exePath: string): Array<{
 }
 
 /**
- * Write integrity resource using rcedit (fallback method)
+ * Write integrity resource using rcedit (primary method)
  * @throws Error if rcedit is not available or writing fails
  */
 export async function writeIntegrityResourceRcedit(
@@ -428,4 +428,18 @@ export async function writeIntegrityResource(
     .join('\n')
 
   throw new Error(errorDetails)
+}
+
+/**
+ * Detect architecture mismatch between host and target on Windows.
+ * Returns a warning string if there's a mismatch, null otherwise.
+ * Always returns null on non-Windows platforms or when no targetArch is specified.
+ */
+export function detectArchitectureMismatch(targetArch?: string): string | null {
+  if (process.platform !== 'win32') return null
+  if (!targetArch) return null
+  if (process.arch !== targetArch) {
+    return `Architecture mismatch: host is ${process.arch} but target is ${targetArch}. FFI native modules may not load correctly.`
+  }
+  return null
 }

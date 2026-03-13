@@ -228,13 +228,16 @@ cli
   .example('commoners share')
   .example('commoners share --service api')
   .example('commoners share --port 3000')
+  .example('commoners share --meta "env=staging"')
 
   .option('--service <name>', 'Share specific service(s)')
   .option('--port <port>', 'Override port (single service only)')
+  .option('--meta <kv>', 'Add metadata as key=value (passed as Bonjour txt records)')
+  .option('--qr', 'Display QR code for service URLs')
 
   .action(async (root, options) => {
     try {
-      const { config: configPath, service, port, stdin, ...overrides } = options
+      const { config: configPath, service, port, meta, qr, stdin, ...overrides } = options
       const config = await getConfig({ root, config: configPath, stdin })
       if (!config) throw new CLIError('Configuration not found')
       const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
@@ -246,11 +249,26 @@ cli
       if (selectedServices && selectedServices.length > 1 && port)
         throw new CLIError('Cannot specify port when sharing multiple services', 'Specify a single service to set a port')
 
+      // Parse --meta "key=value" into a record
+      const parsedMeta: Record<string, string> = {}
+      if (meta) {
+        const metaEntries = typeof meta === 'string' ? [meta] : meta
+        for (const entry of metaEntries) {
+          const eqIdx = entry.indexOf('=')
+          if (eqIdx > 0) parsedMeta[entry.slice(0, eqIdx)] = entry.slice(eqIdx + 1)
+        }
+      }
+
       hooks.ui.header('Sharing Services')
 
       const result = await shareServices(
         reconcile(config, overrides) as UserConfig,
-        { services: selectedServices, port: port ? parseInt(port, 10) : undefined, hooks }
+        {
+          services: selectedServices,
+          port: port ? parseInt(port, 10) : undefined,
+          hooks,
+          meta: Object.keys(parsedMeta).length > 0 ? parsedMeta : undefined,
+        }
       )
 
       const { active, localIP, cleanup } = result
@@ -261,19 +279,48 @@ cli
         process.exit(1)
       }
 
+      // Build and display service status table
+      const rows: string[] = []
+      const publicUrls: string[] = []
+
       for (const [id, svc] of serviceEntries) {
         const url = (svc as any).url
         if (url) {
-          // Show URL with local IP for network access
           try {
             const publicUrl = new URL(url)
             publicUrl.hostname = localIP
-            hooks.ui.success(`${hooks.ui.target(id, { plain: true })}: ${publicUrl.href}`)
+            const publicHref = publicUrl.href
+            publicUrls.push(publicHref)
+            rows.push(`  ${hooks.ui.target(id, { plain: true }).padEnd(20)} ${publicHref}`)
           } catch {
-            hooks.ui.success(`${hooks.ui.target(id, { plain: true })}: ${url}`)
+            rows.push(`  ${hooks.ui.target(id, { plain: true }).padEnd(20)} ${url}`)
           }
+        } else {
+          rows.push(`  ${hooks.ui.target(id, { plain: true }).padEnd(20)} (no URL)`)
         }
       }
+
+      console.log()
+      console.log(rows.join('\n'))
+      console.log()
+
+      // Show QR code for the first service URL (or all if --qr is set)
+      if (qr && publicUrls.length > 0) {
+        try {
+          const qrcode = await import('qrcode-terminal')
+          const generate = qrcode.default?.generate ?? qrcode.generate
+          for (const url of publicUrls) {
+            generate(url, { small: true }, (code: string) => {
+              console.log(code)
+              console.log(`  ${url}\n`)
+            })
+          }
+        } catch {
+          // qrcode-terminal not available, skip silently
+        }
+      }
+
+      hooks.ui.success(`Sharing on ${localIP} — press Ctrl+C to stop`)
 
       // Keep running until Ctrl+C
       const onExit = () => {

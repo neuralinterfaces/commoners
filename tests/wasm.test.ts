@@ -1,5 +1,7 @@
-import { expect, test, describe } from 'vitest'
+import { expect, test, describe, afterAll } from 'vitest'
 import path from 'node:path'
+import { execSync } from 'node:child_process'
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 
 import { resolveServiceBuildInfo, sanitize } from '@commoners/solidarity'
 import { WasmCargoService } from '../packages/core/services/wasm'
@@ -183,6 +185,49 @@ describe('WASM Services', () => {
     test('returns empty for non-matching queries', () => {
       const result = queryExtensions(extensions, { runtime: 'python' })
       expect(Object.keys(result)).toHaveLength(0)
+    })
+  })
+
+  // ────────────────────────────────────────────────────────
+  // WASM Compilation E2E (requires wasm-pack)
+  // ────────────────────────────────────────────────────────
+
+  const hasWasmPack = (() => {
+    try {
+      execSync('wasm-pack --version', { stdio: 'ignore' })
+      return true
+    } catch {
+      return false
+    }
+  })()
+
+  describe.skipIf(!hasWasmPack)('WASM Compilation E2E', () => {
+    const projectDir = path.resolve(__dirname, '..', 'examples', 'demo', 'src', 'services', 'rust-wasm')
+    const outDir = path.join(projectDir, 'pkg-test-output')
+
+    afterAll(() => {
+      if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true })
+    })
+
+    test('wasm-pack builds the demo WASM service', { timeout: 120_000 }, async () => {
+      const svc = new WasmCargoService({ name: 'rust-wasm', src: path.join(projectDir, 'src', 'lib.rs') })
+      const cmd = await svc.build({ src: path.join(projectDir, 'src', 'lib.rs'), out: outDir })
+
+      execSync(cmd, { cwd: projectDir, stdio: 'pipe', timeout: 90_000 })
+
+      expect(existsSync(outDir)).toBe(true)
+
+      const files = readdirSync(outDir)
+      expect(files.some(f => f.endsWith('.wasm')), 'Should produce a .wasm file').toBe(true)
+      expect(files.some(f => f.endsWith('.js')), 'Should produce JS bindings').toBe(true)
+      expect(files.includes('package.json'), 'Should produce package.json').toBe(true)
+    })
+
+    test('Generated package.json has correct crate name', () => {
+      if (!existsSync(outDir)) return
+      const pkgJson = JSON.parse(readFileSync(path.join(outDir, 'package.json'), 'utf8'))
+      expect(pkgJson.name).toBe('rust-wasm')
+      expect(pkgJson.module || pkgJson.main).toBeTruthy()
     })
   })
 })

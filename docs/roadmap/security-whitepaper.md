@@ -302,18 +302,47 @@ The following P0 fixes were implemented and merged. Test coverage gaps are liste
 | Protocol origin validation | `assets/electron/main.ts` | Done |
 | Service binary hash verification | `ElectronBuildStrategy.ts`, `assets/electron/main.ts`, `assets/services/index.ts` | Done |
 | Security audit events (hooks) | `types.ts`, `assets/electron/main.ts`, `assets/services/index.ts` | Done |
+| Port PID verification | `assets/services/index.ts` (`verifyPortOwnership()`) | Done |
+| SEA (Single Executable Application) | `utils/sea.ts` | Done |
+| CSP header generation tests | `tests/security.test.ts` | Done |
+| Protocol path handling tests | `tests/security.test.ts` | Done |
+| IPC edge case tests | `tests/security.test.ts` | Done |
+| Protocol E2E tests (desktop) | `tests/utils.ts` (`e2eTests.protocol`) | Done |
+| ASAR hash computation unit tests | `tests/asar.test.ts` (17 tests) | Done |
+| ASAR verification script fix (12-byte prelude) | `tests/asar/verify.ts`, `tests/asar/ci-verify-asar-integrity.sh` | Done |
+| Plist round-trip tests | `tests/asar.test.ts` (write/read/validate) | Done |
+| Ad-hoc code signing fallback | `ElectronBuildStrategy.ts` (`configureCodeSigning`) | Done |
+| macOS ad-hoc signing integration test | `tests/asar.test.ts` (codesign --sign - preserves hash) | Done |
+| CSP service URL support | `assets/electron/modules/security.ts`, `assets/electron/main.ts` | Done |
+| Port randomization security warning | `assets/services/index.ts` (security:info hook) | Done |
+| CI ASAR verification (macOS) | `.github/workflows/desktop-build.yml` | Done |
+| Cargo audit + license check CI | `.github/workflows/security-audit.yml` | Done |
+| Port randomization tests | `tests/security.test.ts` | Done |
+| CSP service URL tests | `tests/security.test.ts` | Done |
+| Service integrity edge case tests | `tests/security.test.ts` | Done |
+| Rcedit comment/log fixes (ASAR Step 2) | `utils/asar/windows-ffi.ts`, `security.ts`, `dependencies.ts` | Done |
+| Architecture mismatch detection | `utils/asar/windows-ffi.ts` (`detectArchitectureMismatch()`), `dependencies.ts` | Done |
+| IPC message schema validation | `assets/electron/modules/ipc-channels.ts`, `ipc.ts`, `main.ts`, `types.ts` | Done |
+| CSP script hash (production) | `vite/plugins/commoners.ts`, `assets/electron/modules/security.ts`, `main.ts` | Done |
+| IPC validation tests | `tests/security.test.ts` (16 tests) | Done |
+| Windows ASAR dependency tests | `tests/security.test.ts` (5 tests) | Done |
+| CSP script hash tests | `tests/security.test.ts` (6 tests) | Done |
 
 ### Test Coverage Gaps
 
-These items require platform-specific or integration testing that cannot be covered by the existing unit test suite:
+These items require platform-specific or integration testing:
 
 | Gap | Reason | How to Test |
 |-----|--------|-------------|
 | Windows ASAR integrity embedding (strict errors) | Requires Windows + `ffi-napi`/`rcedit` | Windows CI runner with dependencies installed |
 | Windows service binary `.exe` hashing | Extension detection differs on Windows | Windows CI runner with compiled services |
-| ASAR prelude parsing against real `.asar` files | Needs an actual packaged Electron build | `pnpm demo:build` then inspect `.asar` header hashes |
+| Windows architecture mismatch detection | `detectArchitectureMismatch()` only returns non-null on Windows | Windows CI runner with cross-arch target |
+| Windows FFI native module loading | `ffi-napi` + `ref-napi` + kernel32 binding | Windows CI runner with native dependencies |
+| ASAR prelude parsing against real `.asar` files | Synthetic ASAR tests cover parsing logic; real `.asar` validation is end-to-end | `pnpm demo:build` then run `tests/asar/ci-verify-asar-integrity.sh` |
 | Strict mode throwing on missing dependencies | Needs electron-builder run without FFI/rcedit | Remove `ffi-napi` and run `pnpm demo:build` with `asarIntegrity: true` |
-| Protocol origin validation in Electron | Requires running Electron app with custom protocol | Manual: open external page, attempt `fetch('commoners://services/...')` |
 | Service hash manifest generation | Requires `ElectronBuildStrategy.build()` with compiled services | `pnpm demo:build` then verify `service-hashes.json` in build output |
 | Service hash verification at runtime | Requires packaged Electron app with `service-hashes.json` | `pnpm demo:launch` after modifying a service binary — should fail |
 | Security audit event emission | Requires Electron runtime with hooks listener | Manual: add `hooks.on('all', console.log)` and trigger security events |
+| Live IPC validation (scopedOn/scopedHandle) | Requires running Electron with ipcMain | Desktop test suite with IPC validation hooks listener |
+| CSP script hash in Electron BrowserWindow | Requires actual Electron session with CSP enforcement | Desktop test suite verifying inline script loads |
+| `script-hashes.json` ASAR packaging | Needs to verify file is included in built `.asar` | `pnpm demo:build` then inspect ASAR contents |

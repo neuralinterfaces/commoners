@@ -58,12 +58,17 @@ export interface ProtocolResponse {
   body?: ReadableStream | ArrayBuffer | string
 }
 
+export interface RuntimeSession {
+  setupCSP(csp: string): void
+}
+
 export interface RuntimeProtocol {
   registerScheme(config: ProtocolSchemeConfig): void
   handleRequest(
     scheme: string,
     handler: (req: ProtocolRequest) => Promise<ProtocolResponse | Response>
   ): void
+  fetch(url: string): Promise<Response>
 }
 
 export interface RuntimeWindow {
@@ -73,10 +78,23 @@ export interface RuntimeWindow {
   close(id: string | number): void
 }
 
+export interface RuntimeShell {
+  openExternal(url: string): Promise<void>
+}
+
+export interface RuntimeApp {
+  setName(name: string): void
+  getName(): string
+  setAppUserModelId(id: string): void
+  commandLine: { appendSwitch(key: string, value: string): void }
+}
+
 export interface RuntimeLifecycle {
   onReady(callback: () => void | Promise<void>): void
+  onActivate(callback: () => void): void
   onBeforeQuit(callback: () => void | Promise<void>): void
   quit(): void
+  exit(code?: number): void
   getPlatform(): 'windows' | 'mac' | 'linux'
 }
 
@@ -103,6 +121,9 @@ export interface DesktopRuntime {
   readonly protocol: RuntimeProtocol
   readonly window: RuntimeWindow
   readonly lifecycle: RuntimeLifecycle
+  readonly shell: RuntimeShell
+  readonly app: RuntimeApp
+  readonly session: RuntimeSession
 
   /** Access to the underlying native module (e.g. Electron's `electron` object) */
   readonly native?: any
