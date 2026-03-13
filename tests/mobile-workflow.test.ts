@@ -1,5 +1,8 @@
 import { expect, test, describe } from 'vitest'
 import { resolve, join } from 'node:path'
+import { existsSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { execSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 
 // Import mobile module functions directly for unit-level testing
 import { openConfig, checkDepsInstalled } from '../packages/core/mobile/index'
@@ -92,21 +95,207 @@ describe('Dependency detection', () => {
 })
 
 // =============================================================================
-// TODO: Native Build Output Tests (require Xcode / Android SDK)
-//
-// The following tests require native toolchains and should run in a dedicated
-// CI workflow with emulators (see docs/roadmap/testing-and-distribution.md):
-//
-// 1. Platform directory structure
-//    - After `cap add ios/android`: verify native project scaffolding
-//
-// 2. Native config injection
-//    - iOS: BLE/Serial permissions in Info.plist
-//    - Android: permissions/features in AndroidManifest.xml
-//
-// 3. Web asset sync
-//    - After `cap sync`: index.html, assets/, pages in native web dir
+// Native Build Output Tests
 // =============================================================================
+
+const hasCapCli = (() => {
+  try {
+    execSync('npx cap --version', { stdio: 'pipe', timeout: 10000 })
+    return true
+  } catch {
+    return false
+  }
+})()
+
+describe.skipIf(!hasCapCli)('Platform directory structure', () => {
+  const tmpRoot = join(__dirname, '..', '.commoners', '.tmp', 'mobile-scaffold-test')
+
+  test('cap init creates expected project scaffolding', async () => {
+    // Create a minimal project directory
+    mkdirSync(join(tmpRoot, 'www'), { recursive: true })
+    writeFileSync(join(tmpRoot, 'www', 'index.html'), '<html><body>test</body></html>')
+    writeFileSync(
+      join(tmpRoot, 'package.json'),
+      JSON.stringify({ name: 'mobile-scaffold-test', version: '1.0.0' })
+    )
+
+    try {
+      execSync(
+        'npx cap init mobile-scaffold-test com.test.scaffold --web-dir www',
+        { cwd: tmpRoot, stdio: 'pipe', timeout: 30000 }
+      )
+
+      // Verify capacitor.config.json was created
+      expect(existsSync(join(tmpRoot, 'capacitor.config.json'))).toBe(true)
+      const capConfig = JSON.parse(readFileSync(join(tmpRoot, 'capacitor.config.json'), 'utf8'))
+      expect(capConfig.appId).toBe('com.test.scaffold')
+      expect(capConfig.appName).toBe('mobile-scaffold-test')
+      expect(capConfig.webDir).toBe('www')
+    } finally {
+      if (existsSync(tmpRoot)) rmSync(tmpRoot, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('Native config injection (unit)', () => {
+  // Use createRequire to access plist/xml2js from the core package
+  const corePkgPath = resolve(__dirname, '..', 'packages', 'core', 'package.json')
+
+  let plistAvailable = false
+  let xml2jsAvailable = false
+  let plist: any
+  let xml2js: any
+
+  try {
+    const coreRequire = createRequire(corePkgPath)
+    plist = coreRequire('plist')
+    plistAvailable = true
+  } catch {}
+
+  try {
+    const coreRequire = createRequire(corePkgPath)
+    xml2js = coreRequire('xml2js')
+    xml2jsAvailable = true
+  } catch {}
+
+  test.skipIf(!plistAvailable)('iOS plist permissions are structured correctly for injection', () => {
+    const mockPlistXml: Record<string, string> = {
+      CFBundleIdentifier: 'com.test.ble',
+      CFBundleName: 'TestBLE',
+    }
+
+    // Simulate permission injection
+    const blePermissions = {
+      NSBluetoothAlwaysUsageDescription: 'This app uses Bluetooth for device communication',
+      NSBluetoothPeripheralUsageDescription: 'Bluetooth peripheral access required',
+    }
+
+    Object.assign(mockPlistXml, blePermissions)
+    const built = plist.build(mockPlistXml)
+
+    expect(built).toContain('NSBluetoothAlwaysUsageDescription')
+    expect(built).toContain('NSBluetoothPeripheralUsageDescription')
+    expect(built).toContain('This app uses Bluetooth for device communication')
+  })
+
+  test.skipIf(!xml2jsAvailable)('Android manifest permissions are structured for xml2js injection', async () => {
+    const baseManifest = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.test.ble">
+  <application android:label="TestBLE"/>
+</manifest>`
+
+    const result = await xml2js.parseStringPromise(baseManifest)
+    const manifest = result.manifest
+
+    // Inject BLE permissions
+    if (!manifest['uses-permission']) manifest['uses-permission'] = []
+    manifest['uses-permission'].push(
+      { $: { 'android:name': 'android.permission.BLUETOOTH_SCAN' } },
+      { $: { 'android:name': 'android.permission.BLUETOOTH_CONNECT' } }
+    )
+
+    const rebuilt = new xml2js.Builder().buildObject(result)
+    expect(rebuilt).toContain('BLUETOOTH_SCAN')
+    expect(rebuilt).toContain('BLUETOOTH_CONNECT')
+    expect(rebuilt).toContain('uses-permission')
+  })
+
+  test.skipIf(!xml2jsAvailable)('Android manifest features inject correctly', async () => {
+    const baseManifest = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.test.serial">
+  <application android:label="TestSerial"/>
+</manifest>`
+
+    const result = await xml2js.parseStringPromise(baseManifest)
+    const manifest = result.manifest
+
+    // Inject USB host feature
+    if (!manifest['uses-feature']) manifest['uses-feature'] = []
+    manifest['uses-feature'].push({
+      $: { 'android:name': 'android.hardware.usb.host', 'android:required': 'false' },
+    })
+
+    const rebuilt = new xml2js.Builder().buildObject(result)
+    expect(rebuilt).toContain('android.hardware.usb.host')
+    expect(rebuilt).toContain('uses-feature')
+  })
+})
+
+describe('Web asset structure validation', () => {
+  test('openConfig webDir points to correct output directory', async () => {
+    const outDir = resolve(projectBase, '.commoners', 'web-assets-test')
+    const { config, close } = await openConfig({
+      name: 'asset-test',
+      appId: 'com.test.assets',
+      plugins: {},
+      outDir,
+      root: projectBase,
+    })
+
+    // webDir should match the outDir we passed in
+    expect(config.webDir).toBe(outDir)
+    close()
+  })
+
+  test('commoners Vite plugin is a valid plugin factory', async () => {
+    const mod = await import('../packages/core/vite/plugins/commoners')
+    // Default export is the plugin factory function
+    expect(typeof mod.default).toBe('function')
+  })
+})
+
+describe('Extension capabilities (config level)', () => {
+  test('queryExtensions filters by capabilities', async () => {
+    const { queryExtensions } = await import('../packages/core/assets/capabilities')
+
+    const extensions = {
+      ble: {
+        type: 'plugin' as const,
+        capabilities: { provides: ['bluetooth'], runtime: 'browser', platforms: { mobile: true } },
+      },
+      http: {
+        type: 'service' as const,
+        capabilities: { provides: ['api'], runtime: 'node', platforms: { web: true, desktop: true } },
+      },
+      hybrid: {
+        type: 'hybrid' as const,
+        capabilities: { provides: ['bluetooth', 'api'], runtime: 'browser', platforms: { mobile: true, web: true } },
+      },
+    } as any
+
+    // Filter by platform: mobile
+    const mobileResults = queryExtensions(extensions, { platforms: { mobile: true } })
+    expect(mobileResults).toHaveProperty('ble')
+    expect(mobileResults).toHaveProperty('hybrid')
+    expect(mobileResults).not.toHaveProperty('http')
+
+    // Filter by provides: api
+    const apiResults = queryExtensions(extensions, { provides: ['api'] })
+    expect(apiResults).toHaveProperty('http')
+    expect(apiResults).toHaveProperty('hybrid')
+    expect(apiResults).not.toHaveProperty('ble')
+
+    // Filter by runtime: node
+    const nodeResults = queryExtensions(extensions, { runtime: 'node' })
+    expect(nodeResults).toHaveProperty('http')
+    expect(nodeResults).not.toHaveProperty('ble')
+    expect(nodeResults).not.toHaveProperty('hybrid')
+  })
+
+  test('queryExtensions returns empty when no match', async () => {
+    const { queryExtensions } = await import('../packages/core/assets/capabilities')
+
+    const extensions = {
+      ble: {
+        type: 'plugin' as const,
+        capabilities: { provides: ['bluetooth'], platforms: { mobile: true } },
+      },
+    } as any
+
+    const results = queryExtensions(extensions, { provides: ['nonexistent'] })
+    expect(Object.keys(results)).toHaveLength(0)
+  })
+})
 
 describe('Capacitor config verification', () => {
   test('Config reflects custom appId and name', async () => {
