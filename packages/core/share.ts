@@ -20,6 +20,7 @@ export interface ShareOptions {
   services?: string[]
   port?: number
   hooks?: any
+  meta?: Record<string, string>
 }
 
 export interface ShareResult {
@@ -33,7 +34,7 @@ export async function shareServices(
   config: UserConfig,
   options: ShareOptions = {}
 ): Promise<ShareResult> {
-  const { services: selectedServices, port, hooks } = options
+  const { services: selectedServices, port, hooks, meta } = options
 
   // Resolve config in dev mode (services go to .commoners/.tmp/services/)
   const resolvedConfig: ResolvedConfig = await resolveConfig(config, {
@@ -91,7 +92,7 @@ export async function shareServices(
           name: `commoners-${id}`,
           type: 'http',
           port: servicePort,
-          txt: { id, url: svc.url },
+          txt: { id, url: svc.url, ...meta },
         })
         logger.info(`Published ${id} on mDNS (port ${servicePort})`)
       } catch (e) {
