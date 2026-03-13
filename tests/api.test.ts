@@ -208,12 +208,16 @@ describe('API: Target Utilities', () => {
       expect(getNormalizedTarget('tauri')).toBe('desktop')
     })
 
-    test('should normalize ios to mobile', () => {
+    test('should normalize ios shorthands to mobile', () => {
       expect(getNormalizedTarget('ios')).toBe('mobile')
+      expect(getNormalizedTarget('ios-capacitor')).toBe('mobile')
+      expect(getNormalizedTarget('ios-tauri')).toBe('mobile')
     })
 
-    test('should normalize android to mobile', () => {
+    test('should normalize android shorthands to mobile', () => {
       expect(getNormalizedTarget('android')).toBe('mobile')
+      expect(getNormalizedTarget('android-capacitor')).toBe('mobile')
+      expect(getNormalizedTarget('android-tauri')).toBe('mobile')
     })
 
     test('should keep web as web', () => {
@@ -238,15 +242,25 @@ describe('API: Target Utilities', () => {
       expect(getSpecificTarget('desktop')).toBe('electron')
     })
 
-    test('should resolve mobile to ios on macOS', () => {
+    test('should resolve mobile to capacitor target', () => {
       const specific = getSpecificTarget('mobile')
-      // Should be either ios or android depending on platform
-      expect(['ios', 'android']).toContain(specific)
+      // Should be ios-capacitor or android-capacitor depending on platform
+      expect(['ios-capacitor', 'android-capacitor']).toContain(specific)
     })
 
-    test('should keep specific targets unchanged', () => {
+    test('should resolve ios shorthand to ios-capacitor', () => {
+      expect(getSpecificTarget('ios')).toBe('ios-capacitor')
+    })
+
+    test('should resolve android shorthand to android-capacitor', () => {
+      expect(getSpecificTarget('android')).toBe('android-capacitor')
+    })
+
+    test('should keep fully-specific targets unchanged', () => {
       expect(getSpecificTarget('electron')).toBe('electron')
-      expect(getSpecificTarget('ios')).toBe('ios')
+      expect(getSpecificTarget('tauri')).toBe('tauri')
+      expect(getSpecificTarget('ios-capacitor')).toBe('ios-capacitor')
+      expect(getSpecificTarget('ios-tauri')).toBe('ios-tauri')
       expect(getSpecificTarget('web')).toBe('web')
     })
   })
@@ -271,12 +285,17 @@ describe('API: Target Utilities', () => {
       expect(isMobile('mobile')).toBe(true)
       expect(isMobile('ios')).toBe(true)
       expect(isMobile('android')).toBe(true)
+      expect(isMobile('ios-capacitor')).toBe(true)
+      expect(isMobile('android-capacitor')).toBe(true)
+      expect(isMobile('ios-tauri')).toBe(true)
+      expect(isMobile('android-tauri')).toBe(true)
     })
 
     test('should return false for non-mobile targets', () => {
       expect(isMobile('web')).toBe(false)
       expect(isMobile('desktop')).toBe(false)
       expect(isMobile('electron')).toBe(false)
+      expect(isMobile('tauri')).toBe(false)
     })
   })
 })

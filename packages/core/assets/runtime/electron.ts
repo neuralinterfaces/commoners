@@ -15,6 +15,7 @@ import type {
   RuntimeShell,
   RuntimeApp,
   RuntimeSession,
+  RuntimeDialog,
   ListenerHandle,
   ProtocolSchemeConfig,
   ProtocolRequest,
@@ -121,7 +122,9 @@ class ElectronProtocol implements RuntimeProtocol {
       const req: ProtocolRequest = {
         url: electronReq.url,
         method: electronReq.method,
-        headers: Object.fromEntries(electronReq.headers?.entries?.() ?? []),
+        headers: Object.fromEntries(
+          [...(electronReq.headers?.entries?.() ?? [])].map(([k, v]) => [k.toLowerCase(), v])
+        ),
       }
       return handler(req)
     })
@@ -140,6 +143,11 @@ class ElectronWindow implements RuntimeWindow {
 
   getById(id: string | number): any | null {
     return Window.getWindowById(id as number) ?? null
+  }
+
+  getAll(): any[] {
+    const { BrowserWindow } = require('electron')
+    return BrowserWindow.getAllWindows()
   }
 
   restore(): any | null {
@@ -198,6 +206,13 @@ class ElectronSession implements RuntimeSession {
   }
 }
 
+class ElectronDialog implements RuntimeDialog {
+  showErrorBox(title: string, content: string): void {
+    const { dialog } = require('electron')
+    dialog.showErrorBox(title, content)
+  }
+}
+
 class ElectronLifecycle implements RuntimeLifecycle {
   onReady(callback: () => void | Promise<void>) {
     const { app } = require('electron')
@@ -245,6 +260,7 @@ export function createElectronRuntime(): DesktopRuntime {
     shell: new ElectronShell(),
     app: new ElectronApp(),
     session: new ElectronSession(),
+    dialog: new ElectronDialog(),
     native: electronModule,
   }
 }

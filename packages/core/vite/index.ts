@@ -2,7 +2,7 @@
 import { extname, isAbsolute, join, relative } from 'node:path'
 
 // General Internal Imports
-import { isDesktop, vite, chalk } from '../globals.js'
+import { isDesktop, isTauri, vite, chalk } from '../globals.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
 import { getPlugins } from '../utils/extensions.js'
 import { ScopedLogger } from './logger.js'
@@ -132,7 +132,11 @@ export const resolveViteConfig = async (
   const absoluteRoot = isAbsolute(root) ? root : resolve(root)
 
   // Desktop Build
-  if (isDesktopTarget) {
+  if (isTauri(target)) {
+    const tauriPlugin = (await import('./plugins/tauri/index.js')).default
+    const plugin = await tauriPlugin({ root: absoluteRoot, outDir, hooks, config: commonersConfig })
+    plugins.push(...plugin)
+  } else if (isDesktopTarget) {
     const plugin = await electronPlugin({ build, root: absoluteRoot, outDir, electron, hooks })
     plugins.push(...plugin)
   }

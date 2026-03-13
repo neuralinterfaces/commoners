@@ -63,8 +63,8 @@ export function verifyPortOwnership(port: string, expectedPid: number): { match:
 
 const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root, path))
 
-const isDesktop = target => target === 'desktop' || target === 'electron'
-const isMobile = target => target === 'mobile' || target === 'ios' || target === 'android'
+const isDesktop = target => target === 'desktop' || target === 'electron' || target === 'tauri'
+const isMobile = target => target === 'mobile' || (target && (target.startsWith('ios') || target.startsWith('android')))
 
 // ------------------------------------ COPIED ---------------------------------------
 

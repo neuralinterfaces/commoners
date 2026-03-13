@@ -16,11 +16,16 @@ import { BuildError, PlatformError } from './errors.js'
 
 // Constants
 import {
-  TARGET_ELECTRON,
   TARGET_DESKTOP,
+  TARGET_DESKTOP_ELECTRON,
+  TARGET_DESKTOP_TAURI,
   TARGET_MOBILE,
   TARGET_IOS,
   TARGET_ANDROID,
+  TARGET_IOS_CAPACITOR,
+  TARGET_ANDROID_CAPACITOR,
+  TARGET_IOS_TAURI,
+  TARGET_ANDROID_TAURI,
   PLATFORM_MAC,
   DIR_ELECTRON,
 } from './constants.js'
@@ -59,7 +64,7 @@ export { electronVersion }
 
 export const globalTempDir = join(globalWorkspacePath, '.tmp')
 
-let __selectedTempDir: string
+let activeStagingDir: string
 export const handleTemporaryDirectories = async (
   config,
   overwrite = false,
@@ -69,7 +74,7 @@ export const handleTemporaryDirectories = async (
   const tempDir = config.outDir || resolve(config.root, globalTempDir)
 
   const { cleanupOnExit = true } = options
-  const canOverwrite = overwrite && __selectedTempDir === tempDir
+  const canOverwrite = overwrite && activeStagingDir === tempDir
   const runMetadataFile = join(tempDir, 'commoners.metadata.json')
   const hasTempMetadata = existsSync(runMetadataFile)
   const isOverWritten = canOverwrite && hasTempMetadata
@@ -97,7 +102,7 @@ export const handleTemporaryDirectories = async (
 
   let removed = false
 
-  __selectedTempDir = tempDir
+  activeStagingDir = tempDir
   const clearTemporaryFiles = () => {
     if (removed) return // Prevent double-calling
     removed = true
@@ -124,12 +129,29 @@ export const getNormalizedTarget = (target: TargetType) => {
   return isDesktopTarget ? TARGET_DESKTOP : isMobileTarget ? TARGET_MOBILE : 'web'
 }
 
+/** Check if a target uses the Tauri backend (desktop or mobile) */
+export const isTauri = (target: TargetType) =>
+  target === TARGET_DESKTOP_TAURI || target === TARGET_IOS_TAURI || target === TARGET_ANDROID_TAURI
+
+/** Check if a target is a Tauri mobile target */
+export const isTauriMobile = (target: TargetType) =>
+  target === TARGET_IOS_TAURI || target === TARGET_ANDROID_TAURI
+
+/** Check if a target is a Capacitor mobile target */
+export const isCapacitorMobile = (target: TargetType) =>
+  target === TARGET_IOS_CAPACITOR || target === TARGET_ANDROID_CAPACITOR
+
 export const getSpecificTarget = (target: TargetType) => {
   if (!target)
     target = 'web' // Default to web target
   else if (target === TARGET_MOBILE)
-    target = PLATFORM === PLATFORM_MAC ? TARGET_IOS : TARGET_ANDROID // Auto-detect mobile platform
-  else if (target === TARGET_DESKTOP) target = TARGET_ELECTRON // Auto-detect desktop platform
+    target = PLATFORM === PLATFORM_MAC ? TARGET_IOS_CAPACITOR : TARGET_ANDROID_CAPACITOR
+  else if (target === TARGET_IOS)
+    target = TARGET_IOS_CAPACITOR // ios → ios-capacitor (default iOS backend)
+  else if (target === TARGET_ANDROID)
+    target = TARGET_ANDROID_CAPACITOR // android → android-capacitor (default Android backend)
+  else if (target === TARGET_DESKTOP)
+    target = TARGET_DESKTOP_ELECTRON // desktop → electron (default desktop backend)
   return target as SpecificTargetType
 }
 
@@ -137,18 +159,20 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
   if (allow.includes(target)) return target
   target = getSpecificTarget(target)
 
-  // Provide a custom warning message for tauri
-  if (target === 'tauri') {
-    throw new PlatformError(
-      'Tauri is not yet supported',
-      'Tauri support is planned for a future release. Use electron or web targets instead.'
-    )
-  }
-
   if (universalTargetTypes.includes(target)) return target
   if (isDesktop(target)) return target
-  else if (isMobile(target) && (PLATFORM === PLATFORM_MAC || target === TARGET_MOBILE || target === TARGET_ANDROID))
-    return target // Linux and Windows can build for android
+  else if (isMobile(target)) {
+    // iOS targets (capacitor or tauri) require macOS
+    if ((target === TARGET_IOS_CAPACITOR || target === TARGET_IOS_TAURI) && PLATFORM !== PLATFORM_MAC) {
+      throw new PlatformError(
+        `Target '${target}' requires macOS`,
+        `iOS builds can only be done on macOS.`
+      )
+    }
+    // Android targets work on all platforms; macOS can build for all
+    if (PLATFORM === PLATFORM_MAC || target === TARGET_ANDROID_CAPACITOR || target === TARGET_ANDROID_TAURI)
+      return target
+  }
 
   throw new PlatformError(
     `Target '${target}' not supported on ${PLATFORM}`,

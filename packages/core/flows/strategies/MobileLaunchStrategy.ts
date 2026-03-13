@@ -11,6 +11,7 @@ import { vite } from '../../globals.js'
 import { BuildError } from '../../errors.js'
 import * as mobile from '../../mobile/index.js'
 import { LaunchOutput } from '../../types.js'
+import { TARGET_IOS_CAPACITOR, TARGET_ANDROID_CAPACITOR } from '../../constants.js'
 
 const logger = createLogger('MobileLaunchStrategy')
 
@@ -27,7 +28,7 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
   }
 
   canHandle(target: string): boolean {
-    return target === this.platform
+    return target === (this.platform === 'ios' ? TARGET_IOS_CAPACITOR : TARGET_ANDROID_CAPACITOR)
   }
 
   async prepare(context: LaunchContext): Promise<void> {
@@ -80,7 +81,8 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
 
     // Launch mobile app (opens in native IDE/simulator)
     // Note: Capacitor commands must run from project root, not outDir
-    await mobile.launch(target as 'ios' | 'android', root)
+    // Use bare platform name for Capacitor CLI (ios-capacitor → ios)
+    await mobile.launch(this.platform as 'ios' | 'android', root)
 
     logger.info(`${this.platform} app launched in native environment`)
 

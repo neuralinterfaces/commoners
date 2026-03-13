@@ -9,7 +9,7 @@ import { cpus } from 'node:os'
 import { spawn } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
-import { TARGET_ELECTRON } from '../../constants.js'
+import { TARGET_DESKTOP_ELECTRON } from '../../constants.js'
 import { PLATFORM } from '../../globals.js'
 import { spawnProcess } from '../../utils/processes.js'
 import { BuildError } from '../../errors.js'
@@ -73,7 +73,7 @@ export class ElectronLaunchStrategy extends BaseLaunchStrategy {
   readonly platform = 'electron'
 
   canHandle(target: string): boolean {
-    return target === TARGET_ELECTRON || target === 'electron'
+    return target === TARGET_DESKTOP_ELECTRON
   }
 
   async prepare(context: LaunchContext): Promise<void> {

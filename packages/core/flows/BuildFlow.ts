@@ -26,7 +26,7 @@ import {
 } from '../globals.js'
 import { globalServiceWorkspacePath } from '../assets/services/paths.js'
 
-const resolveOutDir = (context: BuildContext): string => context.__outDir || context.outDir
+const resolveOutDir = (context: BuildContext): string => context.stagingDir || context.outDir
 
 export interface BuiltAppMetadata {
   artifact: string
@@ -79,7 +79,7 @@ export interface BuildContext {
   target: string
   root: string
   outDir: string
-  __outDir: string // Temporary output directory during build
+  stagingDir: string // Temporary directory where Vite outputs frontend assets during build
   dev: boolean
   overwrite: boolean
   rebuildServices: BuildServiceRebuildOptions
@@ -163,7 +163,7 @@ export class BuildFlow {
         target,
         root,
         outDir: selectedOutDir,
-        __outDir: selectedOutDir, // Temporary output directory
+        stagingDir: selectedOutDir, // Temporary directory for frontend assets
         dev,
         overwrite,
         rebuildServices,
@@ -184,8 +184,8 @@ export class BuildFlow {
       this.logger.info('Build completed successfully', { outDir: context.outDir })
 
       return {
-        artifact: dev ? context.__outDir : context.outDir,
-        web: context.__outDir,
+        artifact: dev ? context.stagingDir : context.outDir,
+        web: context.stagingDir,
       }
     } catch (error) {
       this.logger.debug('Emitting build:error', { error: (error as Error).message })
@@ -302,7 +302,7 @@ export class BuildFlow {
       rebuildServices && typeof rebuildServices === 'object' && !Array.isArray(rebuildServices)
     const resolvedOutDir =
       (isRebuildConfig ? rebuildServices.outDir : '') ||
-      context.__outDir ||
+      context.stagingDir ||
       resolve(join(root, globalServiceWorkspacePath))
 
     const resolvedRebuild = (
@@ -342,7 +342,7 @@ export abstract class BaseBuildStrategy implements BuildStrategy {
       const modifiedConfig = { ...config }
       delete modifiedConfig.outDir // Ensure outDir is not set to avoid conflicts
       handleTemporaryDirectories(modifiedConfig)
-      context.__outDir = tempDir // Already absolute since we use absoluteRoot
+      context.stagingDir = tempDir // Already absolute since we use absoluteRoot
       this.logger.debug('Using temporary directory', { tempDir })
     } else await removeDirectory(context.outDir) // Clear output directory if not using temp dir
   }

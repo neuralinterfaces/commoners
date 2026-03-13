@@ -11,18 +11,7 @@
  * - Signal handling (SIGTERM, SIGINT)
  */
 
-import electron, { app, Event } from 'electron'
-
-/**
- * Lifecycle handlers configuration
- */
-export interface LifecycleHandlers {
-  onReady?: () => Promise<void> | void
-  onActivate?: () => void
-  onWindowAllClosed?: () => void
-  onBeforeQuit?: (event: Event) => Promise<void> | void
-  onWillQuit?: (event: Event) => void
-}
+import { app } from 'electron'
 
 /**
  * Global quit state
@@ -39,10 +28,11 @@ const quitState: QuitState = {
  * Setup the global COMMONERS_QUIT function
  * Allows plugins and other code to trigger graceful shutdown
  */
-export function setupQuitHandler(): void {
+export function setupQuitHandler(quit?: () => void): void {
+  const doQuit = quit ?? (() => app.quit())
   globalThis.COMMONERS_QUIT = (message?: string) => {
     quitState.message = message || null
-    app.quit()
+    doQuit()
   }
 }
 
@@ -54,48 +44,19 @@ export function getQuitMessage(): string | null {
 }
 
 /**
- * Setup lifecycle event handlers
- */
-export function setupLifecycleHandlers(handlers: LifecycleHandlers): void {
-  const { onReady, onActivate, onWindowAllClosed, onBeforeQuit, onWillQuit } = handlers
-
-  // App ready handler
-  if (onReady) {
-    app.whenReady().then(async () => {
-      await onReady()
-    })
-  }
-
-  // Activate handler (macOS)
-  if (onActivate) {
-    app.on('activate', onActivate)
-  }
-
-  // Window all closed handler
-  if (onWindowAllClosed) {
-    app.on('window-all-closed', onWindowAllClosed)
-  }
-
-  // Before quit handler
-  if (onBeforeQuit) {
-    app.on('before-quit', async (ev) => {
-      ev.preventDefault()
-      await onBeforeQuit(ev)
-      app.exit()
-    })
-  }
-
-  // Will quit handler
-  if (onWillQuit) {
-    app.on('will-quit', onWillQuit)
-  }
-}
-
-/**
  * Setup signal handlers for graceful shutdown
  */
-export function setupSignalHandlers(setShuttingDown: (value: boolean) => void): void {
-  app.on('ready', async () => {
+export function setupSignalHandlers(
+  setShuttingDown: (value: boolean) => void,
+  opts?: {
+    quit: () => void
+    onReady: (cb: () => void) => void
+  }
+): void {
+  const quit = opts?.quit ?? (() => app.quit())
+  const onReady = opts?.onReady ?? ((cb: () => void) => app.on('ready', cb))
+
+  onReady(() => {
     const signals = ['SIGTERM', 'SIGINT']
     signals.forEach(signal => {
       process.on(signal, () => {
@@ -104,7 +65,7 @@ export function setupSignalHandlers(setShuttingDown: (value: boolean) => void): 
         if (globalThis.COMMONERS_QUIT) {
           globalThis.COMMONERS_QUIT(message)
         } else {
-          app.quit()
+          quit()
         }
       })
     })
@@ -114,11 +75,13 @@ export function setupSignalHandlers(setShuttingDown: (value: boolean) => void): 
 /**
  * Setup uncaught exception handler
  */
-export function handleUncaughtExceptions(): void {
+export function handleUncaughtExceptions(
+  showErrorBox: (title: string, content: string) => void
+): void {
   process.on('uncaughtException', err => {
     if (err.code === 'EPIPE') return // Ignore EPIPE errors
 
-    electron.dialog.showErrorBox('Uncaught Commoners Error', `${err.message}\n\n${err.stack}`)
+    showErrorBox('Uncaught Commoners Error', `${err.message}\n\n${err.stack}`)
   })
 }
 
@@ -133,21 +96,20 @@ export function getPlatform(): 'windows' | 'mac' | 'linux' {
  * Setup default window-all-closed behavior
  * Quits on all platforms except macOS
  */
-export function setupDefaultWindowAllClosedHandler(): void {
+export function setupDefaultWindowAllClosedHandler(
+  onWindowAllClosed?: (cb: () => void) => void
+): void {
   const platform = getPlatform()
-  app.on(
-    'window-all-closed',
-    () => platform !== 'mac' && globalThis.COMMONERS_QUIT?.('All windows have been closed.')
-  )
+  const register = onWindowAllClosed ?? ((cb: () => void) => app.on('window-all-closed', cb))
+  register(() => platform !== 'mac' && globalThis.COMMONERS_QUIT?.('All windows have been closed.'))
 }
 
 /**
  * Setup STDIN command interface
  * Allows external commands to control the app (e.g., reload)
  */
-export function setupStdinCommands(): void {
+export function setupStdinCommands(getAllWindows: () => any[]): void {
   const { createInterface } = require('node:readline')
-  const { BrowserWindow } = require('electron')
 
   const rl = createInterface({
     input: process.stdin,
@@ -163,7 +125,7 @@ export function setupStdinCommands(): void {
       if (command === 'reload') {
         const { frontend, service } = data || {}
         if (frontend) {
-          BrowserWindow.getAllWindows().forEach(
+          getAllWindows().forEach(
             (win: any) => !win.isDestroyed() && win.webContents.reload()
           )
         }

@@ -28,7 +28,7 @@ export async function resolveLazy(value) {
   return value
 }
 
-const isDesktop = target => target === 'desktop' || target === 'electron' // Duplicated from globals.ts
+const isDesktop = target => target === 'desktop' || target === 'electron' || target === 'tauri' // Duplicated from globals.ts
 
 // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
 export const asyncFilter = async (arr, predicate) =>

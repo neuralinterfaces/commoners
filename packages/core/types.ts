@@ -119,7 +119,7 @@ type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> }
 export type WritableElectronBuilderConfig = DeepWriteable<ElectronBuilderConfiguration>
 
 // ------------------- Support -------------------
-export const validMobileTargets = ['ios', 'android', 'mobile']
+export const validMobileTargets = ['mobile', 'ios', 'android', 'ios-capacitor', 'android-capacitor', 'ios-tauri', 'android-tauri']
 
 export const validDesktopTargets = ['desktop', 'electron', 'tauri']
 
@@ -144,7 +144,7 @@ export type ViteOptions = { dev?: boolean; hooks?: HooksInterface }
 export type ServerOptions = { printUrls?: boolean }
 
 export type TargetType = (typeof valid.target)[number]
-export type SpecificTargetType = 'ios' | 'android' | 'electron' | 'tauri' | 'web'
+export type SpecificTargetType = 'electron' | 'tauri' | 'ios-capacitor' | 'android-capacitor' | 'ios-tauri' | 'android-tauri' | 'web'
 
 // export type PlatformType = typeof validDesktopTargets[number]
 
@@ -403,6 +403,24 @@ export type ElectronOptions = {
   hooks?: HooksInterface
 }
 
+// ------------------- Tauri -------------------
+export type TauriSecuritySettings = {
+  csp?: string | false
+}
+
+export type TauriOptions = {
+  window?: {
+    title?: string
+    width?: number
+    height?: number
+    fullscreen?: boolean
+    resizable?: boolean
+    decorations?: boolean
+  }
+  security?: TauriSecuritySettings
+  config?: Record<string, any> // Raw tauri.conf.json overrides
+}
+
 type RawPlugins = { [id: string]: Plugin }
 
 // ------------------- Configuration Object Declaration -------------------
@@ -435,6 +453,10 @@ export type BaseConfig = {
 
   // Electron Options
   electron: ElectronOptions
+
+  // Tauri Options
+  tauri?: TauriOptions
+
   vite?: ViteUserConfig | string
 
   // PWA Options

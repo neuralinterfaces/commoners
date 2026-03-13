@@ -725,9 +725,7 @@ export const BROWSER_STRIP_KEYS = [
   'assets',
 ]
 // NOTE: `assets` is NOT stripped from Electron — main process reads plugin.assets for protocol handler
-// Only strip renderer-side keys from Electron config — the main process needs
-// start/ready/quit/isSupported to run the plugin lifecycle.
-export const ELECTRON_STRIP_KEYS = ['load']
+export const ELECTRON_STRIP_KEYS = ['load', 'isSupported', 'start', 'ready', 'quit']
 
 /**
  * Strip keys from extension/plugin/service objects per runtime context.
@@ -741,10 +739,7 @@ export function stripExtensionKeys(
   const out: Record<string, any> = {}
   for (const id in exts) {
     const ext = exts[id]
-    if (typeof ext !== 'object' || ext === null) {
-      out[id] = ext
-      continue
-    }
+    if (typeof ext !== 'object' || ext === null) { out[id] = ext; continue }
     const s: Record<string, any> = {}
     for (const k in ext) {
       if (!stripKeys.includes(k)) s[k] = ext[k]
@@ -941,15 +936,9 @@ export const bundleConfig = async (
       ),
       __COMMONERS_WEB__: JSON.stringify(target === 'web' || target === 'pwa'),
       __COMMONERS_ELECTRON__: JSON.stringify(target === 'electron' || target === 'desktop'),
-      __COMMONERS_TAURI__: JSON.stringify(
-        target === 'tauri' || target === 'ios-tauri' || target === 'android-tauri'
-      ),
-      __COMMONERS_IOS__: JSON.stringify(
-        target === 'ios' || target === 'ios-capacitor' || target === 'ios-tauri'
-      ),
-      __COMMONERS_ANDROID__: JSON.stringify(
-        target === 'android' || target === 'android-capacitor' || target === 'android-tauri'
-      ),
+      __COMMONERS_TAURI__: JSON.stringify(target === 'tauri' || target === 'ios-tauri' || target === 'android-tauri'),
+      __COMMONERS_IOS__: JSON.stringify(target === 'ios' || target === 'ios-capacitor' || target === 'ios-tauri'),
+      __COMMONERS_ANDROID__: JSON.stringify(target === 'android' || target === 'android-capacitor' || target === 'android-tauri'),
     },
 
     resolve: {

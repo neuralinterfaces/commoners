@@ -20,7 +20,7 @@ export class WebBuildStrategy extends BaseBuildStrategy {
     return (
       target === 'web' ||
       target === 'pwa' ||
-      (!target.includes('electron') && !target.includes('ios') && !target.includes('android'))
+      (!target.includes('electron') && !target.includes('tauri') && !target.includes('ios') && !target.includes('android') && !target.includes('capacitor'))
     )
   }
 

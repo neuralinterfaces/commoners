@@ -9,7 +9,6 @@
  * - Console redirection to renderer
  */
 
-import { BrowserWindow, ipcMain } from 'electron'
 import { validateIPCMessage } from './ipc-channels'
 
 /**
@@ -23,6 +22,34 @@ let _hooks: any = null
  */
 export function setHooks(hooks: any): void {
   _hooks = hooks
+}
+
+/**
+ * Module-level IPC backend and window accessor.
+ * Defaults to Electron's ipcMain and BrowserWindow.getAllWindows() but can be
+ * overridden via setIPCBackend() for runtime abstraction.
+ */
+let _ipcMain: any = null
+let _getAllWindows: () => any[] = () => []
+
+function getIpcMain(): any {
+  if (!_ipcMain) {
+    const { ipcMain } = require('electron')
+    _ipcMain = ipcMain
+  }
+  return _ipcMain
+}
+
+function getAllWindows(): any[] {
+  return _getAllWindows()
+}
+
+/**
+ * Configure the IPC backend. Call once from main.ts after runtime is created.
+ */
+export function setIPCBackend(ipcMain: any, getAllWindows: () => any[]): void {
+  _ipcMain = ipcMain
+  _getAllWindows = getAllWindows
 }
 
 /**
@@ -44,7 +71,7 @@ export interface ListenerHandle {
  * Safely send a message to a window
  * Handles destroyed windows gracefully
  */
-export function send(win: BrowserWindow, channel: string, ...args: any[]): void {
+export function send(win: any, channel: string, ...args: any[]): void {
   try {
     if (win.isDestroyed()) return // Do not send messages to destroyed windows
     win.webContents.send(channel, ...args)
@@ -77,8 +104,8 @@ export function scopedOn(
     if (failure) logValidationFailure(event, failure)
     callback(...args)
   }
-  ipcMain.on(event, wrappedCallback)
-  const remove = () => ipcMain.removeListener(event, wrappedCallback)
+  getIpcMain().on(event, wrappedCallback)
+  const remove = () => getIpcMain().removeListener(event, wrappedCallback)
   return { remove }
 }
 
@@ -95,15 +122,15 @@ export function scopedHandle(
   callback: (...args: any[]) => any
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
-  try { ipcMain.removeHandler(event) } catch {}
+  try { getIpcMain().removeHandler(event) } catch {}
   const wrappedCallback = (...args: any[]) => {
     // args[0] is IpcMainInvokeEvent — validate the rest
     const failure = validateIPCMessage(event, args.slice(1))
     if (failure) logValidationFailure(event, failure)
     return callback(...args)
   }
-  ipcMain.handle(event, wrappedCallback)
-  const remove = () => { try { ipcMain.removeHandler(event) } catch {} }
+  getIpcMain().handle(event, wrappedCallback)
+  const remove = () => { try { getIpcMain().removeHandler(event) } catch {} }
   return { remove }
 }
 
@@ -111,7 +138,7 @@ export function scopedHandle(
  * Send a scoped message to all windows
  */
 export function scopedSend(type: string, id: string, channel: string, ...args: any[]): void {
-  const windows = BrowserWindow.getAllWindows()
+  const windows = getAllWindows()
   const event = getScopedIdentifier(type, id, channel)
   windows.forEach(win => send(win, event, ...args))
 }
@@ -184,7 +211,7 @@ export function setupConsoleRedirection(): void {
     const ogMethod = (ogConsoleMethods[method] = console[method])
     console[method] = (...args) => {
       // Send to all windows
-      const windows = BrowserWindow.getAllWindows()
+      const windows = getAllWindows()
       windows.forEach(win => send(win, `commoners:console.${method}`, ...args))
       ogMethod(...args)
     }
@@ -233,16 +260,4 @@ export class CallbackManager {
     resolvedCallbacks.forEach((callback: () => void) => callback())
     delete ref[lastLevel]
   }
-}
-
-/**
- * Helper for queuing functions until next window is ready
- */
-export function onNextWindowReady(f: (win: BrowserWindow) => any): void {
-  const windows = BrowserWindow.getAllWindows()
-  if (windows.length === 0) {
-    // Queue for later
-    return
-  }
-  windows.forEach(win => f(win))
 }
