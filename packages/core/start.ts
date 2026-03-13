@@ -231,6 +231,19 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     // ------------------------------- Desktop -------------------------------
     if (isDesktop(target)) {
+
+      // ------------------------------- Tauri Desktop -------------------------------
+      if (target === 'tauri') {
+        const assets = await getAppAssets(scopedConfig, true, outDir)
+        await buildAssets(assets, { outDir, root, target, dev: true })
+        await buildServices(scopedConfig, { dev: true, rebuild: true, hooks })
+        // Tauri Vite plugin handles spawning `tauri dev`
+        const frontend = (startManager.frontend = await createServer(scopedConfig))
+        startManager.url = frontend.resolvedUrls.local[0]
+        return startManager
+      }
+
+      // ------------------------------- Electron Desktop -------------------------------
       const electronDevOptions = electron?.dev || {}
       const { load = 'url' } = electronDevOptions // Default to loading from URL
 
@@ -246,7 +259,6 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
           target,
           reason: `Electron is running in ${load} mode`,
         })
-        // app.stdin.write(`${JSON.stringify({ command: 'reload', data: { frontend: true, service: true } })}\n`) // Send a reload command to the Electron app
       }
 
       // Use Vite to Load URLs in Dev Mode
@@ -263,8 +275,6 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
         const frontend = (startManager.frontend = await createServer(scopedConfig))
         startManager.url = frontend.resolvedUrls.local[0] // Add URL to locate the server
       }
-
-      // reset() // Reset the package.json to the original state
 
       return startManager
     }

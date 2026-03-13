@@ -132,7 +132,11 @@ export const resolveViteConfig = async (
   const absoluteRoot = isAbsolute(root) ? root : resolve(root)
 
   // Desktop Build
-  if (isDesktopTarget) {
+  if (target === 'tauri') {
+    const tauriPlugin = (await import('./plugins/tauri/index.js')).default
+    const plugin = await tauriPlugin({ root: absoluteRoot, outDir, hooks, config: commonersConfig })
+    plugins.push(...plugin)
+  } else if (isDesktopTarget) {
     const plugin = await electronPlugin({ build, root: absoluteRoot, outDir, electron, hooks })
     plugins.push(...plugin)
   }

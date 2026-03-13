@@ -137,14 +137,6 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
   if (allow.includes(target)) return target
   target = getSpecificTarget(target)
 
-  // Provide a custom warning message for tauri
-  if (target === 'tauri') {
-    throw new PlatformError(
-      'Tauri is not yet supported',
-      'Tauri support is planned for a future release. Use electron or web targets instead.'
-    )
-  }
-
   if (universalTargetTypes.includes(target)) return target
   if (isDesktop(target)) return target
   else if (isMobile(target) && (PLATFORM === PLATFORM_MAC || target === TARGET_MOBILE || target === TARGET_ANDROID))

@@ -13,11 +13,13 @@ export type { LaunchStrategy, LaunchContext } from './LaunchFlow.js'
 
 // Build strategy exports
 export { ElectronBuildStrategy } from './strategies/ElectronBuildStrategy.js'
+export { TauriBuildStrategy } from './strategies/TauriBuildStrategy.js'
 export { MobileBuildStrategy } from './strategies/MobileBuildStrategy.js'
 export { WebBuildStrategy } from './strategies/WebBuildStrategy.js'
 
 // Launch strategy exports
 export { ElectronLaunchStrategy } from './strategies/ElectronLaunchStrategy.js'
+export { TauriLaunchStrategy } from './strategies/TauriLaunchStrategy.js'
 export { MobileLaunchStrategy } from './strategies/MobileLaunchStrategy.js'
 export { WebLaunchStrategy } from './strategies/WebLaunchStrategy.js'
 
@@ -25,9 +27,11 @@ export { WebLaunchStrategy } from './strategies/WebLaunchStrategy.js'
 import { BuildFlow } from './BuildFlow.js'
 import { LaunchFlow } from './LaunchFlow.js'
 import { ElectronBuildStrategy } from './strategies/ElectronBuildStrategy.js'
+import { TauriBuildStrategy } from './strategies/TauriBuildStrategy.js'
 import { MobileBuildStrategy } from './strategies/MobileBuildStrategy.js'
 import { WebBuildStrategy } from './strategies/WebBuildStrategy.js'
 import { ElectronLaunchStrategy } from './strategies/ElectronLaunchStrategy.js'
+import { TauriLaunchStrategy } from './strategies/TauriLaunchStrategy.js'
 import { MobileLaunchStrategy } from './strategies/MobileLaunchStrategy.js'
 import { WebLaunchStrategy } from './strategies/WebLaunchStrategy.js'
 
@@ -39,6 +43,7 @@ export function createBuildFlow(): BuildFlow {
 
   // Register all platform strategies
   flow.registerStrategy(new ElectronBuildStrategy())
+  flow.registerStrategy(new TauriBuildStrategy())
   flow.registerStrategy(new MobileBuildStrategy('ios'))
   flow.registerStrategy(new MobileBuildStrategy('android'))
   flow.registerStrategy(new WebBuildStrategy())
@@ -54,6 +59,7 @@ export function createLaunchFlow(): LaunchFlow {
 
   // Register all platform strategies
   flow.registerStrategy(new ElectronLaunchStrategy())
+  flow.registerStrategy(new TauriLaunchStrategy())
   flow.registerStrategy(new MobileLaunchStrategy('ios'))
   flow.registerStrategy(new MobileLaunchStrategy('android'))
   flow.registerStrategy(new WebLaunchStrategy())

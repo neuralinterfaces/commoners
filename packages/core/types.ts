@@ -403,6 +403,24 @@ export type ElectronOptions = {
   hooks?: HooksInterface
 }
 
+// ------------------- Tauri -------------------
+export type TauriSecuritySettings = {
+  csp?: string | false
+}
+
+export type TauriOptions = {
+  window?: {
+    title?: string
+    width?: number
+    height?: number
+    fullscreen?: boolean
+    resizable?: boolean
+    decorations?: boolean
+  }
+  security?: TauriSecuritySettings
+  config?: Record<string, any> // Raw tauri.conf.json overrides
+}
+
 type RawPlugins = { [id: string]: Plugin }
 
 // ------------------- Configuration Object Declaration -------------------
@@ -435,6 +453,10 @@ export type BaseConfig = {
 
   // Electron Options
   electron: ElectronOptions
+
+  // Tauri Options
+  tauri?: TauriOptions
+
   vite?: ViteUserConfig | string
 
   // PWA Options

@@ -29,6 +29,7 @@ export const EXT_EXE = '.exe'
 
 // ------------------- Directory Names -------------------
 export const DIR_ELECTRON = 'electron'
+export const DIR_TAURI = 'tauri'
 export const DIR_MOBILE = 'mobile'
 export const DIR_SERVICES = 'services'
 
