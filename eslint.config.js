@@ -23,6 +23,7 @@ export default [
         ...globals.node,
         ...globals.browser,
         commoners: 'readonly',
+        Electron: 'readonly',
       },
       parser: tsparser,
       parserOptions: {

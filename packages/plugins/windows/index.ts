@@ -326,7 +326,6 @@ export default (windows: Windows): Plugin => {
         this.on(`${id}:message`, (_, value) => this.send(`${id}:message`, value), win) // Send from ID
         this.on(`message:${id}`, (_, value) => this.send(`message:${id}`, value), win) // Send to ID
 
-        
         // Handle link request from ID
         this.on(
           `${id}:link`,
@@ -347,6 +346,7 @@ export default (windows: Windows): Plugin => {
       load: function (win) {
         const { __id, __main } = win
 
+        if (!this.WINDOWS) this.WINDOWS = {}
         this.WINDOWS[__id] = win
 
         // Close all windows when the main window has closed
