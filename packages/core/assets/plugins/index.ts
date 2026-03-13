@@ -39,6 +39,85 @@ async function executePluginHook(ctx: any, id: string, plugin: any, type: string
   }
 }
 
+/**
+ * Topological sort for plugins with `after` dependencies.
+ * Plugins declare `after: ['pluginA', 'pluginB']` to ensure those plugins
+ * run their hooks first. Plugins without `after` run in their original order.
+ * Circular dependencies are detected and reported as warnings.
+ */
+function sortByDependencies(entries: [string, any][]): [string, any][] {
+  const ids = entries.map(([id]) => id)
+  const idSet = new Set(ids)
+  const graph = new Map<string, Set<string>>()
+  const pluginMap = new Map(entries)
+
+  // Build dependency graph
+  for (const [id, plugin] of entries) {
+    const deps = new Set<string>()
+    const after = plugin.after
+    if (Array.isArray(after)) {
+      for (const dep of after) {
+        if (idSet.has(dep) && dep !== id) deps.add(dep)
+      }
+    }
+    graph.set(id, deps)
+  }
+
+  // Kahn's algorithm for topological sort
+  const inDegree = new Map<string, number>()
+  for (const id of ids) inDegree.set(id, 0)
+  const dependents = new Map<string, string[]>()
+  for (const id of ids) dependents.set(id, [])
+  for (const [id, deps] of graph) {
+    for (const dep of deps) {
+      dependents.get(dep)!.push(id)
+      inDegree.set(id, (inDegree.get(id) || 0) + 1)
+    }
+  }
+
+  const queue: string[] = []
+  const originalOrder = new Map(ids.map((id, i) => [id, i]))
+
+  // Start with plugins that have no dependencies, in original order
+  for (const id of ids) {
+    if ((inDegree.get(id) || 0) === 0) queue.push(id)
+  }
+  // Stable sort: within same dependency level, preserve original order
+  queue.sort((a, b) => (originalOrder.get(a) || 0) - (originalOrder.get(b) || 0))
+
+  const sorted: [string, any][] = []
+  const visited = new Set<string>()
+
+  while (queue.length > 0) {
+    const id = queue.shift()!
+    if (visited.has(id)) continue
+    visited.add(id)
+    sorted.push([id, pluginMap.get(id)!])
+
+    const deps = dependents.get(id) || []
+    // Sort dependents by original order for stability
+    deps.sort((a, b) => (originalOrder.get(a) || 0) - (originalOrder.get(b) || 0))
+    for (const dep of deps) {
+      const newDegree = (inDegree.get(dep) || 1) - 1
+      inDegree.set(dep, newDegree)
+      if (newDegree === 0) queue.push(dep)
+    }
+  }
+
+  // Detect circular dependencies — unvisited plugins have cycles
+  if (sorted.length < entries.length) {
+    const missing = entries.filter(([id]) => !visited.has(id))
+    for (const [id] of missing) {
+      console.warn(
+        `[commoners] Plugin '${id}' has circular 'after' dependencies — running in original order`
+      )
+    }
+    sorted.push(...missing)
+  }
+
+  return sorted
+}
+
 export async function runAppPlugins(args: any[] = [], type = 'start') {
   const entries = Object.entries(this.plugins)
 
@@ -46,9 +125,13 @@ export async function runAppPlugins(args: any[] = [], type = 'start') {
   // trigger renderer-side code that depends on IPC handlers registered by
   // other plugins' ready() hooks. Running concurrently causes race conditions
   // where the renderer fires IPC before handlers are registered.
+  //
+  // Plugins can declare `after: ['pluginA', 'pluginB']` to ensure those
+  // plugins complete their ready() hooks first, regardless of config order.
   if (type === 'ready') {
+    const sorted = sortByDependencies(entries)
     const results: any[] = []
-    for (const [id, plugin] of entries) {
+    for (const [id, plugin] of sorted) {
       results.push(await executePluginHook(this, id, plugin as any, type, args))
     }
     return results

@@ -289,4 +289,137 @@ describe('Plugin Lifecycle (runAppPlugins)', () => {
       await expect(runAppPlugins.call(ctx, [], 'start')).resolves.toEqual([])
     })
   })
+
+  describe('after dependency ordering', () => {
+    test('Plugin with after runs after its dependency', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        pluginA: { ready: vi.fn(() => order.push('A')), __state: 'start' },
+        pluginB: { ready: vi.fn(() => order.push('B')), __state: 'start', after: ['pluginA'] },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+      expect(order).toEqual(['A', 'B'])
+    })
+
+    test('after reverses natural order when needed', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        // B is listed first in config but declares after: ['A']
+        pluginB: { ready: vi.fn(() => order.push('B')), __state: 'start', after: ['pluginA'] },
+        pluginA: { ready: vi.fn(() => order.push('A')), __state: 'start' },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+      expect(order).toEqual(['A', 'B'])
+    })
+
+    test('Multiple after dependencies are respected', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        pluginC: {
+          ready: vi.fn(() => order.push('C')),
+          __state: 'start',
+          after: ['pluginA', 'pluginB'],
+        },
+        pluginA: { ready: vi.fn(() => order.push('A')), __state: 'start' },
+        pluginB: { ready: vi.fn(() => order.push('B')), __state: 'start' },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+      // A and B must both run before C
+      expect(order.indexOf('C')).toBeGreaterThan(order.indexOf('A'))
+      expect(order.indexOf('C')).toBeGreaterThan(order.indexOf('B'))
+    })
+
+    test('Plugins without after preserve original order', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        pluginA: { ready: vi.fn(() => order.push('A')), __state: 'start' },
+        pluginB: { ready: vi.fn(() => order.push('B')), __state: 'start' },
+        pluginC: { ready: vi.fn(() => order.push('C')), __state: 'start' },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+      expect(order).toEqual(['A', 'B', 'C'])
+    })
+
+    test('after referencing non-existent plugin is ignored', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        pluginA: {
+          ready: vi.fn(() => order.push('A')),
+          __state: 'start',
+          after: ['nonExistent'],
+        },
+        pluginB: { ready: vi.fn(() => order.push('B')), __state: 'start' },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+      // Should run fine, original order preserved
+      expect(order).toEqual(['A', 'B'])
+    })
+
+    test('Circular after dependencies are detected and plugins still run', async () => {
+      const order: string[] = []
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const ctx = createMockContext({
+        pluginA: {
+          ready: vi.fn(() => order.push('A')),
+          __state: 'start',
+          after: ['pluginB'],
+        },
+        pluginB: {
+          ready: vi.fn(() => order.push('B')),
+          __state: 'start',
+          after: ['pluginA'],
+        },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+
+      // Both plugins should still run despite circular dependency
+      expect(order).toContain('A')
+      expect(order).toContain('B')
+      // Warning should be logged
+      expect(warnSpy).toHaveBeenCalled()
+
+      warnSpy.mockRestore()
+    })
+
+    test('after only affects ready() hooks, not start()', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        pluginB: { start: vi.fn(() => order.push('B')), after: ['pluginA'] },
+        pluginA: { start: vi.fn(() => order.push('A')) },
+      })
+
+      await runAppPlugins.call(ctx, [], 'start')
+      // start() runs concurrently via Promise.all — after has no effect
+      // Both should run (order may vary due to concurrency)
+      expect(order).toContain('A')
+      expect(order).toContain('B')
+    })
+
+    test('Chained dependencies: A -> B -> C', async () => {
+      const order: string[] = []
+      const ctx = createMockContext({
+        pluginC: {
+          ready: vi.fn(() => order.push('C')),
+          __state: 'start',
+          after: ['pluginB'],
+        },
+        pluginB: {
+          ready: vi.fn(() => order.push('B')),
+          __state: 'start',
+          after: ['pluginA'],
+        },
+        pluginA: { ready: vi.fn(() => order.push('A')), __state: 'start' },
+      })
+
+      await runAppPlugins.call(ctx, [], 'ready')
+      expect(order).toEqual(['A', 'B', 'C'])
+    })
+  })
 })

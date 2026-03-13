@@ -21,15 +21,19 @@ export function tuple<T extends string[]>(...o: T) {
 export type PortType = number
 export type LocalHostType = 'localhost' | '0.0.0.0'
 
-type LogEvent = { type: "log", args: any[] }
+type LogEvent = { type: 'log'; args: any[] }
 export type GenericEvent = LogEvent
 
 // Event types for hooks-based logging system
 export type BuildEvent =
   | { type: 'build:start'; config: ResolvedConfig; dev: boolean }
-  | { type: 'build:assets:start', phase: 'services', services?: string[] }
+  | { type: 'build:assets:start'; phase: 'services'; services?: string[] }
   | { type: 'build:assets:start'; phase: 'frontend' | 'packaging' }
-  | { type: 'build:assets:complete'; phase: 'frontend' | 'services' | 'packaging'; duration?: number }
+  | {
+      type: 'build:assets:complete'
+      phase: 'frontend' | 'services' | 'packaging'
+      duration?: number
+    }
   | { type: 'build:electron:start' }
   | { type: 'build:electron:complete'; duration?: number }
   | { type: 'build:mobile:start'; mobileTarget: 'ios' | 'android' }
@@ -39,19 +43,17 @@ export type BuildEvent =
 export type ServiceEvent =
   | { type: 'service:start'; service: string; url: string }
   | { type: 'service:ready'; service: string; port: number }
-
   | { type: 'service:stdout'; data: string; service: string }
   | { type: 'service:stderr'; data: string; service: string }
   | { type: 'service:error'; error: Error; service: string }
   | { type: 'service:exit'; service: string; code: number | null }
   | { type: 'service:restart'; service: string }
-  | { type: 'service:build:start'; service: string; src: string; out: string; }
+  | { type: 'service:build:start'; service: string; src: string; out: string }
   | { type: 'service:build:end'; service: string; src: string; out: string; duration?: number }
   | { type: 'service:build:error'; service: string; src: string; out: string; error: Error }
-  | { type: 'service:build:cached'; service: string; src: string; out: string; }
-  
+  | { type: 'service:build:cached'; service: string; src: string; out: string }
   | { type: 'service:launch:start'; service: string; filepath: string }
-  | { type: 'service:launch:complete'; service: string; filepath: string, url: string }
+  | { type: 'service:launch:complete'; service: string; filepath: string; url: string }
   | { type: 'service:launch:error'; service: string; filepath: string; error: Error }
 
 export type SecurityEvent =
@@ -66,7 +68,7 @@ export type SecurityEvent =
   | { type: 'security:info'; message: string; context?: string }
 
 export type DevServerEvent =
-  | { type: 'dev:start'; config: ResolvedConfig; }
+  | { type: 'dev:start'; config: ResolvedConfig }
   | { type: 'dev:server:ready'; target: string; url: string }
   | { type: 'dev:server:error'; error: Error }
   | { type: 'dev:reload:unavailable'; target: string; reason: string }
@@ -75,12 +77,17 @@ export type DevServerEvent =
   | { type: 'dev:electron:ready'; app: ChildProcess }
 
 export type LaunchEvent =
-  | { type: 'launch:start'; outDir: string, target: string }
-  | { type: 'launch:ready'; url?: string; server?: any; }
+  | { type: 'launch:start'; outDir: string; target: string }
+  | { type: 'launch:ready'; url?: string; server?: any }
   | { type: 'launch:error'; error: Error; target?: string }
 
-
-export type HookEvent = GenericEvent | BuildEvent | LaunchEvent | ServiceEvent | SecurityEvent | DevServerEvent
+export type HookEvent =
+  | GenericEvent
+  | BuildEvent
+  | LaunchEvent
+  | ServiceEvent
+  | SecurityEvent
+  | DevServerEvent
 
 // Hook function type
 export type HookFunction = (event: HookEvent) => void | Promise<void>
@@ -102,8 +109,8 @@ export type ServiceCreationOptions = {
   target?: string
   services?: string | string[] | boolean
   build?: boolean
-  onLog?: Function
-  onClosed?: Function,
+  onLog?: (...args: unknown[]) => void
+  onClosed?: (...args: unknown[]) => void
   hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
@@ -118,7 +125,9 @@ export const validDesktopTargets = ['desktop', 'electron', 'tauri']
 
 export const universalTargetTypes = ['desktop', 'mobile', 'pwa', 'web']
 
-const allTargets = Array.from(new Set([...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets]))
+const allTargets = Array.from(
+  new Set([...universalTargetTypes, ...validDesktopTargets, ...validMobileTargets])
+)
 
 export const valid = {
   // Derived
@@ -131,7 +140,7 @@ export const valid = {
   icon: tuple('light', 'dark'),
 }
 
-export type ViteOptions = { dev?: boolean, hooks?: HooksInterface }
+export type ViteOptions = { dev?: boolean; hooks?: HooksInterface }
 export type ServerOptions = { printUrls?: boolean }
 
 export type TargetType = (typeof valid.target)[number]
@@ -149,10 +158,10 @@ export type PlatformSupport = {
 }
 
 export type ExtensionCapabilities = {
-  provides?: string[]          // What this extension offers (e.g. ['bluetooth', 'scanning'])
-  platforms?: PlatformSupport  // Where it can run
-  runtime?: ExtensionRuntime   // How it's delivered
-  requires?: string[]          // Dependencies on other extension IDs
+  provides?: string[] // What this extension offers (e.g. ['bluetooth', 'scanning'])
+  platforms?: PlatformSupport // Where it can run
+  runtime?: ExtensionRuntime // How it's delivered
+  requires?: string[] // Dependencies on other extension IDs
 }
 
 // ------------------- Services -------------------
@@ -180,7 +189,9 @@ type _ExtraServiceMetadata = {
   public?: boolean
   port?: number
   build?: UserBuildCommand
-  env?: Record<string, string> | ((services: ResolvedServices) => Record<string, string> | Promise<Record<string, string>>)
+  env?:
+    | Record<string, string>
+    | ((services: ResolvedServices) => Record<string, string> | Promise<Record<string, string>>)
   ssl?: SSLConfiguration
 }
 
@@ -231,7 +242,8 @@ export type ActiveServices = { [x: string]: ActiveService }
 export type Lazy<T> = T | (() => Promise<T>)
 
 // ------------------- Plugins -------------------
-type BaseLoadedPlugin = { [x: string]: any } | Function | any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BaseLoadedPlugin = { [x: string]: any } | ((...args: any[]) => any) | any
 type LoadedPlugin = BaseLoadedPlugin | Promise<BaseLoadedPlugin>
 
 type SupportQueryInfo = {
@@ -292,6 +304,7 @@ type PluginLoadCallback = (this: IpcRenderer, env: CommonersGlobalObject) => Loa
 
 type OptionalPluginBehaviors = {
   assets?: Record<string, string>
+  after?: string[] // Plugin IDs that must complete their ready() hooks before this plugin's ready() runs
   start?: Lazy<(this: DesktopPluginContext, services: ResolvedServices, id: string) => void>
   ready?: Lazy<(this: DesktopPluginContext, services: ActiveServices, id: string) => void>
   quit?: Lazy<(this: DesktopPluginContext, id: string) => void>
@@ -337,7 +350,7 @@ export type Extension = Plugin | UserService
 export type ResolvedExtension = {
   type: 'plugin' | 'service' | 'hybrid'
   capabilities?: ExtensionCapabilities
-  plugin?: Plugin           // Present when extension has plugin behavior
+  plugin?: Plugin // Present when extension has plugin behavior
   service?: ResolvedService // Present when extension has service behavior
 }
 
@@ -459,7 +472,7 @@ export type LaunchConfig = {
 
   // Server + Service Options
   public?: BaseConfig['public']
-  port?: BaseConfig['port'],
+  port?: BaseConfig['port']
   hooks?: BaseConfig['hooks'] // Hooks interface for CLI integration
 }
 
@@ -467,7 +480,7 @@ export type ServiceRebuildOption = boolean | string[]
 
 export type BuildHooks = {
   services?: ResolvedServices
-  onBuildAssets?: Function
+  onBuildAssets?: (...args: unknown[]) => void
   dev?: boolean
   rebuildServices?: ServiceRebuildOption
   overwrite?: boolean // Overwrite existing files
@@ -552,7 +565,7 @@ type BaseCommonersGlobalObject = {
   }
   query: (filter: Partial<ExtensionCapabilities>) => Record<string, ExtensionMatch>
 
-  __READY: Function // Resolve Function
+  __READY: (...args: unknown[]) => void // Resolve Function
   __PLUGINS?: RawPlugins // Raw Plugins
 }
 
