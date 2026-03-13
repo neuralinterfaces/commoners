@@ -5,6 +5,7 @@ import { getDirname } from '@commoners/solidarity/config'
 const root = getDirname(import.meta.url)
 
 import * as checksPlugin from './src/plugins/checks'
+import * as lifecycleProbePlugin from './src/plugins/lifecycle-probe'
 
 import splashPagePlugin from '@commoners/splash-screen'
 import testingPlugin from '@commoners/testing/plugin'
@@ -16,7 +17,6 @@ import * as serialPlugin from '@commoners/serial'
 
 import * as services from '@commoners/solidarity/services'
 import { defineConfig } from '@commoners/solidarity/config'
-
 
 // NOTE: I have not been able to get tree-shaking to work and support the following import style
 // import { defineConfig, services } from '@commoners/solidarity';
@@ -48,22 +48,22 @@ const customHooks = async () => {
   const { createRequire } = await import('node:module')
   const require = createRequire(import.meta.url)
 
-  const { Hooks, DefaultHooks, CommonersUI } = require('@commoners/solidarity/ui')
+  const { DefaultHooks, CommonersUI } = require('@commoners/solidarity/ui')
 
-    const ui = new CommonersUI('dark') // Included Theme 
-    return new DefaultHooks(ui)
-    
-    // const ui = new CommonersUI( { primary: '#ff5050ff', muted: '#81858bff' }) // Custom Theme
-    // return new DefaultHooks(ui)
+  const ui = new CommonersUI('dark') // Included Theme
+  return new DefaultHooks(ui)
 
-    // // Bespoke UI Hooks
-    // const chalk = require('chalk').default // Import chalk for colored console output
-    // const hooks = new Hooks()
-    // hooks.on('service:launch:start', (ev) => console.log(chalk.blue(`[${ev.service}] Launching service...`))) // Custom hook example
-    // hooks.on('service:launch:complete', (ev) => console.log(chalk.green(`[${ev.service}] Service launched successfully!`))) // Custom hook example
-    // hooks.on('dev:electron:stderr', (ev) => console.error(ev.data.toString())) // Custom hook example
-    // hooks.on('dev:electron:stdout', (ev) => console.log(ev.data.toString())) // Custom hook example
-    // return hooks
+  // const ui = new CommonersUI( { primary: '#ff5050ff', muted: '#81858bff' }) // Custom Theme
+  // return new DefaultHooks(ui)
+
+  // // Bespoke UI Hooks
+  // const chalk = require('chalk').default // Import chalk for colored console output
+  // const hooks = new Hooks()
+  // hooks.on('service:launch:start', (ev) => console.log(chalk.blue(`[${ev.service}] Launching service...`))) // Custom hook example
+  // hooks.on('service:launch:complete', (ev) => console.log(chalk.green(`[${ev.service}] Service launched successfully!`))) // Custom hook example
+  // hooks.on('dev:electron:stderr', (ev) => console.error(ev.data.toString())) // Custom hook example
+  // hooks.on('dev:electron:stdout', (ev) => console.log(ev.data.toString())) // Custom hook example
+  // return hooks
 }
 
 const config = defineConfig({
@@ -83,7 +83,7 @@ const config = defineConfig({
   // NOTE: Protocol definition is not yet tested...
   electron: {
     protocol: { scheme: 'commoners', privileges: { supportFetchAPI: true } },
-    hooks: customHooks
+    hooks: customHooks,
   },
 
   pwa: {
@@ -111,6 +111,7 @@ const config = defineConfig({
     },
 
     checks: checksPlugin,
+    lifecycleProbe: lifecycleProbePlugin,
 
     // Specify a subset of services to register as public services
     localServices: localServicesPlugin({

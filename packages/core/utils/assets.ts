@@ -725,7 +725,9 @@ const BROWSER_STRIP_KEYS = [
   'assets',
 ]
 // NOTE: `assets` is NOT stripped from Electron — main process reads plugin.assets for protocol handler
-const ELECTRON_STRIP_KEYS = ['load', 'isSupported', 'start', 'ready', 'quit']
+// Only strip renderer-side keys from Electron config — the main process needs
+// start/ready/quit/isSupported to run the plugin lifecycle.
+const ELECTRON_STRIP_KEYS = ['load']
 
 /**
  * Generate a wrapper module that imports the real config and re-exports

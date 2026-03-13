@@ -155,6 +155,28 @@ const e2eTests = {
       })
     })
   },
+  pluginLifecycle: (output, { target: _target }) => {
+    const normalizedTarget = getNormalizedTarget(_target)
+    if (normalizedTarget !== 'desktop') return
+
+    describe('Plugin lifecycle hooks survive config bundling', () => {
+      test('start() hook registers IPC handler', async () => {
+        const result = await output.page.evaluate(() => {
+          const { commoners } = globalThis
+          return commoners.READY.then(({ lifecycleProbe }) => lifecycleProbe.startPing())
+        })
+        expect(result).toBe('start-pong')
+      })
+
+      test('ready() hook registers IPC handler', async () => {
+        const result = await output.page.evaluate(() => {
+          const { commoners } = globalThis
+          return commoners.READY.then(({ lifecycleProbe }) => lifecycleProbe.readyPing())
+        })
+        expect(result).toBe('ready-pong')
+      })
+    })
+  },
   plugins: (output, { target: _target }, isDev = true) => {
     describe('Plugin features are working as expected', () => {
       test('Will pass messages between contexts', async () => {
@@ -359,6 +381,7 @@ export const registerStartTest = (name, { target = 'web' } = {}, enabled = true)
 
     e2eTests.basic(output, { target })
     e2eTests.plugins(output, { target })
+    e2eTests.pluginLifecycle(output, { target })
     e2eTests.pages(output, { target })
     e2eTests.serviceLifecycle(output, { target })
     e2eTests.protocol(output, { target })
@@ -488,6 +511,7 @@ export const registerBuildTest = (
 
         e2eTests.basic(launchOutput, { target }, false)
         e2eTests.plugins(launchOutput, { target }, false)
+        e2eTests.pluginLifecycle(launchOutput, { target })
         e2eTests.pages(launchOutput, { target })
         e2eTests.serviceLifecycle(launchOutput, { target })
         e2eTests.protocol(launchOutput, { target })
