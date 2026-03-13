@@ -5,7 +5,7 @@
  * to specialized modules. It serves as the entry point and orchestrator.
  */
 
-import electron, { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import electron, { BrowserWindow } from 'electron'
 import { join, extname, normalize } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
@@ -62,9 +62,9 @@ if (process.env.__COMMONERS_TESTING) {
   if (testingPlugin) {
     const { remoteDebuggingPort, remoteAllowOrigins } = (testingPlugin as any).options
     if (remoteDebuggingPort)
-      app.commandLine.appendSwitch('remote-debugging-port', `${remoteDebuggingPort}`)
+      runtime.app.commandLine.appendSwitch('remote-debugging-port', `${remoteDebuggingPort}`)
     if (remoteAllowOrigins)
-      app.commandLine.appendSwitch('remote-allow-origins', `${remoteAllowOrigins}`)
+      runtime.app.commandLine.appendSwitch('remote-allow-origins', `${remoteAllowOrigins}`)
   }
 }
 
@@ -277,7 +277,7 @@ Security.runVerification(isProduction).then(async isValid => {
       if (!Protocol.isCommonersUrl(url, DEV_SERVER_URL)) {
         const type = await Protocol.checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url)
-        if (isMainWindow) return shell.openExternal(url)
+        if (isMainWindow) return runtime.shell.openExternal(url)
         else return win.loadURL(url)
       }
 
@@ -325,10 +325,10 @@ Security.runVerification(isProduction).then(async isValid => {
       })
     }
 
-    ipcMain.once('commoners:quit', (_, message) => globalThis.COMMONERS_QUIT?.(message))
+    runtime.ipc.once('commoners:quit', (_, message) => globalThis.COMMONERS_QUIT?.(message))
 
     win.webContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url)
+      runtime.shell.openExternal(url)
       return { action: 'deny' }
     })
 
@@ -380,17 +380,17 @@ Security.runVerification(isProduction).then(async isValid => {
   // ------------------------ IPC Handlers ------------------------
   IPC.setupConsoleRedirection()
 
-  ipcMain.on(`commoners:close`, (_, _id) => {
+  runtime.ipc.on(`commoners:close`, (_, _id) => {
     const win = Window.getWindowById(_id)
     if (win && !win.isDestroyed()) win.close()
     Window.unregisterWindow(_id)
   })
 
-  ipcMain.on(`commoners:location`, (ev, id) => {
+  runtime.ipc.on(`commoners:location`, (ev, id) => {
     ev.returnValue = Window.getWindowLocation(id)
   })
 
-  ipcMain.on(`commoners:window:ready:renderer:pong`, (_, id) => {
+  runtime.ipc.on(`commoners:window:ready:renderer:pong`, (_, id) => {
     const win = Window.getWindowById(id)
     const isMain = win && (win as ExtendedElectronBrowserWindow).__main
 
@@ -403,10 +403,10 @@ Security.runVerification(isProduction).then(async isValid => {
     callbacks.run(`ready:renderer:${id}`)
   })
 
-  ipcMain.on(`commoners:plugins:loaded`, (_, pageId, pluginId) =>
+  runtime.ipc.on(`commoners:plugins:loaded`, (_, pageId, pluginId) =>
     callbacks.run(`loaded:${pageId}:${pluginId}`)
   )
-  ipcMain.on(`commoners:window:ready:main:pong`, (_, id) => callbacks.run(`ready:main:${id}`))
+  runtime.ipc.on(`commoners:window:ready:main:pong`, (_, id) => callbacks.run(`ready:main:${id}`))
 
   // ------------------------ Single Instance ------------------------
   Window.makeSingleInstance(Window.restoreWindow)
@@ -417,7 +417,7 @@ Security.runVerification(isProduction).then(async isValid => {
     Protocol.registerProtocolScheme(protocolOptions)
   }
 
-  if (config.name) app.setName(config.name)
+  if (config.name) runtime.app.setName(config.name)
 
   // ------------------------ Service Hash Manifest ------------------------
   let serviceHashManifest: Record<string, string> | null = null
@@ -447,14 +447,14 @@ Security.runVerification(isProduction).then(async isValid => {
   services.resolveAll(config.services, baseServiceOptions).then(async resolvedServices => {
     await boundRunAppPlugins([resolvedServices])
 
-    app.whenReady().then(async () => {
+    runtime.lifecycle.onReady(async () => {
       // Collect service URLs for CSP connect-src
       const serviceUrls = Object.values(resolvedServices)
         .map((s: any) => s.url)
         .filter(Boolean) as string[]
 
       // Setup Content Security Policy
-      Security.setupContentSecurityPolicy(session.defaultSession, securitySettings.csp, DEV_SERVER_URL, serviceUrls, inlineScriptHash)
+      Security.setupContentSecurityPolicy(csp => runtime.session.setupCSP(csp), securitySettings.csp, DEV_SERVER_URL, serviceUrls, inlineScriptHash)
 
       // Setup STDIN commands
       Lifecycle.setupStdinCommands()
@@ -470,7 +470,7 @@ Security.runVerification(isProduction).then(async isValid => {
 
       const { active = {}, resolved = {}, close: closeService } = output
 
-      ipcMain.on('commoners:services', ev => { ev.returnValue = services.sanitize(resolved) })
+      runtime.ipc.on('commoners:services', ev => { ev.returnValue = services.sanitize(resolved) })
 
       // Track service status
       for (let id in resolved) {
@@ -482,8 +482,8 @@ Security.runVerification(isProduction).then(async isValid => {
       // Custom protocol handler
       if (hasCustomProtocol) {
         const { scheme } = protocolOptions
-        const { protocol, net } = electron
-        app.setAppUserModelId(`com.${scheme}`)
+        const { protocol } = electron
+        runtime.app.setAppUserModelId(`com.${scheme}`)
 
         protocol.handle(scheme, req => {
           // Validate request origin to prevent cross-origin access
@@ -512,7 +512,7 @@ Security.runVerification(isProduction).then(async isValid => {
             const serviceInfo = resolved[serviceId]
             if (serviceInfo?.url) {
               const resolvedURL = new URL(resolvedPath, serviceInfo.url)
-              return net.fetch(resolvedURL.href)
+              return runtime.protocol.fetch(resolvedURL.href)
             }
             return new Response(`${serviceId} is not a valid service`, { status: 404 })
           }
@@ -528,7 +528,7 @@ Security.runVerification(isProduction).then(async isValid => {
                 const assetLocation = getPageLocation(join('plugins', pluginId, assetKey, pluginPath.slice(assetKey.length)))
                 if (!assetLocation) return new Response(`Plugin asset not found: ${pluginPath}`, { status: 404 })
                 try {
-                  return net.fetch(pathToFileURL(assetLocation).href)
+                  return runtime.protocol.fetch(pathToFileURL(assetLocation).href)
                 } catch {
                   return new Response(`Plugin asset not found: ${pluginPath}`, { status: 404 })
                 }
@@ -563,7 +563,7 @@ Security.runVerification(isProduction).then(async isValid => {
           // Return page content as Response to satisfy protocol.handle()
           try {
             const fetchUrl = DEV_SERVER_URL ? pageLocation : pathToFileURL(pageLocation).href
-            return net.fetch(fetchUrl)
+            return runtime.protocol.fetch(fetchUrl)
           } catch {
             return new Response(`Failed to load page: ${resolvedPath}`, { status: 500 })
           }
@@ -573,7 +573,7 @@ Security.runVerification(isProduction).then(async isValid => {
       await boundRunAppPlugins([active], 'ready')
 
       createMainWindow()
-      app.on('activate', () => createMainWindow())
+      runtime.lifecycle.onActivate(() => createMainWindow())
     }).catch(err => {
       console.error('[commoners:main] Error in app.whenReady chain:', err)
     })
@@ -585,16 +585,13 @@ Security.runVerification(isProduction).then(async isValid => {
   Lifecycle.setupSignalHandlers(Window.setShuttingDown)
   Lifecycle.setupDefaultWindowAllClosedHandler()
 
-  app.on('before-quit', async ev => {
-    ev.preventDefault()
+  runtime.lifecycle.onBeforeQuit(async () => {
     Window.setShuttingDown(true)
     try {
       await boundRunAppPlugins([Lifecycle.getQuitMessage()], 'quit')
       await services.close()
     } catch (err) {
       console.error(err)
-    } finally {
-      app.exit()
     }
   })
 })

@@ -9,7 +9,7 @@
  * - Security settings application
  */
 
-import electron, { app, session, Session } from 'electron'
+import electron, { app } from 'electron'
 import { ElectronSecuritySettings } from '../../../types'
 import { hasSignature, verifySignature, verifyAsarIntegrity } from '../security'
 import { getDefaultSecuritySettings } from './config'
@@ -106,16 +106,16 @@ function buildDefaultCSP(devServerUrl?: string, serviceUrls?: string[], scriptHa
 }
 
 /**
- * Setup Content Security Policy for the session.
+ * Setup Content Security Policy via the runtime session adapter.
  *
- * @param sessionInstance - The Electron session to apply CSP to
+ * @param setupCSP - Runtime session setupCSP function
  * @param cspSetting - User override: string to use custom CSP, false to disable, undefined for default
  * @param devServerUrl - The Vite dev server URL (used to allow HMR connections in dev mode)
  * @param serviceUrls - URLs of resolved services to allow in connect-src
  * @param scriptHash - SHA-256 hash of inline script for production CSP (replaces 'unsafe-inline')
  */
 export function setupContentSecurityPolicy(
-  sessionInstance: Session,
+  setupCSP: (csp: string) => void,
   cspSetting?: string | false,
   devServerUrl?: string,
   serviceUrls?: string[],
@@ -126,14 +126,7 @@ export function setupContentSecurityPolicy(
 
   const csp = typeof cspSetting === 'string' ? cspSetting : buildDefaultCSP(devServerUrl, serviceUrls, scriptHash)
 
-  sessionInstance.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [csp],
-      },
-    })
-  })
+  setupCSP(csp)
 }
 
 /**

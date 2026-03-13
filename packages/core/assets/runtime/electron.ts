@@ -12,6 +12,9 @@ import type {
   RuntimeProtocol,
   RuntimeWindow,
   RuntimeLifecycle,
+  RuntimeShell,
+  RuntimeApp,
+  RuntimeSession,
   ListenerHandle,
   ProtocolSchemeConfig,
   ProtocolRequest,
@@ -113,6 +116,11 @@ class ElectronProtocol implements RuntimeProtocol {
       return handler(req)
     })
   }
+
+  async fetch(url: string): Promise<Response> {
+    const { net } = require('electron')
+    return net.fetch(url)
+  }
 }
 
 class ElectronWindow implements RuntimeWindow {
@@ -135,10 +143,60 @@ class ElectronWindow implements RuntimeWindow {
   }
 }
 
+class ElectronShell implements RuntimeShell {
+  async openExternal(url: string): Promise<void> {
+    const { shell } = require('electron')
+    await shell.openExternal(url)
+  }
+}
+
+class ElectronApp implements RuntimeApp {
+  setName(name: string): void {
+    const { app } = require('electron')
+    app.setName(name)
+  }
+
+  getName(): string {
+    const { app } = require('electron')
+    return app.getName()
+  }
+
+  setAppUserModelId(id: string): void {
+    const { app } = require('electron')
+    app.setAppUserModelId(id)
+  }
+
+  commandLine = {
+    appendSwitch(key: string, value: string): void {
+      const { app } = require('electron')
+      app.commandLine.appendSwitch(key, value)
+    },
+  }
+}
+
+class ElectronSession implements RuntimeSession {
+  setupCSP(csp: string): void {
+    const { session } = require('electron')
+    session.defaultSession.webRequest.onHeadersReceived((details: any, callback: any) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [csp],
+        },
+      })
+    })
+  }
+}
+
 class ElectronLifecycle implements RuntimeLifecycle {
   onReady(callback: () => void | Promise<void>): void {
     const { app } = require('electron')
     app.whenReady().then(callback)
+  }
+
+  onActivate(callback: () => void): void {
+    const { app } = require('electron')
+    app.on('activate', callback)
   }
 
   onBeforeQuit(callback: () => void | Promise<void>): void {
@@ -155,6 +213,11 @@ class ElectronLifecycle implements RuntimeLifecycle {
     app.quit()
   }
 
+  exit(code?: number): void {
+    const { app } = require('electron')
+    app.exit(code)
+  }
+
   getPlatform(): 'windows' | 'mac' | 'linux' {
     return Lifecycle.getPlatform()
   }
@@ -169,6 +232,9 @@ export function createElectronRuntime(): DesktopRuntime {
     protocol: new ElectronProtocol(),
     window: new ElectronWindow(),
     lifecycle: new ElectronLifecycle(),
+    shell: new ElectronShell(),
+    app: new ElectronApp(),
+    session: new ElectronSession(),
     native: electronModule,
   }
 }
