@@ -36,13 +36,13 @@ const args = (() => {
 
 const { __id } = args as PassedDesktopArgs
 
-// Preload initialization must be synchronous — contextBridge.exposeInMainWorld
-// must run before the page loads. Use sendSync for initial data fetching.
-// This is the Electron implementation of the PreloadContract data requirements
-// (see packages/core/assets/runtime/types.ts). Other runtimes (e.g. Tauri)
-// provide this data through their own mechanisms.
-const services = ipcRenderer.sendSync('commoners:services')
-const __location = ipcRenderer.sendSync('commoners:location', __id)
+// Preload data is passed via additionalArguments (process.argv) to avoid
+// synchronous IPC (sendSync). Data is serialized by the main process at
+// window creation time. This is the Electron implementation of the
+// PreloadContract (see packages/core/assets/runtime/types.ts).
+const services = args.__services || {}
+const __serviceStatuses: Record<string, any> = args.__serviceStatuses || {}
+const __location = args.__location || { search: undefined, hash: undefined }
 
 // Update URL search and hash for the current window without reloading
 if (typeof window !== 'undefined') {
@@ -65,13 +65,7 @@ if (typeof window !== 'undefined') {
 
 // Capabilities-driven IPC allowlist — validates channels against declared plugin/service IDs.
 // Falls back to prefix-based check if no allowlist is provided (backward compatible).
-const _allowlistData = (() => {
-  try {
-    const raw = (args as Record<string, any>).__ipcAllowlist
-    if (raw) return JSON.parse(raw) as { serviceIds: string[]; pluginIds: string[] }
-  } catch {}
-  return null
-})()
+const _allowlistData = args.__ipcAllowlist as { serviceIds: string[]; pluginIds: string[] } | null ?? null
 const _allowedServiceIds = _allowlistData ? new Set(_allowlistData.serviceIds) : null
 const _allowedPluginIds = _allowlistData ? new Set(_allowlistData.pluginIds) : null
 
@@ -117,7 +111,7 @@ const TEMP_COMMONERS = {
 for (let id in TEMP_COMMONERS.services) {
   const service = TEMP_COMMONERS.services[id]
 
-  let _status = ipcRenderer.sendSync(`services:${id}:status`)
+  let _status = __serviceStatuses[id] ?? null
   service.status = () => _status
 
   const listeners = {
@@ -144,6 +138,7 @@ for (let id in TEMP_COMMONERS.services) {
   }
 
   service.close = () => ipcRenderer.send(`services:${id}:close`)
+  service.health = () => ipcRenderer.invoke(`services:${id}:health`)
 }
 
 // Expose ipcRenderer

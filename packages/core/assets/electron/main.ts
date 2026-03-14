@@ -231,6 +231,10 @@ Security.runVerification(isProduction, {
     isProduction
   )
 
+  // Module-level state for preload data injection (eliminates sendSync)
+  let __sanitizedServices: Record<string, any> = {}
+  let __serviceStatuses: Record<string, any> = {}
+
   // ------------------------ Window Creation ------------------------
   async function createWindow(
     page?: string,
@@ -255,9 +259,14 @@ Security.runVerification(isProduction, {
     const __id = Window.getNextWindowId()
     const transferredFlags = { __id, __main: isMainWindow }
 
+    const __location = { search: undefined, hash: undefined }
+
     webPreferences.additionalArguments.push(
       ...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`),
-      `--__ipcAllowlist=${serializeAllowlist(ipcAllowlist)}`
+      `--__ipcAllowlist=${serializeAllowlist(ipcAllowlist)}`,
+      `--__services=${JSON.stringify(__sanitizedServices)}`,
+      `--__serviceStatuses=${JSON.stringify(__serviceStatuses)}`,
+      `--__location=${JSON.stringify(__location)}`
     )
 
     const flags = {
@@ -284,7 +293,6 @@ Security.runVerification(isProduction, {
 
     Window.setupWindowBehaviors(win)
 
-    const __location = { search: undefined, hash: undefined }
     Window.registerWindow(__id, win)
     Window.updateWindowLocation(__id, __location)
 
@@ -400,6 +408,17 @@ Security.runVerification(isProduction, {
   // ------------------------ IPC Handlers ------------------------
   IPC.setupConsoleRedirection()
 
+  // Event bus relay: broadcast to all other windows, excluding sender
+  runtime.ipc.on('commoners:bus:emit', (event, topic, data) => {
+    const senderWebContents = event.sender
+    const allWindows = runtime.window.getAll()
+    for (const win of allWindows) {
+      if (win.webContents !== senderWebContents && !win.isDestroyed()) {
+        win.webContents.send('commoners:bus:receive', topic, data)
+      }
+    }
+  })
+
   runtime.ipc.on(Commands.close.channel, (_, _id) => {
     const win = Window.getWindowById(_id)
     if (win && !win.isDestroyed()) win.close()
@@ -494,13 +513,51 @@ Security.runVerification(isProduction, {
 
       const { active = {}, resolved = {}, close: closeService } = output
 
-      runtime.ipc.on(Commands.services.channel, ev => { ev.returnValue = services.sanitize(resolved) })
+      // Populate module-level state so future windows get services via additionalArguments
+      __sanitizedServices = services.sanitize(resolved)
+      __serviceStatuses = Object.fromEntries(
+        Object.keys(resolved).map(id => [id, id in active ? active[id].status : 'remote'])
+      )
 
-      // Track service status
+      // Keep sync handler as fallback for windows created before services resolved
+      runtime.ipc.on(Commands.services.channel, ev => { ev.returnValue = __sanitizedServices })
+
+      // Track service status and health
+      const healthMonitors = new Map<string, any>()
       for (let id in resolved) {
         const isRemote = !(id in active)
         runtime.scopedIPC.serviceOn(id, 'status', ev => { ev.returnValue = isRemote ? 'remote' : active[id].status })
         runtime.scopedIPC.serviceOn(id, 'close', () => isRemote || closeService(id))
+
+        // Health monitoring: start monitor if service has a URL and monitor config
+        const serviceConfig = resolved[id] as any
+        if (serviceConfig.url && serviceConfig.monitor) {
+          import('../services/health').then(({ ServiceHealthMonitor }) => {
+            const monitor = new ServiceHealthMonitor(
+              id,
+              serviceConfig.url,
+              serviceConfig.monitor,
+              hooks,
+              () => {
+                // Auto-restart: close and re-create the service
+                if (active[id]) {
+                  closeService(id)
+                  services.start(resolved[id], id, { ...baseServiceOptions, hooks }).then(result => {
+                    if (result) active[id] = result
+                  })
+                }
+              },
+            )
+            monitor.start()
+            healthMonitors.set(id, monitor)
+          })
+        }
+
+        // Health IPC handler
+        runtime.scopedIPC.scopedHandle('services', id, 'health', async () => {
+          const monitor = healthMonitors.get(id)
+          return monitor ? monitor.getStatus() : 'unknown'
+        })
       }
 
       // Custom protocol handler

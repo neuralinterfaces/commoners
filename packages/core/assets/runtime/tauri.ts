@@ -5,14 +5,17 @@
  *
  * IMPORTANT: Unlike the Electron adapter (which runs in Node.js main process),
  * this adapter runs in the frontend/webview. Tauri's main process is Rust, not
- * JavaScript, so many main-process concepts are either accessed via @tauri-apps/api
- * or are not applicable.
+ * JavaScript, so certain RuntimeXxx methods are no-ops by design:
+ *
+ *   - Protocol: Scheme registration and request handling are Rust-side (tauri.conf.json)
+ *   - Session: CSP is immutable after startup (Rust security boundary)
+ *   - App: commandLine and appUserModelId are Rust-time / OS-specific config
+ *   - Window: onNavigate, onWebContentsEvent, setWindowOpenHandler are Electron-only concepts
  *
  * Dependencies (must be installed by the user):
- *   @tauri-apps/api         — core invoke, event, window APIs
- *   @tauri-apps/plugin-shell  — openExternal
- *   @tauri-apps/plugin-dialog — dialog boxes (optional)
- *   @tauri-apps/plugin-opener — URL opener
+ *   @tauri-apps/api           — core invoke, event, window APIs
+ *   @tauri-apps/plugin-opener — URL opener (optional, falls back to window.open)
+ *   @tauri-apps/plugin-dialog — dialog boxes (optional, falls back to alert)
  */
 
 import type {
@@ -32,7 +35,6 @@ import type {
   ProtocolResponse,
 } from './types.js'
 
-// Helpers for scoped channel naming (matches Electron convention)
 const scopedChannel = (type: string, id: string, channel: string) =>
   `commoners:${type}:${id}:${channel}`
 
@@ -58,14 +60,11 @@ class TauriIPC implements RuntimeIPC {
     return invoke(channel, { args })
   }
 
-  removeListener(_channel: string, _listener: (...args: any[]) => void): void {
-    // Tauri's event system uses unlisten() via the returned promise,
-    // not a removeListener pattern. Use ListenerHandle instead.
-  }
+  /** Tauri uses unlisten() from listen/once return values. Use ListenerHandle.remove() instead. */
+  removeListener(_channel: string, _listener: (...args: any[]) => void): void {}
 
-  removeAllListeners(_channel: string): void {
-    // Not directly supported in Tauri's event system
-  }
+  /** Not directly supported in Tauri's event system. Use ListenerHandle.remove() instead. */
+  removeAllListeners(_channel: string): void {}
 }
 
 class TauriScopedIPC implements RuntimeScopedIPC {
@@ -103,7 +102,6 @@ class TauriScopedIPC implements RuntimeScopedIPC {
     channel: string,
     callback: (...args: any[]) => any
   ): ListenerHandle {
-    // In Tauri, "handle" is implemented as listen + emit response
     return this.scopedOn(type, id, channel, async (...args) => {
       const result = await callback(...args)
       import('@tauri-apps/api/event').then(({ emit }) => {
@@ -139,19 +137,14 @@ class TauriScopedIPC implements RuntimeScopedIPC {
   }
 }
 
+/** N/A: Protocol registration is Rust-side (tauri.conf.json security.csp). */
 class TauriProtocol implements RuntimeProtocol {
-  registerScheme(_config: ProtocolSchemeConfig): void {
-    // Tauri protocol registration is handled in Rust (tauri.conf.json security.csp)
-    // No-op in the frontend adapter
-  }
+  registerScheme(_config: ProtocolSchemeConfig): void {}
 
   handleRequest(
     _scheme: string,
     _handler: (req: ProtocolRequest) => Promise<ProtocolResponse | Response>
-  ): void {
-    // Custom protocol handlers must be defined in Rust (main.rs)
-    // No-op in the frontend adapter
-  }
+  ): void {}
 
   async fetch(url: string): Promise<Response> {
     return globalThis.fetch(url)
@@ -159,27 +152,39 @@ class TauriProtocol implements RuntimeProtocol {
 }
 
 class TauriWindow implements RuntimeWindow {
-  async create(_page?: string, _options?: Record<string, any>): Promise<any> {
+  async create(page?: string, options?: Record<string, any>): Promise<any> {
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
     const label = `window-${Date.now()}`
-    return new WebviewWindow(label, { url: _page, ..._options })
+    return new WebviewWindow(label, { url: page, ...options })
   }
 
-  getById(_id: string | number): any | null {
-    // Would need @tauri-apps/api/webviewWindow.getByLabel()
-    return null
+  getById(id: string | number): any | null {
+    try {
+      // Synchronous import not possible — return null. Use async getByLabel in app code.
+      return null
+    } catch {
+      return null
+    }
   }
 
-  getAll(): any[] {
-    return []
+  async getAll(): Promise<any[]> {
+    try {
+      const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow')
+      return getAllWebviewWindows()
+    } catch {
+      return []
+    }
   }
 
   restore(): any | null {
     return null
   }
 
-  close(_id: string | number): void {
-    // Would need window reference
+  close(id: string | number): void {
+    import('@tauri-apps/api/webviewWindow').then(({ WebviewWindow }) => {
+      const win = WebviewWindow.getByLabel(String(id))
+      win?.close()
+    }).catch(() => {})
   }
 
   show(win: any): void {
@@ -190,32 +195,33 @@ class TauriWindow implements RuntimeWindow {
     return false
   }
 
-  async loadURL(_win: any, _url: string): Promise<void> {
-    // Tauri uses its own navigation mechanism
+  async loadURL(win: any, url: string): Promise<void> {
+    // Tauri WebviewWindow doesn't have a direct loadURL equivalent from JS.
+    // Navigation is typically done via Tauri's internal routing.
+    if (win?.navigate) await win.navigate(url)
   }
 
-  onClose(_win: any, _callback: () => void): void {
-    // Use Tauri event system
+  onClose(win: any, callback: () => void): void {
+    if (win?.onCloseRequested) {
+      win.onCloseRequested(() => { callback() })
+    }
   }
 
   onReadyToShow(_win: any, callback: () => void): void {
     callback()
   }
 
-  onNavigate(_win: any, _handler: (event: any, url: string) => void): void {
-    // Not applicable in Tauri frontend
-  }
+  /** N/A: Tauri navigation is handled internally. */
+  onNavigate(_win: any, _handler: (event: any, url: string) => void): void {}
 
-  onWebContentsEvent(_win: any, _event: string, _handler: (...args: any[]) => void): void {
-    // Not applicable in Tauri frontend
-  }
+  /** N/A: Tauri doesn't expose webContents events to the frontend. */
+  onWebContentsEvent(_win: any, _event: string, _handler: (...args: any[]) => void): void {}
 
-  setWindowOpenHandler(_win: any, _handler: (details: { url: string }) => { action: string }): void {
-    // Not applicable in Tauri frontend
-  }
+  /** N/A: Window open handling is Tauri-internal. */
+  setWindowOpenHandler(_win: any, _handler: (details: { url: string }) => { action: string }): void {}
 
-  sendToRenderer(_win: any, _channel: string, ..._args: any[]): void {
-    // Use Tauri event system for renderer communication
+  sendToRenderer(_win: any, channel: string, ...args: any[]): void {
+    import('@tauri-apps/api/event').then(({ emit }) => emit(channel, args))
   }
 }
 
@@ -225,7 +231,6 @@ class TauriShell implements RuntimeShell {
       const { openUrl } = await import('@tauri-apps/plugin-opener')
       await openUrl(url)
     } catch {
-      // Fallback to window.open
       globalThis.window?.open(url, '_blank')
     }
   }
@@ -242,34 +247,33 @@ class TauriApp implements RuntimeApp {
     return this._name
   }
 
-  setAppUserModelId(_id: string): void {
-    // Windows-specific, not applicable in Tauri frontend
-  }
+  /** N/A: Windows-specific, not applicable in Tauri frontend. */
+  setAppUserModelId(_id: string): void {}
 
   commandLine = {
-    appendSwitch(_key: string, _value: string): void {
-      // Not applicable in Tauri frontend — command line args are set in Rust
-    },
+    /** N/A: Command-line args are set in Rust (tauri.conf.json). */
+    appendSwitch(_key: string, _value: string): void {},
   }
 }
 
+/** N/A: CSP is configured in tauri.conf.json and immutable at runtime. */
 class TauriSession implements RuntimeSession {
-  setupCSP(_csp: string): void {
-    // CSP is configured in tauri.conf.json → app.security.csp
-    // No runtime modification from frontend
-  }
+  setupCSP(_csp: string): void {}
 }
 
 class TauriDialog implements RuntimeDialog {
-  showErrorBox(title: string, content: string): void {
-    // Use web alert as fallback; @tauri-apps/plugin-dialog could be used if installed
-    globalThis.alert?.(`${title}\n\n${content}`)
+  async showErrorBox(title: string, content: string): Promise<void> {
+    try {
+      const { message } = await import('@tauri-apps/plugin-dialog')
+      await message(`${title}\n\n${content}`, { kind: 'error', title })
+    } catch {
+      globalThis.alert?.(`${title}\n\n${content}`)
+    }
   }
 }
 
 class TauriLifecycle implements RuntimeLifecycle {
   onReady(callback: () => void | Promise<void>): void {
-    // In Tauri frontend, the app is ready when the webview loads
     if (globalThis.document?.readyState === 'complete') {
       callback()
     } else {
@@ -277,12 +281,11 @@ class TauriLifecycle implements RuntimeLifecycle {
     }
   }
 
-  onActivate(_callback: () => void): void {
-    // macOS activate event — not directly available in Tauri frontend
-  }
+  /** N/A: macOS activate event is not available in Tauri's frontend webview. */
+  onActivate(_callback: () => void): void {}
 
-  onBeforeQuit(_callback: () => void | Promise<void>): void {
-    globalThis.window?.addEventListener('beforeunload', () => _callback())
+  onBeforeQuit(callback: () => void | Promise<void>): void {
+    globalThis.window?.addEventListener('beforeunload', () => callback())
   }
 
   quit(): void {
