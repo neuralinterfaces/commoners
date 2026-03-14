@@ -420,8 +420,9 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     config: any
   ): Promise<void> {
 
+    const forceIntegrity = process.env.COMMONERS_FORCE_ASAR_INTEGRITY === 'true'
     const willSign = this.willSign(config)
-    if (!willSign) {
+    if (!willSign && !forceIntegrity) {
       logger.debug('ASAR integrity disabled since the application will not be signed')
       return
     }
@@ -444,7 +445,9 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     const {
       makeAfterPackEmbedAsarIntegrity,
       afterPackFlipFuses,
+      afterSignVerifyAsarIntegrity,
       chainAfterPack,
+      chainAfterSign,
     } = await import('../../utils/asar/security.js')
 
     // Create the integrity embedding hook
@@ -458,11 +461,19 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       afterPackFlipFuses
     ) as any
 
-    logger.debug('ASAR integrity hooks configured')
+    // Chain afterSign hook: verify ASAR hash survived code signing on macOS
+    const existingAfterSign = buildConfig.afterSign as any
+    buildConfig.afterSign = chainAfterSign(
+      existingAfterSign,
+      afterSignVerifyAsarIntegrity
+    ) as any
+
+    logger.debug('ASAR integrity hooks configured (afterPack + afterSign)')
   }
 
   /**
    * Generate a SHA256 hash manifest of executable service binaries.
+   * Uses the declarative serviceManifest from resolved config.
    * Written to the build output so it's packaged into the ASAR,
    * enabling runtime integrity verification before spawning services.
    */
@@ -471,26 +482,20 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     outDir: string
   ): Promise<void> {
     const { existsSync, readFileSync, writeFileSync } = await import('node:fs')
-    const { extname } = await import('node:path')
     const { sha256 } = await import('../../utils/asar/hash.js')
-    const { getServices } = await import('../../utils/extensions.js')
 
-    const services = getServices(context.config.extensions)
+    const { serviceManifest } = context.config
     const hashes: Record<string, string> = {}
 
-    for (const [id, service] of Object.entries(services)) {
-      const { filepath } = service
-      if (!filepath) continue
+    for (const [id, entry] of Object.entries(serviceManifest)) {
+      if (!entry.executable || !entry.filepath) continue
+      if (!existsSync(entry.filepath)) continue
 
-      const ext = extname(filepath)
-      const isExecutable = ext === '.exe' || ext === '' || !ext
-      if (!isExecutable) continue
-
-      if (!existsSync(filepath)) continue
-
-      const buf = readFileSync(filepath)
-      hashes[id] = sha256(buf)
-      logger.debug(`Service hash: ${id} -> ${hashes[id].slice(0, 12)}...`)
+      const buf = readFileSync(entry.filepath)
+      const hash = sha256(buf)
+      hashes[id] = hash
+      entry.hash = hash
+      logger.debug(`Service hash: ${id} -> ${hash.slice(0, 12)}...`)
     }
 
     if (Object.keys(hashes).length > 0) {

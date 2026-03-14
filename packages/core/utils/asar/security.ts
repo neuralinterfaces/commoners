@@ -599,6 +599,56 @@ export async function afterPackFlipFuses(context: any) {
   }
 }
 
+/**
+ * Verify ASAR integrity hash survived code signing on macOS.
+ * If the hash in Info.plist was invalidated by codesign, re-embed it.
+ * This runs as an afterSign hook (after electron-builder's signing phase).
+ */
+export async function afterSignVerifyAsarIntegrity(context: any) {
+  if (!isMac()) return // Only relevant on macOS
+
+  try {
+    const { appOutDir, packager } = context
+    const product = packager?.appInfo?.productFilename || packager?.appInfo?.productName
+    if (!product) return
+
+    const appPath = join(appOutDir, `${product}.app`)
+    const asarPath = join(appPath, 'Contents', 'Resources', 'app.asar')
+    const plistPath = getInfoPlistPath(appPath)
+
+    if (!existsSync(asarPath) || !existsSync(plistPath)) return
+
+    // Compute current ASAR header hash
+    const headerBytes = readJsonHeaderBytes(asarPath)
+    if (!headerBytes) {
+      warn('Could not read ASAR header after signing')
+      return
+    }
+    const currentHash = sha256(headerBytes)
+
+    // Read embedded hash from Info.plist
+    const { readPlistIntegrity } = await import('./macos-plist.js')
+    const embeddedHash = readPlistIntegrity(plistPath)
+
+    if (!embeddedHash) {
+      warn('No ASAR integrity hash found in Info.plist after signing — re-embedding')
+      writePlistIntegrity(plistPath, currentHash)
+      log('Re-embedded ASAR integrity hash after signing')
+      return
+    }
+
+    if (currentHash !== embeddedHash) {
+      warn(`ASAR hash mismatch after code signing (expected ${embeddedHash.slice(0, 12)}..., got ${currentHash.slice(0, 12)}...)`)
+      writePlistIntegrity(plistPath, currentHash)
+      log('Re-embedded corrected ASAR integrity hash after signing')
+    } else {
+      log('ASAR integrity hash verified after code signing')
+    }
+  } catch (e: any) {
+    warn('After-sign ASAR verification failed:', e?.message || e)
+  }
+}
+
 // Export hook chainers from hooks.ts
 export {
   chainAfterPack,
