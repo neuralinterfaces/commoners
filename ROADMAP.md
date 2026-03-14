@@ -1,112 +1,146 @@
 # Commoners Roadmap
 
-## Dependency History
+## Path to 1.0.0
 
-### Electron Beta Pin (resolved)
-Electron was pinned to `39.0.0-beta.1` (from `^38.1.0`) in commit `f16ee5d` to work around a bug in the stable Electron 38 release that affected service environment handling. This has been resolved by upgrading to stable Electron `^40.8.0`. If similar issues resurface, pin to a specific stable version rather than a beta.
+Four items gate a confident 1.0.0 release. Everything else is post-1.0.
 
-### electron-builder Pin (resolved)
-`electron-builder` was pinned to `24.13.3` due to breaking changes in the 25.x series around code signing and ASAR handling. Upgraded to `^26.8.1` — the signing and ASAR APIs have stabilized.
+### 1. CI Test Coverage (blocking)
 
-## Deferred Items
+Only ~3 test files run in CI. Wire the full unit test suite into `ci.yml`:
 
-Items deferred from recent work, tracked in detailed implementation plans under [`docs/roadmap/`](./docs/roadmap/features.md).
+- `security.test.ts` (77 tests), `asar.test.ts`, `protocol.test.ts`, `port-retry.test.ts`, `port-pid.test.ts`
+- `api.test.ts` (55 tests), `tauri.test.ts` (104 tests), `config-stripping.test.ts`
+- `formatting.test.ts`, `hooks.test.ts`, `errors.test.ts`, `plugin-lifecycle.test.ts`
 
-| Deferred Item | Origin | Tracked In |
-|--------------|--------|-----------|
-| Plugin protocol sub-route registration | Custom Protocol | [Tauri Desktop Backend](./docs/roadmap/tauri-desktop-backend.md) |
-| Full E2E protocol tests (build+launch Electron) | Custom Protocol | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
-| E2E WASM compilation test (requires Rust toolchain) | WASM Service Compilation | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
-| C++ WASM via Emscripten | WASM Service Compilation | [Device Communication Abstraction](./docs/roadmap/device-communication-abstraction.md) |
-| Mobile build output tests (5 areas) | Mobile Workflow Validation | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
-| Security threat model and controls | — | [Security Whitepaper](./docs/roadmap/security-whitepaper.md) |
-| SEA cross-compilation (universal binaries) | Tauri SEA Integration | [Tauri Future Work](./docs/roadmap/tauri-future-work.md) |
-| Tauri dev mode testing | Tauri Testing | [Tauri Future Work](./docs/roadmap/tauri-future-work.md) |
+**Effort:** Config only — add a `test:fast-unit` script and a CI step. No new tests needed.
 
-## Upcoming
+### 2. Windows ASAR Hardening (blocking)
 
-### Vite 8 / Rolldown Preparation — Architecture
-- Vite 8 will ship with Rolldown as the default bundler, replacing Rollup and esbuild for both dev and production
-- Audit all Rollup-specific plugin hooks and options used in `packages/core/vite/` for Rolldown compatibility
-- Review esbuild usage in `packages/core/` — direct esbuild calls for service bundling may remain unaffected, but Vite's internal esbuild usage will change
-- Minimize reliance on Rollup-only plugin APIs; prefer Vite's abstraction layer
-- Track the [Vite 8 RFC / release notes](https://github.com/vitejs/vite) for migration guidance
-- Goal: stay stable on Vite 7 now, but keep the build system lithe enough for a smooth Vite 8 migration
+macOS ASAR integrity is done (`afterSignVerifyAsarIntegrity()`). Windows needs:
+
+- PowerShell verification script (parse 12-byte prelude, compute SHA256, compare via `rcedit`)
+- CI step in `desktop-build.yml` for Windows verification
+- Existing infrastructure in `packages/core/utils/asar/`; see [`docs/roadmap/asar-hardening.md`](./docs/roadmap/asar-hardening.md)
+
+**Effort:** Half day.
+
+### 3. Desktop Test Stability (blocking)
+
+Desktop start tests are flaky when run in the full suite (page closes mid-test due to port conflicts). Fix isolation so `pnpm test` passes reliably end-to-end.
+
+**Effort:** Half day. Root cause is port 2345 contention between test files.
+
+### 4. Documentation (blocking)
+
+VitePress docs need to cover the new APIs added during architecture work:
+
+- `commoners.bus` (event bus), `commoners.api` (async API), `commoners.query()` (extension querying)
+- Service health monitoring, plugin capabilities, plugin hot reload
+- Typed IPC commands, capabilities-driven allowlist
+
+**Effort:** 1-2 days.
+
+---
+
+## Post-1.0 (1.x)
+
+### Vite 8 / Rolldown Migration
+
+Audit complete — 10 hooks, 6 config options, 2 standalone esbuild calls. One critical item: `inlineDynamicImports` for Electron preload may not have a Rolldown equivalent. Execute the migration checklist in [`docs/roadmap/vite-evolution.md`](./docs/roadmap/vite-evolution.md) when Vite 8 ships.
+
+### Build Adapter Interface
+
+Pluggable frontend bundler (`BuildAdapter`) + service compiler (`ServiceBundler`). Phase 1 pairs naturally with Vite 8 migration. See [`docs/roadmap/build-adapter-interface.md`](./docs/roadmap/build-adapter-interface.md).
+
+### Platform Abstractions
+
+Cross-platform Storage, Notification, Context, and File System adapters. Designed but not planned for implementation. See [`docs/roadmap/platform-abstractions.md`](./docs/roadmap/platform-abstractions.md).
+
+### Tauri Remaining Work
+
+- SEA cross-compilation (universal binaries)
+- Tauri dev mode E2E testing (unit tests done, 104 tests; need real `tauri dev` integration test)
+- See [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md)
+
+### Testing Expansion
+
+- Native emulator testing (Android/iOS)
+- Automated mobile distribution (App Store / Play Store CI/CD)
+- Full E2E protocol tests (build+launch Electron)
+- E2E WASM compilation test (requires Rust toolchain)
+- See [`docs/roadmap/testing-and-distribution.md`](./docs/roadmap/testing-and-distribution.md)
+
+### Security Plugins
+
+- `@commoners/integrity` — runtime verification for ASAR + service binaries + WASM
+- `@commoners/secure-services` — per-session auth tokens for service communication
+- `@commoners/audit` — SBOM generation, multi-language dependency auditing
+- See [`docs/roadmap/security-whitepaper.md`](./docs/roadmap/security-whitepaper.md)
+
+### Device Communication Abstraction
+
+`commoners.bluetooth` / `commoners.serial` API with per-runtime adapters. Deferred — large scope (4-6 weeks), waiting on Tauri mobile plugin ecosystem maturity. See [`docs/roadmap/device-communication-abstraction.md`](./docs/roadmap/device-communication-abstraction.md).
+
+### Tauri Mobile Backend
+
+When Tauri's mobile plugin ecosystem matures (BLE plugin at 1.0+, multi-maintainer), offer Tauri mobile as an alternative to Capacitor. See [`docs/roadmap/tauri-integration-reference.md`](./docs/roadmap/tauri-integration-reference.md).
+
+---
 
 <details>
-<summary><strong>Completed Items</strong> (29 items)</summary>
+<summary><strong>Completed</strong> (29 items + Batch B + Batch D)</summary>
 
-| Item | Category | Scope |
-|------|----------|-------|
-| Fix `import.meta.url` on Windows | Desktop | Low |
-| Scope Device Modal Styles | Plugins | Low |
-| Split Tests into Individually Runnable Units | Testing | Low |
-| Expand `.env` / Service Ignoring Tests | Testing | Low |
-| Rust `CargoService` Helper | Services | Low |
-| Starter Kit Overhaul | Release | Low |
-| Homepage & Why Page Messaging | Documentation | Low |
-| `commoners share` CLI Command | CLI | Low |
-| E2E Electron Auto-Close | Testing | Low-Medium |
-| Fix GHA Build Tests | Testing | Low-Medium |
-| Headless Mobile Testing | Testing | Low-Medium |
-| Validate Mobile Workflows | Mobile | Low-Medium |
-| Fix Pre-existing Test Failures | Testing | Low-Medium |
-| Extensions Unification | Architecture | Medium |
-| Electron IPC Async Migration | Desktop | Medium |
-| Custom Protocol | Architecture | Medium |
-| Platform Enhancement | Design | Medium |
-| WASM Service Compilation | Architecture | Medium |
-| Walkthroughs | Documentation | Medium |
-| Plugin Hot Reload (dev mode) | Architecture | Medium |
-| Service Health Monitoring | Architecture | Medium |
-| Window Event Bus | Architecture | Medium |
-| Unified Async Runtime API | Architecture | Medium |
-| Declarative Service Bundling | Architecture | Low |
-| Preload sendSync Elimination | Desktop | Medium |
-| Tauri Runtime Parity | Desktop | Medium |
-| macOS ASAR Post-Sign Verification | Architecture | Medium |
-| Tauri Sidecar Lifecycle | Desktop | Medium |
-| Vite Evolution Audit | Architecture | Low |
+### Batch B — Tauri Desktop Backend (done)
+
+`DesktopRuntime` abstraction, `createElectronRuntime()` + `createTauriRuntime()` adapters, `sendSync` elimination, sidecar lifecycle with generated `main.rs`. 104 Tauri tests.
+
+### Batch D — Architecture Improvements (8/8 done)
+
+Typed command registry, capabilities-driven IPC allowlist, plugin capability declarations, plugin hot reload, service health monitoring, window event bus, unified async API, declarative service bundling.
+
+### Other Completed Items
+
+| Item | Category |
+|------|----------|
+| Fix `import.meta.url` on Windows | Desktop |
+| Scope Device Modal Styles | Plugins |
+| Split Tests into Individually Runnable Units | Testing |
+| Expand `.env` / Service Ignoring Tests | Testing |
+| Rust `CargoService` Helper | Services |
+| Starter Kit Overhaul | Release |
+| Homepage & Why Page Messaging | Documentation |
+| `commoners share` CLI Command | CLI |
+| E2E Electron Auto-Close | Testing |
+| Fix GHA Build Tests | Testing |
+| Headless Mobile Testing | Testing |
+| Validate Mobile Workflows | Mobile |
+| Fix Pre-existing Test Failures | Testing |
+| Extensions Unification | Architecture |
+| Electron IPC Async Migration | Desktop |
+| Custom Protocol | Architecture |
+| Platform Enhancement | Design |
+| WASM Service Compilation | Architecture |
+| Walkthroughs | Documentation |
+| macOS ASAR Post-Sign Verification | Architecture |
+| Vite Evolution Audit | Architecture |
+| Security Whitepaper (P0/P1 items) | Security |
 
 </details>
 
-## Medium–High Lift
+<details>
+<summary><strong>Dependency History</strong> (resolved)</summary>
 
-### ASAR Utilities — Architecture
-- ~~Fix ASAR on Mac after code signing~~ — `afterSignVerifyAsarIntegrity()` re-embeds hash if signing modifies the ASAR
-- Complete ASAR utilities for Windows compatibility
-  - Use native tools (e.g. PowerShell scripts) where necessary, spawned from cross-platform manager scripts
-- Fix sandbox behavior on Windows
-- Note: extensive infrastructure already exists in `packages/core/utils/asar/`; Windows work is next priority
+**Electron Beta Pin:** Pinned to `39.0.0-beta.1` to work around Electron 38 service environment bug. Resolved by upgrading to stable `^40.8.0`.
 
-### Native Emulator Testing — Testing
-- Android: [`ReactiveCircus/android-emulator-runner`](https://github.com/ReactiveCircus/android-emulator-runner) + Appium/WebDriverIO
-- iOS: `macos-latest` runner + iOS Simulator + XCUITest or Appium
-- [`@onslip/automation`](https://github.com/niclas-niclas/niclas-niclas) for WebView testing in native containers
-- Create `tests/mobile-native.test.ts` with emulator-based E2E tests
-- Cost: ~$0.08/min macOS, 5-15 min/run — use `workflow_dispatch` trigger
-- Covers: native Capacitor plugins, native UI, app lifecycle, actual device behavior
+**electron-builder Pin:** Pinned to `24.13.3` due to 25.x signing/ASAR breaking changes. Resolved by upgrading to `^26.8.1`.
 
-### Automated Mobile Distribution — Mobile
-- Complete automated mobile distribution pipeline
-- Automated mobile build system for [iOS](https://github.com/dulvui/godot-ios-upload) and [Android](https://github.com/dulvui/godot-android-export0) on GitHub Actions
+</details>
 
-## High Lift
+---
 
-### Tauri Investigation — Desktop (Phases 1–3 done, sidecar lifecycle complete)
-- `DesktopRuntime` interface abstracts Electron's 6 modules (config, security, ipc, window, protocol, lifecycle). `createElectronRuntime()` adapter complete. Tauri backend functional with build/launch/dev/mobile strategies + 75 unit tests.
-- Preload `sendSync` elimination complete — all 3 synchronous IPC calls replaced with `additionalArguments` injection.
-- `createTauriRuntime()` adapter at full parity — enhanced `TauriWindow`, `TauriDialog` with real Tauri v2 APIs; remaining stubs are N/A by design (Tauri's main process is Rust).
-- Sidecar lifecycle complete — generated `main.rs` spawns sidecars with free port allocation, monitors stdout/stderr/termination, exposes `commoners_get_services` and `commoners_service_close` Tauri commands.
-- **Remaining:** SEA cross-compilation, Tauri dev mode testing (see [Tauri Future Work](./docs/roadmap/tauri-future-work.md)).
+## Reference Documents
 
-### Tauri-Inspired Deep Integration — Architecture
-
-All 8 items complete (typed commands, IPC allowlist, plugin capabilities, hot reload, health monitoring, event bus, async API, declarative service bundling). See [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements).
-
-### Build Adapter Interface — Architecture
-- Abstract the bundler layer so frontend builds and service compilation are pluggable
-- `BuildAdapter` interface for frontend (Vite, Webpack, Rollup, etc.)
-- `ServiceBundler` interface for backend (per-extension, declared by extensions themselves)
-- Phase 1 (extract interface) is a natural refactoring opportunity during Vite 8 migration
-- See [`docs/roadmap/build-adapter-interface.md`](./docs/roadmap/build-adapter-interface.md)
+- [`docs/roadmap/features.md`](./docs/roadmap/features.md) — Detailed implementation plans by batch
+- [`docs/roadmap/windows-verification.md`](./docs/roadmap/windows-verification.md) — Windows build/signing checklist
+- [`docs/roadmap/sandbox-investigation.md`](./docs/roadmap/sandbox-investigation.md) — `app.enableSandbox()` Windows freeze workaround
+- [`docs/roadmap/tauri-integration-reference.md`](./docs/roadmap/tauri-integration-reference.md) — Tauri ecosystem comparison
