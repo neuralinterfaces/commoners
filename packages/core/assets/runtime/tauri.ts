@@ -320,3 +320,29 @@ export function createTauriRuntime(): DesktopRuntime {
     dialog: new TauriDialog(),
   }
 }
+
+/**
+ * Fetch runtime service URLs from Tauri's sidecar manager.
+ * Called during frontend initialization to populate commoners.SERVICES
+ * with the actual ports assigned by the Rust main process.
+ */
+export async function fetchTauriServices(): Promise<Record<string, { url: string; status: boolean }>> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    return await invoke('commoners_get_services')
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Close a sidecar service by ID via Tauri command.
+ */
+export async function closeTauriService(id: string): Promise<boolean> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    return await invoke('commoners_service_close', { id })
+  } catch {
+    return false
+  }
+}

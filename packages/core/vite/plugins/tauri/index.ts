@@ -16,6 +16,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolveServerUrl } from '../electron/server.js'
 import type { HooksInterface, ResolvedConfig } from '../../../types.js'
 import { isTauriMobile } from '../../../globals.js'
+import { generateMainRs } from '../../../flows/strategies/tauri-templates.js'
 
 type Plugin = import('vite').Plugin
 
@@ -81,20 +82,8 @@ tauri-build = { version = "2", features = [] }
 `
           )
 
-          // src/main.rs
-          writeFileSync(
-            join(srcDir, 'main.rs'),
-            `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
-fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
-`
-          )
+          // src/main.rs (no sidecars in dev — services are managed by Node.js)
+          writeFileSync(join(srcDir, 'main.rs'), generateMainRs())
 
           // build.rs
           writeFileSync(

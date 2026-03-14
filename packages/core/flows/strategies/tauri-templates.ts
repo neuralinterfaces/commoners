@@ -24,13 +24,149 @@ tauri-build = { version = "2", features = [] }
 `
 }
 
-export function generateMainRs(): string {
-  return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+export type SidecarEntry = { id: string; bin: string; port?: number }
+
+export function generateMainRs(services: SidecarEntry[] = []): string {
+  if (services.length === 0) {
+    // No services — simple main.rs
+    return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+`
+  }
+
+  // Generate service spawn entries as Rust array literal
+  const serviceArray = services
+    .map(s => `("${s.id}", "${s.bin}")`)
+    .join(', ')
+
+  return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use std::collections::HashMap;
+use std::sync::Mutex;
+use tauri::Manager;
+use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandEvent;
+
+struct ServiceState {
+    children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>,
+    urls: Mutex<HashMap<String, String>>,
+}
+
+fn get_free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+}
+
+#[tauri::command]
+fn commoners_get_services(state: tauri::State<ServiceState>) -> HashMap<String, serde_json::Value> {
+    let urls = state.urls.lock().unwrap();
+    let children = state.children.lock().unwrap();
+    let mut result = HashMap::new();
+    for (id, url) in urls.iter() {
+        let running = children.contains_key(id);
+        let mut entry = serde_json::Map::new();
+        entry.insert("url".into(), serde_json::Value::String(url.clone()));
+        entry.insert("status".into(), serde_json::Value::Bool(running));
+        result.insert(id.clone(), serde_json::Value::Object(entry));
+    }
+    result
+}
+
+#[tauri::command]
+fn commoners_service_close(id: String, state: tauri::State<ServiceState>) -> bool {
+    let mut children = state.children.lock().unwrap();
+    if let Some(child) = children.remove(&id) {
+        let _ = child.kill();
+        true
+    } else {
+        false
+    }
+}
+
+fn main() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
+        .manage(ServiceState {
+            children: Mutex::new(HashMap::new()),
+            urls: Mutex::new(HashMap::new()),
+        })
+        .invoke_handler(tauri::generate_handler![
+            commoners_get_services,
+            commoners_service_close,
+        ])
+        .setup(|app| {
+            let services: Vec<(&str, &str)> = vec![${serviceArray}];
+
+            for (id, bin_name) in services {
+                let port = get_free_port();
+                let url = format!("http://localhost:{}", port);
+
+                // Store URL immediately so frontend can query it
+                app.state::<ServiceState>()
+                    .urls.lock().unwrap()
+                    .insert(id.to_string(), url);
+
+                // Spawn sidecar with PORT env var
+                let sidecar = app.shell()
+                    .sidecar(bin_name)
+                    .expect(&format!("failed to create sidecar for {}", id))
+                    .env("PORT", port.to_string());
+
+                let (mut rx, child) = sidecar
+                    .spawn()
+                    .expect(&format!("failed to spawn sidecar {}", id));
+
+                app.state::<ServiceState>()
+                    .children.lock().unwrap()
+                    .insert(id.to_string(), child);
+
+                // Monitor stdout/stderr and lifecycle events
+                let handle = app.handle().clone();
+                let id_owned = id.to_string();
+                tauri::async_runtime::spawn(async move {
+                    while let Some(event) = rx.recv().await {
+                        match event {
+                            CommandEvent::Stdout(line) => {
+                                let _ = handle.emit(
+                                    &format!("commoners:services:{}:log", id_owned),
+                                    String::from_utf8_lossy(&line).to_string(),
+                                );
+                            }
+                            CommandEvent::Stderr(line) => {
+                                let _ = handle.emit(
+                                    &format!("commoners:services:{}:log", id_owned),
+                                    String::from_utf8_lossy(&line).to_string(),
+                                );
+                            }
+                            CommandEvent::Terminated(payload) => {
+                                let _ = handle.emit(
+                                    &format!("commoners:services:{}:closed", id_owned),
+                                    payload.code,
+                                );
+                                handle.state::<ServiceState>()
+                                    .children.lock().unwrap()
+                                    .remove(&id_owned);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                });
+            }
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -109,7 +245,7 @@ export function generateCapabilities(serviceIds: string[]): Record<string, any> 
   const permissions = ['core:default', 'opener:default']
 
   if (serviceIds.length > 0) {
-    permissions.push('shell:allow-spawn')
+    permissions.push('shell:allow-spawn', 'shell:allow-kill')
   }
 
   return {

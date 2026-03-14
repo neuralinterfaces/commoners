@@ -312,14 +312,16 @@ describe('Generated capabilities/default.json', () => {
     expect(caps.permissions).toContain('opener:default')
   })
 
-  test('includes shell:allow-spawn when services exist', () => {
+  test('includes shell:allow-spawn and shell:allow-kill when services exist', () => {
     const caps = generateCapabilities(['http', 'express'])
     expect(caps.permissions).toContain('shell:allow-spawn')
+    expect(caps.permissions).toContain('shell:allow-kill')
   })
 
-  test('omits shell:allow-spawn when no services', () => {
+  test('omits shell permissions when no services', () => {
     const caps = generateCapabilities([])
     expect(caps.permissions).not.toContain('shell:allow-spawn')
+    expect(caps.permissions).not.toContain('shell:allow-kill')
   })
 
   test('targets main window', () => {
@@ -386,6 +388,64 @@ describe('main.rs template', () => {
 
   test('calls generate_context!()', () => {
     expect(rs).toContain('tauri::generate_context!()')
+  })
+
+  test('no sidecar code without services', () => {
+    expect(rs).not.toContain('ServiceState')
+    expect(rs).not.toContain('commoners_get_services')
+    expect(rs).not.toContain('sidecar')
+  })
+})
+
+describe('main.rs template with sidecars', () => {
+  const services = [
+    { id: 'http', bin: 'binaries/http' },
+    { id: 'python-api', bin: 'binaries/python-api' },
+  ]
+  const rs = generateMainRs(services)
+
+  test('has ServiceState struct', () => {
+    expect(rs).toContain('struct ServiceState')
+    expect(rs).toContain('children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>')
+    expect(rs).toContain('urls: Mutex<HashMap<String, String>>')
+  })
+
+  test('has commoners_get_services command', () => {
+    expect(rs).toContain('#[tauri::command]')
+    expect(rs).toContain('fn commoners_get_services')
+    expect(rs).toContain('commoners_get_services')
+  })
+
+  test('has commoners_service_close command', () => {
+    expect(rs).toContain('fn commoners_service_close')
+    expect(rs).toContain('commoners_service_close')
+  })
+
+  test('spawns sidecar for each service', () => {
+    expect(rs).toContain('("http", "binaries/http")')
+    expect(rs).toContain('("python-api", "binaries/python-api")')
+    expect(rs).toContain('.sidecar(bin_name)')
+  })
+
+  test('assigns free port via TcpListener', () => {
+    expect(rs).toContain('fn get_free_port()')
+    expect(rs).toContain('TcpListener::bind("127.0.0.1:0")')
+    expect(rs).toContain('.env("PORT", port.to_string())')
+  })
+
+  test('monitors stdout/stderr/terminated events', () => {
+    expect(rs).toContain('CommandEvent::Stdout')
+    expect(rs).toContain('CommandEvent::Stderr')
+    expect(rs).toContain('CommandEvent::Terminated')
+  })
+
+  test('emits lifecycle events to frontend', () => {
+    expect(rs).toContain('commoners:services:{}:log')
+    expect(rs).toContain('commoners:services:{}:closed')
+  })
+
+  test('registers invoke handler with commands', () => {
+    expect(rs).toContain('tauri::generate_handler![')
   })
 })
 

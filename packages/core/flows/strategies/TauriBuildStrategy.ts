@@ -18,6 +18,7 @@ import {
   generateMainRs,
   generateTauriConf,
   generateCapabilities,
+  type SidecarEntry,
 } from './tauri-templates.js'
 
 const logger = createLogger('TauriBuildStrategy')
@@ -128,8 +129,8 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     // Generate Cargo.toml
     writeFileSync(join(srcTauriDir, 'Cargo.toml'), generateCargoToml(sanitizedName))
 
-    // Generate src/main.rs
-    writeFileSync(join(srcDir, 'main.rs'), generateMainRs())
+    // Generate src/main.rs (with sidecar lifecycle if services exist)
+    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries))
 
     // Generate build.rs
     writeFileSync(join(srcTauriDir, 'build.rs'), 'fn main() {\n  tauri_build::build()\n}\n')
@@ -138,6 +139,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const { serviceManifest } = config
     const externalBins: string[] = []
     const serviceIds: string[] = []
+    const sidecarEntries: SidecarEntry[] = []
 
     const jsExts = ['.js', '.cjs', '.mjs']
 
@@ -180,6 +182,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
 
       externalBins.push(`binaries/${id}`)
       serviceIds.push(id)
+      sidecarEntries.push({ id, bin: `binaries/${id}` })
     }
 
     // Prepare icon: Tauri requires RGBA PNGs, so convert if needed
