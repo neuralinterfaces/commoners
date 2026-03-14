@@ -9,6 +9,10 @@ import {
   generateCapabilities,
   generateCargoToml,
   generateMainRs,
+  generateDevCargoToml,
+  generateDevTauriConf,
+  generateBuildRs,
+  generateLibRs,
 } from '../packages/core/flows/strategies/tauri-templates'
 
 // ────────────────────────────────────────────────────────
@@ -502,5 +506,178 @@ describe('SEA support for Tauri JS services', () => {
     const { estimateSEASize } = await import('../packages/core/utils/sea')
     const estimated = estimateSEASize(1024)
     expect(estimated).toBeGreaterThan(1024)
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// 10. Dev Mode Templates
+// ────────────────────────────────────────────────────────
+
+describe('Dev mode Cargo.toml', () => {
+  const toml = generateDevCargoToml('my-app')
+
+  test('contains package name', () => {
+    expect(toml).toContain('name = "my-app"')
+  })
+
+  test('has devtools feature enabled', () => {
+    expect(toml).toContain('features = ["devtools"]')
+  })
+
+  test('depends on tauri v2', () => {
+    expect(toml).toContain('tauri = { version = "2"')
+  })
+
+  test('depends on tauri-plugin-shell', () => {
+    expect(toml).toContain('tauri-plugin-shell = "2"')
+  })
+
+  test('depends on tauri-plugin-opener', () => {
+    expect(toml).toContain('tauri-plugin-opener = "2"')
+  })
+
+  test('differs from build Cargo.toml (devtools)', () => {
+    const buildToml = generateCargoToml('my-app')
+    expect(buildToml).not.toContain('features = ["devtools"]')
+    expect(toml).toContain('features = ["devtools"]')
+  })
+})
+
+describe('Dev mode tauri.conf.json', () => {
+  const conf = generateDevTauriConf({
+    name: 'My Dev App',
+    devUrl: 'http://localhost:5173',
+  })
+
+  test('has devUrl pointing to Vite dev server', () => {
+    expect(conf.build.devUrl).toBe('http://localhost:5173')
+  })
+
+  test('does NOT have frontendDist (dev mode)', () => {
+    expect(conf.build.frontendDist).toBeUndefined()
+  })
+
+  test('productName matches config name', () => {
+    expect(conf.productName).toBe('My Dev App')
+  })
+
+  test('auto-generates identifier from name', () => {
+    expect(conf.identifier).toMatch(/^com\.commoners\./)
+  })
+
+  test('version defaults to 0.1.0', () => {
+    expect(conf.version).toBe('0.1.0')
+  })
+
+  test('window defaults to 800x600', () => {
+    expect(conf.app.windows[0].width).toBe(800)
+    expect(conf.app.windows[0].height).toBe(600)
+  })
+
+  test('bundle is active', () => {
+    expect(conf.bundle.active).toBe(true)
+  })
+})
+
+describe('Dev mode tauri.conf.json — with options', () => {
+  const conf = generateDevTauriConf({
+    name: 'Custom App',
+    appId: 'com.custom.app',
+    version: '2.0.0',
+    devUrl: 'http://localhost:3000',
+    window: { title: 'Dev Window', width: 1280, height: 720 },
+  })
+
+  test('uses custom appId as identifier', () => {
+    expect(conf.identifier).toBe('com.custom.app')
+  })
+
+  test('uses custom version', () => {
+    expect(conf.version).toBe('2.0.0')
+  })
+
+  test('uses custom devUrl', () => {
+    expect(conf.build.devUrl).toBe('http://localhost:3000')
+  })
+
+  test('uses custom window dimensions', () => {
+    expect(conf.app.windows[0].width).toBe(1280)
+    expect(conf.app.windows[0].height).toBe(720)
+  })
+
+  test('uses custom window title', () => {
+    expect(conf.app.windows[0].title).toBe('Dev Window')
+  })
+})
+
+describe('build.rs template', () => {
+  const rs = generateBuildRs()
+
+  test('calls tauri_build::build()', () => {
+    expect(rs).toContain('tauri_build::build()')
+  })
+
+  test('has main function', () => {
+    expect(rs).toContain('fn main()')
+  })
+})
+
+describe('lib.rs mobile entry point', () => {
+  const rs = generateLibRs()
+
+  test('has mobile_entry_point attribute', () => {
+    expect(rs).toContain('tauri::mobile_entry_point')
+  })
+
+  test('has run() function', () => {
+    expect(rs).toContain('pub fn run()')
+  })
+
+  test('initializes shell plugin', () => {
+    expect(rs).toContain('tauri_plugin_shell::init()')
+  })
+
+  test('initializes opener plugin', () => {
+    expect(rs).toContain('tauri_plugin_opener::init()')
+  })
+
+  test('calls generate_context!()', () => {
+    expect(rs).toContain('tauri::generate_context!()')
+  })
+})
+
+describe('Dev mode vs build mode differences', () => {
+  test('dev Cargo.toml has devtools, build does not', () => {
+    const dev = generateDevCargoToml('app')
+    const build = generateCargoToml('app')
+    expect(dev).toContain('"devtools"')
+    expect(build).not.toContain('"devtools"')
+  })
+
+  test('dev conf has devUrl, build conf has frontendDist', () => {
+    const devConf = generateDevTauriConf({ name: 'app', devUrl: 'http://localhost:5173' })
+    const buildConf = generateTauriConf({
+      name: 'app', appId: '', version: '', icon: null,
+      tauriConfig: {}, electronWindow: null, externalBins: [],
+    })
+    expect(devConf.build.devUrl).toBeDefined()
+    expect(devConf.build.frontendDist).toBeUndefined()
+    expect(buildConf.build.frontendDist).toBeDefined()
+    expect(buildConf.build.devUrl).toBeUndefined()
+  })
+
+  test('dev main.rs has no sidecar code (Node manages services)', () => {
+    const rs = generateMainRs() // no services = dev mode pattern
+    expect(rs).not.toContain('ServiceState')
+    expect(rs).not.toContain('sidecar')
+    expect(rs).not.toContain('get_free_port')
+  })
+
+  test('dev capabilities have no shell permissions (no sidecars)', () => {
+    const caps = generateCapabilities([])
+    expect(caps.permissions).not.toContain('shell:allow-spawn')
+    expect(caps.permissions).not.toContain('shell:allow-kill')
+    expect(caps.permissions).toContain('core:default')
+    expect(caps.permissions).toContain('opener:default')
   })
 })

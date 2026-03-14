@@ -16,7 +16,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolveServerUrl } from '../electron/server.js'
 import type { HooksInterface, ResolvedConfig } from '../../../types.js'
 import { isTauriMobile } from '../../../globals.js'
-import { generateMainRs } from '../../../flows/strategies/tauri-templates.js'
+import { generateMainRs, generateDevCargoToml, generateDevTauriConf, generateBuildRs, generateLibRs, generateCapabilities } from '../../../flows/strategies/tauri-templates.js'
 
 type Plugin = import('vite').Plugin
 
@@ -63,94 +63,37 @@ export default async function tauriPlugin({
           mkdirSync(capDir, { recursive: true })
 
           // Cargo.toml — devtools feature enabled for dev
-          writeFileSync(
-            join(srcTauriDir, 'Cargo.toml'),
-            `[package]
-name = "${sanitizedName}"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-tauri = { version = "2", features = ["devtools"] }
-tauri-plugin-shell = "2"
-tauri-plugin-opener = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
-`
-          )
+          writeFileSync(join(srcTauriDir, 'Cargo.toml'), generateDevCargoToml(sanitizedName))
 
           // src/main.rs (no sidecars in dev — services are managed by Node.js)
           writeFileSync(join(srcDir, 'main.rs'), generateMainRs())
 
           // build.rs
-          writeFileSync(
-            join(srcTauriDir, 'build.rs'),
-            'fn main() {\n  tauri_build::build()\n}\n'
-          )
+          writeFileSync(join(srcTauriDir, 'build.rs'), generateBuildRs())
 
           // lib.rs (mobile entry point, needed for tauri mobile targets)
           if (isTauriMobile(config?.target)) {
-            writeFileSync(
-              join(srcDir, 'lib.rs'),
-              `#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
-`
-            )
+            writeFileSync(join(srcDir, 'lib.rs'), generateLibRs())
           }
 
           // tauri.conf.json with devUrl
           const windowConfig = tauriConfig.window || config?.electron?.window || {}
-          const tauriConf = {
-            productName: name,
-            identifier:
-              config?.appId ||
-              `com.commoners.${sanitizedName.replace(/[^a-z0-9]/g, '')}`,
-            version: config?.version || '0.1.0',
-            build: {
-              devUrl,
-            },
-            app: {
-              windows: [
-                {
-                  title: windowConfig.title || name,
-                  width: windowConfig.width || 800,
-                  height: windowConfig.height || 600,
-                },
-              ],
-              security: {},
-            },
-            bundle: {
-              active: true,
-            },
-          }
+          const tauriConf = generateDevTauriConf({
+            name,
+            appId: config?.appId,
+            version: config?.version,
+            devUrl,
+            window: windowConfig,
+          })
           writeFileSync(
             join(srcTauriDir, 'tauri.conf.json'),
             JSON.stringify(tauriConf, null, 2)
           )
 
-          // capabilities/default.json
+          // capabilities/default.json (no services in dev — no shell permissions needed)
           writeFileSync(
             join(capDir, 'default.json'),
-            JSON.stringify(
-              {
-                $schema: '../gen/schemas/desktop-schema.json',
-                identifier: 'default',
-                description: 'Capability for the main window',
-                windows: ['main'],
-                permissions: ['core:default', 'opener:default'],
-              },
-              null,
-              2
-            )
+            JSON.stringify(generateCapabilities([]), null, 2)
           )
 
           // Spawn tauri dev (or tauri ios dev / tauri android dev for mobile)

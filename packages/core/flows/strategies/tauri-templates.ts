@@ -257,6 +257,89 @@ export function generateCapabilities(serviceIds: string[]): Record<string, any> 
   }
 }
 
+/**
+ * Generate a dev-mode Cargo.toml with devtools feature enabled.
+ * Separate from the build Cargo.toml which omits devtools.
+ */
+export function generateDevCargoToml(name: string): string {
+  return `[package]
+name = "${name}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "2", features = ["devtools"] }
+tauri-plugin-shell = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+`
+}
+
+/**
+ * Generate a dev-mode tauri.conf.json with devUrl pointing to the Vite dev server.
+ * Does not include frontendDist (dev mode serves from Vite).
+ */
+export function generateDevTauriConf(opts: {
+  name: string
+  appId?: string
+  version?: string
+  devUrl: string
+  window?: { title?: string; width?: number; height?: number }
+}): Record<string, any> {
+  const { name, devUrl, window: windowConfig = {} } = opts
+  const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
+
+  return {
+    productName: name,
+    identifier:
+      opts.appId ||
+      `com.commoners.${sanitizedName.replace(/[^a-z0-9]/g, '')}`,
+    version: opts.version || '0.1.0',
+    build: {
+      devUrl,
+    },
+    app: {
+      windows: [
+        {
+          title: windowConfig.title || name,
+          width: windowConfig.width || 800,
+          height: windowConfig.height || 600,
+        },
+      ],
+      security: {},
+    },
+    bundle: {
+      active: true,
+    },
+  }
+}
+
+/**
+ * Generate a build.rs file for Tauri projects.
+ */
+export function generateBuildRs(): string {
+  return 'fn main() {\n  tauri_build::build()\n}\n'
+}
+
+/**
+ * Generate a lib.rs file for Tauri mobile entry points.
+ */
+export function generateLibRs(): string {
+  return `#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+`
+}
+
 /** Simple recursive merge (source wins for primitives, recurses for objects) */
 function deepMerge(target: Record<string, any>, source: Record<string, any>): void {
   for (const key of Object.keys(source)) {
