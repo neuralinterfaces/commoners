@@ -159,7 +159,7 @@ Strategy classes (both Build and Launch) cannot be directly imported in vitest t
 
 ## Deep Integration: Tauri-Inspired Architecture Improvements
 
-These items go beyond Tauri interop — they adopt Tauri's design patterns to improve the framework architecture for all backends (Electron, Tauri, and web). See [Runtime Abstraction Completion](./runtime-abstraction-completion.md) for the prerequisite work.
+These items go beyond Tauri interop — they adopt Tauri's design patterns to improve the framework architecture for all backends (Electron, Tauri, and web). The prerequisite runtime abstraction work is complete (Phase 1–3).
 
 ### ~~13. Typed Command Registry~~ (DONE)
 

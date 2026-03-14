@@ -2,10 +2,9 @@
 
 Implementation plan for adding Tauri as an alternative desktop runtime alongside Electron. Builds on the completed runtime abstraction (Phase 1).
 
-**Prerequisites:** [Runtime Abstraction Completion](./runtime-abstraction-completion.md) must be finished first.
+**Prerequisites:** Runtime abstraction complete (Phase 1/3 done).
 
 **Reference documents:**
-- [Electron Coupling Audit](./electron-coupling-audit.md) — catalogs all Electron integration points
 - [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code signing, mobile plugin maturity
 
 This document covers implementation specifics. It does NOT duplicate the analysis in the reference documents.
@@ -77,7 +76,7 @@ Commoners currently only supports Electron for desktop builds. Tauri offers sign
 
 **Goal:** Implement the `DesktopRuntime` interface for Tauri.
 
-**Key differences from Electron (see [coupling audit, Section 2](./electron-coupling-audit.md)):**
+**Key differences from Electron:**
 
 | Runtime Method | Electron Implementation | Tauri Implementation |
 |---------------|------------------------|---------------------|
@@ -166,7 +165,7 @@ Commoners currently only supports Electron for desktop builds. Tauri offers sign
 
 ## Dependencies
 
-- **Requires:** [Runtime Abstraction Completion](./runtime-abstraction-completion.md) — full `DesktopRuntime` interface
+- **Requires:** Runtime abstraction (done) — full `DesktopRuntime` interface
 - **Blocked by:** Nothing external (Tauri v2 is stable)
 - **Blocks:** [Device Communication Abstraction](./device-communication-abstraction.md) (Phase 3)
 - **NPM deps:** `@tauri-apps/cli`, `@tauri-apps/api`, `@tauri-apps/plugin-shell`, `@tauri-apps/plugin-opener`

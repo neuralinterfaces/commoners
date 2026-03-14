@@ -1,8 +1,9 @@
 # Feature Roadmap
 
-## Recent Progress
+<details>
+<summary><strong>Recent Progress</strong> (historical — completed)</summary>
 
-### Electron Testing Stability (completed)
+### Electron Testing Stability
 
 Getting desktop tests to pass reliably required solving several interrelated problems. Key lessons:
 
@@ -18,7 +19,7 @@ Getting desktop tests to pass reliably required solving several interrelated pro
 
 **Remote debugging port must be a spawn argument.** Chromium reads CLI flags during initialization, before Electron's async plugin lifecycle runs. `app.commandLine.appendSwitch()` in a plugin `start()` hook is too late. Fix: pass `--remote-debugging-port` as a spawn argument to the Electron child process.
 
-### Other Fixes (completed)
+### Other Fixes
 
 **WASM service resolution.** WASM services went through the full `resolveService()` path, which stripped their `__wasm` marker and treated them as network services ("Failed to launch service"). Fix: return early when `__wasm` or `type === 'wasm'` is set.
 
@@ -41,6 +42,8 @@ Getting desktop tests to pass reliably required solving several interrelated pro
 - Rust service echo takes ~32s (waitForService timeout)
 - C++/Rust service echo tests require toolchains on PATH (auto-skipped if missing)
 
+</details>
+
 ---
 
 ## Implementation Plans
@@ -51,7 +54,7 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 
 | Document | Summary | Status |
 |----------|---------|--------|
-| [ASAR Integrity Hardening](./asar-hardening.md) | Fix macOS post-signing hash, make `rcedit` primary on Windows, sandbox testing, CI verification | Planned |
+| [ASAR Integrity Hardening](./asar-hardening.md) | ~~macOS post-sign hash re-embedding~~; Windows `rcedit` verification, sandbox testing, CI verification | In Progress (macOS done) |
 | [Testing Gaps + Distribution](./testing-and-distribution.md) | Protocol E2E, WASM E2E, mobile build output, native emulators, app store CI/CD | Planned |
 | [Security Whitepaper](./security-whitepaper.md) | Threat model, Commoners-unique risks, security controls, security testing, proposed plugins | Planned |
 
@@ -59,8 +62,7 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 
 | Document | Summary | Depends On | Status |
 |----------|---------|-----------|--------|
-| [Runtime Abstraction Completion](./runtime-abstraction-completion.md) | Route all Electron API calls through `DesktopRuntime`, plugin context wrapping, protocol sub-routes | — | Done (Phase 3) |
-| [Tauri Desktop Backend](./tauri-desktop-backend.md) | `TauriBuildStrategy`, `tauri.conf.json` auto-generation, `createTauriRuntime()`, sidecar service lifecycle | Runtime abstraction | Planned |
+| [Tauri Desktop Backend](./tauri-desktop-backend.md) | ~~`sendSync` elimination~~, ~~`createTauriRuntime()` parity~~, sidecar lifecycle | Runtime abstraction (done) | In Progress (2/3 done) |
 | [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` API, per-runtime adapters, C++ WASM via Emscripten | Tauri backend | Planned |
 
 ### Batch C — Independent (timing-sensitive)
@@ -78,11 +80,11 @@ Cross-cutting architecture improvements inspired by Tauri's design patterns. Ben
 | ~~Typed Command Registry~~ | ~~Replace string IPC channels with typed command interface~~ | High | Done |
 | ~~Capabilities-Driven IPC~~ | ~~Declarative IPC allowlist from config (mirrors Tauri capabilities)~~ | High | Done |
 | ~~Plugin Capability Declaration~~ | ~~Plugins declare provides/requires/platforms upfront~~ | Medium | Done |
-| Plugin Hot Reload | Dev-mode plugin reload via unload() hook + file watching | Medium | Medium |
-| Service Health Monitoring | Heartbeat, auto-restart, health events | Medium | Medium |
-| Window Event Bus | Cross-window broadcast + state persistence | Medium | Low |
-| Unified Async API | Async-first runtime API, eliminate sync/async ambiguity | Medium | Medium |
-| Declarative Service Bundling | Service manifest for build-time inclusion | Low | Low |
+| ~~Plugin Hot Reload~~ | ~~Dev-mode plugin reload via unload() hook + file watching~~ | Medium | Done |
+| ~~Service Health Monitoring~~ | ~~Heartbeat, auto-restart, health events~~ | Medium | Done |
+| ~~Window Event Bus~~ | ~~Cross-window broadcast + state persistence~~ | Medium | Done |
+| ~~Unified Async API~~ | ~~Async-first runtime API, eliminate sync/async ambiguity~~ | Medium | Done |
+| ~~Declarative Service Bundling~~ | ~~Service manifest for build-time inclusion~~ | Low | Done |
 
 ### Dependency Graph
 
@@ -93,10 +95,7 @@ Batch A (start now, parallel)
   security-whitepaper.md ────────────── No prerequisites
 
 Batch B (sequential)
-  runtime-abstraction-completion.md ─── No prerequisites (Phase 1 started)
-      │
-      ▼
-  tauri-desktop-backend.md ──────────── Requires: runtime abstraction complete
+  tauri-desktop-backend.md ──────────── Runtime abstraction complete ✓
       │
       ▼
   device-communication-abstraction.md ─ Requires: Tauri backend functional
@@ -104,25 +103,14 @@ Batch B (sequential)
 Batch C (independent, timing-sensitive)
   vite-evolution.md ─────────────────── Track Vite 8 release
 
-Batch D (after Batch B, parallel)
-  Typed Command Registry ──────────────── DONE
-  Capabilities-Driven IPC ─────────────── DONE
-  Plugin Capability Declaration ────────── DONE
-  Plugin Hot Reload ────────────────────── Unblocked (Plugin Capability Declaration done)
-  Service Health Monitoring ────────────── Unblocked (no prerequisites)
-  Window Event Bus ─────────────────────── Unblocked (runtime abstraction done)
-  Unified Async API ────────────────────── Unblocked (Typed Command Registry done)
-  Declarative Service Bundling ─────────── Unblocked (no prerequisites)
+Batch D — 8/8 DONE
 ```
 
 ### Reference Documents
 
-These existing documents provide technical analysis referenced by the implementation plans:
-
-- [Windows Verification Checklist](./windows-verification.md) — single-page handoff for testing builds, signing, and known gaps on Windows
-- [Sandbox Investigation](./sandbox-investigation.md) — `app.enableSandbox()` freezes Electron on Windows; currently using per-window sandbox workaround
-- [Electron Coupling Audit](./electron-coupling-audit.md) — catalogs all Electron integration points (~2,000-2,500 lines), abstraction quality assessment, migration effort estimate
-- [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code-signing issues, mobile plugin maturity comparison, binary size analysis
+- [Windows Verification Checklist](./windows-verification.md) — testing builds, signing, and known gaps on Windows
+- [Sandbox Investigation](./sandbox-investigation.md) — `app.enableSandbox()` freezes Electron on Windows; per-window workaround
+- [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code-signing, mobile plugin maturity, binary size
 
 ---
 
