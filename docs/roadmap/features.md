@@ -56,7 +56,8 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 |----------|---------|--------|
 | [ASAR Integrity Hardening](./asar-hardening.md) | ~~macOS post-sign hash re-embedding~~; Windows `rcedit` verification, sandbox testing, CI verification | In Progress (macOS done) |
 | [Testing Gaps + Distribution](./testing-and-distribution.md) | Protocol E2E, WASM E2E, mobile build output, native emulators, app store CI/CD | Planned |
-| [Security Whitepaper](./security-whitepaper.md) | Threat model, Commoners-unique risks, security controls, security testing, proposed plugins | Planned |
+| [Security Whitepaper](./security-whitepaper.md) | Threat model, Commoners-unique risks, security controls, security testing, proposed plugins | Updated (P0/P1 done, 77 tests) |
+| [Platform Abstractions](./platform-abstractions.md) | Storage, Notification, Context, File System cross-platform adapters | Design phase (documented, not planned) |
 
 ### Batch B — Sequential dependency chain
 
