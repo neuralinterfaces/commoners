@@ -27,16 +27,18 @@ Remaining work:
 - E2E testing with actual Tauri mobile toolchain
 - Service sidecar support on mobile (currently no `externalBin` on mobile builds)
 
-### 2. SEA (Single Executable Application) for JS Services
+### 2. ~~SEA (Single Executable Application) for JS Services~~ (DONE)
 
-**Priority:** High
-**Complexity:** High
+SEA compilation integrated into `TauriBuildStrategy.build()`:
+- JS service filepaths (`.js`, `.cjs`, `.mjs`) auto-detected via `extname()`
+- `createSEA()` from `utils/sea.ts` compiles JS → esbuild bundle → SEA blob → inject into Node binary
+- `isSEASupported()` check in `prepare()` fails fast if Node.js < 20
+- `TauriMobileBuildStrategy` logs warning when JS services are skipped (no sidecar on mobile)
+- 5 unit tests added to `tests/tauri.test.ts`
 
-Tauri has no `fork()` equivalent — JS services must run as standalone executables. The current implementation expects pre-compiled service binaries. Future work:
-
-- Implement Node.js SEA compilation pipeline for JS/TS services
-- Auto-compile JS services to SEA binaries during `commoners build --target tauri`
-- Handle platform-specific SEA targets (macOS universal, Windows x64, Linux x64/arm64)
+Remaining:
+- Cross-compilation of SEA binaries (macOS universal, Windows x64, Linux arm64)
+- Universal binaries on macOS
 
 ### 3. Tauri Preload / IPC Bridge
 
@@ -104,17 +106,21 @@ Electron uses ASAR for packaging with integrity checks. Tauri doesn't have an eq
 - Add integrity manifests to the Tauri bundle
 - Mirror the Electron strategy's `generateServiceHashManifest()` for Tauri
 
-### 9. Tauri Testing (CDP / WebDriver)
+### 9. ~~Tauri Testing (WebDriver)~~ (DONE)
 
-**Priority:** High
-**Complexity:** High
+WebDriver-based testing adapter implemented in `@commoners/testing`:
+- `packages/testing/src/tauri.ts`: `connectTauri()` spawns `tauri-driver`, connects via `webdriverio`
+- `createPageProxy()` wraps WebDriverIO browser as Playwright-compatible Page interface (`evaluate`, `url`, `goto`, `waitForFunction`)
+- `waitForPort()` TCP poll utility for driver startup detection
+- Tauri branch in `open()` function: detects `isTauri(target)`, finds executable via `findTauriExecutable()`, connects via WebDriver
+- Cleanup handles tauri-driver process kill + WebDriverIO session deletion
+- `webdriverio` as optional dependency; `./tauri` export added to package.json
+- 13 unit tests in `tests/tauri-testing.test.ts`
 
-The current `@commoners/testing` package uses CDP (Chrome DevTools Protocol) for Electron. Future work:
-
-- Add WebDriver-based testing support for Tauri apps
-- Implement page recovery and broken-target cleanup for Tauri's webview
-- Support `COMMONERS_REMOTE_DEBUGGING_PORT` for Tauri dev builds
-- Add Tauri-specific test helpers to `@commoners/testing`
+Remaining:
+- Dev mode testing (tauri-driver requires built app)
+- Full Playwright API compatibility (selectors, screenshots, network interception)
+- Windows CDP fallback via WebView2 DevTools Protocol
 
 ### 10. Tauri Plugin Ecosystem Integration
 
@@ -148,6 +154,128 @@ Strategy classes (both Build and Launch) cannot be directly imported in vitest t
 - Refactor `BuildFlow.ts` and `LaunchFlow.ts` to lazy-import `resolveConfig` / `resolveHooks`
 - Or extract flow orchestration from `index.ts` to break the cycle
 - This would enable direct strategy unit tests for all platforms
+
+---
+
+## Deep Integration: Tauri-Inspired Architecture Improvements
+
+These items go beyond Tauri interop — they adopt Tauri's design patterns to improve the framework architecture for all backends (Electron, Tauri, and web). See [Runtime Abstraction Completion](./runtime-abstraction-completion.md) for the prerequisite work.
+
+### ~~13. Typed Command Registry~~ (DONE)
+
+**Benefits all backends**
+
+Implemented in `packages/core/assets/electron/modules/commands.ts`:
+- `Commands` object with typed entries for all framework IPC channels (`quit`, `close`, `services`, `location`, `pluginsLoaded`, `rendererReady`, `mainReadyPing`, `mainReadyPong`)
+- `ConsoleCommands` for log/warn/error redirection channels
+- `ScopedCommands.service(id, attr)` and `ScopedCommands.plugin(id, channel)` builders
+- Helper functions: `getCommandByChannel()`, `isFrameworkChannel()`, `validateCommand()`
+- `FRAMEWORK_CHANNELS` constant with all registered channel strings
+- All `main.ts` IPC handlers migrated from string literals to `Commands.*.channel`
+
+### ~~14. Capabilities-Driven IPC Allowlist~~ (DONE)
+
+**Benefits all backends**
+
+Implemented in `packages/core/assets/electron/modules/ipc-allowlist.ts`:
+- `generateIPCAllowlist(pluginIds, serviceIds)` builds per-extension allowlist from config
+- Main process validates via `IPC.setIPCAllowlist()` — scoped channels checked against declared IDs
+- Preload receives allowlist via `additionalArguments` and validates scoped channels against declared plugin/service IDs
+- Falls back to prefix-based check for backward compatibility (no allowlist data = legacy behavior)
+- `serializeAllowlist()` / `deserializeAllowlist()` for transfer between processes
+
+### ~~15. Plugin Capability Declaration~~ (DONE)
+
+**Benefits all backends**
+
+Implemented across 3 official plugins + core utilities:
+- Windows plugin: `{ provides: ['windows', 'multi-window'], platforms: { web: true, desktop: true } }`
+- Splash Screen plugin: `{ provides: ['splash-screen', 'loading-screen'], platforms: { desktop: true } }`
+- Local Services plugin: `{ provides: ['local-services', 'service-discovery', 'mdns'], platforms: { desktop: true } }`
+- `validateRequirements()` utility in `packages/core/assets/capabilities.ts` checks `requires` against all `provides`
+- Dev-mode diagnostic warning for extensions without capabilities (suppressed during tests)
+- Pairs with existing `queryExtensions()` and `commoners.query()` infrastructure
+
+### 16. Plugin Hot Reload (Dev Mode)
+
+**Priority:** Medium
+**Complexity:** Medium
+**Benefits all backends**
+
+Plugins load once at startup with no reload mechanism. Add dev-mode hot reload:
+
+- Add optional `unload()` hook to plugin interface for teardown
+- Watch plugin files in dev mode; trigger reload via IPC
+- Re-run `load` hook with fresh module after teardown
+- Only applies to dev mode — production plugins remain static
+
+### 17. Service Health Monitoring
+
+**Priority:** Medium
+**Complexity:** Medium
+**Benefits all backends**
+
+Service status is binary (running/closed). Add health monitoring:
+
+- Heartbeat checks via HTTP or IPC
+- Auto-restart with exponential backoff
+- `service:health` events for CLI/testing integration
+- `ServiceHealth` type: `{ status, uptime, lastHeartbeat, restartCount }`
+- Especially valuable for Tauri sidecars where the parent process can't `fork()` to check
+
+### 18. Window Event Bus
+
+**Priority:** Medium
+**Complexity:** Low
+**Benefits Electron and Tauri**
+
+Windows communicate via scoped IPC channels with no cross-window broadcast mechanism:
+
+- Central event bus in main process for cross-window events
+- `commoners.windows.broadcast(event)` API
+- Window state persistence across app restarts (position, size, maximized)
+- Mirrors Tauri's multi-webview event system
+
+### 19. Unified Async Runtime API
+
+**Priority:** Medium
+**Complexity:** Medium
+**Benefits all backends**
+
+The `commoners` global mixes sync properties (`DESKTOP` as boolean vs object) with async patterns (`READY` promise). Tauri is async-first:
+
+- Replace `READY` promise with explicit `commoners.initialize()` API
+- `commoners.desktop` always an object with `isAvailable` property (not boolean/object union)
+- Plugin event system: `commoners.plugins.emit()` / `commoners.plugins.on()` for plugin-to-plugin communication
+- Dev-mode debug API: `commoners.debug.getPluginState()`, `commoners.debug.getServiceState()`
+
+### 20. Declarative Service Bundling
+
+**Priority:** Low
+**Complexity:** Low
+**Benefits Tauri primarily**
+
+Services are resolved at runtime in Node.js, not declared in config upfront:
+
+- Add service metadata to resolved config for build strategies
+- Enables Tauri's bundler to auto-include services without post-build copying
+- Service manifest with binary hashes for integrity verification at launch
+- Mirrors Tauri's `externalBin` declarative model
+
+### Priority Summary
+
+| # | Item | Priority | Effort | Benefits |
+|---|------|----------|--------|----------|
+| ~~13~~ | ~~Typed Command Registry~~ | ~~High~~ | Done | All backends |
+| ~~14~~ | ~~Capabilities-Driven IPC~~ | ~~High~~ | Done | All backends |
+| ~~15~~ | ~~Plugin Capability Declaration~~ | ~~Medium~~ | Done | All backends |
+| 16 | Plugin Hot Reload | Medium | Medium | All backends |
+| 17 | Service Health Monitoring | Medium | Medium | All backends |
+| 18 | Window Event Bus | Medium | Low | Desktop |
+| 19 | Unified Async API | Medium | Medium | All backends |
+| 20 | Declarative Service Bundling | Low | Low | Tauri |
+
+---
 
 ## Dependencies
 

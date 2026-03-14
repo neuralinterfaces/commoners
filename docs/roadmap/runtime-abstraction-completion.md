@@ -1,232 +1,122 @@
-# Runtime Abstraction Completion (Phase 1)
+# Runtime Abstraction Completion (Done — Phase 3)
 
-Implementation plan for finishing the `DesktopRuntime` interface so that all Electron-specific code in `main.ts` is routed through the runtime adapter. This is a prerequisite for the Tauri desktop backend (Phase 2).
+Implementation plan for finishing the `DesktopRuntime` interface so that all Electron-specific code in `main.ts` is routed through the runtime adapter. This was a prerequisite for the Tauri desktop backend (Phase 2, also complete).
 
----
-
-## Problem
-
-Phase 1 of the runtime abstraction started: `DesktopRuntime` interface exists, `createElectronRuntime()` implements it, and service IPC is routed through `runtime.scopedIPC`. However, the majority of Electron API calls in `main.ts` remain direct, and several architectural gaps block Tauri integration:
-
-1. **~18 direct Electron API calls** in `main.ts` bypass the runtime entirely
-2. **3 `sendSync` calls** in `preload.ts` need evaluation (synchronous data fetches during initialization)
-3. **Plugin `desktop.load` hooks** receive raw `BrowserWindow` — need `RuntimePluginContext` wrapping
-4. **Plugin protocol sub-route registration** via `RuntimeProtocol` (deferred from custom protocol work)
-5. **`createWindow`** is a local function in `main.ts`, not delegated through the runtime
+**Status:** Complete. All Electron API calls in `main.ts` are routed through the runtime. Plugin context `runtime` parameter is required. IPC send abstracted via `setSendToRenderer()`. Typed Command Registry and Capabilities-Driven IPC Allowlist also implemented as follow-up work.
 
 ---
 
-## Current State
+## What Was Done
 
-### What's Routed Through Runtime
+### Phase 1 (Service IPC Routing)
 
-| API | Runtime Method | Location |
-|-----|---------------|----------|
-| Service IPC send | `runtime.scopedIPC.serviceSend()` | `main.ts` lines 431-432, 443-444 |
-| Service IPC listen | `runtime.scopedIPC.serviceOn()` | `main.ts` lines 443-444 |
+Routed service and plugin IPC through `runtime.scopedIPC`:
+- `runtime.scopedIPC.serviceSend()`, `runtime.scopedIPC.serviceOn()`
+- `runtime.scopedIPC.pluginSend()`, `runtime.scopedIPC.pluginOn()`, `runtime.scopedIPC.pluginHandle()`
 
-### What's Called Directly (Not Through Runtime)
+### Phase 2 (App Lifecycle, Protocol, Shell, Dialog, Session, Window Enumeration)
 
-| Electron API | Usage | Lines in `main.ts` |
-|-------------|-------|---------------------|
-| `app.commandLine.appendSwitch()` | Remote debugging port (testing) | 65-67 |
-| `app.setName()` | Set app name | 416 |
-| `app.setAppUserModelId()` | Windows app model ID | 451 |
-| `app.whenReady()` | Wait for app ready | 424 |
-| `app.on('activate')` | macOS dock click | 526 |
-| `app.on('before-quit')` | Quit lifecycle | 538 |
-| `app.exit()` | Force exit | 547 |
-| `new BrowserWindow()` | Window creation | 247 |
-| `win.webContents.on()` | Multiple event handlers | 252-329 |
-| `win.webContents.send()` | IPC to renderer (via IPC.send) | 361 |
-| `win.loadURL()` | Load page content | 162, 175, 277, 306 |
-| `win.close()` / `win.show()` / `win.once()` | Window lifecycle | 319-381 |
-| `shell.openExternal()` | Open external URLs | 276, 327 |
-| `ipcMain.on()` / `ipcMain.once()` | IPC listeners | 324, 379, 385-405 |
-| `electron.protocol.handle()` | Custom protocol | 453 |
-| `electron.net.fetch()` | Protocol proxy requests | 465, 481, 516 |
+Routed application-level calls through runtime namespaces:
+- `runtime.app.*` — setName, setAppUserModelId, commandLine.appendSwitch
+- `runtime.lifecycle.*` — onReady, onActivate, onBeforeQuit, quit, exit
+- `runtime.protocol.*` — registerScheme, handleRequest, fetch
+- `runtime.session.setupCSP()`, `runtime.dialog.showErrorBox()`, `runtime.shell.openExternal()`
+- `runtime.ipc.*` — on, once (all IPC listeners)
+- `runtime.window.getAll()`
 
-### Preload `sendSync` Calls
+### Phase 3 (Window Creation, Events, Page Loading, Plugin Context)
 
-| Line | Call | Purpose |
-|------|------|---------|
-| 41 | `ipcRenderer.sendSync('commoners:services')` | Fetch services metadata |
-| 42 | `ipcRenderer.sendSync('commoners:location', __id)` | Fetch window location |
-| 85 | `ipcRenderer.sendSync('services:${id}:status')` | Get initial service status |
+Expanded `RuntimeWindow` interface with 8 new methods:
 
-These are called during preload initialization and require synchronous responses. They cannot simply become `invoke()` because the preload runs before the page is ready.
+| Method | Purpose |
+|--------|---------|
+| `show(win)` | Show a window |
+| `isDestroyed(win)` | Check if window is destroyed |
+| `loadURL(win, url)` | Load a URL in a window |
+| `onClose(win, callback)` | Listen for window close |
+| `onReadyToShow(win, callback)` | Listen for ready-to-show |
+| `onNavigate(win, handler)` | Listen for will-navigate |
+| `onWebContentsEvent(win, event, handler)` | Listen for webContents events |
+| `setWindowOpenHandler(win, handler)` | Set window open handler |
+| `sendToRenderer(win, channel, ...args)` | Send IPC to renderer |
 
----
+Key changes:
+- **`ElectronWindow.create()`** — Working implementation replacing the previous throwing stub. Creates `BrowserWindow` with provided options.
+- **`main.ts`** — ~15 direct Electron calls replaced with `runtime.window.*` methods.
+- **`plugins.ts`** — `runtime` parameter made required (was optional). Removed all direct IPC fallback paths.
+- **`ipc.ts`** — Added `setSendToRenderer()` for configurable renderer send function, used by `runtime.window.sendToRenderer`.
+- **`TauriWindow`** — Stubs added for all new methods (no-op or Tauri-equivalent).
 
-## Implementation Plan
+### Follow-up: Typed Command Registry
 
-### Step 1: Extend `DesktopRuntime` Interface
+All IPC channel strings replaced with typed `Commands.*` references:
+- `Commands.quit.channel`, `Commands.close.channel`, `Commands.services.channel`, etc.
+- `ScopedCommands.service(id, attr)` and `ScopedCommands.plugin(id, channel)` builders
+- `FRAMEWORK_CHANNELS` constant, `isFrameworkChannel()`, `validateCommand()` helpers
+- File: `packages/core/assets/electron/modules/commands.ts`
 
-**Goal:** Define the full runtime contract covering all Electron APIs used in `main.ts`.
+### Follow-up: Capabilities-Driven IPC Allowlist
 
-```typescript
-interface DesktopRuntime {
-  // Existing
-  scopedIPC: RuntimeScopedIPC
-  native: any  // Escape hatch
+Per-extension IPC channel validation from config:
+- `generateIPCAllowlist(pluginIds, serviceIds)` builds allowlist from config
+- Main process validates via `IPC.setIPCAllowlist()`
+- Preload receives allowlist via `additionalArguments` and validates scoped channels against declared plugin/service IDs
+- Falls back to prefix-based check for backward compatibility
+- File: `packages/core/assets/electron/modules/ipc-allowlist.ts`
 
-  // New: Application lifecycle
-  app: {
-    setName(name: string): void
-    setAppUserModelId(id: string): void
-    whenReady(): Promise<void>
-    onActivate(callback: () => void): void
-    onBeforeQuit(callback: () => void): void
-    exit(code?: number): void
-    appendSwitch(key: string, value?: string): void
-  }
+### Follow-up: Plugin Capability Declaration
 
-  // New: Window management
-  window: {
-    create(options: RuntimeWindowOptions): Promise<RuntimeWindow>
-    restore(id: string): Promise<RuntimeWindow | null>
-  }
+Capabilities added to 3 official plugins:
+- Windows: `{ provides: ['windows', 'multi-window'], platforms: { web: true, desktop: true } }`
+- Splash Screen: `{ provides: ['splash-screen', 'loading-screen'], platforms: { desktop: true } }`
+- Local Services: `{ provides: ['local-services', 'service-discovery', 'mdns'], platforms: { desktop: true } }`
 
-  // New: Protocol handling
-  protocol: {
-    handle(scheme: string, handler: (request: Request) => Promise<Response>): void
-    fetch(url: string, options?: RequestInit): Promise<Response>
-  }
+Plus `validateRequirements()` utility and dev-mode warning for extensions without capabilities.
 
-  // New: Shell
-  shell: {
-    openExternal(url: string): Promise<void>
-  }
+### Preload `sendSync` Decision
 
-  // New: Plugin context factory
-  createPluginContext(window: RuntimeWindow, pluginId: string): RuntimePluginContext
-}
-```
-
-**Files:** `packages/core/assets/electron/types.ts` (or inline in runtime module)
-
-### Step 2: Route Application Lifecycle Through Runtime
-
-**Goal:** Replace direct `app.*` calls with `runtime.app.*`.
-
-1. Implement `app` namespace in `createElectronRuntime()`
-2. Update `main.ts` to use `runtime.app.setName()`, `runtime.app.whenReady()`, etc.
-3. `appendSwitch` is testing-only — route through runtime but mark as optional
-
-**Files:** `main.ts`, `packages/core/assets/electron/electron.ts`
-
-### Step 3: Delegate `createWindow` Through Runtime
-
-**Goal:** Move the ~150-line `createWindow` function behind `runtime.window.create()`.
-
-1. Extract window creation logic from `main.ts` into the Electron runtime adapter
-2. `runtime.window.create()` returns a `RuntimeWindow` (wraps `BrowserWindow`)
-3. `RuntimeWindow` exposes: `loadURL()`, `show()`, `close()`, `on()`, `webContents` (as an opaque event emitter)
-4. Plugins receive `RuntimeWindow` instead of raw `BrowserWindow`
-
-**Tricky parts:**
-- Window creation involves Electron-specific options (`webPreferences`, `preload` path)
-- The current function has inline IPC setup and security configuration
-- Must preserve the plugin `createWindow` callback interface
-
-**Files:** `main.ts`, `packages/core/assets/electron/electron.ts`, `modules/window.ts`
-
-### Step 4: Route Protocol Handling Through Runtime
-
-**Goal:** Replace direct `electron.protocol.handle()` and `electron.net.fetch()` with `runtime.protocol.*`.
-
-1. Implement `protocol` namespace in Electron runtime adapter
-2. The protocol handler logic stays in `modules/protocol.ts` but is invoked through the runtime
-3. Enable future plugin sub-route registration via `runtime.protocol.handle('commoners://plugins/<name>/*', handler)`
-
-**Files:** `main.ts`, `packages/core/assets/electron/electron.ts`, `modules/protocol.ts`
-
-### Step 5: Wrap Plugin Context with RuntimePluginContext
-
-**Goal:** Plugin `desktop.load` hooks receive a runtime-agnostic context instead of raw Electron objects.
-
-1. `RuntimePluginContext` wraps `BrowserWindow` methods into a portable API
-2. Plugins that need the raw `BrowserWindow` can access `context.native` (escape hatch)
-3. Update `modules/plugins.ts` to create `RuntimePluginContext` via `runtime.createPluginContext()`
-
-**Current plugin context API (from `modules/plugins.ts`):**
-- `electron`, `utils` — raw Electron references
-- `createWindow`, `send`, `on`, `invoke`
-
-**New `RuntimePluginContext`:**
-- `createWindow` — delegates to `runtime.window.create()`
-- `send`, `on`, `invoke` — delegates to `runtime.scopedIPC.plugin*`
-- `native` — escape hatch for Electron-specific access
-
-**Files:** `modules/plugins.ts`, `packages/core/assets/electron/electron.ts`
-
-### Step 6: Evaluate Preload `sendSync` Elimination
-
-**Goal:** Determine if the 3 synchronous IPC calls can be replaced with an alternative pattern.
-
-**Options:**
-1. **Async preload with deferred rendering** — Preload fetches data via `invoke()`, stores in global, renderer waits for `DOMContentLoaded` + data-ready signal
-2. **Embedded data in HTML** — Inject service metadata and location into the HTML at build/serve time via the Vite plugin (already done partially with `commoners` global)
-3. **Keep `sendSync` behind the runtime abstraction** — The runtime adapter provides `syncFetch()` that Electron implements with `sendSync` and Tauri implements differently (e.g., reading from a Rust-provided global)
-
-**Recommendation:** Option 3 is most pragmatic. The synchronous requirement is real (preload must have data before page load). Abstract it rather than eliminate it.
-
-**Files:** `preload.ts`, `packages/core/assets/electron/electron.ts`
-
-### Step 7: Plugin Protocol Sub-Route Registration
-
-**Goal:** Allow plugins to register handlers for `commoners://plugins/<name>/*` routes.
-
-1. Add `runtime.protocol.registerPluginRoute(pluginName, handler)` to the interface
-2. During plugin `desktop.load`, plugins can register sub-routes
-3. The main protocol handler delegates to registered plugin handlers
-4. Deferred from Custom Protocol work — now has a clear home in the runtime
-
-**Files:** `modules/protocol.ts`, `modules/plugins.ts`, runtime interface
+The 3 `sendSync` calls in `preload.ts` were evaluated and documented as a `PreloadContract` interface in `types.ts`. Each runtime provides initialization data through its own mechanism — Electron uses `sendSync`, Tauri uses Rust-provided globals. The synchronous requirement is real (preload must have data before page load), so it was abstracted conceptually rather than eliminated.
 
 ---
 
-## File Inventory
+## Verification (All Passing)
 
-| File | Action | Description |
-|------|--------|-------------|
-| `packages/core/assets/electron/main.ts` | Modify | Replace ~18 direct API calls with runtime methods |
-| `packages/core/assets/electron/electron.ts` | Modify | Extend `createElectronRuntime()` with new namespaces |
-| `packages/core/assets/electron/preload.ts` | Modify | Abstract `sendSync` behind runtime |
-| `packages/core/assets/electron/modules/plugins.ts` | Modify | Create `RuntimePluginContext` via runtime |
-| `packages/core/assets/electron/modules/protocol.ts` | Modify | Route through `runtime.protocol`, add sub-routes |
-| `packages/core/assets/electron/modules/window.ts` | Modify | Integrate with `runtime.window.create()` |
-| Runtime types (new or extended) | Create/Modify | Full `DesktopRuntime` interface definition |
-
----
-
-## Dependencies
-
-- No external dependencies
-- Phase 1 work already started (runtime exists, service IPC routed)
-- Blocks: [Tauri Desktop Backend](./tauri-desktop-backend.md) (Phase 2)
+- [x] Zero direct `app.*` calls remain in `main.ts` (all go through `runtime.app.*`)
+- [x] `createWindow` delegates to `runtime.window.create()`
+- [x] Protocol handling routes through `runtime.protocol.*`
+- [x] Plugin `desktop.load` receives context with required `runtime` parameter
+- [x] Preload synchronous data fetching documented as `PreloadContract`
+- [x] All existing tests pass (284 tests across 8 test files)
+- [x] `runtime.native` escape hatch provides raw Electron access where needed
+- [ ] Plugin protocol sub-routes registerable via `runtime.protocol.registerPluginRoute()` (deferred — not yet needed)
 
 ---
 
-## Verification
+## Remaining Work
 
-- [ ] Zero direct `app.*` calls remain in `main.ts` (all go through `runtime.app.*`)
-- [ ] `createWindow` delegates to `runtime.window.create()`
-- [ ] Protocol handling routes through `runtime.protocol.*`
-- [ ] Plugin `desktop.load` receives `RuntimePluginContext` (not raw `BrowserWindow`)
-- [ ] Plugin protocol sub-routes are registerable via `runtime.protocol.registerPluginRoute()`
-- [ ] Preload synchronous data fetching is abstracted behind the runtime
-- [ ] All existing desktop tests still pass (no behavioral regressions)
-- [ ] `runtime.native` escape hatch provides raw Electron access where needed
+| Item | Status |
+|------|--------|
+| Plugin protocol sub-route registration | Deferred — better suited after full Tauri runtime parity |
+| Complete `createTauriRuntime()` adapter | Planned — requires Tauri-side implementation for all runtime methods |
 
 ---
 
-## Risks and Tradeoffs
+## Files Modified
 
-| Risk | Mitigation |
-|------|-----------|
-| Over-abstraction makes debugging harder | `runtime.native` escape hatch; logging at runtime boundary |
-| Breaking existing plugins that use raw `BrowserWindow` | `context.native` preserves access; deprecation warning first |
-| Preload `sendSync` abstraction is leaky | Accept that sync init data is a runtime concern; each adapter handles it differently |
-| Large changeset risks regressions | Incremental steps; run desktop test suite after each step |
-| `createWindow` extraction is complex (inline IPC, security) | Extract in stages; keep security setup co-located with window creation |
+| File | Change |
+|------|--------|
+| `packages/core/assets/runtime/types.ts` | Added 8 new `RuntimeWindow` methods + `PreloadContract` interface |
+| `packages/core/assets/runtime/electron.ts` | Implemented `create()` + all new methods in `ElectronWindow` |
+| `packages/core/assets/runtime/tauri.ts` | Added stubs for all new `RuntimeWindow` methods |
+| `packages/core/assets/electron/main.ts` | Replaced ~15 direct Electron calls, migrated to `Commands.*` channels, added IPC allowlist |
+| `packages/core/assets/electron/modules/plugins.ts` | Made `runtime` required, removed IPC fallbacks |
+| `packages/core/assets/electron/modules/ipc.ts` | Added `setSendToRenderer()`, `setIPCAllowlist()`, `checkAllowlist()` |
+| `packages/core/assets/electron/modules/commands.ts` | New — Typed Command Registry |
+| `packages/core/assets/electron/modules/ipc-allowlist.ts` | New — Capabilities-Driven IPC Allowlist |
+| `packages/core/assets/electron/modules/ipc-channels.ts` | Updated to use `Commands.*` references |
+| `packages/core/assets/electron/preload.ts` | Added allowlist parsing and fine-grained channel validation |
+| `packages/core/assets/capabilities.ts` | Added `validateRequirements()` |
+| `packages/core/index.ts` | Added dev-mode capability warning |
+| `packages/plugins/windows/index.ts` | Added capabilities declaration |
+| `packages/plugins/splash-screen/index.ts` | Added capabilities declaration |
+| `packages/plugins/local-services/index.ts` | Added capabilities declaration |

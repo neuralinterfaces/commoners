@@ -10,6 +10,8 @@ import {
   cleanup,
   merge,
   isDesktop,
+  isElectron as isElectronTarget,
+  isTauri,
 } from '@commoners/solidarity'
 // } from '../core/index'
 
@@ -148,7 +150,8 @@ export const open = async (
 
   const { outDir, target, port } = updatedConfig
 
-  const isElectron = isDesktop(target)
+  const isTauriTarget = isTauri(target)
+  const isElectron = isElectronTarget(target)
 
   // Set remote debugging port env var before spawning Electron
   // This is read by electron.ts startup() and passed as a CLI arg to the Electron process
@@ -490,7 +493,38 @@ export const open = async (
     states.page = createRecoverablePageProxy(states.page)
   }
 
-  // Non-Electron Instance
+  // Tauri Instance (WebDriver via tauri-driver)
+  else if (isTauriTarget) {
+    if (!useBuild) {
+      throw new Error(
+        'Tauri testing requires a built application (useBuild=true). ' +
+          'tauri-driver cannot connect to a dev server.'
+      )
+    }
+
+    const { connectTauri } = await import('./tauri.js')
+    const { findTauriExecutable } = await import(
+      '../../core/flows/strategies/TauriLaunchStrategy.js'
+    )
+
+    const appPath = findTauriExecutable(outDir)
+    if (!appPath) {
+      throw new Error(
+        `Could not find Tauri executable in ${outDir}. ` +
+          'Ensure the Tauri build completed successfully.'
+      )
+    }
+
+    const tauri = await connectTauri({ appPath })
+
+    // Wrap the TauriPageProxy as a Playwright-compatible Page for the test harness
+    states.page = tauri.page as any
+
+    // Store tauri cleanup for later
+    ;(states as any).__tauriCleanup = tauri.cleanup
+  }
+
+  // Non-Desktop Instance
   else {
     const browser = (states.browser = await chromium.launch({ headless: true }))
     const page = (states.page = await browser.newPage())
@@ -502,8 +536,17 @@ export const open = async (
 
     // Override cleanup function
     cleanup: async () => {
+      // Fully close the Tauri instance
+      if (isTauriTarget && (states as any).__tauriCleanup) {
+        try {
+          await (states as any).__tauriCleanup()
+        } catch (e: any) {
+          console.warn(`[cleanup] Tauri cleanup warning: ${e.message}`)
+        }
+      }
+
       // Fully close the Electron instance
-      if (isElectron && states.page) {
+      else if (isElectron && states.page) {
         try {
           await states.page.evaluate(() => {
             const { commoners } = globalThis

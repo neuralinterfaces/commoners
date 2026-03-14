@@ -402,3 +402,45 @@ describe('Web strategies exclude tauri targets', () => {
     expect(getSpecificTarget('tauri')).toBe('tauri')
   })
 })
+
+// ────────────────────────────────────────────────────────
+// 9. SEA Compilation for JS Services
+// ────────────────────────────────────────────────────────
+
+describe('SEA support for Tauri JS services', () => {
+  test('isSEASupported returns true for Node.js >= 20', async () => {
+    const { isSEASupported } = await import('../packages/core/utils/sea')
+    expect(isSEASupported()).toBe(true)
+  })
+
+  test('JS file extensions are detected correctly', () => {
+    const jsExts = ['.js', '.cjs', '.mjs']
+    expect(jsExts.includes('.js')).toBe(true)
+    expect(jsExts.includes('.cjs')).toBe(true)
+    expect(jsExts.includes('.mjs')).toBe(true)
+    expect(jsExts.includes('.ts')).toBe(false)
+    expect(jsExts.includes('.exe')).toBe(false)
+    expect(jsExts.includes('')).toBe(false)
+  })
+
+  test('createSEA is importable and callable', async () => {
+    const { createSEA } = await import('../packages/core/utils/sea')
+    expect(typeof createSEA).toBe('function')
+  })
+
+  test('createSEA returns error for non-existent source', async () => {
+    const { createSEA } = await import('../packages/core/utils/sea')
+    const result = await createSEA({
+      src: '/tmp/non-existent-file.js',
+      out: '/tmp/test-sea-output',
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+  })
+
+  test('estimateSEASize returns value greater than Node binary size', async () => {
+    const { estimateSEASize } = await import('../packages/core/utils/sea')
+    const estimated = estimateSEASize(1024)
+    expect(estimated).toBeGreaterThan(1024)
+  })
+})

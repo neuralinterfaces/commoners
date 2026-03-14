@@ -3,7 +3,7 @@
  * Generates a src-tauri/ project and invokes `tauri ios build` or `tauri android build`
  */
 
-import { join, dirname, isAbsolute } from 'node:path'
+import { join, dirname, isAbsolute, extname } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { createLogger } from '../../assets/utils/logger.js'
@@ -134,6 +134,18 @@ pub fn run() {
 
     // Generate build.rs
     writeFileSync(join(srcTauriDir, 'build.rs'), 'fn main() {\n  tauri_build::build()\n}\n')
+
+    // Warn about JS services that cannot be bundled as sidecars on mobile
+    const jsExts = ['.js', '.cjs', '.mjs']
+    const services = getServices(config.extensions)
+    const jsServiceCount = Object.values(services).filter(
+      s => s.filepath && jsExts.includes(extname(s.filepath))
+    ).length
+    if (jsServiceCount > 0) {
+      logger.warn(
+        `${jsServiceCount} JS service(s) skipped: Tauri mobile does not support sidecar binaries.`
+      )
+    }
 
     // Generate tauri.conf.json (no externalBin for mobile)
     const tauriConf = generateTauriConf({

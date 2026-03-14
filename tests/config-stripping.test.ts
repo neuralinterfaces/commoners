@@ -48,11 +48,18 @@ describe('Config Bundle Key Constants', () => {
   })
 
   test('Electron strip keys include browser-only lifecycle hooks', () => {
+    // Only `load` is browser-only — start/ready/quit/isSupported are used
+    // by the main process via runAppPlugins and must be kept
     expect(ELECTRON_STRIP_KEYS).toContain('load')
-    expect(ELECTRON_STRIP_KEYS).toContain('isSupported')
-    expect(ELECTRON_STRIP_KEYS).toContain('start')
-    expect(ELECTRON_STRIP_KEYS).toContain('ready')
-    expect(ELECTRON_STRIP_KEYS).toContain('quit')
+  })
+
+  test('Electron does NOT strip main-process lifecycle hooks', () => {
+    // start/ready/quit run in the Electron main process via runAppPlugins
+    // isSupported is checked before running those hooks
+    expect(ELECTRON_STRIP_KEYS).not.toContain('start')
+    expect(ELECTRON_STRIP_KEYS).not.toContain('ready')
+    expect(ELECTRON_STRIP_KEYS).not.toContain('quit')
+    expect(ELECTRON_STRIP_KEYS).not.toContain('isSupported')
   })
 
   test('Electron does NOT strip assets (needed for protocol handler)', () => {
@@ -122,12 +129,14 @@ describe('stripExtensionKeys', () => {
     const result = stripExtensionKeys(hybridExtension, ELECTRON_STRIP_KEYS)
     const ext = result.myPlugin
 
-    // Stripped
+    // Stripped (browser-only)
     expect(ext).not.toHaveProperty('load')
-    expect(ext).not.toHaveProperty('start')
-    expect(ext).not.toHaveProperty('ready')
-    expect(ext).not.toHaveProperty('quit')
-    expect(ext).not.toHaveProperty('isSupported')
+
+    // Kept (main-process lifecycle — used by runAppPlugins)
+    expect(ext).toHaveProperty('start')
+    expect(ext).toHaveProperty('ready')
+    expect(ext).toHaveProperty('quit')
+    expect(ext).toHaveProperty('isSupported')
 
     // Kept (desktop/service props)
     expect(ext).toHaveProperty('desktop')

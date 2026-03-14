@@ -5,7 +5,7 @@
  * to specialized modules. It serves as the entry point and orchestrator.
  */
 
-import { BrowserWindow } from 'electron'
+import type { BrowserWindow } from 'electron'
 import { join, extname, normalize } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
@@ -34,6 +34,9 @@ import * as Window from './modules/window'
 import * as Protocol from './modules/protocol'
 import * as Lifecycle from './modules/lifecycle'
 import * as Plugins from './modules/plugins'
+import { Commands } from './modules/commands'
+import { generateIPCAllowlist, validateChannel, serializeAllowlist } from './modules/ipc-allowlist'
+import type { IPCAllowlist } from './modules/ipc-allowlist'
 
 // Runtime abstraction
 import { createElectronRuntime } from '../runtime/electron'
@@ -42,6 +45,7 @@ const runtime: DesktopRuntime = createElectronRuntime()
 
 // Configure IPC module with runtime backend
 IPC.setIPCBackend(runtime.native.ipcMain, () => runtime.window.getAll())
+IPC.setSendToRenderer((win, channel, ...args) => runtime.window.sendToRenderer(win, channel, ...args))
 
 // ------------------------ Configuration ------------------------
 const isProduction = !utils.is.dev
@@ -53,6 +57,11 @@ const { config, electron: electronOptions, plugins } = electronConfig
 
 const options = Config.parseOptions(electronConfig, isProduction)
 const { protocolOptions, windowOptions, securitySettings } = options
+
+// Generate capabilities-driven IPC allowlist from declared plugins and services
+const pluginIds = Object.keys(plugins)
+const serviceIds = Object.keys(config.services || {})
+const ipcAllowlist = generateIPCAllowlist(pluginIds, serviceIds)
 
 // Set remote debugging port early — must happen before app.whenReady()
 // This is done here (not in the plugin start() hook) because Chromium reads
@@ -74,6 +83,9 @@ if (process.env.__COMMONERS_TESTING) {
 // ------------------------ Setup ------------------------
 Lifecycle.setupQuitHandler(() => runtime.lifecycle.quit())
 Lifecycle.handleUncaughtExceptions((title, content) => runtime.dialog.showErrorBox(title, content))
+
+// Configure capabilities-driven IPC allowlist
+IPC.setIPCAllowlist(ipcAllowlist)
 
 // Block application startup until verification is complete
 Security.runVerification(isProduction, {
@@ -169,7 +181,7 @@ Security.runVerification(isProduction, {
 
   async function loadPage(win: BrowserWindow, page?: string): Promise<string> {
     if (page && Protocol.isValidUrl(page)) {
-      win.loadURL(page)
+      runtime.window.loadURL(win, page)
       return page
     }
 
@@ -182,11 +194,11 @@ Security.runVerification(isProduction, {
 
     try {
       new URL(location)
-      win.loadURL(location)
+      runtime.window.loadURL(win, location)
       return location
     } catch {}
 
-    const loadFile = (loc: string) => win.loadURL(pathToFileURL(loc).href)
+    const loadFile = (loc: string) => runtime.window.loadURL(win, pathToFileURL(loc).href)
 
     const result = await loadFile(location)
       .then(() => location)
@@ -244,7 +256,8 @@ Security.runVerification(isProduction, {
     const transferredFlags = { __id, __main: isMainWindow }
 
     webPreferences.additionalArguments.push(
-      ...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`)
+      ...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`),
+      `--__ipcAllowlist=${serializeAllowlist(ipcAllowlist)}`
     )
 
     const flags = {
@@ -255,19 +268,19 @@ Security.runVerification(isProduction, {
       __loaded: Promise.resolve(),
     } as ElectronBrowserWindowFlags
 
-    const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow
+    const win = await runtime.window.create(undefined, copy) as ExtendedElectronBrowserWindow
     Object.assign(win, flags)
 
     const onReadyPromise = new Promise(resolve => onRendererReady(__id, () => resolve(true)))
 
-    win.webContents.on('did-fail-load', (e, errorCode, errorDesc) => {
+    runtime.window.onWebContentsEvent(win, 'did-fail-load', (_e, errorCode, errorDesc) => {
       console.error(`[LOAD FAIL] ${errorCode}: ${errorDesc}`)
     })
 
-    win.webContents.on('crashed', () => console.error('[RENDERER CRASHED]'))
+    runtime.window.onWebContentsEvent(win, 'crashed', () => console.error('[RENDERER CRASHED]'))
 
     const { devTools } = webPreferences
-    if (devTools === false) win.webContents.on('devtools-opened', () => win.webContents.closeDevTools())
+    if (devTools === false) runtime.window.onWebContentsEvent(win, 'devtools-opened', () => win.webContents.closeDevTools())
 
     Window.setupWindowBehaviors(win)
 
@@ -276,7 +289,7 @@ Security.runVerification(isProduction, {
     Window.updateWindowLocation(__id, __location)
 
     // Navigation handling
-    win.webContents.on('will-navigate', async (event, url) => {
+    runtime.window.onNavigate(win, async (event, url) => {
       event.preventDefault()
 
       const urlObj = new URL(url)
@@ -285,7 +298,7 @@ Security.runVerification(isProduction, {
         const type = await Protocol.checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url)
         if (isMainWindow) return runtime.shell.openExternal(url)
-        else return win.loadURL(url)
+        else return runtime.window.loadURL(win, url)
       }
 
       __location.search = urlObj.search
@@ -327,19 +340,19 @@ Security.runVerification(isProduction, {
     })
 
     if (isMainWindow) {
-      win.once('close', () => {
+      runtime.window.onClose(win, () => {
         Window.setMainWindow(null)
       })
     }
 
-    runtime.ipc.once('commoners:quit', (_, message) => globalThis.COMMONERS_QUIT?.(message))
+    runtime.ipc.once(Commands.quit.channel, (_, message) => globalThis.COMMONERS_QUIT?.(message))
 
-    win.webContents.setWindowOpenHandler(({ url }) => {
+    runtime.window.setWindowOpenHandler(win, ({ url }) => {
       runtime.shell.openExternal(url)
       return { action: 'deny' }
     })
 
-    win.once('close', async () => {
+    runtime.window.onClose(win, async () => {
       await Plugins.runPluginHooks(win, 'unload', mutablePlugins, pluginContexts, toIgnore)
       __listeners.forEach(l => l.remove())
     })
@@ -369,13 +382,13 @@ Security.runVerification(isProduction, {
           await new Promise(async resolve => {
             await onReadyPromise
             onMainReady(__id, () => resolve(true))
-            IPC.send(win, 'commoners:window:ready:main:ping', __id)
+            IPC.send(win, Commands.mainReadyPing.channel, __id)
           })
         } else {
-          await new Promise(async resolve => win.once('ready-to-show', () => resolve(true)))
+          await new Promise(async resolve => runtime.window.onReadyToShow(win, () => resolve(true)))
         }
       })
-      .finally(() => win.show())
+      .finally(() => runtime.window.show(win))
 
     return win
   }
@@ -387,17 +400,17 @@ Security.runVerification(isProduction, {
   // ------------------------ IPC Handlers ------------------------
   IPC.setupConsoleRedirection()
 
-  runtime.ipc.on(`commoners:close`, (_, _id) => {
+  runtime.ipc.on(Commands.close.channel, (_, _id) => {
     const win = Window.getWindowById(_id)
     if (win && !win.isDestroyed()) win.close()
     Window.unregisterWindow(_id)
   })
 
-  runtime.ipc.on(`commoners:location`, (ev, id) => {
+  runtime.ipc.on(Commands.location.channel, (ev, id) => {
     ev.returnValue = Window.getWindowLocation(id)
   })
 
-  runtime.ipc.on(`commoners:window:ready:renderer:pong`, (_, id) => {
+  runtime.ipc.on(Commands.rendererReady.channel, (_, id) => {
     const win = Window.getWindowById(id)
     const isMain = win && (win as ExtendedElectronBrowserWindow).__main
 
@@ -410,10 +423,10 @@ Security.runVerification(isProduction, {
     callbacks.run(`ready:renderer:${id}`)
   })
 
-  runtime.ipc.on(`commoners:plugins:loaded`, (_, pageId, pluginId) =>
+  runtime.ipc.on(Commands.pluginsLoaded.channel, (_, pageId, pluginId) =>
     callbacks.run(`loaded:${pageId}:${pluginId}`)
   )
-  runtime.ipc.on(`commoners:window:ready:main:pong`, (_, id) => callbacks.run(`ready:main:${id}`))
+  runtime.ipc.on(Commands.mainReadyPong.channel, (_, id) => callbacks.run(`ready:main:${id}`))
 
   // ------------------------ Single Instance ------------------------
   Window.makeSingleInstance(Window.restoreWindow, {
@@ -481,7 +494,7 @@ Security.runVerification(isProduction, {
 
       const { active = {}, resolved = {}, close: closeService } = output
 
-      runtime.ipc.on('commoners:services', ev => { ev.returnValue = services.sanitize(resolved) })
+      runtime.ipc.on(Commands.services.channel, ev => { ev.returnValue = services.sanitize(resolved) })
 
       // Track service status
       for (let id in resolved) {

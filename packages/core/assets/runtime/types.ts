@@ -87,6 +87,21 @@ export interface RuntimeWindow {
   getAll(): any[]
   restore(): any | null
   close(id: string | number): void
+
+  // Window lifecycle
+  show(win: any): void
+  isDestroyed(win: any): boolean
+  loadURL(win: any, url: string): Promise<void>
+
+  // Event handling
+  onClose(win: any, callback: () => void): void
+  onReadyToShow(win: any, callback: () => void): void
+  onNavigate(win: any, handler: (event: any, url: string) => void): void
+  onWebContentsEvent(win: any, event: string, handler: (...args: any[]) => void): void
+  setWindowOpenHandler(win: any, handler: (details: { url: string }) => { action: string }): void
+
+  // Renderer communication
+  sendToRenderer(win: any, channel: string, ...args: any[]): void
 }
 
 export interface RuntimeShell {
@@ -130,6 +145,36 @@ export interface RuntimePluginContext {
     on: (eventType: string, handler: (event: any) => void) => () => void
   }
   plugin: { assets: Record<string, string> }
+}
+
+/**
+ * PreloadContract defines the data shape that must be exposed to the renderer
+ * before the page loads. Each runtime provides this data through its own mechanism:
+ * - Electron: sendSync in preload.ts, exposed via contextBridge
+ * - Tauri: injected via Rust or @tauri-apps/api before the page script runs
+ *
+ * The consumer (onload.ts / commoners global) expects this shape on `globalThis.__commoners`.
+ */
+export interface PreloadContract {
+  quit: (message?: string) => void
+  close: () => void
+  args: Record<string, any>
+  services: Record<
+    string,
+    {
+      url: string
+      filepath?: string
+      status: () => any
+      onClosed: (cb: (code: number) => void) => void
+      close: () => void
+    }
+  >
+  on: (channel: string, listener: (...args: any[]) => void) => void
+  once: (channel: string, listener: (...args: any[]) => void) => void
+  send: (channel: string, ...args: any[]) => void
+  invoke: (channel: string, ...args: any[]) => Promise<any>
+  removeListener: (channel: string, listener: (...args: any[]) => void) => void
+  removeAllListeners: (channel: string) => void
 }
 
 export interface DesktopRuntime {

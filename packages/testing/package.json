@@ -23,6 +23,10 @@
     "./plugin": {
       "import": "./dist/plugin.mjs",
       "require": "./dist/plugin.cjs"
+    },
+    "./tauri": {
+      "import": "./dist/tauri.mjs",
+      "require": "./dist/tauri.cjs"
     }
   },
   "scripts": {
@@ -34,5 +38,8 @@
     "playwright": "^1.58.2",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "webdriverio": "^9.0.0"
   }
 }

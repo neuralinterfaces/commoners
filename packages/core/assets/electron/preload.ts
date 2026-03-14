@@ -38,6 +38,9 @@ const { __id } = args as PassedDesktopArgs
 
 // Preload initialization must be synchronous — contextBridge.exposeInMainWorld
 // must run before the page loads. Use sendSync for initial data fetching.
+// This is the Electron implementation of the PreloadContract data requirements
+// (see packages/core/assets/runtime/types.ts). Other runtimes (e.g. Tauri)
+// provide this data through their own mechanisms.
 const services = ipcRenderer.sendSync('commoners:services')
 const __location = ipcRenderer.sendSync('commoners:location', __id)
 
@@ -60,11 +63,35 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// IPC channel allowlist — only channels with these prefixes may be used from the renderer
-const ALLOWED_CHANNEL_PREFIXES = ['commoners:', 'services:', 'plugins:']
+// Capabilities-driven IPC allowlist — validates channels against declared plugin/service IDs.
+// Falls back to prefix-based check if no allowlist is provided (backward compatible).
+const _allowlistData = (() => {
+  try {
+    const raw = (args as Record<string, any>).__ipcAllowlist
+    if (raw) return JSON.parse(raw) as { serviceIds: string[]; pluginIds: string[] }
+  } catch {}
+  return null
+})()
+const _allowedServiceIds = _allowlistData ? new Set(_allowlistData.serviceIds) : null
+const _allowedPluginIds = _allowlistData ? new Set(_allowlistData.pluginIds) : null
 
 function isAllowedChannel(channel: string): boolean {
-  return ALLOWED_CHANNEL_PREFIXES.some(prefix => channel.startsWith(prefix))
+  // Framework channels are always allowed
+  if (channel.startsWith('commoners:')) return true
+
+  // If no allowlist is available, fall back to prefix check
+  if (!_allowedServiceIds || !_allowedPluginIds) {
+    return channel.startsWith('services:') || channel.startsWith('plugins:')
+  }
+
+  // Capabilities-driven: validate against declared IDs
+  const match = channel.match(/^(services|plugins):([^:]+):/)
+  if (!match) return false
+
+  const [, scope, id] = match
+  if (scope === 'services') return _allowedServiceIds.has(id)
+  if (scope === 'plugins') return _allowedPluginIds.has(id)
+  return false
 }
 
 const TEMP_COMMONERS = {

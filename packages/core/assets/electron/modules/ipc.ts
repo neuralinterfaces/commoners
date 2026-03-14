@@ -10,6 +10,8 @@
  */
 
 import { validateIPCMessage } from './ipc-channels'
+import { validateChannel } from './ipc-allowlist'
+import type { IPCAllowlist } from './ipc-allowlist'
 
 /**
  * Module-level hooks reference for emitting security events.
@@ -22,6 +24,19 @@ let _hooks: any = null
  */
 export function setHooks(hooks: any): void {
   _hooks = hooks
+}
+
+/**
+ * Module-level IPC allowlist for capabilities-driven channel validation.
+ * When set, scoped channels are validated against declared plugin/service IDs.
+ */
+let _allowlist: IPCAllowlist | null = null
+
+/**
+ * Set the IPC allowlist for capabilities-driven validation.
+ */
+export function setIPCAllowlist(allowlist: IPCAllowlist): void {
+  _allowlist = allowlist
 }
 
 /**
@@ -53,6 +68,19 @@ export function setIPCBackend(ipcMain: any, getAllWindows: () => any[]): void {
 }
 
 /**
+ * Module-level configurable sendToRenderer function.
+ * When set, the send() function delegates to this instead of direct Electron calls.
+ */
+let _sendToRenderer: ((win: any, channel: string, ...args: any[]) => void) | null = null
+
+/**
+ * Configure the renderer send function. Call once from main.ts after runtime is created.
+ */
+export function setSendToRenderer(fn: (win: any, channel: string, ...args: any[]) => void): void {
+  _sendToRenderer = fn
+}
+
+/**
  * Log and optionally emit a validation failure.
  */
 function logValidationFailure(channel: string, failure: string): void {
@@ -73,6 +101,7 @@ export interface ListenerHandle {
  */
 export function send(win: any, channel: string, ...args: any[]): void {
   try {
+    if (_sendToRenderer) return _sendToRenderer(win, channel, ...args)
     if (win.isDestroyed()) return // Do not send messages to destroyed windows
     win.webContents.send(channel, ...args)
   } catch (e) {
@@ -89,6 +118,20 @@ function getScopedIdentifier(type: string, source: string, attr: string): string
 }
 
 /**
+ * Validate a scoped channel against the IPC allowlist (if configured).
+ * Returns true if allowed, false if blocked.
+ */
+function checkAllowlist(event: string): boolean {
+  if (!_allowlist) return true
+  const failure = validateChannel(event, _allowlist)
+  if (failure) {
+    logValidationFailure(event, failure)
+    return false
+  }
+  return true
+}
+
+/**
  * Register a scoped IPC listener with argument validation
  */
 export function scopedOn(
@@ -98,6 +141,7 @@ export function scopedOn(
   callback: (...args: any[]) => void
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
+  if (!checkAllowlist(event)) return { remove: () => {} }
   const wrappedCallback = (...args: any[]) => {
     // args[0] is IpcMainEvent — validate the rest
     const failure = validateIPCMessage(event, args.slice(1))
@@ -122,6 +166,7 @@ export function scopedHandle(
   callback: (...args: any[]) => any
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
+  if (!checkAllowlist(event)) return { remove: () => {} }
   try { getIpcMain().removeHandler(event) } catch {}
   const wrappedCallback = (...args: any[]) => {
     // args[0] is IpcMainInvokeEvent — validate the rest

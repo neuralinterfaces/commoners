@@ -13,7 +13,7 @@ import { BrowserWindow } from 'electron'
 import { join, basename, extname } from 'node:path'
 import { runAppPlugins } from '../../plugins'
 import { resolveLazy } from '../../utils'
-import { pluginHandle, pluginOn, pluginSend, ListenerHandle } from './ipc'
+import { ListenerHandle } from './ipc'
 import type { DesktopRuntime } from '../../runtime/types'
 import type { HooksInterface } from '../../../types'
 
@@ -27,7 +27,7 @@ export interface PluginContext {
   WEB: boolean
   electron: any
   utils: any
-  runtime?: DesktopRuntime
+  runtime: DesktopRuntime
   createWindow: (page: string, opts: any) => Promise<BrowserWindow>
   open: () => Promise<BrowserWindow | null | undefined>
   send: (channel: string, ...args: any[]) => void
@@ -53,7 +53,7 @@ export function initializePlugins(
   utils: any,
   createWindowFn: (page: string, opts: any) => Promise<BrowserWindow>,
   restoreWindowFn: () => BrowserWindow | null,
-  runtime?: DesktopRuntime,
+  runtime: DesktopRuntime,
   hooks?: HooksInterface
 ): { plugins: Record<string, any>; contexts: Map<string, PluginContext> } {
   const contexts = new Map<string, PluginContext>()
@@ -85,8 +85,7 @@ export function initializePlugins(
       // Helper Functions
       createWindow: (page: string, opts: any) => createWindowFn(page, opts),
       open: async () => {
-        const { app } = electron
-        await app.whenReady()
+        await runtime.lifecycle.onReady(() => {})
         const { firstInitialized } = require('./window').getWindowContext()
         if (firstInitialized) {
           return restoreWindowFn() || (await createWindowFn(undefined, {}))
@@ -94,20 +93,15 @@ export function initializePlugins(
         return null
       },
       send: function (channel, ...args) {
-        if (runtime) return runtime.scopedIPC.pluginSend(this.id, channel, ...args)
-        return pluginSend(this.id, channel, ...args)
+        return runtime.scopedIPC.pluginSend(this.id, channel, ...args)
       },
       handle: function (channel, callback, win?: BrowserWindow) {
-        const listener = runtime
-          ? runtime.scopedIPC.pluginHandle(this.id, channel, callback)
-          : pluginHandle(this.id, channel, callback)
+        const listener = runtime.scopedIPC.pluginHandle(this.id, channel, callback)
         if (win) (win as any).__listeners.push(listener)
         return listener
       },
       on: function (channel, callback, win?: BrowserWindow) {
-        const listener = runtime
-          ? runtime.scopedIPC.pluginOn(this.id, channel, callback)
-          : pluginOn(this.id, channel, callback)
+        const listener = runtime.scopedIPC.pluginOn(this.id, channel, callback)
         if (win) (win as any).__listeners.push(listener)
         return listener
       },

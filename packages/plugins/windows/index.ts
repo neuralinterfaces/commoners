@@ -203,6 +203,12 @@ export default (windows: Windows): Plugin => {
   }, {})
 
   return {
+    capabilities: {
+      provides: ['windows', 'multi-window'],
+      platforms: { web: true, desktop: true },
+      runtime: 'browser' as const,
+    },
+
     isSupported: {
       load: ({ MOBILE, DESKTOP }) => {
         if (MOBILE) return false

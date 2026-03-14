@@ -59,7 +59,7 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 
 | Document | Summary | Depends On | Status |
 |----------|---------|-----------|--------|
-| [Runtime Abstraction Completion](./runtime-abstraction-completion.md) | Route all 18+ Electron API calls through `DesktopRuntime`, plugin context wrapping, protocol sub-routes | — | Planned |
+| [Runtime Abstraction Completion](./runtime-abstraction-completion.md) | Route all Electron API calls through `DesktopRuntime`, plugin context wrapping, protocol sub-routes | — | Done (Phase 3) |
 | [Tauri Desktop Backend](./tauri-desktop-backend.md) | `TauriBuildStrategy`, `tauri.conf.json` auto-generation, `createTauriRuntime()`, sidecar service lifecycle | Runtime abstraction | Planned |
 | [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` API, per-runtime adapters, C++ WASM via Emscripten | Tauri backend | Planned |
 
@@ -68,6 +68,21 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 | Document | Summary | Status |
 |----------|---------|--------|
 | [Vite Evolution](./vite-evolution.md) | Audit 8 Rollup hooks + 3 esbuild usages for Rolldown compat, evaluate plugin refactor | Planned (track Vite 8 release) |
+
+### Batch D — Tauri-Inspired Deep Integration (parallel, after Batch B)
+
+Cross-cutting architecture improvements inspired by Tauri's design patterns. Benefits all backends (Electron, Tauri, web). Tracked in [Tauri Future Work § Deep Integration](./tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements).
+
+| Item | Summary | Priority | Effort |
+|------|---------|----------|--------|
+| ~~Typed Command Registry~~ | ~~Replace string IPC channels with typed command interface~~ | High | Done |
+| ~~Capabilities-Driven IPC~~ | ~~Declarative IPC allowlist from config (mirrors Tauri capabilities)~~ | High | Done |
+| ~~Plugin Capability Declaration~~ | ~~Plugins declare provides/requires/platforms upfront~~ | Medium | Done |
+| Plugin Hot Reload | Dev-mode plugin reload via unload() hook + file watching | Medium | Medium |
+| Service Health Monitoring | Heartbeat, auto-restart, health events | Medium | Medium |
+| Window Event Bus | Cross-window broadcast + state persistence | Medium | Low |
+| Unified Async API | Async-first runtime API, eliminate sync/async ambiguity | Medium | Medium |
+| Declarative Service Bundling | Service manifest for build-time inclusion | Low | Low |
 
 ### Dependency Graph
 
@@ -88,6 +103,16 @@ Batch B (sequential)
 
 Batch C (independent, timing-sensitive)
   vite-evolution.md ─────────────────── Track Vite 8 release
+
+Batch D (after Batch B, parallel)
+  Typed Command Registry ──────────────── DONE
+  Capabilities-Driven IPC ─────────────── DONE
+  Plugin Capability Declaration ────────── DONE
+  Plugin Hot Reload ────────────────────── Unblocked (Plugin Capability Declaration done)
+  Service Health Monitoring ────────────── Unblocked (no prerequisites)
+  Window Event Bus ─────────────────────── Unblocked (runtime abstraction done)
+  Unified Async API ────────────────────── Unblocked (Typed Command Registry done)
+  Declarative Service Bundling ─────────── Unblocked (no prerequisites)
 ```
 
 ### Reference Documents

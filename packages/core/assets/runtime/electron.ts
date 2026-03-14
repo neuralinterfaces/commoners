@@ -137,8 +137,9 @@ class ElectronProtocol implements RuntimeProtocol {
 }
 
 class ElectronWindow implements RuntimeWindow {
-  async create(page?: string, options?: Record<string, any>): Promise<any> {
-    throw new Error('Use createWindow from main.ts orchestrator instead')
+  async create(_page?: string, options?: Record<string, any>): Promise<any> {
+    const { BrowserWindow } = require('electron')
+    return new BrowserWindow({ ...options, show: false })
   }
 
   getById(id: string | number): any | null {
@@ -158,6 +159,42 @@ class ElectronWindow implements RuntimeWindow {
     const win = Window.getWindowById(id as number)
     if (win && !win.isDestroyed()) win.close()
     Window.unregisterWindow(id as number)
+  }
+
+  show(win: any): void {
+    win.show()
+  }
+
+  isDestroyed(win: any): boolean {
+    return win.isDestroyed()
+  }
+
+  async loadURL(win: any, url: string): Promise<void> {
+    await win.loadURL(url)
+  }
+
+  onClose(win: any, callback: () => void): void {
+    win.once('close', callback)
+  }
+
+  onReadyToShow(win: any, callback: () => void): void {
+    win.once('ready-to-show', callback)
+  }
+
+  onNavigate(win: any, handler: (event: any, url: string) => void): void {
+    win.webContents.on('will-navigate', handler)
+  }
+
+  onWebContentsEvent(win: any, event: string, handler: (...args: any[]) => void): void {
+    win.webContents.on(event, handler)
+  }
+
+  setWindowOpenHandler(win: any, handler: (details: { url: string }) => { action: string }): void {
+    win.webContents.setWindowOpenHandler(handler)
+  }
+
+  sendToRenderer(win: any, channel: string, ...args: any[]): void {
+    if (!win.isDestroyed()) win.webContents.send(channel, ...args)
   }
 }
 

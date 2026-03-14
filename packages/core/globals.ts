@@ -123,15 +123,16 @@ export const getDefaultMainLocation = outDir => join(outDir, 'main.cjs')
 export const isDesktop = (target: TargetType) => validDesktopTargets.includes(target)
 export const isMobile = (target: TargetType) => validMobileTargets.includes(target)
 
-export const getNormalizedTarget = (target: TargetType) => {
-  const isDesktopTarget = isDesktop(target)
-  const isMobileTarget = isMobile(target)
-  return isDesktopTarget ? TARGET_DESKTOP : isMobileTarget ? TARGET_MOBILE : 'web'
-}
+/** Check if a target uses the Electron backend */
+export const isElectron = (target: TargetType) => target === TARGET_DESKTOP_ELECTRON
 
 /** Check if a target uses the Tauri backend (desktop or mobile) */
 export const isTauri = (target: TargetType) =>
   target === TARGET_DESKTOP_TAURI || target === TARGET_IOS_TAURI || target === TARGET_ANDROID_TAURI
+
+/** Check if a target uses the Capacitor backend (mobile only) */
+export const isCapacitor = (target: TargetType) =>
+  target === TARGET_IOS_CAPACITOR || target === TARGET_ANDROID_CAPACITOR
 
 /** Check if a target is a Tauri mobile target */
 export const isTauriMobile = (target: TargetType) =>
@@ -140,6 +141,12 @@ export const isTauriMobile = (target: TargetType) =>
 /** Check if a target is a Capacitor mobile target */
 export const isCapacitorMobile = (target: TargetType) =>
   target === TARGET_IOS_CAPACITOR || target === TARGET_ANDROID_CAPACITOR
+
+export const getNormalizedTarget = (target: TargetType) => {
+  const isDesktopTarget = isDesktop(target)
+  const isMobileTarget = isMobile(target)
+  return isDesktopTarget ? TARGET_DESKTOP : isMobileTarget ? TARGET_MOBILE : 'web'
+}
 
 export const getSpecificTarget = (target: TargetType) => {
   if (!target)

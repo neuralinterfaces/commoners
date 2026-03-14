@@ -46,3 +46,25 @@ export function queryExtensions(
 
   return results
 }
+
+export function validateRequirements(
+  extensions: Record<string, ExposedExtension>
+): { id: string; missing: string[] }[] {
+  const errors: { id: string; missing: string[] }[] = []
+  const allProvided = new Set<string>()
+
+  for (const ext of Object.values(extensions)) {
+    if (ext.capabilities?.provides) {
+      ext.capabilities.provides.forEach(p => allProvided.add(p))
+    }
+  }
+
+  for (const [id, ext] of Object.entries(extensions)) {
+    if (ext.capabilities?.requires) {
+      const missing = ext.capabilities.requires.filter(r => !allProvided.has(r))
+      if (missing.length) errors.push({ id, missing })
+    }
+  }
+
+  return errors
+}

@@ -5,7 +5,12 @@
  * for known IPC channels and provides lightweight runtime validation.
  *
  * Validation is non-blocking: callers log failures but do not reject messages.
+ *
+ * For typed command definitions, see ./commands.ts which provides compile-time
+ * type safety for channel names and argument types.
  */
+
+import { Commands, validateCommand } from './commands'
 
 export type ArgType = 'string' | 'number' | 'boolean' | 'object'
 
@@ -18,48 +23,49 @@ export interface ArgValidator {
 
 /**
  * Registry of exact `commoners:*` channels and their expected argument shapes.
+ * This is the runtime validation counterpart to the typed Commands in ./commands.ts.
  */
 export const CHANNEL_REGISTRY: Record<string, ArgValidator> = {
-  'commoners:quit': {
+  [Commands.quit.channel]: {
     minArgs: 0,
     maxArgs: 1,
     argTypes: ['string'],
-    description: 'Quit the application with optional message',
+    description: Commands.quit.description,
   },
-  'commoners:close': {
+  [Commands.close.channel]: {
     minArgs: 1,
     maxArgs: 1,
     argTypes: ['number'],
-    description: 'Close a window by ID',
+    description: Commands.close.description,
   },
-  'commoners:services': {
+  [Commands.services.channel]: {
     minArgs: 0,
     maxArgs: 0,
-    description: 'Request resolved services object',
+    description: Commands.services.description,
   },
-  'commoners:location': {
+  [Commands.location.channel]: {
     minArgs: 1,
     maxArgs: 1,
     argTypes: ['number'],
-    description: 'Get window location by ID',
+    description: Commands.location.description,
   },
-  'commoners:plugins:loaded': {
+  [Commands.pluginsLoaded.channel]: {
     minArgs: 2,
     maxArgs: 2,
     argTypes: ['number', 'string'],
-    description: 'Notify that a plugin has loaded in a page',
+    description: Commands.pluginsLoaded.description,
   },
-  'commoners:window:ready:renderer:pong': {
+  [Commands.rendererReady.channel]: {
     minArgs: 1,
     maxArgs: 1,
     argTypes: ['number'],
-    description: 'Renderer acknowledges ready ping',
+    description: Commands.rendererReady.description,
   },
-  'commoners:window:ready:main:pong': {
+  [Commands.mainReadyPong.channel]: {
     minArgs: 1,
     maxArgs: 1,
     argTypes: ['number'],
-    description: 'Main process acknowledges ready ping',
+    description: Commands.mainReadyPong.description,
   },
 }
 

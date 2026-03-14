@@ -181,6 +181,42 @@ class TauriWindow implements RuntimeWindow {
   close(_id: string | number): void {
     // Would need window reference
   }
+
+  show(win: any): void {
+    win?.show?.()
+  }
+
+  isDestroyed(_win: any): boolean {
+    return false
+  }
+
+  async loadURL(_win: any, _url: string): Promise<void> {
+    // Tauri uses its own navigation mechanism
+  }
+
+  onClose(_win: any, _callback: () => void): void {
+    // Use Tauri event system
+  }
+
+  onReadyToShow(_win: any, callback: () => void): void {
+    callback()
+  }
+
+  onNavigate(_win: any, _handler: (event: any, url: string) => void): void {
+    // Not applicable in Tauri frontend
+  }
+
+  onWebContentsEvent(_win: any, _event: string, _handler: (...args: any[]) => void): void {
+    // Not applicable in Tauri frontend
+  }
+
+  setWindowOpenHandler(_win: any, _handler: (details: { url: string }) => { action: string }): void {
+    // Not applicable in Tauri frontend
+  }
+
+  sendToRenderer(_win: any, _channel: string, ..._args: any[]): void {
+    // Use Tauri event system for renderer communication
+  }
 }
 
 class TauriShell implements RuntimeShell {

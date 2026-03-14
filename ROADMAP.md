@@ -19,9 +19,16 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 | E2E WASM compilation test (requires Rust toolchain) | WASM Service Compilation | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
 | C++ WASM via Emscripten | WASM Service Compilation | [Device Communication Abstraction](./docs/roadmap/device-communication-abstraction.md) |
 | Mobile build output tests (5 areas) | Mobile Workflow Validation | [Testing and Distribution](./docs/roadmap/testing-and-distribution.md) |
-| 22 direct Electron API calls not routed through runtime | Tauri Investigation Phase 1 | [Runtime Abstraction Completion](./docs/roadmap/runtime-abstraction-completion.md) |
+| ~~22 direct Electron API calls not routed through runtime~~ | Tauri Investigation Phase 1 | [Runtime Abstraction Completion](./docs/roadmap/runtime-abstraction-completion.md) (done) |
 | Preload `sendSync` elimination | Tauri Investigation Phase 1 | [Runtime Abstraction Completion](./docs/roadmap/runtime-abstraction-completion.md) |
 | Security threat model and controls | — | [Security Whitepaper](./docs/roadmap/security-whitepaper.md) |
+| SEA cross-compilation (universal binaries) | Tauri SEA Integration | [Tauri Future Work](./docs/roadmap/tauri-future-work.md) |
+| Tauri dev mode testing | Tauri Testing | [Tauri Future Work](./docs/roadmap/tauri-future-work.md) |
+| ~~Typed Command Registry~~ | Tauri Deep Integration Audit | [Tauri Future Work](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements) (done) |
+| ~~Capabilities-Driven IPC Allowlist~~ | Tauri Deep Integration Audit | [Tauri Future Work](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements) (done) |
+| Plugin Hot Reload (dev mode) | Tauri Deep Integration Audit | [Tauri Future Work](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements) |
+| Service Health Monitoring | Tauri Deep Integration Audit | [Tauri Future Work](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements) |
+| Unified Async Runtime API | Tauri Deep Integration Audit | [Tauri Future Work](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements) |
 
 ## Upcoming
 
@@ -186,7 +193,7 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 
 ## High Lift
 
-### Tauri Investigation — Desktop (Phase 1 done)
+### Tauri Investigation — Desktop (Phase 1 done, Phase 2 done)
 - Compare how services are included in Electron vs the sidecar concept in Tauri
 - Tauri's sidecar model maps directly to compiled services (Rust, C++) — evaluate whether existing service compilation can target Tauri sidecars with minimal changes
 - Evaluate difficulty of providing Tauri analogues for all Electron-specific behaviors
@@ -194,7 +201,27 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 - Rust services would be native Tauri sidecars rather than spawned child processes
 - **Architecture boundary (decided):** When evaluating Tauri, the existing `packages/core/assets/electron/` modules should be refactored behind a `DesktopRuntime` interface. The 6 Electron modules (config, security, ipc, window, protocol, lifecycle) each map to Tauri equivalents — the interface should abstract per-module rather than as a monolith.
 - **Phase 1 complete:** `DesktopRuntime` interface extended with `RuntimeScopedIPC` (scoped IPC helpers for services/plugins), `RuntimePluginContext`, and `ListenerHandle`. `createElectronRuntime()` adapter implements all interfaces. `main.ts` now creates runtime at startup and routes service IPC (`serviceSend`, `serviceOn`) and plugin IPC (`pluginSend`, `pluginOn`, `pluginHandle`) through `runtime.scopedIPC.*`. Plugin context creation accepts optional `DesktopRuntime` parameter. Runtime exposes `native` property for Electron escape hatch.
-- **Remaining (Phase 2):** Renderer-side abstraction (preload still uses `ipcRenderer` directly), full `createWindow` delegation through runtime, abstracting `BrowserWindow` in plugin `desktop.load` hooks, implementing `TauriRuntime` adapter.
+- **Phase 2 complete:** Tauri desktop backend fully functional — `TauriBuildStrategy`, `TauriLaunchStrategy`, `TauriDevStrategy`, `TauriMobileBuildStrategy`, Vite plugin, frontend runtime adapter. 66 unit tests. SEA compilation for JS services. WebDriver-based testing via `tauri-driver`.
+- **Phase 3 complete:** Runtime abstraction completion — all Electron API calls in `main.ts` routed through `DesktopRuntime` (`runtime.window.create()`, `runtime.window.show()`, `runtime.window.loadURL()`, `runtime.window.onNavigate()`, etc.). Plugin context `runtime` parameter made required (no more IPC fallbacks). `IPC.setSendToRenderer()` abstraction added. `TauriWindow` interface expanded with stubs for all new `RuntimeWindow` methods.
+- **Remaining:** Preload `sendSync` elimination (3 synchronous IPC calls), complete `createTauriRuntime()` adapter for full runtime parity.
+
+### Tauri-Inspired Deep Integration — Architecture
+
+Cross-cutting improvements inspired by Tauri's design patterns. Benefits all backends (Electron, Tauri, web). Full details in [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements).
+
+**High Priority (done):**
+- ~~**Typed Command Registry**~~ — `Commands` object in `commands.ts` provides typed channel references, compile-time type safety, and validation. All `main.ts` IPC handlers migrated from string literals to `Commands.*.channel`.
+- ~~**Capabilities-Driven IPC Allowlist**~~ — `generateIPCAllowlist()` builds per-extension allowlist from config. Main process validates via `IPC.setIPCAllowlist()`. Preload receives allowlist via `additionalArguments` and validates scoped channels against declared plugin/service IDs. Falls back to prefix-based check for backward compatibility.
+
+**Medium Priority (Plugin Capability Declaration done):**
+- ~~**Plugin Capability Declaration**~~ — Capabilities added to Windows, Splash Screen, and Local Services plugins. `validateRequirements()` utility added to `capabilities.ts`. Dev-mode warning for extensions without capabilities.
+- **Plugin Hot Reload (dev mode)** — Add `unload()` hook to plugin interface; watch plugin files and trigger reload via IPC
+- **Service Health Monitoring** — Heartbeat checks, auto-restart with exponential backoff, `service:health` events
+- **Window Event Bus** — Cross-window broadcast events + window state persistence across restarts
+- **Unified Async Runtime API** — Replace `READY` promise with `commoners.initialize()`, clarify `desktop` availability, add plugin event system and dev debug API
+
+**Low Priority:**
+- **Declarative Service Bundling** — Service manifest for build-time inclusion, binary hash integrity verification
 
 ### Vite Plugin Refactor — Architecture
 - Investigate refactoring the core build system as a Vite plugin

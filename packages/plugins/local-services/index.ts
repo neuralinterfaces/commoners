@@ -72,6 +72,12 @@ export default ({ type = DEFAULT_TYPE, register = [] }: LocalServicePluginOption
   const registerAll = register === true
 
   return {
+    capabilities: {
+      provides: ['local-services', 'service-discovery', 'mdns'],
+      platforms: { desktop: true },
+      runtime: 'browser' as const,
+    },
+
     isSupported: ({ DESKTOP, DEV }) => DESKTOP || DEV,
 
     load,

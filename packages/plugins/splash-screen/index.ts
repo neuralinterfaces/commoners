@@ -14,6 +14,12 @@ type SplashScreenOption = {
 
 export default (page: string, options: SplashScreenOption = {}) => {
   return {
+    capabilities: {
+      provides: ['splash-screen', 'loading-screen'],
+      platforms: { desktop: true },
+      runtime: 'browser' as const,
+    },
+
     assets: { page },
     desktop: {
       load: async function (loadingWindow, pluginId) {
