@@ -82,6 +82,12 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
     })
   })
 
+  // Expose broadcast for plugin hot reload
+  ;(wss as any).__broadcastReload = (pluginId: string) => {
+    const msg = JSON.stringify({ type: 'system:plugin:reload', id: pluginId })
+    wss.clients.forEach(client => client.send(msg))
+  }
+
   const isMobileTarget = isMobile(target)
 
   const targetFlags = {

@@ -7,6 +7,8 @@ import {
   sanitizePluginProperties,
 } from './utils'
 import { queryExtensions } from './capabilities'
+import { createAsyncAPI } from './api/index'
+import { createWebEventBus } from './bus/index'
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -19,6 +21,23 @@ const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
 // Wire up capabilities query function (uses unified EXTENSIONS record)
 ;(ENV as any).query = (filter) => queryExtensions((ENV as any).EXTENSIONS ?? {}, filter)
+
+// Initialize event bus
+if (DESKTOP) {
+  // Electron: use IPC-based bus
+  import('./bus/electron').then(({ createElectronRendererEventBus }) => {
+    ;(ENV as any).bus = createElectronRendererEventBus(
+      TEMP_COMMONERS.send,
+      TEMP_COMMONERS.on,
+    )
+  })
+} else {
+  // Web/Mobile: use BroadcastChannel
+  ;(ENV as any).bus = createWebEventBus()
+}
+
+// Initialize async API
+;(ENV as any).api = createAsyncAPI(ENV)
 
 if (__PLUGINS) {
   const devSocketListeners = { plugins: {} }
@@ -40,6 +59,68 @@ if (__PLUGINS) {
 
     devSocketServer.onmessage = async function (message) {
       const data = JSON.parse(message.data)
+
+      // Handle plugin hot reload
+      if (data.type === 'system:plugin:reload') {
+        const pluginId = data.id
+        if (pluginId && loaded[pluginId] !== undefined) {
+          const plugin = __PLUGINS[pluginId]
+          if (plugin) {
+            // Call unload hook if present
+            try {
+              if (plugin.unload) plugin.unload(ENV)
+            } catch (e) {
+              pluginErrorMessage(pluginId, 'unload', e)
+            }
+            // Re-load the plugin
+            try {
+              let { load } = sanitizePluginProperties(plugin, TARGET)
+              load = await resolveLazy(load)
+              if (load) {
+                const ctx = {
+                  send: (channel, ...args) =>
+                    devSocketServer &&
+                    devSocketServer.send(JSON.stringify({ context: 'plugins', id: pluginId, channel, args })),
+                  sendSync: false,
+                  on: (channel, listener) => {
+                    const pluginListeners = devSocketListeners['plugins'][pluginId] ?? {}
+                    const channelListeners = (pluginListeners[channel] = pluginListeners[channel] ?? {})
+                    const symbol = Symbol()
+                    channelListeners[symbol] = listener
+                    return symbol
+                  },
+                  once: function (channel, listener) {
+                    const subscription = this.on(channel, (...args) => {
+                      delete devSocketListeners['plugins'][pluginId]?.[channel]?.[subscription]
+                      listener(...args)
+                    })
+                  },
+                  removeAllListeners: channel => {
+                    const pluginListeners = devSocketListeners['plugins'][pluginId]
+                    if (!channel) for (const key in pluginListeners) delete pluginListeners[key]
+                    else delete pluginListeners?.[channel]
+                  },
+                  removeListener: (channel, listener) => {
+                    const pluginListeners = devSocketListeners['plugins'][pluginId]
+                    const channelListeners = pluginListeners?.[channel]
+                    if (!channelListeners) return
+                    const symbol = Object.getOwnPropertySymbols(channelListeners).find(
+                      sym => channelListeners[sym] === listener
+                    )
+                    if (symbol) delete channelListeners[symbol]
+                  },
+                }
+                loaded[pluginId] = load.call(ctx, ENV)
+                await loaded[pluginId]
+              }
+            } catch (e) {
+              pluginErrorMessage(pluginId, 'reload', e)
+            }
+          }
+        }
+        return
+      }
+
       const { context, id, channel, args } = data
       const matchingContext = devSocketListeners[context]
       if (!matchingContext) return console.error(`Unknown WS message context: ${context}`)

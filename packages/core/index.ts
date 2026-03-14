@@ -356,6 +356,27 @@ export async function resolveConfig(
     }
   }
 
+  // Generate declarative service manifest
+  const { extname } = await import('node:path')
+  const serviceManifest: Record<string, import('./types.js').ServiceManifestEntry> = {}
+  for (const [id, ext] of Object.entries(resolvedExtensions)) {
+    if (!ext.service) continue
+    const svc = ext.service
+    const isWasm = !!(svc as any).__wasm || (svc as any).type === 'wasm'
+    const fp = svc.filepath
+    const svcExt = fp ? extname(fp) : ''
+    serviceManifest[id] = {
+      src: svc.__src || undefined,
+      filepath: fp || undefined,
+      compile: svc.__compile,
+      autobuild: svc.__autobuild,
+      executable: !isWasm && (svcExt === '.exe' || svcExt === '' || !svcExt),
+      wasm: isWasm,
+      capabilities: svc.capabilities,
+    }
+  }
+  o.serviceManifest = serviceManifest
+
   Object.defineProperty(o, '__resolved', { value: true, writable: false }) // Resolution flag
   return o as ResolvedConfig
 }

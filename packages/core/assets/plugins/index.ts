@@ -118,6 +118,24 @@ function sortByDependencies(entries: [string, any][]): [string, any][] {
   return sorted
 }
 
+/**
+ * Unload a single plugin by calling its `unload` hook and removing it from the loaded set.
+ * Used for dev-mode hot reload of plugins.
+ */
+export function unloadPlugin(
+  id: string,
+  plugin: any,
+  env: any,
+  loaded: Record<string, any>,
+): void {
+  try {
+    if (plugin.unload) plugin.unload(env)
+  } catch (e) {
+    pluginErrorMessage(id, 'unload', e)
+  }
+  delete loaded[id]
+}
+
 export async function runAppPlugins(args: any[] = [], type = 'start') {
   const entries = Object.entries(this.plugins)
 

@@ -305,6 +305,7 @@ type PluginLoadCallback = (this: IpcRenderer, env: CommonersGlobalObject) => Loa
 type OptionalPluginBehaviors = {
   assets?: Record<string, string>
   after?: string[] // Plugin IDs that must complete their ready() hooks before this plugin's ready() runs
+  unload?: (env: CommonersGlobalObject) => void // Called when a plugin is unloaded (dev hot reload or window close)
   start?: Lazy<(this: DesktopPluginContext, services: ResolvedServices, id: string) => void>
   ready?: Lazy<(this: DesktopPluginContext, services: ActiveServices, id: string) => void>
   quit?: Lazy<(this: DesktopPluginContext, id: string) => void>
@@ -517,12 +518,28 @@ export type ServiceBuildOptions = {
   hooks?: HooksInterface // Hooks interface for CLI integration
 }
 
+export type ServiceManifestEntry = {
+  src?: string
+  filepath?: string
+  compile: any // Truthy if compilable — may be object { from, to } or boolean
+  autobuild: any // Truthy if auto-built
+  executable: boolean
+  wasm: boolean
+  capabilities?: ExtensionCapabilities
+  hash?: string // SHA256, populated after build
+}
+
+export type ServiceManifest = Record<string, ServiceManifestEntry>
+
 export type ResolvedConfig = Omit<BaseConfig, 'hooks' | 'plugins' | 'services'> & {
   build?: BuildOptions
   hooks: HooksInterface // Resolved hooks interface
 
   // Unified extensions — the sole internal store
   extensions: ResolvedExtensions
+
+  // Declarative service manifest — build-time metadata for all services
+  serviceManifest: ServiceManifest
 
   // package.json properties used in the library
   type?: 'module' | 'commonjs'
@@ -587,6 +604,9 @@ type BaseCommonersGlobalObject = {
   }
   query: (filter: Partial<ExtensionCapabilities>) => Record<string, ExtensionMatch>
 
+  bus?: CommonersEventBus // Cross-window event bus
+  api?: CommonersAsyncAPI // Unified async API
+
   __READY: (...args: unknown[]) => void // Resolve Function
   __PLUGINS?: RawPlugins // Raw Plugins
 }
@@ -635,3 +655,31 @@ export type ElectronBrowserWindowFlags = {
 } & ElectronTransferableBrowserWindowFlags
 
 export type ExtendedElectronBrowserWindow = BrowserWindow & ElectronBrowserWindowFlags
+
+// ------------------- Event Bus -------------------
+export type CommonersEventBus = {
+  emit: (topic: string, data?: any) => void
+  on: (topic: string, cb: (data: any) => void) => () => void
+  off: (topic: string, cb: (data: any) => void) => void
+  once: (topic: string, cb: (data: any) => void) => () => void
+}
+
+// ------------------- Async API -------------------
+export type CommonersAsyncAPI = {
+  is: (check: 'desktop' | 'mobile' | 'web' | 'dev') => boolean
+  whenReady: () => Promise<any>
+  getService: (id: string) => Promise<{ url: string } | undefined>
+  backend: () => SpecificTargetType
+  on: (event: string, cb: (...args: any[]) => void) => () => void
+  once: (event: string, cb: (...args: any[]) => void) => () => void
+}
+
+// ------------------- Health Monitoring -------------------
+export type ServiceHealthStatus = 'unknown' | 'healthy' | 'unhealthy' | 'restarting' | 'stopped'
+
+export type HealthMonitorConfig = {
+  interval?: number // ms between health checks (default: 30000)
+  timeout?: number // ms before a check is considered failed (default: 5000)
+  retries?: number // consecutive failures before marking unhealthy (default: 3)
+  autoRestart?: boolean // auto-restart unhealthy services (default: false)
+}

@@ -12,7 +12,6 @@ import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
 import { getIcon } from '../../assets/utils/icons.js'
-import { getServices } from '../../utils/extensions.js'
 import { createSEA, isSEASupported } from '../../utils/sea.js'
 import {
   generateCargoToml,
@@ -89,10 +88,9 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     }
 
     // Check SEA support if any JS services exist
-    const services = getServices(context.config.extensions)
     const jsExts = ['.js', '.cjs', '.mjs']
-    const hasJsServices = Object.values(services).some(
-      s => s.filepath && jsExts.includes(extname(s.filepath))
+    const hasJsServices = Object.values(context.config.serviceManifest).some(
+      e => e.filepath && jsExts.includes(extname(e.filepath))
     )
     if (hasJsServices && !isSEASupported()) {
       throw new DependencyError(
@@ -136,24 +134,24 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     // Generate build.rs
     writeFileSync(join(srcTauriDir, 'build.rs'), 'fn main() {\n  tauri_build::build()\n}\n')
 
-    // Copy compiled service binaries to src-tauri/binaries/ with target-triple naming
-    const services = getServices(config.extensions)
+    // Copy compiled service binaries to src-tauri/binaries/ using service manifest
+    const { serviceManifest } = config
     const externalBins: string[] = []
     const serviceIds: string[] = []
 
     const jsExts = ['.js', '.cjs', '.mjs']
 
-    for (const [id, service] of Object.entries(services)) {
-      if (!service.filepath || !existsSync(service.filepath)) continue
+    for (const [id, entry] of Object.entries(serviceManifest)) {
+      if (entry.wasm || !entry.filepath || !existsSync(entry.filepath)) continue
 
       const ext = process.platform === 'win32' ? '.exe' : ''
       const targetName = `${id}-${this.hostTriple}${ext}`
       const destPath = join(binDir, targetName)
 
       // JS services must be compiled to SEA executables (Tauri can't fork Node.js)
-      if (jsExts.includes(extname(service.filepath))) {
+      if (jsExts.includes(extname(entry.filepath))) {
         logger.info(`Compiling JS service "${id}" to SEA executable...`)
-        const result = await createSEA({ src: service.filepath, out: destPath, sign: true })
+        const result = await createSEA({ src: entry.filepath, out: destPath, sign: true })
         if (!result.success) {
           throw new BuildError(
             `SEA compilation failed for service "${id}"`,
@@ -162,7 +160,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
         }
         logger.info(`SEA compiled: ${targetName} (${(result.size! / 1024 / 1024).toFixed(1)} MB)`)
       } else {
-        copyFileSync(service.filepath, destPath)
+        copyFileSync(entry.filepath, destPath)
       }
 
       // Ensure executable permission on macOS/Linux

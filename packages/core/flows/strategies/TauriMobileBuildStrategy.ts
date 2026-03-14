@@ -11,7 +11,6 @@ import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_IOS_TAURI, TARGET_ANDROID_TAURI, DIR_TAURI } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
-import { getServices } from '../../utils/extensions.js'
 import {
   generateCargoToml,
   generateMainRs,
@@ -137,9 +136,8 @@ pub fn run() {
 
     // Warn about JS services that cannot be bundled as sidecars on mobile
     const jsExts = ['.js', '.cjs', '.mjs']
-    const services = getServices(config.extensions)
-    const jsServiceCount = Object.values(services).filter(
-      s => s.filepath && jsExts.includes(extname(s.filepath))
+    const jsServiceCount = Object.values(config.serviceManifest).filter(
+      e => e.filepath && jsExts.includes(extname(e.filepath))
     ).length
     if (jsServiceCount > 0) {
       logger.warn(

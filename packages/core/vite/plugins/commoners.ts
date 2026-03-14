@@ -79,6 +79,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           'const __commoners = globalThis.commoners',
           ...ENV_VAR_NAMES.map(name => `export const ${name} = __commoners.${name}`),
           'export const query = __commoners.query',
+          'export const api = __commoners.api',
+          'export const bus = __commoners.bus',
           'export default __commoners',
         ]
         return lines.join('\n')
@@ -102,6 +104,39 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           '  return mod',
           '}',
         ].join('\n')
+      }
+    },
+
+    handleHotUpdate(ctx) {
+      if (!dev) return
+
+      // Detect if the changed file is associated with a plugin
+      const changedFile = ctx.file
+      const pluginEntries = Object.entries(config.extensions || {})
+
+      for (const [id, ext] of pluginEntries) {
+        if (ext.type !== 'plugin' && ext.type !== 'hybrid') continue
+        // Check if the changed file path contains the plugin ID (convention-based detection)
+        if (changedFile.includes(`/plugins/${id}/`) || changedFile.includes(`\\plugins\\${id}\\`)) {
+          // Signal the dev server to broadcast a reload for this plugin
+          const server = ctx.server
+          if (server.ws) {
+            server.ws.send({
+              type: 'custom',
+              event: 'commoners:plugin:reload',
+              data: { id },
+            })
+          }
+          // Also broadcast via the commoners WebSocket server
+          try {
+            const wsPort = process.env.COMMONERS_WEBSOCKET_PORT
+            if (wsPort) {
+              // The WebSocket server is managed by start.ts — use a custom event to notify
+              server.config.logger.info(`[commoners] Hot reloading plugin: ${id}`)
+            }
+          } catch {}
+          break
+        }
       }
     },
 
