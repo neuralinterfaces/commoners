@@ -62,14 +62,13 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 
 | Document | Summary | Depends On | Status |
 |----------|---------|-----------|--------|
-| [Tauri Desktop Backend](./tauri-desktop-backend.md) | ~~`sendSync` elimination~~, ~~`createTauriRuntime()` parity~~, sidecar lifecycle | Runtime abstraction (done) | In Progress (2/3 done) |
-| [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` API, per-runtime adapters, C++ WASM via Emscripten | Tauri backend | Planned |
+| [Tauri Desktop Backend](./tauri-desktop-backend.md) | ~~`sendSync` elimination~~, ~~`createTauriRuntime()` parity~~, ~~sidecar lifecycle~~ | Runtime abstraction (done) | Done |
 
 ### Batch C — Independent (timing-sensitive)
 
 | Document | Summary | Status |
 |----------|---------|--------|
-| [Vite Evolution](./vite-evolution.md) | Audit 8 Rollup hooks + 3 esbuild usages for Rolldown compat, evaluate plugin refactor | Planned (track Vite 8 release) |
+| [Vite Evolution](./vite-evolution.md) | Audit complete: 10 hooks, 6 config options, 2 esbuild calls. 1 critical item (`inlineDynamicImports`). Ready for Vite 8 beta testing | Audit done, awaiting Vite 8 |
 
 ### Batch D — Tauri-Inspired Deep Integration (parallel, after Batch B)
 
@@ -86,6 +85,12 @@ Cross-cutting architecture improvements inspired by Tauri's design patterns. Ben
 | ~~Unified Async API~~ | ~~Async-first runtime API, eliminate sync/async ambiguity~~ | Medium | Done |
 | ~~Declarative Service Bundling~~ | ~~Service manifest for build-time inclusion~~ | Low | Done |
 
+### Batch E — Long-Term (low priority)
+
+| Document | Summary | Depends On | Status |
+|----------|---------|-----------|--------|
+| [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` API, per-runtime adapters, C++ WASM via Emscripten | Tauri backend (done) | Deferred — large scope (4-6 weeks), external plugin dependencies |
+
 ### Dependency Graph
 
 ```
@@ -94,16 +99,16 @@ Batch A (start now, parallel)
   testing-and-distribution.md ───────── No prerequisites
   security-whitepaper.md ────────────── No prerequisites
 
-Batch B (sequential)
+Batch B — DONE
   tauri-desktop-backend.md ──────────── Runtime abstraction complete ✓
-      │
-      ▼
-  device-communication-abstraction.md ─ Requires: Tauri backend functional
 
 Batch C (independent, timing-sensitive)
   vite-evolution.md ─────────────────── Track Vite 8 release
 
 Batch D — 8/8 DONE
+
+Batch E (long-term)
+  device-communication-abstraction.md ─ Deferred below fundamental work
 ```
 
 ### Reference Documents

@@ -34,7 +34,7 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 - Goal: stay stable on Vite 7 now, but keep the build system lithe enough for a smooth Vite 8 migration
 
 <details>
-<summary><strong>Completed Items</strong> (27 items)</summary>
+<summary><strong>Completed Items</strong> (29 items)</summary>
 
 | Item | Category | Scope |
 |------|----------|-------|
@@ -65,6 +65,8 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 | Preload sendSync Elimination | Desktop | Medium |
 | Tauri Runtime Parity | Desktop | Medium |
 | macOS ASAR Post-Sign Verification | Architecture | Medium |
+| Tauri Sidecar Lifecycle | Desktop | Medium |
+| Vite Evolution Audit | Architecture | Low |
 
 </details>
 
@@ -91,11 +93,12 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 
 ## High Lift
 
-### Tauri Investigation — Desktop (Phases 1–3 done)
-- `DesktopRuntime` interface abstracts Electron's 6 modules (config, security, ipc, window, protocol, lifecycle). `createElectronRuntime()` adapter complete. Tauri backend functional with build/launch/dev/mobile strategies + 66 unit tests.
+### Tauri Investigation — Desktop (Phases 1–3 done, sidecar lifecycle complete)
+- `DesktopRuntime` interface abstracts Electron's 6 modules (config, security, ipc, window, protocol, lifecycle). `createElectronRuntime()` adapter complete. Tauri backend functional with build/launch/dev/mobile strategies + 75 unit tests.
 - Preload `sendSync` elimination complete — all 3 synchronous IPC calls replaced with `additionalArguments` injection.
 - `createTauriRuntime()` adapter at full parity — enhanced `TauriWindow`, `TauriDialog` with real Tauri v2 APIs; remaining stubs are N/A by design (Tauri's main process is Rust).
-- **Remaining:** Device communication abstraction (Batch B next step).
+- Sidecar lifecycle complete — generated `main.rs` spawns sidecars with free port allocation, monitors stdout/stderr/termination, exposes `commoners_get_services` and `commoners_service_close` Tauri commands.
+- **Remaining:** SEA cross-compilation, Tauri dev mode testing (see [Tauri Future Work](./docs/roadmap/tauri-future-work.md)).
 
 ### Tauri-Inspired Deep Integration — Architecture
 
