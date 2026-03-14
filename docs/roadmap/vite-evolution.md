@@ -29,8 +29,11 @@ Vite 8 will ship with Rolldown as the default bundler, replacing Rollup for prod
 | `closeBundle()` | `vite/plugins/electron/index.ts` | 152-168, 184-186 | Trigger Electron startup after bundle | Expected compatible |
 | `config()` | `vite/plugins/electron/index.ts` | 179-182 | Capture user config | Vite-specific hook |
 | `configureServer()` | `vite/plugins/electron/index.ts` | 128 | Dev server setup | Vite-specific hook |
+| `handleHotUpdate()` | `vite/plugins/commoners.ts` | 110-141 | Plugin hot reload detection | Vite-specific hook |
+| `configureServer()` | `vite/plugins/tauri/index.ts` | 46-198 | Spawn `tauri dev` when server is ready | Vite-specific hook |
+| `config()` | `vite/plugins/tauri/index.ts` | 203-205 | Set `base: './'` for asset paths | Vite-specific hook |
 
-**Assessment:** All hooks are either Vite-native (`transformIndexHtml`, `config`, `configureServer`) or part of Rolldown's Rollup compatibility layer (`resolveId`, `load`, `closeBundle`). **Low risk.**
+**Assessment:** All hooks are either Vite-native (`transformIndexHtml`, `config`, `configureServer`, `handleHotUpdate`) or part of Rolldown's Rollup compatibility layer (`resolveId`, `load`, `closeBundle`). **Low risk.**
 
 ### Rollup Configuration Options Used
 
@@ -41,9 +44,13 @@ Vite 8 will ship with Rolldown as the default bundler, replacing Rollup for prod
 | `rollupOptions.output.inlineDynamicImports` | `vite/plugins/electron/index.ts` | 83 | Preload script: inline all imports | Needs verification |
 | `rollupOptions.external` | `vite/plugins/electron/inbuilt.ts` | 12-26 | Exclude Node.js builtins + Electron | Expected compatible |
 | `rollupOptions.external` | `utils/assets.ts` | 689 | Exclude `os`, `dgram` | Expected compatible |
-| `rollupOptions.plugins` | `utils/assets.ts` | 690-692 | `importMetaResolvePlugin()` | Needs verification |
+| `rollupOptions.plugins` | `utils/assets.ts` | 690-692 | `importMetaResolvePlugin()` + `renderChunk` | Needs verification |
 
-**Assessment:** `inlineDynamicImports` is Rollup-specific and may not have a direct Rolldown equivalent. `external` is fundamental and will be supported. **Medium risk** on `inlineDynamicImports`.
+**`renderChunk` detail:** `utils/assets.ts` line 975-989 uses a custom `fix-windows-chunk-paths` Rollup plugin with a `renderChunk` hook that fixes absolute paths on Windows. This is part of Rolldown's Rollup compat layer and expected to work.
+
+**`resolveImportMeta` detail:** `utils/esbuild/plugins.ts` line 6 uses a non-standard esbuild hook. When passed through `rollupOptions.plugins`, Rolldown may not recognize it. Test with Vite 8 beta.
+
+**Assessment:** `inlineDynamicImports` is Rollup-specific and may not have a direct Rolldown equivalent. `external` is fundamental and will be supported. **Medium risk** on `inlineDynamicImports` and `resolveImportMeta`.
 
 ### Direct esbuild Usage
 
@@ -157,9 +164,10 @@ The Electron preload script requires all dynamic imports to be inlined (single f
 | `packages/core/vite/plugins/electron/index.ts` | Medium | Verify `inlineDynamicImports`, `closeBundle` |
 | `packages/core/vite/plugins/electron/inbuilt.ts` | Low | Verify `external` handling |
 | `packages/core/vite/index.ts` | Low | Verify `rollupOptions.input` |
-| `packages/core/utils/assets.ts` | Low | Verify `rollupOptions.plugins`; esbuild calls unaffected |
+| `packages/core/vite/plugins/tauri/index.ts` | Low | Vite-specific hooks only (`configureServer`, `config`) |
+| `packages/core/utils/assets.ts` | Medium | Verify `rollupOptions.plugins` (`renderChunk`, `resolveImportMeta`); esbuild calls unaffected |
 | `packages/core/utils/sea.ts` | None | Standalone esbuild; no changes needed |
-| `packages/core/utils/esbuild/plugins.ts` | None | Standalone esbuild plugins; no changes needed |
+| `packages/core/utils/esbuild/plugins.ts` | Low | `resolveImportMeta` hook needs testing when passed via `rollupOptions.plugins` |
 
 ---
 
