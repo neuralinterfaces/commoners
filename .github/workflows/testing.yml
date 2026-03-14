@@ -66,6 +66,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fast unit tests (security, ASAR, protocol, ports, config-stripping, etc.)
+        run: pnpm test:fast-unit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Mobile workflow tests
+        run: pnpm test:mobile-workflow
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Service compilation tests
         run: pnpm test:services
         env:

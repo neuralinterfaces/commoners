@@ -428,6 +428,64 @@ describe('API: Error Classes', () => {
   })
 })
 
+describe('API: Service Manifest', () => {
+  test('should generate serviceManifest on resolved config', async () => {
+    const config = await loadConfigFromFile(projectBase)
+    const resolved = await resolveConfig(config)
+    expect(resolved.serviceManifest).toBeDefined()
+    expect(typeof resolved.serviceManifest).toBe('object')
+  })
+
+  test('should include entries for all services', async () => {
+    const config = await loadConfigFromFile(projectBase)
+    const resolved = await resolveConfig(config)
+    const serviceIds = Object.keys(getServices(resolved.extensions))
+    const manifestIds = Object.keys(resolved.serviceManifest)
+
+    for (const id of serviceIds) {
+      expect(manifestIds).toContain(id)
+    }
+  })
+
+  test('should have correct shape for each manifest entry', async () => {
+    const config = await loadConfigFromFile(projectBase)
+    const resolved = await resolveConfig(config)
+
+    for (const [id, entry] of Object.entries(resolved.serviceManifest)) {
+      expect(entry).toHaveProperty('compile')
+      expect(entry).toHaveProperty('autobuild')
+      expect(entry).toHaveProperty('executable')
+      expect(entry).toHaveProperty('wasm')
+      expect(typeof entry.executable).toBe('boolean')
+      expect(typeof entry.wasm).toBe('boolean')
+    }
+  })
+
+  test('should mark JS/TS services as compilable', async () => {
+    const config = await loadConfigFromFile(projectBase)
+    const resolved = await resolveConfig(config)
+    const httpEntry = resolved.serviceManifest['http']
+
+    if (httpEntry) {
+      // __compile is truthy for compilable services (may be object or boolean)
+      expect(httpEntry.compile).toBeTruthy()
+      expect(httpEntry.wasm).toBe(false)
+    }
+  })
+
+  test('should not include plugin-only extensions', async () => {
+    const config = await loadConfigFromFile(projectBase)
+    const resolved = await resolveConfig(config)
+
+    // Extensions that are plugin-only should not appear in serviceManifest
+    for (const [id, ext] of Object.entries(resolved.extensions)) {
+      if (!ext.service) {
+        expect(resolved.serviceManifest[id]).toBeUndefined()
+      }
+    }
+  })
+})
+
 describe('API: Path Handling', () => {
   test('should handle absolute paths correctly', async () => {
     const absolutePath = resolve(projectBase)

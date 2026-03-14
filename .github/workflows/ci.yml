@@ -190,6 +190,11 @@ jobs:
         env:
           CI: true
 
+      - name: Fast unit tests
+        run: pnpm test:fast-unit
+        env:
+          CI: true
+
   test-services:
     name: Service tests on ${{ matrix.os }} (Node ${{ matrix.node }})
     needs: build

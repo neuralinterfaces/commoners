@@ -79,10 +79,12 @@ jobs:
         if: runner.os == 'macOS' && github.event_name == 'push'
         run: pnpm exec commoners build --target desktop --sign
 
-      # Unsigned build (on push, Windows only)
+      # Unsigned build with forced ASAR integrity (on push, Windows only)
       - name: Build unsigned desktop app (Windows)
         if: runner.os == 'Windows' && github.event_name == 'push'
         run: pnpm exec commoners build --target desktop
+        env:
+          COMMONERS_FORCE_ASAR_INTEGRITY: 'true'
 
       # Upload build artifacts
       - name: Upload macOS artifacts
@@ -118,3 +120,15 @@ jobs:
           else
             echo "::warning::.app bundle not found in build output"
           fi
+
+      # ASAR integrity verification on Windows
+      - name: Verify ASAR integrity (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $unpackedDir = Get-ChildItem -Path ".commoners/electron" -Directory -Filter "win-*" | Select-Object -First 1
+          if ($unpackedDir) {
+            .\tests\asar\ci-verify-asar-integrity.ps1 -AppPath $unpackedDir.FullName
+          } else {
+            Write-Host "::warning::Windows unpacked directory not found in build output"
+          }
