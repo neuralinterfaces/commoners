@@ -104,8 +104,9 @@ Items deferred from recent work, tracked in detailed implementation plans under 
 
 All 8 items complete (typed commands, IPC allowlist, plugin capabilities, hot reload, health monitoring, event bus, async API, declarative service bundling). See [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md#deep-integration-tauri-inspired-architecture-improvements).
 
-### Vite Plugin Refactor — Architecture
-- Investigate refactoring the core build system as a Vite plugin
-- Evaluate which behaviors are too complex for the plugin model and need to remain standalone
-- Current system is deeply integrated across build orchestration, services, and multi-target compilation
-- Consider how this intersects with Vite 8 / Rolldown — a plugin refactor may be best timed alongside the Vite 8 migration
+### Build Adapter Interface — Architecture
+- Abstract the bundler layer so frontend builds and service compilation are pluggable
+- `BuildAdapter` interface for frontend (Vite, Webpack, Rollup, etc.)
+- `ServiceBundler` interface for backend (per-extension, declared by extensions themselves)
+- Phase 1 (extract interface) is a natural refactoring opportunity during Vite 8 migration
+- See [`docs/roadmap/build-adapter-interface.md`](./docs/roadmap/build-adapter-interface.md)

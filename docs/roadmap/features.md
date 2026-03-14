@@ -69,6 +69,7 @@ Detailed implementation plans for all remaining roadmap items. Each document fol
 | Document | Summary | Status |
 |----------|---------|--------|
 | [Vite Evolution](./vite-evolution.md) | Audit complete: 10 hooks, 6 config options, 2 esbuild calls. 1 critical item (`inlineDynamicImports`). Ready for Vite 8 beta testing | Audit done, awaiting Vite 8 |
+| [Build Adapter Interface](./build-adapter-interface.md) | Pluggable frontend bundler (`BuildAdapter`) + service compiler (`ServiceBundler`). Phase 1 pairs with Vite 8 migration | Design phase |
 
 ### Batch D — Tauri-Inspired Deep Integration (parallel, after Batch B)
 
