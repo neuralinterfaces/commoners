@@ -202,17 +202,18 @@ This is now demonstrably true, not aspirational. The codebase backs it up:
 
 Homepage tagline:
 
-> **Build Full-Stack Apps on Every Platform**
+> **Declare Your App. Deploy Everywhere.**
 
 Supporting copy (feature cards):
 
 > **Declare services in Python, Rust, C++, or Node -- Commoners compiles, bundles, and deploys them alongside your web, desktop, or mobile app.**
 
 This pitch works because:
-1. "Full-stack" signals frontend + backend in one framework
-2. "Every platform" covers web, desktop, and mobile without listing them
-3. Durable -- doesn't depend on lack of competitors
-4. The feature cards below resolve any ambiguity about what "full-stack" means here
+1. "Declare" captures the config-driven philosophy — one file defines everything
+2. "Deploy everywhere" is the payoff — web, desktop, mobile
+3. Doesn't fixate on services, which is just one (important) capability
+4. Scales as the framework adds platform abstractions, device APIs, etc.
+5. The feature cards explain what "declare" means concretely
 
 ---
 

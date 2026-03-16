@@ -4,7 +4,7 @@ layout: home
 
 hero:
   name: Commoners
-  tagline: Build Full-Stack Apps on Every Platform
+  tagline: Declare Your App. Deploy Everywhere.
   image:
     src: /logo-min.png
     alt: Commoners
