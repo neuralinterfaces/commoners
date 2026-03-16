@@ -32,9 +32,11 @@ New docs added:
 
 Audit complete — 10 hooks, 6 config options, 2 standalone esbuild calls. One critical item: `inlineDynamicImports` for Electron preload may not have a Rolldown equivalent. Execute the migration checklist in [`docs/roadmap/vite-evolution.md`](./docs/roadmap/vite-evolution.md) when Vite 8 ships.
 
-### Build Adapter Interface
+### Build Adapter Interface (Phase 1 done)
 
-Pluggable frontend bundler (`BuildAdapter`) + service compiler (`ServiceBundler`). Phase 1 pairs naturally with Vite 8 migration. See [`docs/roadmap/build-adapter-interface.md`](./docs/roadmap/build-adapter-interface.md).
+Phase 1 complete: `BuildAdapter` interface + `ViteBuildAdapter` default + `ServiceBundler` interface. `BuildFlow.buildFrontendAssets()` uses the adapter. Zero behavior change.
+
+**Remaining (Phase 2-3):** Replace direct Vite imports in `start.ts`, `utils/assets.ts`. Plugin adapter layer for non-Vite bundlers. See [`docs/roadmap/build-adapter-interface.md`](./docs/roadmap/build-adapter-interface.md).
 
 ### Platform Abstractions
 
