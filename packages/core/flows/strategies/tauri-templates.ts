@@ -196,7 +196,7 @@ export function generateTauriConf(opts: {
   const conf: Record<string, any> = {
     productName: name,
     identifier: sanitizedId,
-    version: version || '0.1.0',
+    version: (version || '0.1.0').replace(/-.*$/, ''), // Strip pre-release for MSI/NSIS compatibility
     build: {
       frontendDist: '../dist/',
     },
