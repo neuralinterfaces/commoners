@@ -15,6 +15,10 @@ All four release gate items are complete:
 
 ### Near-term (1.1)
 
+- **`@commoners/audit` plugin** -- SBOM generation, multi-language dependency auditing. Priority for regulated applications (FDA, medical devices). See [security-whitepaper.md](./docs/roadmap/security-whitepaper.md).
+- **Auto-update production validation** -- Plugin rewritten but untested with real GitHub Releases. Needs end-to-end verification.
+- **Platform abstractions (Electron + Web)** -- `commoners.storage`, `commoners.notifications` that abstract across Electron and browser. See [platform-abstractions.md](./docs/roadmap/platform-abstractions.md).
+
 ### Medium-term
 
 - **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
@@ -24,9 +28,7 @@ All four release gate items are complete:
 
 - **Device communication abstraction** -- `commoners.bluetooth` / `commoners.serial` per-runtime adapters. Blocked by Tauri device plugin maturity. See [device-communication-abstraction.md](./docs/roadmap/device-communication-abstraction.md).
 - **Tauri mobile backend** -- Offer Tauri mobile as Capacitor alternative. Waiting on `tauri-plugin-blec` 1.0+.
-- **Build adapter interface** -- Pluggable frontend bundler. Phase 1 done (`BuildAdapter` + `ViteBuildAdapter`). Phase 2-3 only if Vite 8 forces changes. See [build-adapter-interface.md](./docs/roadmap/build-adapter-interface.md).
-- **Platform abstractions** -- Storage, Notification, File System adapters. Deferred -- overlaps with Capacitor/Tauri ecosystems. See [platform-abstractions.md](./docs/roadmap/platform-abstractions.md).
-- **Security plugins** -- `@commoners/integrity` and `@commoners/secure-services` ship with 1.0. `@commoners/audit` (SBOM, dependency auditing) is post-1.0. See [security-whitepaper.md](./docs/roadmap/security-whitepaper.md).
+- **Build adapter interface** -- Phase 1 done. Phase 2-3 only if Vite creates breaking changes. See [build-adapter-interface.md](./docs/roadmap/build-adapter-interface.md).
 
 ---
 
