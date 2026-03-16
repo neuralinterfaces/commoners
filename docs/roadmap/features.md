@@ -16,12 +16,6 @@ Three items remain before shipping 1.0.0.
 
 Ordered by impact. Each links to a detailed plan.
 
-### Near-term (1.1)
-
-| Item | Summary | Status |
-|------|---------|--------|
-| **Multi-window testing** | Validate `waitForPage('auth')` with Neurotique. Update `plugins.test.ts`. | Not started |
-
 ### Medium-term
 
 | Item | Document | Status |

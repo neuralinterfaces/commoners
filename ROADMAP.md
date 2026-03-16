@@ -15,8 +15,6 @@ All four release gate items are complete:
 
 ### Near-term (1.1)
 
-- **Multi-window testing validation** -- Validate `waitForPage('auth')` with Neurotique's auth flow. Update `plugins.test.ts` to use multi-window API.
-
 ### Medium-term
 
 - **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
