@@ -2,71 +2,68 @@
 
 ## 1.0.0 Release Gate
 
-These four items must be complete before shipping 1.0.0. Everything else is post-1.0.
+Three items remain before shipping 1.0.0.
 
-| # | Item | Effort | What's Needed |
-|---|------|--------|---------------|
-| 1 | **CI test coverage** | Low (config only) | Add `test:fast-unit` script to `package.json`; add CI step running security (77), API (55), Tauri (104), protocol, ASAR, config-stripping, hooks, errors, formatting, plugin-lifecycle tests |
-| 2 | **Windows ASAR hardening** | Half day | PowerShell verification script + `desktop-build.yml` CI step. macOS is done. See [asar-hardening.md](./asar-hardening.md) |
-| 3 | **Desktop test stability** | Half day | Fix port 2345 contention causing flaky desktop start tests in full suite. Tests pass in isolation but fail when run after other files |
-| 4 | **Documentation** | 1-2 days | VitePress docs for new APIs: `commoners.bus`, `commoners.api`, `commoners.query()`, health monitoring, plugin capabilities, hot reload, typed IPC, capabilities-driven allowlist |
+| # | Item | Effort | Status |
+|---|------|--------|--------|
+| 1 | **CI test coverage** | Low (config) | Add `test:fast-unit` to CI; run security (77), API (55), Tauri (104), protocol, ASAR, config-stripping, hooks, errors, formatting, plugin-lifecycle tests |
+| 2 | **Windows ASAR hardening** | Half day | PowerShell verification + `desktop-build.yml` CI step. macOS done. See [asar-hardening.md](./asar-hardening.md) |
+| 3 | **Desktop test stability** | Half day | Fix port 2345 contention in full suite. Tests pass individually but fail when combined |
 
 ---
 
-## Implementation Plans
+## Post-1.0 Priorities
 
-Detailed plans for all remaining items, organized by dependency. Each document follows: Problem → Current State → Implementation Plan → File Inventory → Dependencies → Verification → Risks/Tradeoffs.
+Ordered by impact. Each links to a detailed plan.
 
-### 1.0.0 Items (from table above)
+### Near-term (1.1)
 
-| Document | Summary | Status |
-|----------|---------|--------|
-| [ASAR Integrity Hardening](./asar-hardening.md) | ~~macOS post-sign hash re-embedding~~; Windows `rcedit` verification, CI verification | In Progress (macOS done) |
-| [Testing Gaps + Distribution](./testing-and-distribution.md) | CI coverage, protocol E2E, WASM E2E, mobile build output | Planned |
+| Item | Summary | Status |
+|------|---------|--------|
+| **Auto-update integration** | Wire `electron-updater` to GitHub Releases with hash verification. Current stub is non-functional. | Not started |
+| **Activate ServiceHealthMonitor** | Class exists with health checks, auto-restart, status tracking. Needs to be instantiated in service `start()` behind config flag. | Designed, not wired |
+| **Plugin runtime abstraction** | Pass `DesktopRuntime` to plugins instead of raw Electron APIs. Closes the last abstraction gap for Tauri plugin compatibility. | Not started |
+| **Orphan process cleanup** | Detect and kill stale service processes from crashed dev sessions. | Not started |
 
-### Post-1.0 — Timing-Sensitive
+### Medium-term
 
-| Document | Summary | Status |
-|----------|---------|--------|
-| [Vite Evolution](./vite-evolution.md) | Audit complete: 10 hooks, 6 config options, 2 esbuild calls. 1 critical item (`inlineDynamicImports`). Ready for Vite 8 beta testing | Audit done, awaiting Vite 8 |
-| [Build Adapter Interface](./build-adapter-interface.md) | Pluggable frontend bundler (`BuildAdapter`) + service compiler (`ServiceBundler`). Phase 1 pairs with Vite 8 migration | Design phase |
-
-### Post-1.0 — Design Phase (documented, not planned)
-
-| Document | Summary | Status |
-|----------|---------|--------|
-| [Security Whitepaper](./security-whitepaper.md) | Threat model, security controls, proposed plugins (`@commoners/integrity`, `@commoners/secure-services`, `@commoners/audit`) | P0/P1 done (77 tests); P2/P3 plugins planned |
-| [Platform Abstractions](./platform-abstractions.md) | Storage, Notification, Context, File System cross-platform adapters | Design phase |
-
-### Post-1.0 — Long-Term
-
-| Document | Summary | Status |
-|----------|---------|--------|
-| [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` API, per-runtime adapters | Deferred — large scope, external plugin dependencies |
-| Tauri Mobile Backend | Offer Tauri mobile as Capacitor alternative when ecosystem matures | Waiting on `tauri-plugin-blec` 1.0+ |
+| Item | Document | Status |
+|------|----------|--------|
+| [Vite Evolution](./vite-evolution.md) | Audit done: 10 hooks, 6 config options, 2 esbuild calls, 1 critical item (`inlineDynamicImports`). Ready for Vite 8 beta. | Awaiting Vite 8 |
+| [Testing + Distribution](./testing-and-distribution.md) | Protocol E2E, WASM E2E, mobile build output verification | Planned |
 | [Tauri Future Work](./tauri-future-work.md) | SEA cross-compilation, Tauri dev mode integration test | Remaining after sidecar lifecycle |
 
+### Long-term (demand-driven)
+
+| Item | Document | Notes |
+|------|----------|-------|
+| [Device Communication Abstraction](./device-communication-abstraction.md) | `commoners.bluetooth` / `commoners.serial` per-runtime adapters | Blocked by Tauri device plugin maturity |
+| Tauri Mobile Backend | Offer Tauri mobile as Capacitor alternative | Waiting on `tauri-plugin-blec` 1.0+ |
+| [Build Adapter Interface](./build-adapter-interface.md) | Pluggable frontend bundler. Only if Vite 8 forces changes. | Design phase |
+| [Platform Abstractions](./platform-abstractions.md) | Storage, Notification, File System adapters | Deferred -- overlaps with Capacitor/Tauri plugin ecosystems |
+
 ---
 
-<details>
-<summary><strong>Completed</strong> (Batch B + Batch D + 29 individual items)</summary>
+## Completed
 
-### Batch B — Tauri Desktop Backend (done)
+Everything below is done and in the codebase.
 
-`DesktopRuntime` abstraction, `createElectronRuntime()` + `createTauriRuntime()` adapters, `sendSync` elimination, sidecar lifecycle. 104 Tauri tests.
+### Tauri Desktop Backend
+`DesktopRuntime` interface + Electron/Tauri implementations. Build/launch strategies for both runtimes. Sidecar lifecycle management. 104 Tauri-specific tests.
 
-### Batch D — Architecture Improvements (8/8 done)
+### Architecture Improvements (Batch D, 8/8)
+Typed command registry, capabilities-driven IPC allowlist, plugin capability declarations, plugin hot reload, service health monitoring (class), window event bus, unified async API (`commoners.api`), declarative service bundling.
 
-Typed command registry, capabilities-driven IPC allowlist, plugin capability declarations, plugin hot reload, service health monitoring, window event bus, unified async API, declarative service bundling.
+### Security (P0/P1)
+IPC channel validation with allowlists. ASAR integrity embedding (macOS verified). Binary hash verification for service executables. CSP with dynamic generation. Code signing integration. Secure Services plugin (per-session tokens). 77 security tests.
 
-### Individual Items
-
-Extensions unification, Electron IPC async migration, custom protocol, WASM service compilation, macOS ASAR post-sign verification, Vite evolution audit, CargoService helper, mobile workflow validation, security whitepaper P0/P1, and 20 more.
-
-</details>
+### Individual Items (29)
+Extensions unification. Electron IPC async migration (sendSync eliminated). Custom protocol handler. WASM service compilation (wasm-pack). macOS ASAR post-sign verification. Vite evolution audit. CargoService helper. Mobile workflow validation (Capacitor iOS/Android). Documentation overhaul (tagline, homepage, getting started, competitor comparison, API reference). Dev output cleanup (service logging, noise removal, Windows file-mode navigation fix). Plugin dependency ordering (topological sort). Capability-driven extension querying (`commoners.query()`). Event bus (`commoners.bus`). Cross-platform icon handling.
 
 ### Reference Documents
-
-- [Windows Verification Checklist](./windows-verification.md) — testing builds, signing, and known gaps on Windows
-- [Sandbox Investigation](./sandbox-investigation.md) — `app.enableSandbox()` freezes Electron on Windows; per-window workaround
-- [Tauri Integration Reference](./tauri-integration-reference.md) — sidecar system, code-signing, mobile plugin maturity, binary size
+- [Windows Verification Checklist](./windows-verification.md)
+- [Sandbox Investigation](./sandbox-investigation.md)
+- [Tauri Integration Reference](./tauri-integration-reference.md)
+- [Security Whitepaper](./security-whitepaper.md) (P0/P1 complete)
+- [Electron Coupling Audit](./electron-coupling-audit.md)
+- [ASAR Integrity Hardening](./asar-hardening.md) (macOS complete)
