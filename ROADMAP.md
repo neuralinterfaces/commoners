@@ -1,170 +1,68 @@
 # Commoners Roadmap
 
-## Path to 1.0.0
+## 1.0.0 Status
 
-Four items gate a confident 1.0.0 release. Everything else is post-1.0.
+All four release gate items are complete:
 
-### ~~1. CI Test Coverage~~ ✅ Done
-
-`test:fast-unit` (17 files, 457 tests) is wired into `ci.yml` (3 OS × 2 Node versions) and `testing.yml` (daily, 3 OS). All tests pass on Windows.
-
-### ~~2. Windows ASAR Hardening~~ ✅ Done
-
-PowerShell verification script fixed (field name + JSON format bugs), CI step exists in `desktop-build.yml`. See [`docs/roadmap/asar-hardening.md`](./docs/roadmap/asar-hardening.md).
-
-### ~~3. Desktop Test Stability~~ ✅ Done
-
-Verified on Windows: `desktop.test.ts` (23/24 pass) and `start.test.ts` (26/28 pass). All failures are C++ service echo tests (broken MinGW toolchain, not a stability issue). No port contention, no page-close flakiness. Mitigations in place: `fileParallelism: false`, port retry logic, CDP target cleanup.
-
-### ~~4. Documentation~~ ✅ Done
-
-New docs added:
-- **API Reference** (`docs/reference/api.md`) — bus, api, query(), capabilities, services, pages
-- **Plugin Guide** rewritten — lifecycle ordering, `after` dependencies, error isolation, IPC, lazy loading, extensions
-- **Testing Guide** rewritten — multi-window API (pages, findPage, waitForPage), desktop/mobile/build testing
-- Sidebar updated with API reference link
+1. **CI test coverage** -- `test:fast-unit` (17 files, 457 tests) in `ci.yml` (3 OS x 2 Node) and `testing.yml` (daily). All pass on Windows.
+2. **Windows ASAR hardening** -- PowerShell verification fixed, CI step in `desktop-build.yml`. macOS was already done.
+3. **Desktop test stability** -- Verified on Windows: desktop (23/24) and start (26/28) pass. Remaining failures are C++ toolchain issues, not stability. Port contention mitigated.
+4. **Documentation** -- API reference, plugin guide, testing guide all shipped.
 
 ---
 
-## Post-1.0 (1.x)
+## Post-1.0 Priorities
 
-### Vite 8 / Rolldown Migration
+### Near-term (1.1)
 
-Audit complete — 10 hooks, 6 config options, 2 standalone esbuild calls. One critical item: `inlineDynamicImports` for Electron preload may not have a Rolldown equivalent. Execute the migration checklist in [`docs/roadmap/vite-evolution.md`](./docs/roadmap/vite-evolution.md) when Vite 8 ships.
+- **Auto-update integration** -- Wire `electron-updater` to GitHub Releases with hash verification. Current plugin is a stub.
+- **Activate ServiceHealthMonitor** -- Class exists with health checks, auto-restart, status tracking. Needs to be wired into service `start()` behind config flag.
+- **Plugin runtime abstraction** -- Pass `DesktopRuntime` to plugins instead of raw Electron APIs. Last abstraction gap for Tauri plugin compatibility.
+- **Orphan process cleanup** -- Detect and kill stale service processes from crashed dev sessions.
+- **Multi-window testing validation** -- Validate `waitForPage('auth')` with Neurotique's auth flow. Update `plugins.test.ts` to use multi-window API.
 
-### Build Adapter Interface (Phase 1 done)
+### Medium-term
 
-Phase 1 complete: `BuildAdapter` interface + `ViteBuildAdapter` default + `ServiceBundler` interface. `BuildFlow.buildFrontendAssets()` uses the adapter. Zero behavior change.
+- **Vite 8 / Rolldown migration** -- Audit complete (10 hooks, 6 config options, 1 critical: `inlineDynamicImports`). Execute when Vite 8 ships. See [vite-evolution.md](./docs/roadmap/vite-evolution.md).
+- **Testing expansion** -- Protocol E2E, WASM E2E, mobile build output, native emulator testing. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
+- **Tauri remaining work** -- SEA cross-compilation, dev mode testing (requires built app for tauri-driver). See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).
 
-**Remaining (Phase 2-3):** Replace direct Vite imports in `start.ts`, `utils/assets.ts`. Plugin adapter layer for non-Vite bundlers. See [`docs/roadmap/build-adapter-interface.md`](./docs/roadmap/build-adapter-interface.md).
+### Long-term (demand-driven)
 
-### Platform Abstractions
-
-Cross-platform Storage, Notification, Context, and File System adapters. Designed but not planned for implementation. See [`docs/roadmap/platform-abstractions.md`](./docs/roadmap/platform-abstractions.md).
-
-### Automated Icon Pipeline
-
-Currently: Tauri builds use `tauri icon` CLI for format conversion (PNG→ICO/ICNS/sizes), with manual fallback. Electron relies on electron-builder's auto-conversion. No unified pipeline.
-
-**Goal:** Single `config.icon` (any PNG/SVG) → all platform formats generated automatically at build time. Use `tauri icon` for Tauri, `electron-icon-maker` or `sharp` for Electron, PWA icon generator for web. Cache converted icons for fast rebuilds.
-
-**Current state:** `tauri icon` integrated into TauriBuildStrategy. Demo/bench/starter kit aligned with RGBA PNG icons. Icon requirements documented in config guide.
-
-### Tauri Remaining Work
-
-- SEA cross-compilation (universal binaries)
-- ~~Tauri E2E test~~ Done: `tauri-e2e.test.ts` builds demo as Tauri, launches via tauri-driver, verifies commoners global. Run with `TAURI_E2E=1`. Prerequisites (Rust, tauri-driver, Tauri CLI) validated on Windows.
-- Tauri dev mode testing still not supported (tauri-driver requires built app)
-- See [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md)
-
-### Multi-Window Testing (`@commoners/testing`)
-
-`open()` currently returns a single `page` — the first page where `globalThis.commoners` exists. This breaks apps with plugin-created windows (e.g., auth splash screens) that don't have the commoners global.
-
-**Problem:** The auth plugin creates a BrowserWindow in `ready()` that blocks the main window. The test framework can't interact with it — it only finds the main window, which is blank until auth completes. Tests written before the strip-keys fix worked accidentally because auth never ran.
-
-**Ideal API:**
-```ts
-const ctx = await open(ROOT)
-ctx.pages.home     // main window Page
-ctx.pages.auth     // auth splash Page (created by plugin ready())
-ctx.pages.profile  // profile page (when navigated)
-```
-
-This aligns with how commoners already tracks windows — the main process Window module has `__id`-keyed windows, and plugins track windows in `this.WINDOWS`. The testing layer just doesn't expose them.
-
-**Implemented (partial):** `open()` now returns `pages`, `findPage(predicate)`, and `waitForPage(key)`. Pages auto-update via CDP `page` events. Config pages and plugin asset pages are matched by URL pattern.
-
-**Remaining:**
-- Validate `waitForPage('auth')` works with Neurotique's auth splash screen end-to-end
-- Ensure `pages` record keys match config keys reliably across dev/build modes
-- Update `plugins.test.ts` to use the new multi-window API (8 desktop E2E failures)
-
-### Testing Expansion
-
-- Native emulator testing (Android/iOS)
-- Automated mobile distribution (App Store / Play Store CI/CD)
-- Full E2E protocol tests (build+launch Electron)
-- E2E WASM compilation test (requires Rust toolchain)
-- See [`docs/roadmap/testing-and-distribution.md`](./docs/roadmap/testing-and-distribution.md)
-
-### Security Plugins
-
-- `@commoners/integrity` — runtime verification for ASAR + service binaries + WASM
-- `@commoners/secure-services` — per-session auth tokens for service communication
-- `@commoners/audit` — SBOM generation, multi-language dependency auditing
-- See [`docs/roadmap/security-whitepaper.md`](./docs/roadmap/security-whitepaper.md)
-
-### Device Communication Abstraction
-
-`commoners.bluetooth` / `commoners.serial` API with per-runtime adapters. Deferred — large scope (4-6 weeks), waiting on Tauri mobile plugin ecosystem maturity. See [`docs/roadmap/device-communication-abstraction.md`](./docs/roadmap/device-communication-abstraction.md).
-
-### Tauri Mobile Backend
-
-When Tauri's mobile plugin ecosystem matures (BLE plugin at 1.0+, multi-maintainer), offer Tauri mobile as an alternative to Capacitor. See [`docs/roadmap/tauri-integration-reference.md`](./docs/roadmap/tauri-integration-reference.md).
+- **Device communication abstraction** -- `commoners.bluetooth` / `commoners.serial` per-runtime adapters. Blocked by Tauri device plugin maturity. See [device-communication-abstraction.md](./docs/roadmap/device-communication-abstraction.md).
+- **Tauri mobile backend** -- Offer Tauri mobile as Capacitor alternative. Waiting on `tauri-plugin-blec` 1.0+.
+- **Build adapter interface** -- Pluggable frontend bundler. Phase 1 done (`BuildAdapter` + `ViteBuildAdapter`). Phase 2-3 only if Vite 8 forces changes. See [build-adapter-interface.md](./docs/roadmap/build-adapter-interface.md).
+- **Platform abstractions** -- Storage, Notification, File System adapters. Deferred -- overlaps with Capacitor/Tauri ecosystems. See [platform-abstractions.md](./docs/roadmap/platform-abstractions.md).
+- **Security plugins** -- `@commoners/integrity` and `@commoners/secure-services` ship with 1.0. `@commoners/audit` (SBOM, dependency auditing) is post-1.0. See [security-whitepaper.md](./docs/roadmap/security-whitepaper.md).
 
 ---
 
-<details>
-<summary><strong>Completed</strong> (29 items + Batch B + Batch D)</summary>
+## Completed
 
-### Batch B — Tauri Desktop Backend (done)
+### Release Gate (4/4)
+CI test coverage. Windows ASAR hardening. Desktop test stability. Documentation (API reference, plugin guide, testing guide).
 
-`DesktopRuntime` abstraction, `createElectronRuntime()` + `createTauriRuntime()` adapters, `sendSync` elimination, sidecar lifecycle with generated `main.rs`. 104 Tauri tests.
+### Tauri Desktop Backend
+`DesktopRuntime` interface + Electron/Tauri implementations. Build/launch strategies for both. Sidecar lifecycle with generated `main.rs`. Tauri E2E test (builds demo, launches via tauri-driver, verifies commoners global). 104 Tauri tests.
 
-### Batch D — Architecture Improvements (8/8 done)
+### Architecture (Batch D, 8/8)
+Typed command registry. Capabilities-driven IPC allowlist. Plugin capability declarations. Plugin hot reload. Service health monitoring (class). Window event bus. Unified async API (`commoners.api`). Declarative service bundling.
 
-Typed command registry, capabilities-driven IPC allowlist, plugin capability declarations, plugin hot reload, service health monitoring, window event bus, unified async API, declarative service bundling.
+### Security (P0/P1)
+IPC channel validation. ASAR integrity (macOS + Windows). Binary hash verification. CSP with dynamic generation. Code signing integration. Secure Services plugin. 77 security tests.
 
-### Other Completed Items
+### Individual Items (29)
+Extensions unification. IPC async migration (sendSync eliminated). Custom protocol. WASM compilation (wasm-pack). macOS ASAR post-sign verification. Vite evolution audit. CargoService helper. Mobile workflow validation. Documentation overhaul. Dev output cleanup. Plugin dependency ordering. Capability querying (`commoners.query()`). Event bus (`commoners.bus`). Cross-platform icons. Multi-window testing API. Sequential ready() hooks. Config stripping fix + regression test. Starter kit overhaul. `commoners share` command. And more -- see git history.
 
-| Item | Category |
-|------|----------|
-| Fix `ELECTRON_STRIP_KEYS` — lifecycle hooks were stripped from Electron config | Desktop |
-| Sequential `ready()` hooks + `after[]` plugin dependency ordering | Architecture |
-| Fix `onReady` promise chain (`.catch()` on void) | Desktop |
-| `lifecycleProbe` regression test for config stripping | Testing |
-| Windows ASAR PowerShell verification script fix | Security |
-| Multi-window testing API (`pages`, `findPage`, `waitForPage`) | Testing |
-| Fix `import.meta.url` on Windows | Desktop |
-| Scope Device Modal Styles | Plugins |
-| Split Tests into Individually Runnable Units | Testing |
-| Expand `.env` / Service Ignoring Tests | Testing |
-| Rust `CargoService` Helper | Services |
-| Starter Kit Overhaul | Release |
-| Homepage & Why Page Messaging | Documentation |
-| `commoners share` CLI Command | CLI |
-| E2E Electron Auto-Close | Testing |
-| Fix GHA Build Tests | Testing |
-| Headless Mobile Testing | Testing |
-| Validate Mobile Workflows | Mobile |
-| Fix Pre-existing Test Failures | Testing |
-| Extensions Unification | Architecture |
-| Electron IPC Async Migration | Desktop |
-| Custom Protocol | Architecture |
-| Platform Enhancement | Design |
-| WASM Service Compilation | Architecture |
-| Walkthroughs | Documentation |
-| macOS ASAR Post-Sign Verification | Architecture |
-| Vite Evolution Audit | Architecture |
-| Security Whitepaper (P0/P1 items) | Security |
-
-</details>
-
-<details>
-<summary><strong>Dependency History</strong> (resolved)</summary>
-
-**Electron Beta Pin:** Pinned to `39.0.0-beta.1` to work around Electron 38 service environment bug. Resolved by upgrading to stable `^40.8.0`.
-
-**electron-builder Pin:** Pinned to `24.13.3` due to 25.x signing/ASAR breaking changes. Resolved by upgrading to `^26.8.1`.
-
-</details>
+### Resolved Dependencies
+- Electron pinned to 39 beta (service env bug) -- resolved by upgrading to stable ^40.8.0
+- electron-builder pinned to 24.x (signing/ASAR breaking changes) -- resolved by upgrading to ^26.8.1
 
 ---
 
 ## Reference Documents
 
-- [`docs/roadmap/features.md`](./docs/roadmap/features.md) — Detailed implementation plans by batch
-- [`docs/roadmap/windows-verification.md`](./docs/roadmap/windows-verification.md) — Windows build/signing checklist
-- [`docs/roadmap/sandbox-investigation.md`](./docs/roadmap/sandbox-investigation.md) — `app.enableSandbox()` Windows freeze workaround
-- [`docs/roadmap/tauri-integration-reference.md`](./docs/roadmap/tauri-integration-reference.md) — Tauri ecosystem comparison
+- [docs/roadmap/features.md](./docs/roadmap/features.md) -- Detailed implementation plans
+- [docs/roadmap/windows-verification.md](./docs/roadmap/windows-verification.md) -- Windows build/signing checklist
+- [docs/roadmap/sandbox-investigation.md](./docs/roadmap/sandbox-investigation.md) -- `app.enableSandbox()` Windows freeze workaround
+- [docs/roadmap/tauri-integration-reference.md](./docs/roadmap/tauri-integration-reference.md) -- Tauri ecosystem comparison
