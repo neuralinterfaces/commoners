@@ -6,8 +6,6 @@ import {
   resolveLazy,
   sanitizePluginProperties,
 } from './utils'
-import { queryExtensions } from './capabilities'
-import { createAsyncAPI } from './api/index'
 import { createWebEventBus } from './bus/index'
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
@@ -19,12 +17,22 @@ delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
-// Wire up capabilities query function (uses unified EXTENSIONS record)
-;(ENV as any).query = (filter) => queryExtensions((ENV as any).EXTENSIONS ?? {}, filter)
+// Runtime detection helper — commoners.is('desktop'), commoners.is('mobile'), etc.
+;(ENV as any).is = (check: string): boolean => {
+  switch (check) {
+    case 'desktop': return !!DESKTOP
+    case 'mobile': return !!MOBILE
+    case 'web': return !!WEB
+    case 'dev': return !!DEV
+    case 'prod': return !DEV
+    case 'electron': return (ENV as any).TARGET === 'electron'
+    case 'tauri': return (ENV as any).TARGET === 'tauri'
+    default: return false
+  }
+}
 
-// Initialize event bus
+// Initialize event bus (legacy — prefer @commoners/messaging plugin)
 if (DESKTOP) {
-  // Electron: use IPC-based bus
   import('./bus/electron').then(({ createElectronRendererEventBus }) => {
     ;(ENV as any).bus = createElectronRendererEventBus(
       TEMP_COMMONERS.send,
@@ -32,12 +40,8 @@ if (DESKTOP) {
     )
   })
 } else {
-  // Web/Mobile: use BroadcastChannel
   ;(ENV as any).bus = createWebEventBus()
 }
-
-// Initialize async API
-;(ENV as any).api = createAsyncAPI(ENV)
 
 if (__PLUGINS) {
   const devSocketListeners = { plugins: {} }

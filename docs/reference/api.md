@@ -84,57 +84,50 @@ unsubscribe()
 | `off` | `(topic: string, cb: (data) => void) => void` | Remove a specific listener |
 | `once` | `(topic: string, cb: (data) => void) => () => void` | Subscribe for one event only |
 
-## Async API (`commoners.api`)
+## Runtime Detection (`commoners.is`)
 
-Unified async interface for environment checks and service discovery.
+Check the current runtime with a single call:
 
 ```js
-const { api } = commoners
-
-// Environment checks
-api.is('desktop')  // true on Electron/Tauri
-api.is('mobile')   // true on iOS/Android
-api.is('web')      // true on web builds
-api.is('dev')      // true in development mode
-
-// Wait for full initialization
-await api.whenReady()
-
-// Discover services
-const service = await api.getService('reporting')
-if (service) fetch(service.url + '/generate')
-
-// Get the specific backend
-api.backend()  // 'electron' | 'tauri' | 'web' | ...
-
-// Event subscription
-const unsub = api.on('service:ready', (data) => { ... })
-api.once('app:quit', () => { ... })
+commoners.is('desktop')  // true on Electron/Tauri
+commoners.is('mobile')   // true on iOS/Android
+commoners.is('web')      // true on web builds
+commoners.is('dev')      // true in development mode
+commoners.is('prod')     // true in production
+commoners.is('electron') // true specifically on Electron
+commoners.is('tauri')    // true specifically on Tauri
 ```
 
-### Async API Methods
+| Check | Equivalent |
+|-------|-----------|
+| `commoners.is('desktop')` | `!!commoners.DESKTOP` |
+| `commoners.is('mobile')` | `!!commoners.MOBILE` |
+| `commoners.is('web')` | `commoners.WEB` |
+| `commoners.is('dev')` | `!!commoners.DEV` |
+| `commoners.is('prod')` | `!commoners.DEV` |
+| `commoners.is('electron')` | `commoners.TARGET === 'electron'` |
+| `commoners.is('tauri')` | `commoners.TARGET === 'tauri'` |
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `is` | `(check: 'desktop' \| 'mobile' \| 'web' \| 'dev') => boolean` | Environment check |
-| `whenReady` | `() => Promise<any>` | Resolves when all plugins are loaded |
-| `getService` | `(id: string) => Promise<{ url: string } \| undefined>` | Get service info by ID |
-| `backend` | `() => SpecificTargetType` | Current backend identifier |
-| `on` | `(event: string, cb: (...args) => void) => () => void` | Subscribe to events |
-| `once` | `(event: string, cb: (...args) => void) => () => void` | One-time event listener |
+## Event Bus (`commoners.bus`)
 
-## Extension Querying (`commoners.query`)
+> **Note:** For new projects, prefer the [`@commoners/messaging`](/packages/plugins) plugin. The built-in bus remains for backward compatibility.
+
+Cross-window event bus. Uses BroadcastChannel on web, IPC relay on Electron.
+
+```js
+commoners.bus.emit('my-event', { data: 123 })
+const unsub = commoners.bus.on('my-event', (data) => console.log(data))
+```
+
+## Extension Querying
+
+> **Note:** For new projects, prefer the [`@commoners/discovery`](/packages/plugins) plugin. `commoners.query()` remains on the global for backward compatibility.
 
 Find extensions (plugins + services) by capability:
 
 ```js
-// Find all extensions that provide bluetooth
 const btExtensions = commoners.query({ provides: ['bluetooth'] })
 
-// Find extensions for a specific platform
-const desktopExts = commoners.query({ platforms: { desktop: true } })
-
-// Result: Record<string, { type, capabilities }>
 for (const [id, ext] of Object.entries(btExtensions)) {
   console.log(`${id}: ${ext.type}`, ext.capabilities)
 }
