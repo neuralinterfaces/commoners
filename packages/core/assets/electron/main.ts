@@ -432,13 +432,13 @@ Security.runVerification(isProduction, {
   // ------------------------ IPC Handlers ------------------------
   IPC.setupConsoleRedirection()
 
-  // Event bus relay: broadcast to all other windows, excluding sender
-  runtime.ipc.on('commoners:bus:emit', (event, topic, data) => {
+  // Events relay: broadcast to all other windows, excluding sender
+  runtime.ipc.on('commoners:events:emit', (event, topic, data) => {
     const senderWebContents = event.sender
     const allWindows = runtime.window.getAll()
     for (const win of allWindows) {
       if (win.webContents !== senderWebContents && !win.isDestroyed()) {
-        win.webContents.send('commoners:bus:receive', topic, data)
+        win.webContents.send('commoners:events:receive', topic, data)
       }
     }
   })

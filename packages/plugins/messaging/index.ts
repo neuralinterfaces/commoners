@@ -29,7 +29,7 @@ export type MessagingOptions = {
   namespace?: string
 }
 
-const CHANNEL_PREFIX = 'commoners:bus'
+const CHANNEL_PREFIX = 'commoners:events'
 
 // --- Web backend: BroadcastChannel ---
 
@@ -80,8 +80,8 @@ function createWebBus(namespace: string): MessagingBus {
 function createElectronBus(send: Function, onIPC: Function): MessagingBus {
   const listeners = new Map<string, Set<(data: any) => void>>()
 
-  const BUS_EMIT = 'commoners:bus:emit'
-  const BUS_RECEIVE = 'commoners:bus:receive'
+  const BUS_EMIT = 'commoners:events:emit'
+  const BUS_RECEIVE = 'commoners:events:receive'
 
   // Listen for messages relayed from other windows via main process
   onIPC(BUS_RECEIVE, (_event: any, topic: string, data: any) => {
@@ -144,8 +144,8 @@ export default function messaging(options: MessagingOptions = {}) {
     // Electron main process: relay bus messages between windows
     desktop: {
       load: function (win: any) {
-        const BUS_EMIT = 'commoners:bus:emit'
-        const BUS_RECEIVE = 'commoners:bus:receive'
+        const BUS_EMIT = 'commoners:events:emit'
+        const BUS_RECEIVE = 'commoners:events:receive'
 
         // When a window emits a bus message, relay to all other windows
         this.on(BUS_EMIT, (_event: any, topic: string, data: any) => {

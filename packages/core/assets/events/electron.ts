@@ -1,20 +1,19 @@
-import type { CommonersEventBus } from './index'
+import type { CommonersEvents } from './index'
 
 /**
- * Electron renderer event bus using IPC for cross-window communication.
+ * Electron renderer events using IPC for cross-window communication.
  * Messages are relayed through the main process to all other windows.
  */
-export function createElectronRendererEventBus(
+export function createElectronRendererEvents(
   send: (channel: string, ...args: any[]) => void,
   on: (channel: string, listener: (event: any, ...args: any[]) => void) => void,
-): CommonersEventBus {
+): CommonersEvents {
   const listeners = new Map<string, Set<(data: any) => void>>()
 
-  const BUS_EMIT_CHANNEL = 'commoners:bus:emit'
-  const BUS_RECEIVE_CHANNEL = 'commoners:bus:receive'
+  const EVENTS_EMIT_CHANNEL = 'commoners:events:emit'
+  const EVENTS_RECEIVE_CHANNEL = 'commoners:events:receive'
 
-  // Listen for messages relayed from other windows via the main process
-  on(BUS_RECEIVE_CHANNEL, (_event: any, topic: string, data: any) => {
+  on(EVENTS_RECEIVE_CHANNEL, (_event: any, topic: string, data: any) => {
     const cbs = listeners.get(topic)
     if (cbs) cbs.forEach(cb => cb(data))
   })
@@ -39,9 +38,7 @@ export function createElectronRendererEventBus(
   }
 
   function emit(topic: string, data?: any): void {
-    // Send to main process for relay to other windows
-    send(BUS_EMIT_CHANNEL, topic, data)
-    // Also notify local listeners
+    send(EVENTS_EMIT_CHANNEL, topic, data)
     const cbs = listeners.get(topic)
     if (cbs) cbs.forEach(cb => cb(data))
   }

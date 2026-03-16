@@ -1,16 +1,16 @@
-export type CommonersEventBus = {
+export type CommonersEvents = {
   emit: (topic: string, data?: any) => void
   on: (topic: string, cb: (data: any) => void) => () => void
   off: (topic: string, cb: (data: any) => void) => void
   once: (topic: string, cb: (data: any) => void) => () => void
 }
 
-const CHANNEL_NAME = 'commoners:bus'
+const CHANNEL_NAME = 'commoners:events'
 
 /**
- * Web event bus using BroadcastChannel for cross-tab communication.
+ * Web events using BroadcastChannel for cross-tab communication.
  */
-export function createWebEventBus(): CommonersEventBus {
+export function createWebEvents(): CommonersEvents {
   const listeners = new Map<string, Set<(data: any) => void>>()
 
   let bc: BroadcastChannel | null = null
@@ -43,9 +43,7 @@ export function createWebEventBus(): CommonersEventBus {
   }
 
   function emit(topic: string, data?: any): void {
-    // Broadcast to other tabs/windows
     bc?.postMessage({ topic, data })
-    // Also notify local listeners
     const cbs = listeners.get(topic)
     if (cbs) cbs.forEach(cb => cb(data))
   }

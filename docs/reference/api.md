@@ -50,32 +50,27 @@ commoners.SERVICES.myService.close()    // Stop the service
 commoners.SERVICES.myService.onClosed() // Cleanup callback
 ```
 
-## Event Bus (`commoners.bus`)
+## Events (`@commoners/messaging`)
 
-Cross-window event communication. Works across all BrowserWindows in desktop mode.
+Cross-window event communication. Add the [`@commoners/messaging`](/packages/plugins) plugin:
 
 ```js
-const { bus } = commoners
+// commoners.config.ts
+import messaging from '@commoners/messaging'
+export default { plugins: { messaging: messaging() } }
+```
 
-// Subscribe to a topic
-const unsubscribe = bus.on('user:login', (data) => {
+```js
+const { messaging } = await commoners.READY
+
+const unsubscribe = messaging.on('user:login', (data) => {
   console.log('User logged in:', data)
 })
 
-// One-time listener
-bus.once('app:initialized', (data) => {
-  console.log('App ready')
-})
+messaging.emit('user:login', { userId: '123' })
 
-// Emit to all windows
-bus.emit('user:login', { userId: '123' })
-
-// Unsubscribe
 unsubscribe()
-// Or: bus.off('user:login', handler)
 ```
-
-### Event Bus API
 
 | Method | Signature | Description |
 |--------|-----------|-------------|

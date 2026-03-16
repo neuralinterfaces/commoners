@@ -604,8 +604,8 @@ type BaseCommonersGlobalObject = {
   }
   query: (filter: Partial<ExtensionCapabilities>) => Record<string, ExtensionMatch>
 
-  bus?: CommonersEventBus // Cross-window event bus
-  api?: CommonersAsyncAPI // Unified async API
+  events?: CommonersEvents // Cross-window events (via @commoners/messaging plugin)
+  is: (check: string) => boolean // Runtime detection
 
   __READY: (...args: unknown[]) => void // Resolve Function
   __PLUGINS?: RawPlugins // Raw Plugins
@@ -656,22 +656,12 @@ export type ElectronBrowserWindowFlags = {
 
 export type ExtendedElectronBrowserWindow = BrowserWindow & ElectronBrowserWindowFlags
 
-// ------------------- Event Bus -------------------
-export type CommonersEventBus = {
+// ------------------- Events -------------------
+export type CommonersEvents = {
   emit: (topic: string, data?: any) => void
   on: (topic: string, cb: (data: any) => void) => () => void
   off: (topic: string, cb: (data: any) => void) => void
   once: (topic: string, cb: (data: any) => void) => () => void
-}
-
-// ------------------- Async API -------------------
-export type CommonersAsyncAPI = {
-  is: (check: 'desktop' | 'mobile' | 'web' | 'dev') => boolean
-  whenReady: () => Promise<any>
-  getService: (id: string) => Promise<{ url: string } | undefined>
-  backend: () => SpecificTargetType
-  on: (event: string, cb: (...args: any[]) => void) => () => void
-  once: (event: string, cb: (...args: any[]) => void) => () => void
 }
 
 // ------------------- Health Monitoring -------------------
