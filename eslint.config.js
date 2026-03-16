@@ -20,6 +20,7 @@ export default [
       '**/assets/electron/**',
       '**/assets/runtime/**',
       'docs/.vitepress/**',
+      'packages/plugins/integrity/**',
     ],
     languageOptions: {
       globals: {

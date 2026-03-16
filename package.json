@@ -17,7 +17,7 @@
     "test:security": "vitest run tests/security.test.ts",
     "test:plugins": "vitest run tests/plugins.test.ts",
     "test:plugin-lifecycle": "vitest run tests/plugin-lifecycle.test.ts",
-    "test:fast-unit": "vitest run tests/security.test.ts tests/asar.test.ts tests/protocol.test.ts tests/port-retry.test.ts tests/port-pid.test.ts tests/config-stripping.test.ts tests/formatting.test.ts tests/hooks.test.ts tests/errors.test.ts tests/api.test.ts tests/tauri.test.ts tests/tauri-testing.test.ts tests/cold-build.test.ts tests/plugin-lifecycle.test.ts tests/plugins.test.ts tests/wasm.test.ts tests/sea.test.ts",
+    "test:fast-unit": "vitest run tests/security.test.ts tests/asar.test.ts tests/protocol.test.ts tests/port-retry.test.ts tests/port-pid.test.ts tests/config-stripping.test.ts tests/formatting.test.ts tests/hooks.test.ts tests/errors.test.ts tests/api.test.ts tests/tauri.test.ts tests/tauri-testing.test.ts tests/cold-build.test.ts tests/plugin-lifecycle.test.ts tests/plugins.test.ts tests/wasm.test.ts tests/sea.test.ts tests/integrity.test.ts",
     "coverage": "vitest run --coverage",
     "docs": "vitepress dev docs",
     "docs:build": "vitepress build docs",
