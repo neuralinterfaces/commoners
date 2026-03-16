@@ -92,6 +92,7 @@ const config = defineConfig({
 
   // ------------------ Common Configuration Options ------------------
   name,
+  icon: join(root, 'icon.png'), // RGBA PNG — compatible with Electron, Tauri, and PWA targets
 
   pages: {
     home: join(root, 'index.html'), // Allow navigation to the root page with commoners.PAGES.home()
