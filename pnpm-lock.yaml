@@ -115,6 +115,9 @@ importers:
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
+      webdriverio:
+        specifier: ^9.0.0
+        version: 9.26.1
 
   examples/bench: {}
 
@@ -324,11 +327,23 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
 
+  packages/plugins/integrity:
+    devDependencies:
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
+
   packages/plugins/local-services:
     dependencies:
       bonjour-service:
         specifier: ^1.3.0
         version: 1.3.0
+    devDependencies:
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
+
+  packages/plugins/secure-services:
     devDependencies:
       vite:
         specifier: ^7.3.1
@@ -8425,7 +8440,6 @@ snapshots:
   '@promptbook/utils@0.69.5':
     dependencies:
       spacetrim: 0.11.59
-    optional: true
 
   '@puppeteer/browsers@2.13.0':
     dependencies:
@@ -8440,7 +8454,6 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
-    optional: true
 
   '@quansync/fs@1.0.0':
     dependencies:
@@ -8717,8 +8730,7 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.10.1
       '@tauri-apps/cli-win32-x64-msvc': 2.10.1
 
-  '@tootallnate/quickjs-emscripten@0.23.0':
-    optional: true
+  '@tootallnate/quickjs-emscripten@0.23.0': {}
 
   '@trapezedev/gradle-parse@7.1.3': {}
 
@@ -8848,8 +8860,7 @@ snapshots:
     dependencies:
       '@types/node': 20.19.17
 
-  '@types/sinonjs__fake-timers@8.1.5':
-    optional: true
+  '@types/sinonjs__fake-timers@8.1.5': {}
 
   '@types/slice-ansi@4.0.0': {}
 
@@ -8864,13 +8875,11 @@ snapshots:
 
   '@types/web-bluetooth@0.0.21': {}
 
-  '@types/which@2.0.2':
-    optional: true
+  '@types/which@2.0.2': {}
 
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 20.19.17
-    optional: true
 
   '@types/yauzl@2.10.3':
     dependencies:
@@ -9189,7 +9198,6 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
-    optional: true
 
   '@wdio/logger@9.18.0':
     dependencies:
@@ -9198,20 +9206,16 @@ snapshots:
       loglevel-plugin-prefix: 0.8.4
       safe-regex2: 5.1.0
       strip-ansi: 7.1.2
-    optional: true
 
-  '@wdio/protocols@9.26.1':
-    optional: true
+  '@wdio/protocols@9.26.1': {}
 
   '@wdio/repl@9.16.2':
     dependencies:
       '@types/node': 20.19.17
-    optional: true
 
   '@wdio/types@9.26.1':
     dependencies:
       '@types/node': 20.19.17
-    optional: true
 
   '@wdio/utils@9.26.1':
     dependencies:
@@ -9233,7 +9237,6 @@ snapshots:
       - bare-buffer
       - react-native-b4a
       - supports-color
-    optional: true
 
   '@xml-tools/parser@1.0.11':
     dependencies:
@@ -9243,8 +9246,7 @@ snapshots:
 
   '@xmldom/xmldom@0.8.11': {}
 
-  '@zip.js/zip.js@2.8.23':
-    optional: true
+  '@zip.js/zip.js@2.8.23': {}
 
   JSONStream@1.3.5:
     dependencies:
@@ -9256,7 +9258,6 @@ snapshots:
   abort-controller@3.0.0:
     dependencies:
       event-target-shim: 5.0.1
-    optional: true
 
   accepts@1.3.8:
     dependencies:
@@ -9410,7 +9411,6 @@ snapshots:
       lodash: 4.17.23
       normalize-path: 3.0.0
       readable-stream: 4.7.0
-    optional: true
 
   archiver@7.0.1:
     dependencies:
@@ -9423,7 +9423,6 @@ snapshots:
       zip-stream: 6.0.1
     transitivePeerDependencies:
       - react-native-b4a
-    optional: true
 
   arg@4.1.3: {}
 
@@ -9433,8 +9432,7 @@ snapshots:
 
   argparse@2.0.1: {}
 
-  aria-query@5.3.2:
-    optional: true
+  aria-query@5.3.2: {}
 
   array-buffer-byte-length@1.0.2:
     dependencies:
@@ -9467,7 +9465,6 @@ snapshots:
   ast-types@0.13.4:
     dependencies:
       tslib: 2.8.1
-    optional: true
 
   ast-v8-to-istanbul@0.3.12:
     dependencies:
@@ -9558,8 +9555,7 @@ snapshots:
 
   baseline-browser-mapping@2.8.6: {}
 
-  basic-ftp@5.2.0:
-    optional: true
+  basic-ftp@5.2.0: {}
 
   better-path-resolve@1.0.0:
     dependencies:
@@ -9649,8 +9645,7 @@ snapshots:
 
   buffer-crc32@0.2.13: {}
 
-  buffer-crc32@1.0.0:
-    optional: true
+  buffer-crc32@1.0.0: {}
 
   buffer-from@1.1.2: {}
 
@@ -9663,7 +9658,6 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
-    optional: true
 
   builder-util-runtime@9.5.1:
     dependencies:
@@ -9790,7 +9784,6 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
       domutils: 3.2.2
-    optional: true
 
   cheerio@1.2.0:
     dependencies:
@@ -9805,7 +9798,6 @@ snapshots:
       parse5-parser-stream: 7.1.2
       undici: 7.24.4
       whatwg-mimetype: 4.0.0
-    optional: true
 
   chevrotain@7.1.1:
     dependencies:
@@ -9946,7 +9938,6 @@ snapshots:
       is-stream: 2.0.1
       normalize-path: 3.0.0
       readable-stream: 4.7.0
-    optional: true
 
   confbox@0.1.8: {}
 
@@ -10083,14 +10074,12 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
-  crc-32@1.2.2:
-    optional: true
+  crc-32@1.2.2: {}
 
   crc32-stream@6.0.0:
     dependencies:
       crc-32: 1.2.2
       readable-stream: 4.7.0
-    optional: true
 
   crc@3.8.0:
     dependencies:
@@ -10131,13 +10120,10 @@ snapshots:
       domhandler: 5.0.3
       domutils: 3.2.2
       nth-check: 2.1.1
-    optional: true
 
-  css-shorthand-properties@1.1.2:
-    optional: true
+  css-shorthand-properties@1.1.2: {}
 
-  css-value@0.0.1:
-    optional: true
+  css-value@0.0.1: {}
 
   css-what@6.2.2: {}
 
@@ -10145,8 +10131,7 @@ snapshots:
 
   dargs@7.0.0: {}
 
-  data-uri-to-buffer@6.0.2:
-    optional: true
+  data-uri-to-buffer@6.0.2: {}
 
   data-view-buffer@1.0.2:
     dependencies:
@@ -10189,8 +10174,7 @@ snapshots:
 
   decamelize@1.2.0: {}
 
-  decamelize@6.0.1:
-    optional: true
+  decamelize@6.0.1: {}
 
   decode-bmp@0.2.1:
     dependencies:
@@ -10211,8 +10195,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge-ts@7.1.5:
-    optional: true
+  deepmerge-ts@7.1.5: {}
 
   deepmerge@4.3.1: {}
 
@@ -10257,7 +10240,6 @@ snapshots:
       ast-types: 0.13.4
       escodegen: 2.1.0
       esprima: 4.0.1
-    optional: true
 
   del@6.1.1:
     dependencies:
@@ -10351,7 +10333,6 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
       entities: 4.5.0
-    optional: true
 
   domelementtype@2.3.0: {}
 
@@ -10362,7 +10343,6 @@ snapshots:
   domhandler@5.0.3:
     dependencies:
       domelementtype: 2.3.0
-    optional: true
 
   domutils@2.8.0:
     dependencies:
@@ -10375,7 +10355,6 @@ snapshots:
       dom-serializer: 2.0.0
       domelementtype: 2.3.0
       domhandler: 5.0.3
-    optional: true
 
   dot-prop@5.3.0:
     dependencies:
@@ -10397,7 +10376,6 @@ snapshots:
     dependencies:
       '@types/which': 2.0.2
       which: 2.0.2
-    optional: true
 
   edgedriver@6.3.0:
     dependencies:
@@ -10411,7 +10389,6 @@ snapshots:
       which: 6.0.1
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   ee-first@1.1.1: {}
 
@@ -10497,7 +10474,6 @@ snapshots:
     dependencies:
       iconv-lite: 0.6.3
       whatwg-encoding: 3.1.1
-    optional: true
 
   encoding@0.1.13:
     dependencies:
@@ -10517,11 +10493,9 @@ snapshots:
 
   entities@4.5.0: {}
 
-  entities@6.0.1:
-    optional: true
+  entities@6.0.1: {}
 
-  entities@7.0.1:
-    optional: true
+  entities@7.0.1: {}
 
   env-paths@2.2.1: {}
 
@@ -10662,7 +10636,6 @@ snapshots:
       esutils: 2.0.3
     optionalDependencies:
       source-map: 0.6.1
-    optional: true
 
   eslint-config-prettier@10.1.8(eslint@9.36.0(jiti@2.6.1)):
     dependencies:
@@ -10758,8 +10731,7 @@ snapshots:
 
   etag@1.8.1: {}
 
-  event-target-shim@5.0.1:
-    optional: true
+  event-target-shim@5.0.1: {}
 
   eventemitter3@5.0.1: {}
 
@@ -10767,8 +10739,7 @@ snapshots:
     dependencies:
       bare-events: 2.7.0
 
-  events@3.3.0:
-    optional: true
+  events@3.3.0: {}
 
   execa@5.1.1:
     dependencies:
@@ -10868,8 +10839,7 @@ snapshots:
   extsprintf@1.4.1:
     optional: true
 
-  fast-deep-equal@2.0.1:
-    optional: true
+  fast-deep-equal@2.0.1: {}
 
   fast-deep-equal@3.1.3: {}
 
@@ -10894,14 +10864,12 @@ snapshots:
   fast-xml-builder@1.1.4:
     dependencies:
       path-expression-matcher: 1.1.3
-    optional: true
 
   fast-xml-parser@5.5.6:
     dependencies:
       fast-xml-builder: 1.1.4
       path-expression-matcher: 1.1.3
       strnum: 2.2.0
-    optional: true
 
   fastest-levenshtein@1.0.16: {}
 
@@ -11060,7 +11028,6 @@ snapshots:
       modern-tar: 0.7.5
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   gensync@1.0.0-beta.2: {}
 
@@ -11090,8 +11057,7 @@ snapshots:
       through2: 2.0.5
       yargs: 16.2.0
 
-  get-port@7.1.0:
-    optional: true
+  get-port@7.1.0: {}
 
   get-proto@1.0.1:
     dependencies:
@@ -11122,7 +11088,6 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   git-raw-commits@2.0.11:
     dependencies:
@@ -11228,8 +11193,7 @@ snapshots:
     dependencies:
       lodash.merge: 4.6.2
 
-  grapheme-splitter@1.0.4:
-    optional: true
+  grapheme-splitter@1.0.4: {}
 
   graphemer@1.4.0: {}
 
@@ -11300,8 +11264,7 @@ snapshots:
 
   html-void-elements@3.0.0: {}
 
-  htmlfy@0.8.1:
-    optional: true
+  htmlfy@0.8.1: {}
 
   htmlparser2@10.1.0:
     dependencies:
@@ -11309,7 +11272,6 @@ snapshots:
       domhandler: 5.0.3
       domutils: 3.2.2
       entities: 7.0.1
-    optional: true
 
   http-cache-semantics@4.2.0: {}
 
@@ -11378,8 +11340,7 @@ snapshots:
 
   ignore@7.0.5: {}
 
-  immediate@3.0.6:
-    optional: true
+  immediate@3.0.6: {}
 
   import-fresh@3.3.1:
     dependencies:
@@ -11388,8 +11349,7 @@ snapshots:
 
   import-lazy@4.0.0: {}
 
-  import-meta-resolve@4.2.0:
-    optional: true
+  import-meta-resolve@4.2.0: {}
 
   imurmurhash@0.1.4: {}
 
@@ -11605,8 +11565,7 @@ snapshots:
 
   isexe@3.1.5: {}
 
-  isexe@4.0.0:
-    optional: true
+  isexe@4.0.0: {}
 
   istanbul-lib-coverage@3.2.2: {}
 
@@ -11684,7 +11643,6 @@ snapshots:
       pako: 1.0.11
       readable-stream: 2.3.8
       setimmediate: 1.0.5
-    optional: true
 
   keyv@4.5.4:
     dependencies:
@@ -11703,7 +11661,6 @@ snapshots:
   lazystream@1.0.1:
     dependencies:
       readable-stream: 2.3.8
-    optional: true
 
   leven@3.1.0: {}
 
@@ -11715,7 +11672,6 @@ snapshots:
   lie@3.3.0:
     dependencies:
       immediate: 3.0.6
-    optional: true
 
   lines-and-columns@1.2.4: {}
 
@@ -11756,7 +11712,6 @@ snapshots:
       '@promptbook/utils': 0.69.5
       type-fest: 4.26.0
       userhome: 1.0.1
-    optional: true
 
   locate-path@2.0.0:
     dependencies:
@@ -11771,8 +11726,7 @@ snapshots:
     dependencies:
       p-locate: 5.0.0
 
-  lodash.clonedeep@4.5.0:
-    optional: true
+  lodash.clonedeep@4.5.0: {}
 
   lodash.debounce@4.0.8: {}
 
@@ -11786,8 +11740,7 @@ snapshots:
 
   lodash.startcase@4.4.0: {}
 
-  lodash.zip@4.2.0:
-    optional: true
+  lodash.zip@4.2.0: {}
 
   lodash@4.17.23: {}
 
@@ -11809,11 +11762,9 @@ snapshots:
       strip-ansi: 7.1.2
       wrap-ansi: 9.0.2
 
-  loglevel-plugin-prefix@0.8.4:
-    optional: true
+  loglevel-plugin-prefix@0.8.4: {}
 
-  loglevel@1.9.2:
-    optional: true
+  loglevel@1.9.2: {}
 
   lowercase-keys@2.0.0: {}
 
@@ -11829,8 +11780,7 @@ snapshots:
     dependencies:
       yallist: 4.0.0
 
-  lru-cache@7.18.3:
-    optional: true
+  lru-cache@7.18.3: {}
 
   magic-string@0.25.9:
     dependencies:
@@ -12038,8 +11988,7 @@ snapshots:
       pkg-types: 1.3.1
       ufo: 1.6.1
 
-  modern-tar@0.7.5:
-    optional: true
+  modern-tar@0.7.5: {}
 
   modify-values@1.0.1: {}
 
@@ -12104,8 +12053,7 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  netmask@2.0.2:
-    optional: true
+  netmask@2.0.2: {}
 
   node-abi@3.77.0:
     dependencies:
@@ -12342,13 +12290,11 @@ snapshots:
       socks-proxy-agent: 8.0.5
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   pac-resolver@7.0.1:
     dependencies:
       degenerator: 5.0.1
       netmask: 2.0.2
-    optional: true
 
   package-json-from-dist@1.0.1: {}
 
@@ -12356,8 +12302,7 @@ snapshots:
     dependencies:
       quansync: 0.2.11
 
-  pako@1.0.11:
-    optional: true
+  pako@1.0.11: {}
 
   parent-module@1.0.1:
     dependencies:
@@ -12381,17 +12326,14 @@ snapshots:
     dependencies:
       domhandler: 5.0.3
       parse5: 7.3.0
-    optional: true
 
   parse5-parser-stream@7.1.2:
     dependencies:
       parse5: 7.3.0
-    optional: true
 
   parse5@7.3.0:
     dependencies:
       entities: 6.0.1
-    optional: true
 
   parseurl@1.3.3: {}
 
@@ -12401,8 +12343,7 @@ snapshots:
 
   path-exists@4.0.0: {}
 
-  path-expression-matcher@1.1.3:
-    optional: true
+  path-expression-matcher@1.1.3: {}
 
   path-is-absolute@1.0.1: {}
 
@@ -12569,10 +12510,8 @@ snapshots:
       socks-proxy-agent: 8.0.5
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
-  proxy-from-env@1.1.0:
-    optional: true
+  proxy-from-env@1.1.0: {}
 
   pump@3.0.3:
     dependencies:
@@ -12593,8 +12532,7 @@ snapshots:
 
   quansync@1.0.0: {}
 
-  query-selector-shadow-dom@1.0.1:
-    optional: true
+  query-selector-shadow-dom@1.0.1: {}
 
   queue-microtask@1.2.3: {}
 
@@ -12682,12 +12620,10 @@ snapshots:
       events: 3.3.0
       process: 0.11.10
       string_decoder: 1.3.0
-    optional: true
 
   readdir-glob@1.1.3:
     dependencies:
       minimatch: 10.2.4
-    optional: true
 
   readdirp@3.6.0:
     dependencies:
@@ -12786,7 +12722,6 @@ snapshots:
   resq@1.11.0:
     dependencies:
       fast-deep-equal: 2.0.1
-    optional: true
 
   restore-cursor@3.1.0:
     dependencies:
@@ -12798,8 +12733,7 @@ snapshots:
       onetime: 7.0.0
       signal-exit: 4.1.0
 
-  ret@0.5.0:
-    optional: true
+  ret@0.5.0: {}
 
   retry@0.12.0: {}
 
@@ -12807,8 +12741,7 @@ snapshots:
 
   rfdc@1.4.1: {}
 
-  rgb2hex@0.2.5:
-    optional: true
+  rgb2hex@0.2.5: {}
 
   rimraf@2.6.3:
     dependencies:
@@ -12880,8 +12813,7 @@ snapshots:
     dependencies:
       queue-microtask: 1.2.3
 
-  safaridriver@1.0.1:
-    optional: true
+  safaridriver@1.0.1: {}
 
   safe-array-concat@1.1.3:
     dependencies:
@@ -12909,7 +12841,6 @@ snapshots:
   safe-regex2@5.1.0:
     dependencies:
       ret: 0.5.0
-    optional: true
 
   safer-buffer@2.1.2: {}
 
@@ -12959,7 +12890,6 @@ snapshots:
   serialize-error@12.0.0:
     dependencies:
       type-fest: 4.41.0
-    optional: true
 
   serialize-error@7.0.1:
     dependencies:
@@ -13001,8 +12931,7 @@ snapshots:
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
 
-  setimmediate@1.0.5:
-    optional: true
+  setimmediate@1.0.5: {}
 
   setprototypeof@1.2.0: {}
 
@@ -13181,8 +13110,7 @@ snapshots:
 
   space-separated-tokens@2.0.2: {}
 
-  spacetrim@0.11.59:
-    optional: true
+  spacetrim@0.11.59: {}
 
   spawndamnit@3.0.1:
     dependencies:
@@ -13352,8 +13280,7 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
-  strnum@2.2.0:
-    optional: true
+  strnum@2.2.0: {}
 
   sumchecker@3.0.1:
     dependencies:
@@ -13576,8 +13503,7 @@ snapshots:
 
   type-fest@0.8.1: {}
 
-  type-fest@4.26.0:
-    optional: true
+  type-fest@4.26.0: {}
 
   type-fest@4.41.0: {}
 
@@ -13652,11 +13578,9 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici@6.24.1:
-    optional: true
+  undici@6.24.1: {}
 
-  undici@7.24.4:
-    optional: true
+  undici@7.24.4: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
@@ -13726,11 +13650,9 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  urlpattern-polyfill@10.1.0:
-    optional: true
+  urlpattern-polyfill@10.1.0: {}
 
-  userhome@1.0.1:
-    optional: true
+  userhome@1.0.1: {}
 
   utf8-byte-length@1.0.5: {}
 
@@ -13989,7 +13911,6 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   wcwidth@1.0.1:
     dependencies:
@@ -14014,7 +13935,6 @@ snapshots:
       - react-native-b4a
       - supports-color
       - utf-8-validate
-    optional: true
 
   webdriverio@9.26.1:
     dependencies:
@@ -14049,7 +13969,6 @@ snapshots:
       - react-native-b4a
       - supports-color
       - utf-8-validate
-    optional: true
 
   webidl-conversions@3.0.1: {}
 
@@ -14058,10 +13977,8 @@ snapshots:
   whatwg-encoding@3.1.1:
     dependencies:
       iconv-lite: 0.6.3
-    optional: true
 
-  whatwg-mimetype@4.0.0:
-    optional: true
+  whatwg-mimetype@4.0.0: {}
 
   whatwg-url@5.0.0:
     dependencies:
@@ -14128,7 +14045,6 @@ snapshots:
   which@6.0.1:
     dependencies:
       isexe: 4.0.0
-    optional: true
 
   why-is-node-running@2.3.0:
     dependencies:
@@ -14378,6 +14294,5 @@ snapshots:
       archiver-utils: 5.0.2
       compress-commons: 6.0.2
       readable-stream: 4.7.0
-    optional: true
 
   zwitch@2.0.4: {}
