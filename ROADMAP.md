@@ -45,7 +45,8 @@ Cross-platform Storage, Notification, Context, and File System adapters. Designe
 ### Tauri Remaining Work
 
 - SEA cross-compilation (universal binaries)
-- Tauri dev mode E2E testing (unit tests done, 104 tests; need real `tauri dev` integration test)
+- ~~Tauri E2E test~~ Done: `tauri-e2e.test.ts` builds demo as Tauri, launches via tauri-driver, verifies commoners global. Run with `TAURI_E2E=1`. Prerequisites (Rust, tauri-driver, Tauri CLI) validated on Windows.
+- Tauri dev mode testing still not supported (tauri-driver requires built app)
 - See [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md)
 
 ### Multi-Window Testing (`@commoners/testing`)
