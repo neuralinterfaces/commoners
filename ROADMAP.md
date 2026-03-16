@@ -18,7 +18,7 @@ All four release gate items are complete:
 - **Auto-update production validation** -- Plugin rewritten but untested with real GitHub Releases. Needs end-to-end verification. Requires: GitHub repo with releases configured.
 - **iOS TestFlight validation** -- Manual publishing docs written, needs end-to-end test. Requires: Apple Developer account.
 - **Android Play Store validation** -- Signing + CI docs written, needs end-to-end test. Requires: Google Play Console access.
-- **Platform abstractions: notifications, context** -- `commoners.notifications`, `commoners.context` across Electron and browser. Storage done (`@commoners/storage`).
+- **Platform abstractions: additional adapters** -- File system, clipboard, etc. Core set done (storage, notifications, context).
 
 ### Medium-term
 
@@ -48,7 +48,7 @@ Typed command registry. Capabilities-driven IPC allowlist. Plugin capability dec
 IPC channel validation. ASAR integrity (macOS + Windows). Binary hash verification. CSP with dynamic generation. Code signing integration. Secure Services plugin. 77 security tests.
 
 ### Post-1.0 Completed
-Vite 8.0.0 migration (Rolldown bundler). Auto-update plugin rewrite. ServiceHealthMonitor wired into service start() with 11 tests. Orphan process cleanup (PID file). Plugin runtime abstraction. `@commoners/audit` plugin (SBOM generation, multi-language dependency scanning). `@commoners/storage` plugin (IndexedDB for web, Node fs for Electron, Capacitor Preferences for mobile). Build adapter test fix (factory pattern). `commoners init` command. Migration guide. Platform docs (web/PWA, Electron vs Tauri, iOS/Android publishing).
+Vite 8.0.0 migration (Rolldown bundler). Auto-update plugin rewrite. ServiceHealthMonitor wired into service start() with 11 tests. Orphan process cleanup (PID file). Plugin runtime abstraction. `@commoners/audit` plugin (SBOM generation, multi-language dependency scanning). `@commoners/storage` plugin (IndexedDB for web, Node fs for Electron, Capacitor Preferences for mobile). `@commoners/notifications` plugin (Web Notification API, Electron Notification, Capacitor Local Notifications). `@commoners/context` plugin (app paths, info, locale, online status across all runtimes). Build adapter test fix (factory pattern). `commoners init` command. Migration guide. Platform docs (web/PWA, Electron vs Tauri, iOS/Android publishing).
 
 ### Individual Items (29)
 Extensions unification. IPC async migration (sendSync eliminated). Custom protocol. WASM compilation (wasm-pack). macOS ASAR post-sign verification. Vite evolution audit. CargoService helper. Mobile workflow validation. Documentation overhaul. Dev output cleanup. Plugin dependency ordering. Capability querying (`commoners.query()`). Event bus (`commoners.bus`). Cross-platform icons. Multi-window testing API. Sequential ready() hooks. Config stripping fix + regression test. Starter kit overhaul. `commoners share` command. And more -- see git history.
