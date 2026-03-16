@@ -231,7 +231,7 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       // In testing mode, serve the web assets for Playwright instead of opening IDE
       if (process.env.__COMMONERS_TESTING) {
         const adapter = getBuildAdapter()
-        const previewServer = await adapter.preview({ outDir: buildMetadata.web })
+        const previewServer = await adapter.serve({ outDir: buildMetadata.web })
         startManager.url = previewServer.url
         startManager.frontend = previewServer
         return startManager

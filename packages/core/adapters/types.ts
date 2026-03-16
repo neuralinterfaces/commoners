@@ -62,7 +62,7 @@ export interface BuildAdapter {
    * Create a static preview server for built assets.
    * Replaces vite.preview() calls in mobile testing.
    */
-  preview(options: { outDir: string; open?: boolean }): Promise<AdapterDevServer>
+  serve(options: { outDir: string; open?: boolean }): Promise<AdapterDevServer>
 
   /**
    * Load environment variables for the given mode/root.
