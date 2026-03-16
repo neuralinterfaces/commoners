@@ -207,13 +207,36 @@ const config = defineConfig({
         try {
           const os = await import('node:os')
           const isWindows = os.platform() === 'win32'
-          const { mkdirSync } = await import('node:fs')
+          const { mkdirSync, existsSync } = await import('node:fs')
           const { dirname, resolve } = await import('node:path')
-          mkdirSync(dirname(out), { recursive: true }) // Ensure base and asset output directory exists
+          const { execSync } = await import('node:child_process')
+          mkdirSync(dirname(out), { recursive: true })
 
-          // Resolve the build command to use
-          const buildCommand = `g++ ${resolve(src)} -o ${resolve(out)} -std=c++11`
-          return isWindows ? buildCommand + ` -lws2_32` : buildCommand // Windows requires additional linking
+          const resolvedSrc = resolve(src)
+          const resolvedOut = resolve(out)
+
+          if (isWindows) {
+            // Prefer MSVC cl.exe (reliable on Windows), fall back to g++
+            try {
+              // Find vcvarsall.bat to set up MSVC environment
+              const vsWhere =
+                'C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\vswhere.exe'
+              const vsPath = existsSync(vsWhere)
+                ? execSync(`"${vsWhere}" -latest -property installationPath`, {
+                    encoding: 'utf8',
+                  }).trim()
+                : null
+              if (vsPath) {
+                const vcvars = `"${vsPath}\\VC\\Auxiliary\\Build\\vcvarsall.bat"`
+                return `${vcvars} x64 >nul 2>&1 && cl /EHsc /Fe:"${resolvedOut}" "${resolvedSrc}" ws2_32.lib`
+              }
+            } catch {
+              /* fall through to g++ */
+            }
+            return `g++ "${resolvedSrc}" -o "${resolvedOut}" -std=c++11 -lws2_32`
+          }
+
+          return `g++ "${resolvedSrc}" -o "${resolvedOut}" -std=c++11`
         } catch (error) {
           console.error('Failed to build C++ service:', error)
           throw error

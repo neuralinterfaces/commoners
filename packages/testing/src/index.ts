@@ -439,16 +439,51 @@ export const open = async (
       }
       for (const p of pages) {
         try {
-          const hasCommoners = await p.evaluate(() => typeof globalThis.commoners !== 'undefined')
-          if (hasCommoners) {
+          // Prefer the main window (DESKTOP.__main === true) over splash/plugin windows.
+          // All windows have the commoners global via preload, but only the main window
+          // has __main set. Fall back to any page with commoners if __main isn't found yet.
+          const pageInfo = await p.evaluate(() => {
+            const c = globalThis.commoners
+            if (!c) return { hasCommoners: false, isMain: false }
+            const desktop = c.DESKTOP
+            return {
+              hasCommoners: true,
+              isMain:
+                desktop && typeof desktop === 'object' && '__main' in desktop && desktop.__main,
+            }
+          })
+          if (pageInfo.isMain) {
             states.page = p
             break
+          }
+          // Track commoners pages as fallback (might be splash)
+          if (pageInfo.hasCommoners && !states.page) {
+            states.page = p
           }
         } catch {
           /* ignored */
         } // Page may be closed (e.g., splash screen) or not ready
       }
-      if (states.page) break
+      // Only stop searching when we find the actual main window.
+      // Splash/plugin pages have commoners but not __main — keep waiting
+      // for createMainWindow() to run after all ready() hooks complete.
+      const foundMain =
+        states.page &&
+        (await states.page
+          .evaluate(() => {
+            const c = globalThis.commoners
+            return c?.DESKTOP && typeof c.DESKTOP === 'object' && c.DESKTOP.__main
+          })
+          .catch(() => false))
+      if (foundMain) break
+      // If fallback page closed (splash dismissed), clear it so we keep looking
+      if (states.page) {
+        try {
+          await states.page.url()
+        } catch {
+          states.page = undefined
+        }
+      }
       await sleep(500)
     }
 
