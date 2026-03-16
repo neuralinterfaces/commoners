@@ -60,6 +60,7 @@
     "@tauri-apps/cli": "^2.10.1",
     "@typescript-eslint/eslint-plugin": "^8.44.1",
     "@typescript-eslint/parser": "^8.44.1",
+    "@vite-pwa/assets-generator": "^1.0.2",
     "@vitest/coverage-v8": "^4.0.18",
     "commoners": "1.0.0-alpha.3",
     "eslint": "^9.36.0",
