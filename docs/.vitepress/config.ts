@@ -22,6 +22,7 @@ export default defineConfig({
 
     sidebar: [
       { text: 'Getting Started', link: '/getting-started' },
+      { text: 'Add to Existing Project', link: '/guide/migration' },
       { text: 'Why Commoners', link: '/why/' },
       {
         text: 'Guide',

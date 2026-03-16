@@ -149,6 +149,116 @@ function renderCommaSeparatedList(list: string[]) {
   return list.slice(0, -1).join(', ') + ' and ' + list.slice(-1)
 }
 
+// Initialize commoners in an existing project
+cli
+  .command('init [root]', 'Add Commoners to an existing project')
+
+  .example('commoners init')
+  .example('commoners init ./my-app')
+
+  .action(async (root) => {
+    const { existsSync, writeFileSync, readFileSync } = await import('node:fs')
+    const { resolve, join } = await import('node:path')
+
+    const projectRoot = resolve(root || '.')
+    const configPath = join(projectRoot, 'commoners.config.ts')
+    const pkgPath = join(projectRoot, 'package.json')
+
+    ui.header('Commoners Init')
+
+    // Check for existing config
+    if (existsSync(configPath)) {
+      ui.warning('commoners.config.ts already exists', 'Skipping config generation')
+    } else {
+      // Detect existing project type
+      const hasViteConfig = existsSync(join(projectRoot, 'vite.config.ts')) || existsSync(join(projectRoot, 'vite.config.js'))
+      const hasIndexHtml = existsSync(join(projectRoot, 'index.html'))
+      const hasSrcDir = existsSync(join(projectRoot, 'src'))
+
+      const configLines = [
+        `import { defineConfig } from '@commoners/solidarity/config'`,
+        ``,
+        `export default defineConfig({`,
+        `  name: '${projectRoot.split(/[\\/]/).pop() || 'my-app'}',`,
+      ]
+
+      // Pages
+      if (hasIndexHtml) {
+        configLines.push(``)
+        configLines.push(`  // Your existing index.html is the default entry point`)
+        configLines.push(`  // Add more pages here:`)
+        configLines.push(`  // pages: {`)
+        configLines.push(`  //   home: './index.html',`)
+        configLines.push(`  //   about: './pages/about/index.html',`)
+        configLines.push(`  // },`)
+      }
+
+      // Services placeholder
+      configLines.push(``)
+      configLines.push(`  // Declare backend services (Python, Rust, C++, or Node):`)
+      configLines.push(`  // services: {`)
+      configLines.push(`  //   api: { src: './src/services/api/index.ts' },`)
+      configLines.push(`  // },`)
+
+      // Electron config
+      configLines.push(``)
+      configLines.push(`  electron: {`)
+      configLines.push(`    window: { width: 1200, height: 800 },`)
+      configLines.push(`  },`)
+
+      configLines.push(`})`)
+      configLines.push(``)
+
+      writeFileSync(configPath, configLines.join('\n'), 'utf8')
+      ui.success('Created commoners.config.ts')
+
+      if (hasViteConfig) {
+        ui.info('Detected existing vite.config — Commoners extends Vite, so your config will be merged automatically')
+      }
+    }
+
+    // Add scripts to package.json if it exists
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+        let modified = false
+
+        if (!pkg.scripts) pkg.scripts = {}
+
+        const scripts = {
+          'dev': 'commoners',
+          'dev:desktop': 'commoners --target desktop',
+          'build': 'commoners build',
+          'build:desktop': 'commoners build --target desktop',
+          'build:mobile': 'commoners build --target mobile',
+        }
+
+        for (const [key, value] of Object.entries(scripts)) {
+          if (!pkg.scripts[key]) {
+            pkg.scripts[key] = value
+            modified = true
+          }
+        }
+
+        if (modified) {
+          writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8')
+          ui.success('Added commoners scripts to package.json')
+        } else {
+          ui.info('Scripts already exist in package.json')
+        }
+      } catch {
+        ui.warning('Could not update package.json')
+      }
+    }
+
+    ui.info('Next steps:')
+    console.log('  1. Install commoners: pnpm add -D commoners@latest')
+    console.log('  2. Run: pnpm dev')
+    console.log('  3. For desktop: pnpm dev:desktop')
+    console.log('')
+    console.log('  See https://commoners.dev/getting-started for more')
+  })
+
 // Launch the specified build
 cli
   .command('launch [root]', 'Launch your build application in the specified directory')

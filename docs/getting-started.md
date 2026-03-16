@@ -35,25 +35,18 @@ cd my-app
 pnpm install
 ```
 
-### Adding Commoners to an Existing Vite Project
+### Adding Commoners to an Existing Project
 
-If you already have a Vite project, you can add Commoners directly:
+Already have a web app? Run `commoners init` to add Commoners to it:
 
 ```bash
 pnpm add -D commoners@latest
+npx commoners init
 ```
 
-Then create a `commoners.config.ts` file in your project root (see [Configuration](./guide/config.md)) and update your `package.json` scripts:
+This creates a `commoners.config.ts` and adds scripts to your `package.json`. Works with any Vite-based project (React, Vue, Svelte, vanilla).
 
-```json
-{
-    "scripts": {
-        "dev": "commoners",
-        "build": "commoners build",
-        "preview": "commoners launch"
-    }
-}
-```
+For non-Vite projects (CRA, Vue CLI, Electron, Capacitor) or to understand what's supported, see the [Migration Guide](./guide/migration.md).
 
 ## Development
 
