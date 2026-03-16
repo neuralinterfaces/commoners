@@ -129,9 +129,6 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     // Generate Cargo.toml
     writeFileSync(join(srcTauriDir, 'Cargo.toml'), generateCargoToml(sanitizedName))
 
-    // Generate src/main.rs (with sidecar lifecycle if services exist)
-    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries))
-
     // Generate build.rs
     writeFileSync(join(srcTauriDir, 'build.rs'), 'fn main() {\n  tauri_build::build()\n}\n')
 
@@ -185,6 +182,9 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       sidecarEntries.push({ id, bin: `binaries/${id}` })
     }
 
+    // Generate src/main.rs (with sidecar lifecycle if services exist)
+    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries))
+
     // Prepare icon: Tauri requires RGBA PNGs, so convert if needed
     const iconDir = join(srcTauriDir, 'icons')
     mkdirSync(iconDir, { recursive: true })
@@ -200,7 +200,9 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
         if (process.platform === 'darwin') {
           try {
             execSync(`sips -s format png "${destIcon}" --out "${destIcon}"`, { stdio: 'pipe' })
-          } catch { /* conversion failed, try as-is */ }
+          } catch {
+            /* conversion failed, try as-is */
+          }
         }
         tauriIconPaths = ['icons/icon.png']
       }
