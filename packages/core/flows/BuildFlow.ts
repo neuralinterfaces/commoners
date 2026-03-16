@@ -3,7 +3,7 @@
  * Implements the Template Method pattern for build operations
  */
 
-import { join, resolve, relative, isAbsolute } from 'node:path'
+import { join, resolve, isAbsolute } from 'node:path'
 import { createLogger } from '../assets/utils/logger.js'
 import type {
   UserConfig,
@@ -14,16 +14,14 @@ import type {
 } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
-import { resolveViteConfig } from '../vite/index.js'
-import { ScopedLogger } from '../vite/logger.js'
 import { removeDirectory } from '../utils/files.js'
 import {
   globalWorkspacePath,
   globalTempDir,
   handleTemporaryDirectories,
-  vite,
   isDesktop,
 } from '../globals.js'
+import { getBuildAdapter } from '../adapters/index.js'
 import { globalServiceWorkspacePath } from '../assets/services/paths.js'
 
 const resolveOutDir = (context: BuildContext): string => context.stagingDir || context.outDir
@@ -235,7 +233,7 @@ export class BuildFlow {
   }
 
   /**
-   * Build frontend assets using Vite
+   * Build frontend assets using the configured build adapter (default: Vite)
    */
   private async buildFrontendAssets(context: BuildContext): Promise<void> {
     const { config, hooks, dev, root } = context
@@ -243,29 +241,11 @@ export class BuildFlow {
     this.logger.debug('Emitting build:assets:start', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:start', phase: 'frontend' })
 
-    // Ensure root is absolute for Vite (Vite expects absolute root)
-    const absoluteRoot = isAbsolute(root) ? root : resolve(root)
-
     const outDir = resolveOutDir(context)
+    const adapter = getBuildAdapter()
 
-    // Create a config with absolute root and relative outDir for Vite
-    const viteConfig = {
-      ...config,
-      root: absoluteRoot,
-      outDir: relative(absoluteRoot, outDir),
-    }
-
-    const resolvedViteConfig = await resolveViteConfig(viteConfig, {
-      dev,
-      hooks,
-    })
-
-    const _vite = await vite
-    const customViteLogger = new ScopedLogger((...args) =>
-      customViteLogger.call(() => hooks.emit({ type: 'log', args }))
-    )
-    await _vite.build({ ...resolvedViteConfig, customLogger: customViteLogger })
-    customViteLogger.close()
+    this.logger.debug(`Using ${adapter.name} build adapter for frontend assets`)
+    await adapter.build({ root, outDir, config, dev, hooks })
 
     this.logger.debug('Emitting build:assets:complete', { phase: 'frontend' })
     hooks.emit({ type: 'build:assets:complete', phase: 'frontend' })

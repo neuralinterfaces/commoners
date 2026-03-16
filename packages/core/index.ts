@@ -54,6 +54,13 @@ export * from './globals.js'
 export * from './assets/services/index.js' // Service Helpers
 
 export * as format from './utils/formatting.js'
+export {
+  getBuildAdapter,
+  setBuildAdapter,
+  registerServiceBundler,
+  getServiceBundler,
+} from './adapters/index.js'
+export type { BuildAdapter, ServiceBundler, AdapterConfig } from './adapters/types.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
 export { shareServices } from './share.js'
@@ -348,7 +355,9 @@ export async function resolveConfig(
 
   // Dev-mode diagnostic: warn about extensions without capabilities
   if (process.env.NODE_ENV !== 'production' && !process.env.VITEST) {
-    const missing = Object.keys(resolvedExtensions).filter(id => !resolvedExtensions[id].capabilities)
+    const missing = Object.keys(resolvedExtensions).filter(
+      id => !resolvedExtensions[id].capabilities
+    )
     if (missing.length) {
       console.warn(
         `[commoners] Extensions without capabilities: ${missing.join(', ')}. Consider adding a capabilities field for better discoverability.`
