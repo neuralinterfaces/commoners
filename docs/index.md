@@ -16,21 +16,21 @@ hero:
       text: Why Commoners?
       link: /why
 features:
-  - icon: 🧩
-    title: Multi-Language Services
-    details: Declare Python, Rust, C++, or Node backends in config. Auto-compiled, bundled, and deployed.
   - icon: 🌐
-    title: One Config, All Platforms
-    details: Web, desktop (Electron), and mobile (iOS/Android) from a single commoners.config.ts.
+    title: Web, Desktop, and Mobile
+    details: One commoners.config.ts deploys to the browser, Electron or Tauri on desktop, and iOS/Android via Capacitor.
+  - icon: 🧩
+    title: Backend Services in Any Language
+    details: Python, Rust, C++, or Node services declared in config. Auto-compiled, bundled, and deployed with your app.
   - icon: 💻
     title: Framework-Agnostic
-    details: HTML, CSS, and JavaScript. No React, Vue, or Dart required.
+    details: HTML, CSS, and JavaScript. Use React, Vue, Svelte, or nothing at all.
   - icon: 🔀
     title: Local + Remote Services
-    details: Services run locally on desktop, deploy remotely for web/mobile. Same code.
+    details: Services run locally on desktop, deploy remotely for web and mobile. Your frontend code doesn't change.
   - icon: 🔩
     title: Plugin System
-    details: Bluetooth, Serial, local service discovery. Platform-specific code stays separate.
+    details: Bluetooth, Serial, multi-window, auto-update. Platform-specific code stays out of your app logic.
   - icon: ⚡️
     title: Built on Vite
     details: Hot reloading, fast builds, and modern tooling out of the box.

@@ -1,14 +1,14 @@
 # Why Commoners?
 
 ## The Problem
-You have a Python ML backend, a Rust data pipeline, and a web frontend. You want to ship it as a desktop app, serve it on the web, and run it on mobile -- without rewriting your backends or maintaining three separate projects.
+You have a web app. You want it on desktop, mobile, and the web — ideally from one codebase. Maybe you also have backend services in Python, Rust, or Node that need to ship alongside it.
 
 Existing tools solve parts of this:
-- **Electron / Tauri** handle desktop, but don't orchestrate your backend services.
-- **Capacitor** handles mobile, but can't bundle local backends.
+- **Electron / Tauri** handle desktop, but don't manage your backend services or mobile.
+- **Capacitor** handles mobile, but can't bundle local backends or manage desktop.
 - **Framework-specific SDKs** (React Native, Quasar) lock you into a single frontend framework.
 
-Nobody solves the full picture: **multi-language backend services** that compile, bundle, and deploy across web, desktop, and mobile from one configuration.
+No single tool handles the full picture: **your app on every platform**, with backend services that compile, bundle, and deploy automatically.
 
 ## What Commoners Does Differently
 Commoners is a CLI tool that reads a single `commoners.config.ts` and handles the rest:
@@ -30,7 +30,7 @@ Commoners is a CLI tool that reads a single `commoners.config.ts` and handles th
 | Frontend framework | Any | Any | Any | Vue | React |
 | Local + remote services | **Yes** | No | No | No | No |
 
-Commoners is the only tool that treats **backend service orchestration** as a first-class concern across all platforms.
+Commoners is the tool that gets your app — frontend and backend — onto every platform from one config.
 
 ## Where Commoners Came From
 Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) for an impossible task: distributing a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux), and mobile (iOS/Android) -- with real-time brain-computer interface backends written in Python and C++. [It works.](https://github.com/neuralinterfaces/brainsatplay)
