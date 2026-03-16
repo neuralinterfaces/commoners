@@ -6,6 +6,8 @@ import {
   resolveLazy,
   sanitizePluginProperties,
 } from './utils'
+import { queryExtensions } from './capabilities'
+
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
 // Set global variable
@@ -15,7 +17,10 @@ delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
-// Runtime detection helper — commoners.is('desktop'), commoners.is('mobile'), etc.
+// Extension querying — commoners.query({ provides: ['bluetooth'] })
+;(ENV as any).query = (filter) => queryExtensions((ENV as any).EXTENSIONS ?? {}, filter)
+
+// Runtime detection — commoners.is('desktop'), commoners.is('mobile'), etc.
 ;(ENV as any).is = (check: string): boolean => {
   switch (check) {
     case 'desktop': return !!DESKTOP

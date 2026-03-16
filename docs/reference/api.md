@@ -119,26 +119,26 @@ export default { plugins: { messaging: messaging() } }
 ```
 
 ```js
-// In your app
 const { messaging } = await commoners.READY
 messaging.emit('my-event', { data: 123 })
 messaging.on('my-event', (data) => console.log(data))
 ```
 
-## Extension Discovery
+## Extension Querying (`commoners.query`)
 
-Use the [`@commoners/discovery`](/packages/plugins) plugin to query extensions by capability:
-
-```js
-// commoners.config.ts
-import discovery from '@commoners/discovery'
-export default { plugins: { discovery: discovery() } }
-```
+Find extensions (plugins + services) by capability:
 
 ```js
-// In your app
-const { discovery } = await commoners.READY
-const btExtensions = discovery.query({ provides: ['bluetooth'] })
+// Find all extensions that provide bluetooth
+const btExtensions = commoners.query({ provides: ['bluetooth'] })
+
+// Find extensions for a specific platform
+const desktopExts = commoners.query({ platforms: { desktop: true } })
+
+// Result: Record<string, { type, capabilities }>
+for (const [id, ext] of Object.entries(btExtensions)) {
+  console.log(`${id}: ${ext.type}`, ext.capabilities)
+}
 ```
 
 ## Capabilities
