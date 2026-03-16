@@ -7,7 +7,7 @@ import {
   sanitizePluginProperties,
 } from './utils'
 import { queryExtensions, validateRequirements } from './capabilities'
-import { createWebEventBus } from './events/index'
+import { createWebEvents } from './events/index'
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -34,7 +34,7 @@ if (DESKTOP) {
     )
   })
 } else {
-  ;(ENV as any).events = createWebEventBus()
+  ;(ENV as any).events = createWebEvents()
 }
 
 // Runtime detection — commoners.is('desktop'), commoners.is('mobile'), etc.
