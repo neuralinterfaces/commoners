@@ -1,0 +1,20 @@
+{
+  "name": "@commoners/clipboard",
+  "version": "1.0.0-alpha.3",
+  "description": "Cross-platform clipboard access for Commoners apps",
+  "author": "Neural Interfaces",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/clipboard"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "main": "index.ts",
+  "peerDependencies": {
+    "@commoners/solidarity": ">=1.0.0-alpha.0"
+  }
+}
