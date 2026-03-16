@@ -177,7 +177,7 @@ export class BuildFlow {
         config: resolvedConfig.name,
         outDir: context.outDir,
       })
-      hooks.emit({ type: 'build:complete', config: resolvedConfig, outDir: context.outDir })
+      hooks.emit({ type: 'build:complete', config: resolvedConfig, outDir: context.outDir, dev })
 
       this.logger.info('Build completed successfully', { outDir: context.outDir })
 

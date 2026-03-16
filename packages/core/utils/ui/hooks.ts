@@ -4,7 +4,6 @@ import type { HookEvent, HookFunction, HooksInterface } from '../../types.js'
 import { createRequire } from 'module'
 import { CommonersUI } from './ui.js'
 
-
 const prettyPrintDuration = (ms: number): string => {
   if (ms < 1000) return `${ms.toFixed(2)} ms`
   const seconds = (ms / 1000).toFixed(2)
@@ -21,7 +20,7 @@ export class Hooks implements HooksInterface {
       typeHandlers.forEach(handler => {
         try {
           handler(event)
-        } catch (error) {
+        } catch {
           // Silently ignore handler errors to prevent breaking core functionality
         }
       })
@@ -33,7 +32,7 @@ export class Hooks implements HooksInterface {
       allHandlers.forEach(handler => {
         try {
           handler(event)
-        } catch (error) {
+        } catch {
           // Silently ignore handler errors to prevent breaking core functionality
         }
       })
@@ -59,7 +58,6 @@ export class Hooks implements HooksInterface {
 }
 
 export class DefaultHooks extends Hooks {
-
   private ui: CommonersUI
 
   constructor(ui: CommonersUI = new CommonersUI()) {
@@ -69,24 +67,22 @@ export class DefaultHooks extends Hooks {
   }
 
   private setupDefaultHandlers(): void {
-
     // Generic events
-    this.on('log', (event) => {
+    this.on('log', event => {
       if (event.type === 'log') this.ui.add(...event.args)
     })
 
-
     // Build events
-    this.on('build:start', (event) => {
+    this.on('build:start', event => {
       if (event.type === 'build:start') {
-          if (event.dev) return 
-          const { name, target } = event.config
-          const buildTitle = `${name} ${this.ui.target(target, { plain: true })} Build`
-          this.ui.header(buildTitle)
+        if (event.dev) return
+        const { name, target } = event.config
+        const buildTitle = `${name} ${this.ui.target(target, { plain: true })} Build`
+        this.ui.header(buildTitle)
       }
     })
 
-    this.on('build:assets:start', (event) => {
+    this.on('build:assets:start', event => {
       if (event.type === 'build:assets:start') {
         switch (event.phase) {
           case 'frontend':
@@ -102,7 +98,7 @@ export class DefaultHooks extends Hooks {
       }
     })
 
-    this.on('build:assets:complete', (event) => {
+    this.on('build:assets:complete', event => {
       if (event.type === 'build:assets:complete') {
         switch (event.phase) {
           case 'frontend':
@@ -126,14 +122,15 @@ export class DefaultHooks extends Hooks {
       this.ui.popSection()
     })
 
-    this.on('build:mobile:start', (event) => {
+    this.on('build:mobile:start', event => {
       if (event.type === 'build:mobile:start') {
         this.ui.info(`Initializing ${event.mobileTarget} build...`)
       }
     })
 
-    this.on('build:complete', (event) => {
+    this.on('build:complete', event => {
       if (event.type === 'build:complete') {
+        if (event.dev) return // Skip success box in dev mode
         const { config, outDir } = event
         const { name, target } = config
         const targetName = this.getTargetDisplayName(target)
@@ -152,7 +149,7 @@ export class DefaultHooks extends Hooks {
       }
     })
 
-    this.on('build:error', (event) => {
+    this.on('build:error', event => {
       if (event.type === 'build:error') {
         this.ui.error(
           `Build failed${event.phase ? ` during ${event.phase}` : ''}`,
@@ -161,80 +158,83 @@ export class DefaultHooks extends Hooks {
       }
     })
 
-    this.on('launch:start', (event) => {
+    this.on('launch:start', event => {
       if (event.type === 'launch:start') {
         this.ui.header(`Launching ${this.ui.target(event.target, { plain: true })} Application`)
         this.ui.info(`Output Directory: ${event.outDir}`)
       }
     })
 
-    this.on('launch:ready', (event) => {
+    this.on('launch:ready', event => {
       if (event.type === 'launch:ready') {
         this.ui.success('Application launched successfully!')
       }
     })
 
-    this.on('launch:error', (event) => {
+    this.on('launch:error', event => {
       if (event.type === 'launch:error') {
         this.ui.error('Launch failed', event.error.message)
       }
     })
 
     // Service events
-    this.on('service:start', (event) => {
+    this.on('service:start', event => {
       if (event.type === 'service:start') {
         this.ui.service(event.service, `Starting service at ${event.url}`, 'info')
       }
     })
 
-    this.on('service:ready', (event) => {
+    this.on('service:ready', event => {
       if (event.type === 'service:ready') {
         this.ui.service(event.service, `Ready on port ${event.port}`, 'success')
       }
     })
 
-    this.on('service:stdout', (event) => {
+    this.on('service:stdout', event => {
       if (event.type === 'service:stdout') this.ui.service(event.service, event.data, 'info')
     })
 
-    this.on('service:stderr', (event) => {
+    this.on('service:stderr', event => {
       if (event.type === 'service:stderr') this.ui.service(event.service, event.data, 'info')
     })
 
-    this.on('service:error', (event) => {
+    this.on('service:error', event => {
       if (event.type === 'service:error') {
         this.ui.service(event.service, `Error: ${event.error.message}`, 'error')
       }
     })
 
-
-    this.on('service:exit', (event) => {
+    this.on('service:exit', event => {
       if (event.type === 'service:exit') {
         if (event.code === null) return
         const type = event.code === 0 ? 'success' : 'error'
-        this.ui.service(event.service, `Exited with code ${event.code}`,type)
+        this.ui.service(event.service, `Exited with code ${event.code}`, type)
       }
     })
 
-    this.on('service:restart', (event) => {
+    this.on('service:restart', event => {
       if (event.type === 'service:restart') {
         this.ui.service(event.service, 'Restarting...', 'info')
       }
     })
 
-    this.on('service:build:start', (event) => {
+    this.on('service:build:start', event => {
       if (event.type === 'service:build:start') return
     })
-    
-    this.on('service:build:end', (event) => {
+
+    this.on('service:build:end', event => {
       if (event.type === 'service:build:end') {
-        this.ui.service(event.service, `Build completed${event.duration ? ` in ${prettyPrintDuration(event.duration)}` : ''}`, 'success')
+        this.ui.service(
+          event.service,
+          `Build completed${event.duration ? ` in ${prettyPrintDuration(event.duration)}` : ''}`,
+          'success'
+        )
         if (event.out) this.ui.details(this.ui.path(event.out))
         this.ui.add()
       }
     })
 
-    this.on('service:build:error', (event) => {
+    this.on('service:build:error', event => {
       if (event.type === 'service:build:error') {
         this.ui.service(event.service, `Build failed`, 'error')
         if (event.error) {
@@ -244,44 +244,41 @@ export class DefaultHooks extends Hooks {
       }
     })
 
-    this.on('service:build:cached', (event) => {
+    this.on('service:build:cached', event => {
       if (event.type === 'service:build:cached') {
         this.ui.service(event.service, `Using cached build artifact`, 'info')
         this.ui.add()
       }
     })
 
-    this.on('service:launch:start', (event) => {
+    this.on('service:launch:start', event => {
       if (event.type === 'service:launch:start') return
     })
 
-    this.on('service:launch:complete', async (event) => {
+    this.on('service:launch:complete', async event => {
       if (event.type === 'service:launch:complete') return
     })
 
-    this.on('service:launch:error', (event) => {
+    this.on('service:launch:error', event => {
       if (event.type === 'service:launch:error') {
         this.ui.service(event.service, `Failed to launch service`, 'error')
       }
     })
 
     // Security events
-    this.on('security:warning', (event) => {
+    this.on('security:warning', event => {
       if (event.type === 'security:warning') {
-        this.ui.warning(
-          event.message,
-          event.context ? `Context: ${event.context}` : undefined
-        )
+        this.ui.warning(event.message, event.context ? `Context: ${event.context}` : undefined)
       }
     })
 
-    this.on('security:integrity:start', (event) => {
+    this.on('security:integrity:start', event => {
       if (event.type === 'security:integrity:start') {
         this.ui.info(`Embedding integrity data for ${event.asarPath}`)
       }
     })
 
-    this.on('security:integrity:complete', (event) => {
+    this.on('security:integrity:complete', event => {
       if (event.type === 'security:integrity:complete') {
         if (event.success) {
           this.ui.success(`Integrity data embedded successfully`)
@@ -292,78 +289,87 @@ export class DefaultHooks extends Hooks {
     })
 
     // Dev server events
-    this.on('dev:start', (event) => {
+    this.on('dev:start', event => {
       if (event.type === 'dev:start') {
-          const { name, target: resolvedTarget } = event.config
-          this.ui.header(`${name} ${this.ui.target(resolvedTarget, { plain: true })} Development`)
+        const { name, target: resolvedTarget } = event.config
+        this.ui.header(`${name} ${this.ui.target(resolvedTarget, { plain: true })} Development`)
       }
     })
 
-    this.on('dev:server:ready', (event) => {
+    this.on('dev:server:ready', event => {
       if (event.type === 'dev:server:ready') {
-        this.ui.success( `Development server ready!`, `Available at: ${event.url}` )
+        this.ui.success(`Development server ready!`, `Available at: ${event.url}`)
       }
     })
 
-    this.on('dev:server:error', (event) => {
+    this.on('dev:server:error', event => {
       if (event.type === 'dev:server:error') {
         this.ui.error('Development server error', event.error.message)
       }
     })
 
-    this.on('dev:reload:unavailable', (event) => {
+    this.on('dev:reload:unavailable', event => {
       if (event.type === 'dev:reload:unavailable') {
         const targetName = this.getTargetDisplayName(event.target)
-        this.ui.warning(
-          `${targetName} hot reloading is not available`,
-          event.reason
-        )
+        this.ui.warning(`${targetName} hot reloading is not available`, event.reason)
       }
     })
-    
 
     const ELECTRON_PROCESS_NAME = 'commoners-electron-process'
 
     const labelRegexp = /\[.*\] /
+    const ESC = String.fromCharCode(0x1b)
     const ansiRegex = new RegExp(
-      '[\\u001b\\x1b][[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]',
+      ESC + '[[\\]()#;?]*([0-9]{1,4}(;[0-9]{0,4})*)?[\\dA-PR-TZcf-ntqry=><]',
       'g'
     )
 
-    const logForElectron =  (ev: any, type: 'info' | 'error' | 'success' = 'info') => {
+    const logForElectron = (ev: any, type: 'info' | 'error' | 'success' = 'info') => {
       const { data } = ev
       const message = data.toString()
+      if (!message.trim()) return // Skip empty lines
       if (labelRegexp.test(message.replace(ansiRegex, ''))) return console.log(message)
       else this.ui.service(ELECTRON_PROCESS_NAME, data, type)
     }
 
-    this.on('dev:electron:ready', (event) => {
-      if (event.type === 'dev:electron:ready') this.ui.success(`Electron app is ready!`, `Process ID: ${event.app.pid}`)
+    this.on('dev:electron:ready', event => {
+      if (event.type === 'dev:electron:ready')
+        this.ui.success(`Electron app is ready!`, `Process ID: ${event.app.pid}`)
     })
 
-    this.on('dev:electron:stdout', (event) => {
+    this.on('dev:electron:stdout', event => {
       if (event.type === 'dev:electron:stdout') logForElectron(event, 'info')
     })
 
-    this.on('dev:electron:stderr', (event) => {
+    this.on('dev:electron:stderr', event => {
       if (event.type === 'dev:electron:stderr') logForElectron(event, 'error')
     })
   }
 
   private getTargetDisplayName(target: string): string {
     switch (target) {
-      case 'web': return 'Web'
-      case 'pwa': return 'PWA'
-      case 'electron': return 'Desktop'
-      case 'mobile': return 'Mobile'
+      case 'web':
+        return 'Web'
+      case 'pwa':
+        return 'PWA'
+      case 'electron':
+        return 'Desktop'
+      case 'mobile':
+        return 'Mobile'
       case 'ios':
-      case 'ios-capacitor': return 'iOS'
+      case 'ios-capacitor':
+        return 'iOS'
       case 'android':
-      case 'android-capacitor': return 'Android'
-      case 'tauri': return 'Tauri'
-      case 'ios-tauri': return 'iOS (Tauri)'
-      case 'android-tauri': return 'Android (Tauri)'
-      default: return target
+      case 'android-capacitor':
+        return 'Android'
+      case 'tauri':
+        return 'Tauri'
+      case 'ios-tauri':
+        return 'iOS (Tauri)'
+      case 'android-tauri':
+        return 'Android (Tauri)'
+      default:
+        return target
     }
   }
 }

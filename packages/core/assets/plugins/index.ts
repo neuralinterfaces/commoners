@@ -145,9 +145,7 @@ export async function runAppPlugins(args: any[] = [], type = 'start') {
     const sorted = sortByDependencies(entries)
     const results: any[] = []
     for (const [id, plugin] of sorted) {
-      if (process?.stderr?.write) process.stderr.write(`[commoners:ready] ${id} starting...\n`)
       const result = await executePluginHook(this, id, plugin as any, type, args)
-      if (process?.stderr?.write) process.stderr.write(`[commoners:ready] ${id} completed\n`)
       results.push(result)
     }
     return results

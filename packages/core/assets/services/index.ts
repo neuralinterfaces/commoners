@@ -49,11 +49,20 @@ const autobuildExtensions = {
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
 /** Verify that the expected PID owns the given port. Returns null on platforms/errors where check is unavailable. */
-export function verifyPortOwnership(port: string, expectedPid: number): { match: boolean; pids: number[] } | null {
+export function verifyPortOwnership(
+  port: string,
+  expectedPid: number
+): { match: boolean; pids: number[] } | null {
   if (process.platform === 'win32') return null
   try {
-    const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, { encoding: 'utf8', timeout: 3000 }).trim()
-    const pids = output.split('\n').map(p => parseInt(p, 10)).filter(Boolean)
+    const output = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t`, {
+      encoding: 'utf8',
+      timeout: 3000,
+    }).trim()
+    const pids = output
+      .split('\n')
+      .map(p => parseInt(p, 10))
+      .filter(Boolean)
     if (pids.length === 0) return null
     return { match: pids.includes(expectedPid), pids }
   } catch {
@@ -64,7 +73,8 @@ export function verifyPortOwnership(port: string, expectedPid: number): { match:
 const resolvePath = (root, path) => path && (isAbsolute(path) ? path : resolve(root, path))
 
 const isDesktop = target => target === 'desktop' || target === 'electron' || target === 'tauri'
-const isMobile = target => target === 'mobile' || (target && (target.startsWith('ios') || target.startsWith('android')))
+const isMobile = target =>
+  target === 'mobile' || (target && (target.startsWith('ios') || target.startsWith('android')))
 
 // ------------------------------------ COPIED ---------------------------------------
 
@@ -450,7 +460,7 @@ export async function start(config, id, opts) {
       }
     }
 
-    logger.debug('Emitting service:launch:start', { service: label, filepath })
+    console.log(`[commoners:service] Starting "${label}"...`)
     hooks.emit({ type: 'service:launch:start', service: label, filepath })
 
     for (let attempt = 0; attempt <= MAX_PORT_RETRIES; attempt++) {
@@ -542,10 +552,9 @@ export async function start(config, id, opts) {
         const fileExists = existsSync(resolvedFilepath)
 
         if (!fileExists) {
-          logger.debug('Emitting service:launch:error', {
-            service: label,
-            filepath: resolvedFilepath,
-          })
+          console.error(
+            `[commoners:service] "${label}" failed: file not found at ${resolvedFilepath}`
+          )
           return hooks.emit({
             type: 'service:launch:error',
             error: new Error(`File does not exist at ${resolvedFilepath}`),
@@ -612,7 +621,7 @@ export async function start(config, id, opts) {
       }
 
       if (!childProcess) {
-        logger.debug('Emitting service:launch:error', { service: label, filepath })
+        console.error(`[commoners:service] "${label}" failed to spawn`)
         hooks.emit({ type: 'service:launch:error', service: label, filepath, error })
         return
       }
@@ -716,7 +725,9 @@ export async function start(config, id, opts) {
         }
 
         // Exhausted retries or user-specified port — report failure
-        logger.debug('Emitting service:launch:error', { service: label, filepath })
+        console.error(
+          `[commoners:service] "${label}" failed to start (port conflict on ${resolvedURL.port})`
+        )
         hooks.emit({
           type: 'service:launch:error',
           service: label,
@@ -729,11 +740,7 @@ export async function start(config, id, opts) {
       }
 
       // Startup succeeded
-      logger.debug('Emitting service:launch:complete', {
-        service: label,
-        url: resolvedURL.href,
-        filepath,
-      })
+      console.log(`[commoners:service] "${label}" started on ${resolvedURL.href}`)
       hooks.emit({
         type: 'service:launch:complete',
         service: label,

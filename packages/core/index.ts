@@ -353,18 +353,6 @@ export async function resolveConfig(
 
   o.extensions = resolvedExtensions
 
-  // Dev-mode diagnostic: warn about extensions without capabilities
-  if (process.env.NODE_ENV !== 'production' && !process.env.VITEST) {
-    const missing = Object.keys(resolvedExtensions).filter(
-      id => !resolvedExtensions[id].capabilities
-    )
-    if (missing.length) {
-      console.warn(
-        `[commoners] Extensions without capabilities: ${missing.join(', ')}. Consider adding a capabilities field for better discoverability.`
-      )
-    }
-  }
-
   // Generate declarative service manifest
   const { extname } = await import('node:path')
   const serviceManifest: Record<string, import('./types.js').ServiceManifestEntry> = {}
