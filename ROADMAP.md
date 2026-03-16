@@ -62,6 +62,30 @@ Cross-platform Storage, Notification, Context, and File System adapters. Designe
 - Tauri dev mode E2E testing (unit tests done, 104 tests; need real `tauri dev` integration test)
 - See [`docs/roadmap/tauri-future-work.md`](./docs/roadmap/tauri-future-work.md)
 
+### Multi-Window Testing (`@commoners/testing`)
+
+`open()` currently returns a single `page` — the first page where `globalThis.commoners` exists. This breaks apps with plugin-created windows (e.g., auth splash screens) that don't have the commoners global.
+
+**Problem:** The auth plugin creates a BrowserWindow in `ready()` that blocks the main window. The test framework can't interact with it — it only finds the main window, which is blank until auth completes. Tests written before the strip-keys fix worked accidentally because auth never ran.
+
+**Ideal API:**
+```ts
+const ctx = await open(ROOT)
+ctx.pages.home     // main window Page
+ctx.pages.auth     // auth splash Page (created by plugin ready())
+ctx.pages.profile  // profile page (when navigated)
+```
+
+This aligns with how commoners already tracks windows — the main process Window module has `__id`-keyed windows, and plugins track windows in `this.WINDOWS`. The testing layer just doesn't expose them.
+
+**Implementation:**
+1. **Expose all pages:** `open()` should return `{ pages: Record<string, Page>, mainPage: Page }` or provide `findPage(predicate)` to locate pages by URL pattern or selector
+2. **Map config keys to pages:** Config-declared pages (`pages: { home, profile, settings }`) and plugin asset pages (`authPlugin("auth/index.html")`) should be discoverable by their config key
+3. **Window event tracking:** Use CDP `Target.targetCreated` events to track new windows as they appear, making plugin-created windows findable as soon as they open
+4. **Auth-aware test flow:** Add a `waitForPage(key)` helper that blocks until a specific page appears, enabling test flows like: get auth page → fill password → wait for main page
+
+**Effort:** 1-2 days. CDP infrastructure already exists in `open()`.
+
 ### Testing Expansion
 
 - Native emulator testing (Android/iOS)
