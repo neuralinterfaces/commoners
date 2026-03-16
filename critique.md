@@ -133,7 +133,7 @@ This is correctly documented as Phase 3 (post-Tauri maturity) in the roadmap. Fo
 
 2. **Tauri mobile backend** -- Correctly deferred. Capacitor's mobile story is mature; Tauri mobile is not. No reason to add complexity.
 
-3. **Platform abstractions** (Storage, Notifications, etc.) -- These dilute the core value proposition. Drop from the roadmap entirely unless user demand surfaces.
+3. **Platform abstractions** (Storage, Notifications, etc.) -- Keep on roadmap but prioritize adapters that serve both Electron and Web consumers (e.g., `commoners.storage` that works across `electron-store`/fs and `localStorage`/IndexedDB). These add genuine value when they abstract across runtimes consumers already use.
 
 ---
 
@@ -162,10 +162,9 @@ This is correctly documented as Phase 3 (post-Tauri maturity) in the roadmap. Fo
 
 | Item | Why |
 |------|-----|
-| Auto-update | Stub only. Document as "coming in 1.1" rather than holding the release. |
+| Auto-update production testing | Plugin rewritten and functional, but untested with real GitHub Releases. Validate in 1.0.x. |
 | Mobile build automation | Capacitor/Tauri mobile require native IDEs. This is normal -- Expo and Capacitor work the same way. |
-| Health monitoring integration | The class exists but isn't wired up. Ship it when it's real. |
-| Platform abstractions | Not part of the core value prop. Post-1.0 at earliest. |
+| Platform abstractions | Valuable for Electron+Web consumers but not core to the initial value prop. Post-1.0. |
 
 ---
 
@@ -189,16 +188,13 @@ This is now demonstrably true, not aspirational. The codebase backs it up:
 
 ### What to stop investing in (for now)
 
-1. **Platform abstractions** -- Storage, Notifications, File System adapters. These compete with Capacitor/Tauri plugin ecosystems and aren't Commoners' strength.
-2. **Advanced security features** -- Audit logging, session management, key rotation. The P0/P1 security work is excellent. Further security work should be demand-driven.
-3. **Build adapter interface** -- Premature. Vite is the right bundler. Revisit only when Vite creates breaking changes.
+1. **Build adapter interface beyond Phase 1** -- Vite 8 migration is done. No demand for alternative bundlers. Revisit only if Vite forces breaking changes.
 
 ### What to invest in next (post-1.0)
 
-1. **Wire up ServiceHealthMonitor** -- The class exists. Activate it behind a config flag. This adds real operational value.
-2. **Pass DesktopRuntime to plugins** -- Close the abstraction gap so plugins work on both Electron and Tauri without separate code paths.
-3. **Orphan process cleanup** -- Important for development experience. Stale service processes after crashes are annoying.
-4. **Auto-update** -- Critical for desktop distribution. The current stub needs real integration with GitHub Releases or equivalent.
+1. **`@commoners/audit` plugin** -- SBOM generation, multi-language dependency auditing. Important for regulated applications (FDA, medical devices). Frame as "compliance-ready."
+2. **Platform abstractions (Electron + Web)** -- `commoners.storage`, `commoners.notifications` etc. that abstract across Electron and browser environments. Genuine value for consumers targeting both.
+3. **Auto-update production validation** -- Plugin rewritten but untested with real GitHub Releases. Needs end-to-end verification.
 
 ---
 
@@ -208,7 +204,7 @@ The previous critique's pitch is still accurate but can be tightened:
 
 > **Declare your Python ML service, your Rust compute engine, and your Bluetooth hardware interface in one config file. Commoners compiles, bundles, and deploys them across web, desktop, and mobile -- on Electron or Tauri. Your code doesn't change. The runtime does.**
 
-For the homepage, the shorter version:
+For the homepage, the shorter version (emphasizing web + desktop + mobile, not just desktop):
 
 > **Build cross-platform apps with backend services in any language. One config. One CLI. Web, desktop, and mobile.**
 
