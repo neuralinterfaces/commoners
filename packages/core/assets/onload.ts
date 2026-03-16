@@ -6,8 +6,6 @@ import {
   resolveLazy,
   sanitizePluginProperties,
 } from './utils'
-import { createWebEventBus } from './bus/index'
-
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
 // Set global variable
@@ -29,18 +27,6 @@ const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
     case 'tauri': return (ENV as any).TARGET === 'tauri'
     default: return false
   }
-}
-
-// Initialize event bus (legacy — prefer @commoners/messaging plugin)
-if (DESKTOP) {
-  import('./bus/electron').then(({ createElectronRendererEventBus }) => {
-    ;(ENV as any).bus = createElectronRendererEventBus(
-      TEMP_COMMONERS.send,
-      TEMP_COMMONERS.on,
-    )
-  })
-} else {
-  ;(ENV as any).bus = createWebEventBus()
 }
 
 if (__PLUGINS) {

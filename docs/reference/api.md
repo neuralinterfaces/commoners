@@ -108,29 +108,37 @@ commoners.is('tauri')    // true specifically on Tauri
 | `commoners.is('electron')` | `commoners.TARGET === 'electron'` |
 | `commoners.is('tauri')` | `commoners.TARGET === 'tauri'` |
 
-## Event Bus (`commoners.bus`)
+## Cross-Window Messaging
 
-> **Note:** For new projects, prefer the [`@commoners/messaging`](/packages/plugins) plugin. The built-in bus remains for backward compatibility.
-
-Cross-window event bus. Uses BroadcastChannel on web, IPC relay on Electron.
+Use the [`@commoners/messaging`](/packages/plugins) plugin for cross-window and cross-tab communication:
 
 ```js
-commoners.bus.emit('my-event', { data: 123 })
-const unsub = commoners.bus.on('my-event', (data) => console.log(data))
+// commoners.config.ts
+import messaging from '@commoners/messaging'
+export default { plugins: { messaging: messaging() } }
 ```
 
-## Extension Querying
+```js
+// In your app
+const { messaging } = await commoners.READY
+messaging.emit('my-event', { data: 123 })
+messaging.on('my-event', (data) => console.log(data))
+```
 
-> **Note:** For new projects, prefer the [`@commoners/discovery`](/packages/plugins) plugin. `commoners.query()` remains on the global for backward compatibility.
+## Extension Discovery
 
-Find extensions (plugins + services) by capability:
+Use the [`@commoners/discovery`](/packages/plugins) plugin to query extensions by capability:
 
 ```js
-const btExtensions = commoners.query({ provides: ['bluetooth'] })
+// commoners.config.ts
+import discovery from '@commoners/discovery'
+export default { plugins: { discovery: discovery() } }
+```
 
-for (const [id, ext] of Object.entries(btExtensions)) {
-  console.log(`${id}: ${ext.type}`, ext.capabilities)
-}
+```js
+// In your app
+const { discovery } = await commoners.READY
+const btExtensions = discovery.query({ provides: ['bluetooth'] })
 ```
 
 ## Capabilities

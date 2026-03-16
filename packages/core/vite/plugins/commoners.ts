@@ -78,9 +78,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
         const lines = [
           'const __commoners = globalThis.commoners',
           ...ENV_VAR_NAMES.map(name => `export const ${name} = __commoners.${name}`),
-          'export const query = __commoners.query',
-          'export const api = __commoners.api',
-          'export const bus = __commoners.bus',
+          'export const is = __commoners.is',
           'export default __commoners',
         ]
         return lines.join('\n')

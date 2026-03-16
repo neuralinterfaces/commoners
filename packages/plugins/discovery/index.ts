@@ -8,8 +8,8 @@
  * - validate() — check that all extension requirements are satisfied
  * - list() — list all registered extensions with their capabilities
  *
- * This extracts commoners.query() and commoners.EXTENSIONS/CAPABILITIES
- * into an opt-in plugin so the global stays minimal.
+ * Extension capability querying as an opt-in plugin.
+ * Reads from commoners.EXTENSIONS (the extension registry on the global).
  */
 
 export const capabilities = {
