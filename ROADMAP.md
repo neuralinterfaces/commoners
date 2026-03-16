@@ -4,15 +4,9 @@
 
 Four items gate a confident 1.0.0 release. Everything else is post-1.0.
 
-### 1. CI Test Coverage (blocking)
+### ~~1. CI Test Coverage~~ ✅ Done
 
-Only ~3 test files run in CI. Wire the full unit test suite into `ci.yml`:
-
-- `security.test.ts` (77 tests), `asar.test.ts`, `protocol.test.ts`, `port-retry.test.ts`, `port-pid.test.ts`
-- `api.test.ts` (55 tests), `tauri.test.ts` (104 tests), `config-stripping.test.ts`
-- `formatting.test.ts`, `hooks.test.ts`, `errors.test.ts`, `plugin-lifecycle.test.ts`
-
-**Effort:** Config only — add a `test:fast-unit` script and a CI step. No new tests needed.
+`test:fast-unit` (17 files, 457 tests) is wired into `ci.yml` (3 OS × 2 Node versions) and `testing.yml` (daily, 3 OS). All tests pass on Windows.
 
 ### 2. Windows ASAR Hardening (blocking)
 

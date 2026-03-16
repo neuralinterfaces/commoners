@@ -82,25 +82,26 @@ if (Test-Path $AsarPath) {
 Write-Host "[3/4] Reading embedded hash from executable..."
 if ($ExeName -and (Test-Path $ExeName)) {
     try {
-        $embeddedHash = & npx rcedit $ExeName --get-version-string "AsarIntegrity" 2>$null
+        $embeddedHash = & npx rcedit $ExeName --get-version-string "ElectronAsarIntegrity" 2>$null
         if ($embeddedHash) {
-            # Parse JSON to get the hash value
+            # Parse JSON array: [{file: '...', alg: 'sha256', value: '<hash>'}]
             try {
                 $parsed = $embeddedHash | ConvertFrom-Json
-                $EmbeddedHashValue = $parsed.'Resources/app.asar'.hash
+                $entry = $parsed | Where-Object { $_.file -like '*app.asar' } | Select-Object -First 1
+                $EmbeddedHashValue = $entry.value
                 if ($EmbeddedHashValue) {
                     Write-Host "  PASS: Embedded hash found"
                     Write-Host "  Hash: $($EmbeddedHashValue.Substring(0, 16))..."
                 } else {
-                    Write-Host "  WARN: AsarIntegrity field exists but hash not found"
+                    Write-Host "  WARN: ElectronAsarIntegrity field exists but hash not found"
                     $Warnings++
                 }
             } catch {
-                Write-Host "  WARN: Could not parse AsarIntegrity JSON: $embeddedHash"
+                Write-Host "  WARN: Could not parse ElectronAsarIntegrity JSON: $embeddedHash"
                 $Warnings++
             }
         } else {
-            Write-Host "  WARN: No AsarIntegrity version string found in executable"
+            Write-Host "  WARN: No ElectronAsarIntegrity version string found in executable"
             $Warnings++
         }
     } catch {
