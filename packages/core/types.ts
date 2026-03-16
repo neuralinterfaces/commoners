@@ -271,15 +271,16 @@ export type CapacitorConfig = {
 
 type DesktopPluginContext = {
   id: string
-  electron: typeof electron
-  utils: typeof utils
+  runtime: import('./assets/runtime/types').DesktopRuntime
+  electron: typeof electron // Legacy — prefer runtime abstraction for Tauri compatibility
+  utils: typeof utils // Legacy — prefer runtime abstraction for Tauri compatibility
   createWindow: (page: string, opts: BrowserWindowConstructorOptions) => BrowserWindow
-  // open: () => app.whenReady().then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
   send: (channel: string, ...args: any[]) => void
+  handle: (channel: string, callback: (...args: any[]) => any, win?: BrowserWindow) => { remove: () => void }
   on: (
     channel: string,
     callback: (event: IpcMainEvent, ...args: any[]) => void,
-    win: BrowserWindow
+    win?: BrowserWindow
   ) => {
     remove: () => void
   }
@@ -288,7 +289,6 @@ type DesktopPluginContext = {
   setAttribute: (win, attr, value) => void
   getAttribute: (win, attr) => any
 
-  // Provide specific variables from the plugin
   plugin: {
     assets: Record<string, string>
   }

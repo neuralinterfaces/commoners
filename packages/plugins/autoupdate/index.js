@@ -1,45 +1,53 @@
-import electronUpdater from 'electron-updater'
+export const capabilities = {
+  provides: ['autoupdate', 'auto-update'],
+  platforms: { desktop: true },
+}
 
-// NOTE: Ensure persistence of custom properties set on the function context
+export const isSupported = {
+  start: ({ DESKTOP }) => !!DESKTOP,
+}
 
 export function load() {
-  // this: IpcRenderer
   return {
-    onAvailable: () =>
-      this.on(`available`, () => {
-        this.removeAllListeners(`available`)
-        console.warn('A new update is available. Downloading now...')
-      }),
-
-    onDownloaded: () =>
-      this.on(`downloaded`, async () => {
-        this.removeAllListeners(`downloaded`)
-        console.warn('Update downloaded. It will be installed when you close and relaunch the app.')
-        // this.send("restart-to-update");
-      }),
+    onAvailable: (callback) => {
+      this.on('available', callback)
+    },
+    onDownloaded: (callback) => {
+      this.on('downloaded', callback)
+    },
+    restart: () => {
+      this.send('restart')
+    },
   }
 }
 
 export const desktop = {
-  load: function main(
-    // this: IpcMain,
-    win //: BrowserWindow
-  ) {
+  load: function (win) {
+    const electronUpdater = require('electron-updater')
     const { autoUpdater } = electronUpdater
 
     autoUpdater.channel = 'latest'
+    autoUpdater.autoDownload = true
+    autoUpdater.autoInstallOnAppQuit = true
 
-    autoUpdater.on('update-available', () => this.send(`available`))
-    autoUpdater.on('update-downloaded', () => this.send(`downloaded`))
-    this.on(`restart`, () => autoUpdater.quitAndInstall())
-
-    win.webContents.once('dom-ready', () => {
-      if (this.updateChecked == false) autoUpdater.checkForUpdatesAndNotify()
+    autoUpdater.on('update-available', (info) => {
+      this.send('available', info)
     })
 
+    autoUpdater.on('update-downloaded', (info) => {
+      this.send('downloaded', info)
+    })
+
+    autoUpdater.on('error', (err) => {
+      console.error('[autoupdate] Error checking for updates:', err?.message || err)
+    })
+
+    this.on('restart', () => autoUpdater.quitAndInstall())
+
     win.once('ready-to-show', () => {
-      autoUpdater.checkForUpdatesAndNotify()
-      this.updateChecked = true
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.error('[autoupdate] Failed to check for updates:', err?.message || err)
+      })
     })
   },
 }

@@ -2,7 +2,7 @@ import { isAbsolute, extname, join, resolve, sep, relative } from 'node:path'
 import { getFreePorts } from './network.js'
 
 import { spawn, fork, execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs'
 import { ResolvedService, ActiveServices, ActiveService, HooksInterface } from '../../types.js'
 
 import { loadEnvironmentVariables } from './env/index.js'
@@ -10,8 +10,39 @@ import { loadEnvironmentVariables } from './env/index.js'
 import { getLocalIP } from './ip.js'
 import { createLogger } from '../utils/logger.js'
 import { globalServiceWorkspacePath, globalTempServiceWorkspacePath } from './paths.js'
+import { ServiceHealthMonitor, HealthMonitorConfig } from './health.js'
 
 const logger = createLogger('services')
+
+// --- Orphan process cleanup ---
+const PID_FILE = join(globalTempServiceWorkspacePath, '.service-pids.json')
+
+function readPidFile(): Record<string, number> {
+  try {
+    if (existsSync(PID_FILE)) return JSON.parse(readFileSync(PID_FILE, 'utf8'))
+  } catch { /* corrupt file */ }
+  return {}
+}
+
+function writePidFile(pids: Record<string, number>) {
+  try { writeFileSync(PID_FILE, JSON.stringify(pids), 'utf8') } catch { /* ignore */ }
+}
+
+function removePidFile() {
+  try { if (existsSync(PID_FILE)) unlinkSync(PID_FILE) } catch { /* ignore */ }
+}
+
+function cleanupOrphanProcesses() {
+  const pids = readPidFile()
+  for (const [id, pid] of Object.entries(pids)) {
+    try {
+      process.kill(pid, 0) // Check if process exists
+      process.kill(pid, 'SIGTERM') // Kill orphan
+      console.log(`[commoners:service] Killed orphan process for "${id}" (PID ${pid})`)
+    } catch { /* process doesn't exist — already cleaned up */ }
+  }
+  removePidFile()
+}
 
 const createNoOpHooks = (): HooksInterface => ({
   emit: () => {},
@@ -748,7 +779,27 @@ export async function start(config, id, opts) {
         filepath,
       })
 
-      return { ...config, process: childProcess } as ActiveService
+      const active = { ...config, process: childProcess } as ActiveService
+
+      // Start health monitoring if configured
+      const healthConfig = monitor?.health
+      if (healthConfig && resolvedURL?.href) {
+        const hConfig: HealthMonitorConfig = healthConfig === true ? {} : healthConfig
+        const healthMonitor = new ServiceHealthMonitor(
+          id,
+          resolvedURL.href,
+          hConfig,
+          hooks,
+          hConfig.autoRestart ? () => {
+            // Restart the service on health failure
+            close(id).then(() => start(config, id, opts))
+          } : undefined
+        )
+        healthMonitor.start()
+        ;(active as any).__healthMonitor = healthMonitor
+      }
+
+      return active
     }
   }
 }
@@ -795,6 +846,9 @@ export async function close(id?: string) {
   // Kill Specific Process
   if (id) {
     if (processes[id]) {
+      // Stop health monitor if present
+      const proc = processes[id] as any
+      if (proc.__healthMonitor) proc.__healthMonitor.stop()
       await killProcess(processes[id])
       delete processes[id]
     } else {
@@ -804,9 +858,15 @@ export async function close(id?: string) {
 
   // Kill All Processes
   else {
+    for (const p of Object.values(processes)) {
+      if ((p as any).__healthMonitor) (p as any).__healthMonitor.stop()
+    }
     await Promise.all(Object.values(processes).map(killProcess))
     processes = {}
   }
+
+  // Remove PID file on clean shutdown
+  removePidFile()
 }
 
 export const sanitize = (
@@ -866,6 +926,9 @@ export async function resolveAll(servicesToResolve = {}, opts) {
 }
 
 export async function createAll(services = {}, opts) {
+  // Kill orphan processes from previous crashed sessions
+  cleanupOrphanProcesses()
+
   const resolved = await resolveAll(services, opts)
 
   // Resolve env functions for all services
@@ -884,6 +947,13 @@ export async function createAll(services = {}, opts) {
       activeServices[id] = active
     })
   )
+
+  // Write PID file for orphan cleanup on crash
+  const pids: Record<string, number> = {}
+  for (const [id, svc] of Object.entries(activeServices)) {
+    if (svc.process?.pid) pids[id] = svc.process.pid
+  }
+  if (Object.keys(pids).length) writePidFile(pids)
 
   return {
     active: activeServices,
