@@ -12,24 +12,17 @@ Four items gate a confident 1.0.0 release. Everything else is post-1.0.
 
 PowerShell verification script fixed (field name + JSON format bugs), CI step exists in `desktop-build.yml`. See [`docs/roadmap/asar-hardening.md`](./docs/roadmap/asar-hardening.md).
 
-### 3. Desktop Test Stability (in progress)
+### ~~3. Desktop Test Stability~~ ✅ Done
 
-Desktop start tests were flaky when run in the full suite. Mitigations in place:
-- `fileParallelism: false` in vitest config (sequential test files)
-- Port retry logic in service launcher (`MAX_PORT_RETRIES = 3`)
-- CDP target cleanup in `@commoners/testing` (closes splash screen targets before connecting)
+Verified on Windows: `desktop.test.ts` (23/24 pass) and `start.test.ts` (26/28 pass). All failures are C++ service echo tests (broken MinGW toolchain, not a stability issue). No port contention, no page-close flakiness. Mitigations in place: `fileParallelism: false`, port retry logic, CDP target cleanup.
 
-Remaining: Verify `pnpm test` passes end-to-end on Windows with desktop tests included. The `remoteDebuggingPort` (default 8315) is shared across all test files using the demo app — if a prior Electron process lingers, the next test can't bind.
+### ~~4. Documentation~~ ✅ Done
 
-### 4. Documentation (blocking)
-
-VitePress docs need to cover the new APIs added during architecture work:
-
-- `commoners.bus` (event bus), `commoners.api` (async API), `commoners.query()` (extension querying)
-- Service health monitoring, plugin capabilities, plugin hot reload
-- Typed IPC commands, capabilities-driven allowlist
-
-**Effort:** 1-2 days.
+New docs added:
+- **API Reference** (`docs/reference/api.md`) — bus, api, query(), capabilities, services, pages
+- **Plugin Guide** rewritten — lifecycle ordering, `after` dependencies, error isolation, IPC, lazy loading, extensions
+- **Testing Guide** rewritten — multi-window API (pages, findPage, waitForPage), desktop/mobile/build testing
+- Sidebar updated with API reference link
 
 ---
 

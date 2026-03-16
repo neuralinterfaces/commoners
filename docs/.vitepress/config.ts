@@ -71,7 +71,10 @@ export default defineConfig({
       },
       {
         text: 'Reference',
-        items: [{ text: 'CLI', link: '/reference/cli' }],
+        items: [
+          { text: 'CLI', link: '/reference/cli' },
+          { text: 'API', link: '/reference/api' },
+        ],
       },
     ],
 

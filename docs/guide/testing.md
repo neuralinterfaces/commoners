@@ -1,59 +1,126 @@
 
 # Testing
-Using the `@commoners/testing` package, you can easily write end-to-end tests for your application.
+Using the `@commoners/testing` package, you can write end-to-end tests for your application.
 
 ```bash
 npm install @commoners/testing
 ```
 
-Then, add the following to your `package.json`:
+We use `vitest` to run tests — but you can use any testing framework you like.
 
-```json
-{
-    "scripts": {
-        "test": "commoners test"
+## Setup
+
+Add the testing plugin to your `commoners.config.ts`:
+
+```js
+import testingPlugin from '@commoners/testing/plugin'
+
+export default {
+    plugins: {
+        __testing: testingPlugin({ remoteDebuggingPort: 8315 }),
+        // ... other plugins
     }
 }
 ```
 
-We use `vitest` to run tests—but you can use any testing framework you like.
+The testing plugin enables CDP (Chrome DevTools Protocol) connections for Playwright to control the Electron app.
 
-Here's an example test for a Web + Desktop application:
+## Basic Example
 
 ```js
-
 import { expect, test, describe, beforeAll, afterAll } from 'vitest'
-import { open, build } from '../../testing/index'
+import { open, build } from '@commoners/testing'
 
 const ROOT = '../my/app'
-const OUTDIR = 'dist'
 
-const registerTests = (prod = false) => {
-
-    const OUTPUTS = {}
-    const opts = { build: { outDir: OUTDIR } }
+describe('App runs in development mode', () => {
+    const output = {}
 
     beforeAll(async () => {
-        if (prod) OUTPUTS.build = await build(ROOT, opts)
-        OUTPUTS.app = await open(ROOT, opts, prod)
+        Object.assign(output, await open(ROOT))
     })
 
-    afterAll(async () => Object.values(OUTPUTS).forEach(o => o.cleanup()))
+    afterAll(async () => output.cleanup())
 
     test('should load the app', async () => {
-        expect(await OUTPUTS.app.page.title()).toBe('Test App')
+        expect(await output.page.title()).toBe('My App')
     })
 
     test('should have global variable', async () => {
-        expect(await OUTPUTS.app.page.evaluate(() => commoners.NAME)).toBe('Test App')
+        expect(await output.page.evaluate(() => commoners.NAME)).toBe('My App')
     })
+})
+```
 
+## `open()` Return Value
+
+`open(root, overrides?, useBuild?)` returns:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `page` | `Page` | Main application page (Playwright Page with auto-recovery) |
+| `pages` | `Record<string, Page>` | Config-keyed pages (auto-updated when new windows appear) |
+| `browser` | `Browser` | Playwright Browser instance |
+| `url` | `string` | Dev server URL |
+| `findPage` | `(predicate, timeout?) => Promise<Page \| null>` | Find a page by URL predicate |
+| `waitForPage` | `(key, timeout?) => Promise<Page \| null>` | Wait for a config-keyed page to appear |
+| `cleanup` | `() => Promise<void>` | Cleanup handler |
+
+## Multi-Window Testing
+
+Apps with multiple windows (auth splash screens, popups, etc.) can access each window by its config key:
+
+```js
+const output = await open(ROOT, { target: 'electron' })
+
+// Pages declared in commoners.config.ts pages: { home, settings }
+output.pages.home       // Main window
+output.pages.settings   // Settings page (when navigated)
+
+// Plugin pages (created async in ready() hooks)
+const authPage = await output.waitForPage('auth', 15000)
+if (authPage) {
+    await authPage.fill('#password', 'secret')
+    await authPage.click('#submit')
 }
 
-describe('App runs in development mode', () => registerTests(false))
+// Find by URL pattern
+const popup = await output.findPage(url => url.includes('popup.html'))
+```
 
-describe('App runs in production mode', () => registerTests(true))
+The `pages` record auto-updates via CDP events when plugins create new BrowserWindows.
 
+## Desktop Testing
+
+For desktop (Electron) targets:
+
+```js
+describe('Desktop', () => {
+    const output = {}
+
+    beforeAll(async () => {
+        Object.assign(output, await open(ROOT, { target: 'electron' }))
+    })
+
+    afterAll(() => output.cleanup())
+
+    test('Plugin IPC works', async () => {
+        const result = await output.page.evaluate((msg) => {
+            return commoners.READY.then(({ myPlugin }) => myPlugin.echo(msg))
+        }, 'hello')
+        expect(result).toBe('hello')
+    })
+
+    test('Desktop controls are available', async () => {
+        const desktop = await output.page.evaluate(() => {
+            return commoners.READY.then(() => ({
+                hasQuit: 'quit' in commoners.DESKTOP,
+                hasId: '__id' in commoners.DESKTOP,
+            }))
+        })
+        expect(desktop.hasQuit).toBe(true)
+    })
+})
 ```
 
 ## Mobile Testing
@@ -61,11 +128,6 @@ describe('App runs in production mode', () => registerTests(true))
 Mobile targets work with the same `open()` and `build()` APIs. In testing mode, mobile builds are served via a web preview server (no Xcode or Android Studio required):
 
 ```js
-import { expect, test, describe, beforeAll, afterAll } from 'vitest'
-import { open } from '@commoners/testing'
-
-const ROOT = '../my/app'
-
 describe('Mobile app', () => {
     const output = {}
 
@@ -79,12 +141,29 @@ describe('Mobile app', () => {
         const isMobile = await output.page.evaluate(() => commoners.MOBILE)
         expect(isMobile).toBe(true)
     })
+})
+```
 
-    test('services are accessible', async () => {
-        const services = await output.page.evaluate(() =>
-            commoners.READY.then(() => commoners.SERVICES)
-        )
-        expect(services).toBeTypeOf('object')
+## Build Testing
+
+Test production builds:
+
+```js
+import { build, open } from '@commoners/testing'
+
+describe('Production build', () => {
+    const output = {}
+
+    beforeAll(async () => {
+        await build(ROOT, { target: 'electron' })
+        Object.assign(output, await open(ROOT, { target: 'electron' }, true))
+    })
+
+    afterAll(() => output.cleanup())
+
+    test('runs in production mode', async () => {
+        const prod = await output.page.evaluate(() => commoners.PROD)
+        expect(prod).toBe(true)
     })
 })
 ```

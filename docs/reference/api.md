@@ -1,0 +1,167 @@
+# API Reference
+
+The `commoners` global object is available in all renderer contexts. It provides access to plugins, services, and framework utilities.
+
+## Core Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `NAME` | `string` | App name from config |
+| `VERSION` | `string` | App version from package.json |
+| `TARGET` | `string` | Current target (`'electron'`, `'web'`, etc.) |
+| `DEV` | `false \| string` | WebSocket URL in dev, `false` in production |
+| `PROD` | `boolean` | `true` in production builds |
+| `DESKTOP` | `object \| false` | Desktop controls (quit, window ID) or `false` |
+| `MOBILE` | `boolean` | `true` on mobile targets |
+| `WEB` | `boolean` | `true` on web targets |
+| `ROOT` | `string` | Application root path |
+
+## Plugins
+
+```js
+// Wait for all plugins to load, then access them
+commoners.READY.then(({ myPlugin }) => {
+  myPlugin.doSomething()
+})
+
+// Or access directly (may be unresolved promises)
+commoners.PLUGINS.myPlugin
+```
+
+## Pages
+
+Navigate between configured pages:
+
+```js
+commoners.PAGES.home()              // Navigate to home page
+commoners.PAGES.settings()          // Navigate to settings page
+commoners.PAGES.profile({ search: '?id=123' }) // With query params
+```
+
+## Services
+
+```js
+// Access service URLs
+commoners.SERVICES.myService.url    // e.g., 'http://localhost:3001'
+
+// Desktop-only: lifecycle controls
+commoners.SERVICES.myService.status()   // 'running' | null
+commoners.SERVICES.myService.close()    // Stop the service
+commoners.SERVICES.myService.onClosed() // Cleanup callback
+```
+
+## Event Bus (`commoners.bus`)
+
+Cross-window event communication. Works across all BrowserWindows in desktop mode.
+
+```js
+const { bus } = commoners
+
+// Subscribe to a topic
+const unsubscribe = bus.on('user:login', (data) => {
+  console.log('User logged in:', data)
+})
+
+// One-time listener
+bus.once('app:initialized', (data) => {
+  console.log('App ready')
+})
+
+// Emit to all windows
+bus.emit('user:login', { userId: '123' })
+
+// Unsubscribe
+unsubscribe()
+// Or: bus.off('user:login', handler)
+```
+
+### Event Bus API
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `emit` | `(topic: string, data?: any) => void` | Broadcast event to all windows |
+| `on` | `(topic: string, cb: (data) => void) => () => void` | Subscribe; returns unsubscribe function |
+| `off` | `(topic: string, cb: (data) => void) => void` | Remove a specific listener |
+| `once` | `(topic: string, cb: (data) => void) => () => void` | Subscribe for one event only |
+
+## Async API (`commoners.api`)
+
+Unified async interface for environment checks and service discovery.
+
+```js
+const { api } = commoners
+
+// Environment checks
+api.is('desktop')  // true on Electron/Tauri
+api.is('mobile')   // true on iOS/Android
+api.is('web')      // true on web builds
+api.is('dev')      // true in development mode
+
+// Wait for full initialization
+await api.whenReady()
+
+// Discover services
+const service = await api.getService('reporting')
+if (service) fetch(service.url + '/generate')
+
+// Get the specific backend
+api.backend()  // 'electron' | 'tauri' | 'web' | ...
+
+// Event subscription
+const unsub = api.on('service:ready', (data) => { ... })
+api.once('app:quit', () => { ... })
+```
+
+### Async API Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `is` | `(check: 'desktop' \| 'mobile' \| 'web' \| 'dev') => boolean` | Environment check |
+| `whenReady` | `() => Promise<any>` | Resolves when all plugins are loaded |
+| `getService` | `(id: string) => Promise<{ url: string } \| undefined>` | Get service info by ID |
+| `backend` | `() => SpecificTargetType` | Current backend identifier |
+| `on` | `(event: string, cb: (...args) => void) => () => void` | Subscribe to events |
+| `once` | `(event: string, cb: (...args) => void) => () => void` | One-time event listener |
+
+## Extension Querying (`commoners.query`)
+
+Find extensions (plugins + services) by capability:
+
+```js
+// Find all extensions that provide bluetooth
+const btExtensions = commoners.query({ provides: ['bluetooth'] })
+
+// Find extensions for a specific platform
+const desktopExts = commoners.query({ platforms: { desktop: true } })
+
+// Result: Record<string, { type, capabilities }>
+for (const [id, ext] of Object.entries(btExtensions)) {
+  console.log(`${id}: ${ext.type}`, ext.capabilities)
+}
+```
+
+## Capabilities
+
+Access declared capabilities for plugins and services:
+
+```js
+commoners.CAPABILITIES.plugins   // Record<string, ExtensionCapabilities>
+commoners.CAPABILITIES.services  // Record<string, ExtensionCapabilities>
+```
+
+Capabilities are declared in plugin/service config:
+
+```js
+export default {
+  plugins: {
+    bluetooth: {
+      capabilities: {
+        provides: ['bluetooth', 'scanning'],
+        platforms: { desktop: 'electron', mobile: true },
+        runtime: 'process',
+      },
+      // ... plugin hooks
+    }
+  }
+}
+```

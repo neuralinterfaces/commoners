@@ -19,6 +19,7 @@ export default [
       'docs/.vitepress/cache/**',
       '**/assets/electron/**',
       '**/assets/runtime/**',
+      'docs/.vitepress/**',
     ],
     languageOptions: {
       globals: {
