@@ -4,17 +4,8 @@
  */
 
 import { join, dirname, isAbsolute, extname } from 'node:path'
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  copyFileSync,
-  chmodSync,
-  cpSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, copyFileSync, chmodSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
-import { deflateSync, crc32 } from 'node:zlib'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
@@ -31,76 +22,6 @@ import {
 } from './tauri-templates.js'
 
 const logger = createLogger('TauriBuildStrategy')
-
-/**
- * Convert a PNG buffer to ICO format (single entry, embedded PNG).
- * ICO format: 6-byte header + 16-byte directory entry + PNG data.
- */
-function pngToIco(pngData: Buffer): Buffer {
-  const size = pngData.length
-  // Parse PNG dimensions from IHDR chunk (offset 16-23)
-  const width = pngData.readUInt32BE(16)
-  const height = pngData.readUInt32BE(20)
-
-  // ICO header (6 bytes)
-  const header = Buffer.alloc(6)
-  header.writeUInt16LE(0, 0) // Reserved
-  header.writeUInt16LE(1, 2) // Type: 1 = ICO
-  header.writeUInt16LE(1, 4) // Count: 1 image
-
-  // Directory entry (16 bytes)
-  const dir = Buffer.alloc(16)
-  dir.writeUInt8(width >= 256 ? 0 : width, 0) // Width (0 = 256)
-  dir.writeUInt8(height >= 256 ? 0 : height, 1) // Height (0 = 256)
-  dir.writeUInt8(0, 2) // Color palette
-  dir.writeUInt8(0, 3) // Reserved
-  dir.writeUInt16LE(1, 4) // Color planes
-  dir.writeUInt16LE(32, 6) // Bits per pixel
-  dir.writeUInt32LE(size, 8) // Image data size
-  dir.writeUInt32LE(22, 12) // Offset to image data (6 + 16)
-
-  return Buffer.concat([header, dir, pngData])
-}
-
-/**
- * Create a minimal 1x1 RGBA PNG for use as a placeholder icon.
- * This is a valid PNG that Tauri's icon decoder will accept.
- */
-function createMinimalRgbaPng(): Buffer {
-  // 1x1 RGBA pixel (transparent)
-  const raw = Buffer.from([0, 0, 0, 0, 0]) // filter byte + RGBA
-  const compressed = deflateSync(raw)
-
-  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
-
-  const makeChunk = (type: string, data: Buffer): Buffer => {
-    const len = Buffer.alloc(4)
-    len.writeUInt32BE(data.length)
-    const typeAndData = Buffer.concat([Buffer.from(type), data])
-    const crcBuf = Buffer.alloc(4)
-    crcBuf.writeUInt32BE(crc32(typeAndData) >>> 0)
-    return Buffer.concat([len, typeAndData, crcBuf])
-  }
-
-  // IHDR: 1x1, 8-bit RGBA
-  const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(1, 0) // width
-  ihdr.writeUInt32BE(1, 4) // height
-  ihdr.writeUInt8(8, 8) // bit depth
-  ihdr.writeUInt8(6, 9) // color type: RGBA
-  ihdr.writeUInt8(0, 10) // compression
-  ihdr.writeUInt8(0, 11) // filter
-  ihdr.writeUInt8(0, 12) // interlace
-
-  const iend = Buffer.alloc(0)
-
-  return Buffer.concat([
-    signature,
-    makeChunk('IHDR', ihdr),
-    makeChunk('IDAT', compressed),
-    makeChunk('IEND', iend),
-  ])
-}
 
 /**
  * Detect the Rust host triple (e.g. x86_64-apple-darwin, aarch64-apple-darwin)
@@ -267,51 +188,30 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     // Generate icons using `tauri icon` (handles PNG→ICO/ICNS + all required sizes)
     const iconDir = join(srcTauriDir, 'icons')
     mkdirSync(iconDir, { recursive: true })
-    let tauriIconPaths: string[] = []
+    const tauriIconPaths: string[] = []
 
     const rawIconSrc = getIcon(config.icon)
     if (rawIconSrc) {
       const resolvedIconPath = isAbsolute(rawIconSrc) ? rawIconSrc : join(config.root, rawIconSrc)
-      if (existsSync(resolvedIconPath)) {
-        try {
-          // `tauri icon` generates all platform formats from a single source PNG
-          execSync(`npx tauri icon "${resolvedIconPath}" --output "${iconDir}"`, {
-            stdio: 'pipe',
-            cwd: srcTauriDir,
-            timeout: 60000,
-          })
-          if (existsSync(join(iconDir, 'icon.png'))) tauriIconPaths.push('icons/icon.png')
-          if (existsSync(join(iconDir, 'icon.ico'))) tauriIconPaths.push('icons/icon.ico')
-          logger.info('Generated Tauri icons via `tauri icon`')
-        } catch (e) {
-          // Fallback for when tauri icon fails (e.g., indexed PNG, missing deps)
-          logger.warn(
-            `\`tauri icon\` failed, using manual fallback: ${(e as Error).message?.slice(0, 80)}`
-          )
-          const pngData = readFileSync(resolvedIconPath)
-          const colorType = pngData.length > 25 ? pngData[25] : -1
-          const isRgba = colorType === 6 || colorType === 2
-          const srcData = isRgba ? pngData : createMinimalRgbaPng()
-          if (!isRgba) logger.warn('Icon is not RGBA PNG, using minimal placeholder')
-          writeFileSync(join(iconDir, 'icon.png'), srcData)
-          tauriIconPaths = ['icons/icon.png']
-          if (process.platform === 'win32') {
-            writeFileSync(join(iconDir, 'icon.ico'), pngToIco(srcData))
-            tauriIconPaths.push('icons/icon.ico')
-          }
-        }
+      if (!existsSync(resolvedIconPath)) {
+        throw new BuildError(
+          `Icon not found: ${resolvedIconPath}`,
+          'Set config.icon to a valid PNG file path (RGBA, 1024x1024 recommended).'
+        )
       }
-    }
-
-    // Ensure icon files exist even with no config (tauri-build requires icon.ico on Windows)
-    if (tauriIconPaths.length === 0) {
-      const minimalPng = createMinimalRgbaPng()
-      writeFileSync(join(iconDir, 'icon.png'), minimalPng)
-      tauriIconPaths = ['icons/icon.png']
-      if (process.platform === 'win32') {
-        writeFileSync(join(iconDir, 'icon.ico'), pngToIco(minimalPng))
-        tauriIconPaths.push('icons/icon.ico')
-      }
+      execSync(`npx tauri icon "${resolvedIconPath}" --output "${iconDir}"`, {
+        stdio: 'pipe',
+        cwd: srcTauriDir,
+        timeout: 60000,
+      })
+      if (existsSync(join(iconDir, 'icon.png'))) tauriIconPaths.push('icons/icon.png')
+      if (existsSync(join(iconDir, 'icon.ico'))) tauriIconPaths.push('icons/icon.ico')
+      logger.info('Generated Tauri icons via `tauri icon`')
+    } else {
+      throw new BuildError(
+        'No icon configured',
+        'Tauri builds require config.icon pointing to an RGBA PNG (1024x1024 recommended).'
+      )
     }
 
     // Generate tauri.conf.json
