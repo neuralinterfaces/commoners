@@ -42,15 +42,14 @@ fn main() {
   }
 
   // Generate service spawn entries as Rust array literal
-  const serviceArray = services
-    .map(s => `("${s.id}", "${s.bin}")`)
-    .join(', ')
+  const serviceArray = services.map(s => `("${s.id}", "${s.bin}")`).join(', ')
 
   return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::Manager;
+use tauri::Emitter;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
@@ -295,9 +294,7 @@ export function generateDevTauriConf(opts: {
 
   return {
     productName: name,
-    identifier:
-      opts.appId ||
-      `com.commoners.${sanitizedName.replace(/[^a-z0-9]/g, '')}`,
+    identifier: opts.appId || `com.commoners.${sanitizedName.replace(/[^a-z0-9]/g, '')}`,
     version: opts.version || '0.1.0',
     build: {
       devUrl,
