@@ -18,11 +18,14 @@ macOS ASAR integrity is done (`afterSignVerifyAsarIntegrity()`). Windows needs:
 
 **Effort:** Half day.
 
-### 3. Desktop Test Stability (blocking)
+### 3. Desktop Test Stability (in progress)
 
-Desktop start tests are flaky when run in the full suite (page closes mid-test due to port conflicts). Fix isolation so `pnpm test` passes reliably end-to-end.
+Desktop start tests were flaky when run in the full suite. Mitigations in place:
+- `fileParallelism: false` in vitest config (sequential test files)
+- Port retry logic in service launcher (`MAX_PORT_RETRIES = 3`)
+- CDP target cleanup in `@commoners/testing` (closes splash screen targets before connecting)
 
-**Effort:** Half day. Root cause is port 2345 contention between test files.
+Remaining: Verify `pnpm test` passes end-to-end on Windows with desktop tests included. The `remoteDebuggingPort` (default 8315) is shared across all test files using the demo app — if a prior Electron process lingers, the next test can't bind.
 
 ### 4. Documentation (blocking)
 
