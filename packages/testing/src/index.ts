@@ -9,7 +9,6 @@ import {
   BuildHooks,
   cleanup,
   merge,
-  isDesktop,
   isElectron as isElectronTarget,
   isTauri,
 } from '@commoners/solidarity'
@@ -30,22 +29,36 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const isPortBound = (port: number | string, host = '127.0.0.1'): Promise<boolean> =>
   new Promise(resolve => {
     const sock = createConnection({ port: Number(port), host })
-    sock.once('connect', () => { sock.destroy(); resolve(true) })
-    sock.once('error', () => { sock.destroy(); resolve(false) })
-    sock.setTimeout(1000, () => { sock.destroy(); resolve(false) })
+    sock.once('connect', () => {
+      sock.destroy()
+      resolve(true)
+    })
+    sock.once('error', () => {
+      sock.destroy()
+      resolve(false)
+    })
+    sock.setTimeout(1000, () => {
+      sock.destroy()
+      resolve(false)
+    })
   })
 
 /** Get the PID owning a port (macOS/Linux only, best-effort) */
 const getPortOwner = (port: number | string): string | null => {
   try {
     if (process.platform === 'win32') {
-      const out = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, { encoding: 'utf8', timeout: 3000 })
+      const out = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
+        encoding: 'utf8',
+        timeout: 3000,
+      })
       const match = out.trim().match(/\s(\d+)\s*$/)
       return match ? match[1] : null
     }
     const out = execSync(`lsof -ti :${port}`, { encoding: 'utf8', timeout: 3000 })
     return out.trim().split('\n')[0] || null
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
 /** Collect diagnostic info for CDP connection failures */
@@ -74,7 +87,7 @@ const collectCdpDiagnostics = async (cdpPort: string, elapsed: number) => {
 }
 
 type Output = {
-  cleanup: Function
+  cleanup: (...args: unknown[]) => void
 }
 
 const onTestFunction = () => (process.env['__COMMONERS_TESTING'] = 'true') // Set the testing environment variable
@@ -130,9 +143,14 @@ export const buildServices = async (root, options: ServiceBuildOptions = {}) => 
 
 type BrowserTestOutput = {
   page: Page
+  pages: Record<string, Page>
   browser: Browser
   url: string
   server?: any
+  /** Find a page by URL predicate, waiting up to timeoutMs for it to appear */
+  findPage: (predicate: (url: string) => boolean, timeoutMs?: number) => Promise<Page | null>
+  /** Wait for a config-keyed page (e.g., 'auth', 'home') to appear */
+  waitForPage: (key: string, timeoutMs?: number) => Promise<Page | null>
 } & Output
 
 export const open = async (
@@ -190,14 +208,20 @@ export const open = async (
         if (handlers) handlers.forEach(h => h(event))
       },
       on: (type: string, handler: (event: any) => void) => {
-        (listeners[type] = listeners[type] || []).push(handler)
-        return () => { listeners[type] = listeners[type].filter(h => h !== handler) }
+        ;(listeners[type] = listeners[type] || []).push(handler)
+        return () => {
+          listeners[type] = listeners[type].filter(h => h !== handler)
+        }
       },
     }
 
     if (isElectron) {
-      testHooks.on('dev:electron:stdout', (e) => console.log(`[Electron:stdout] ${String(e.data).trim()}`))
-      testHooks.on('dev:electron:stderr', (e) => console.log(`[Electron:stderr] ${String(e.data).trim()}`))
+      testHooks.on('dev:electron:stdout', e =>
+        console.log(`[Electron:stdout] ${String(e.data).trim()}`)
+      )
+      testHooks.on('dev:electron:stderr', e =>
+        console.log(`[Electron:stderr] ${String(e.data).trim()}`)
+      )
     }
 
     const { url, close: cleanup } = await CommonersStart(updatedConfig, { hooks: testHooks as any })
@@ -241,12 +265,16 @@ export const open = async (
             const data = await resp.json()
             wsUrl = data.webSocketDebuggerUrl
             activeCdpUrl = url
-            console.log(`[CDP] Endpoint ready at ${url} after ${Date.now() - start}ms (${pollAttempts} attempts)`)
+            console.log(
+              `[CDP] Endpoint ready at ${url} after ${Date.now() - start}ms (${pollAttempts} attempts)`
+            )
             break
           } else {
             const errText = `HTTP ${resp.status} ${resp.statusText}`
             if (errText !== lastError) {
-              console.log(`[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errText} (${url})`)
+              console.log(
+                `[CDP] Poll #${pollAttempts} (${Date.now() - start}ms): ${errText} (${url})`
+              )
               lastError = errText
             }
           }
@@ -265,7 +293,9 @@ export const open = async (
         const bound = await isPortBound(cdpPort)
         if (bound) {
           portBoundOnce = true
-          console.log(`[CDP] Port ${cdpPort} is now bound (poll #${pollAttempts}, ${Date.now() - start}ms)`)
+          console.log(
+            `[CDP] Port ${cdpPort} is now bound (poll #${pollAttempts}, ${Date.now() - start}ms)`
+          )
         }
       }
 
@@ -276,7 +306,9 @@ export const open = async (
     if (!wsUrl) {
       const diagnostics = await collectCdpDiagnostics(cdpPort, Date.now() - start)
       console.error(diagnostics)
-      throw new Error(`CDP endpoint not reachable after ${cdpTimeout}ms (tried ${cdpUrls.join(', ')}). Last error: ${lastError}. See diagnostics above.`)
+      throw new Error(
+        `CDP endpoint not reachable after ${cdpTimeout}ms (tried ${cdpUrls.join(', ')}). Last error: ${lastError}. See diagnostics above.`
+      )
     }
 
     // Step 2: Close broken targets via raw CDP before Playwright connects.
@@ -288,20 +320,29 @@ export const open = async (
     // causing Playwright to hang for 30s and timeout.
     // Fix: use raw WebSocket to close targets with empty URLs before Playwright connects.
     try {
-      const closedTargets = await new Promise<number>((resolve) => {
+      const closedTargets = await new Promise<number>(resolve => {
         const ws = new WebSocket(wsUrl!)
-        const timer = setTimeout(() => { ws.close(); resolve(0) }, 10000)
+        const timer = setTimeout(() => {
+          ws.close()
+          resolve(0)
+        }, 10000)
 
         ws.addEventListener('open', () => {
           ws.send(JSON.stringify({ id: 1, method: 'Target.getTargets' }))
         })
 
-        ws.addEventListener('message', (event) => {
+        ws.addEventListener('message', event => {
           const data = JSON.parse(String(event.data))
           if (data.id === 1 && data.result?.targetInfos) {
-            const targets = data.result.targetInfos as Array<{ targetId: string; url: string; type: string }>
+            const targets = data.result.targetInfos as Array<{
+              targetId: string
+              url: string
+              type: string
+            }>
             // Close page targets with empty or missing URLs — these are broken windows
-            const broken = targets.filter(t => t.type === 'page' && (!t.url || t.url === '' || t.url === 'about:blank'))
+            const broken = targets.filter(
+              t => t.type === 'page' && (!t.url || t.url === '' || t.url === 'about:blank')
+            )
 
             if (broken.length === 0) {
               clearTimeout(timer)
@@ -313,11 +354,13 @@ export const open = async (
             let closedCount = 0
             for (const t of broken) {
               console.log(`[CDP] Closing broken target: ${t.targetId} (url: "${t.url}")`)
-              ws.send(JSON.stringify({
-                id: 100 + closedCount,
-                method: 'Target.closeTarget',
-                params: { targetId: t.targetId }
-              }))
+              ws.send(
+                JSON.stringify({
+                  id: 100 + closedCount,
+                  method: 'Target.closeTarget',
+                  params: { targetId: t.targetId },
+                })
+              )
               closedCount++
             }
 
@@ -329,8 +372,7 @@ export const open = async (
             }, 2000)
 
             let responses = 0
-            const origHandler = ws.onmessage
-            ws.addEventListener('message', (evt) => {
+            ws.addEventListener('message', evt => {
               const msg = JSON.parse(String(evt.data))
               if (msg.id && msg.id >= 100) {
                 responses++
@@ -345,7 +387,10 @@ export const open = async (
           }
         })
 
-        ws.addEventListener('error', () => { clearTimeout(timer); resolve(0) })
+        ws.addEventListener('error', () => {
+          clearTimeout(timer)
+          resolve(0)
+        })
       })
 
       if (closedTargets > 0) {
@@ -363,7 +408,9 @@ export const open = async (
     } catch (e: any) {
       const diagnostics = await collectCdpDiagnostics(cdpPort, Date.now() - start)
       console.error(diagnostics)
-      throw new Error(`CDP Playwright connection failed after ${cdpTimeout}ms (${activeCdpUrl}): ${(e.message || '').slice(0, 300)}`)
+      throw new Error(
+        `CDP Playwright connection failed after ${cdpTimeout}ms (${activeCdpUrl}): ${(e.message || '').slice(0, 300)}`
+      )
     }
 
     states.browser = browser
@@ -378,9 +425,15 @@ export const open = async (
     while (Date.now() - pageStart < pageTimeout) {
       const pages = defaultContext.pages()
       if (pages.length !== lastPageCount) {
-        console.log(`[CDP] Found ${pages.length} page(s) at ${((Date.now() - pageStart) / 1000).toFixed(1)}s`)
+        console.log(
+          `[CDP] Found ${pages.length} page(s) at ${((Date.now() - pageStart) / 1000).toFixed(1)}s`
+        )
         for (const p of pages) {
-          try { console.log(`  - ${p.url()}`) } catch {}
+          try {
+            console.log(`  - ${p.url()}`)
+          } catch {
+            /* ignored */
+          }
         }
         lastPageCount = pages.length
       }
@@ -391,7 +444,9 @@ export const open = async (
             states.page = p
             break
           }
-        } catch {} // Page may be closed (e.g., splash screen) or not ready
+        } catch {
+          /* ignored */
+        } // Page may be closed (e.g., splash screen) or not ready
       }
       if (states.page) break
       await sleep(500)
@@ -399,24 +454,112 @@ export const open = async (
 
     if (!states.page) {
       const pages = defaultContext.pages()
-      console.error(`[CDP] Page finding timed out after ${pageTimeout}ms. ${pages.length} page(s) available:`)
+      console.error(
+        `[CDP] Page finding timed out after ${pageTimeout}ms. ${pages.length} page(s) available:`
+      )
       for (const p of pages) {
         try {
           const url = p.url()
           let evalResult = 'unknown'
           try {
             evalResult = await p.evaluate(() => {
-              const keys = Object.keys(globalThis).filter(k => k.startsWith('commoners') || k.startsWith('__commoners'))
+              const keys = Object.keys(globalThis).filter(
+                k => k.startsWith('commoners') || k.startsWith('__commoners')
+              )
               return `globals: [${keys.join(', ')}], typeof commoners: ${typeof (globalThis as any).commoners}`
             })
           } catch (evalErr: any) {
             evalResult = `evaluate failed: ${evalErr.message?.slice(0, 100)}`
           }
           console.error(`  - ${url} | ${evalResult}`)
-        } catch {}
+        } catch {
+          /* ignored */
+        }
       }
       throw new Error('Could not find main application page with commoners global')
     }
+
+    // Build a keyed pages record from config pages and plugin assets.
+    // Maps config keys (e.g., 'home', 'auth') to CDP Page objects by URL matching.
+    const pagesRecord: Record<string, Page> = {}
+
+    const buildPagesRecord = () => {
+      const allPages = defaultContext.pages()
+      // Map config-declared pages by key
+      if (updatedConfig.pages) {
+        for (const [key, htmlPath] of Object.entries(updatedConfig.pages)) {
+          const normalizedPath = String(htmlPath).replace(/\\/g, '/').split('/').pop() || ''
+          const match = allPages.find(p => {
+            try {
+              return p.url().includes(normalizedPath)
+            } catch {
+              return false
+            }
+          })
+          if (match) pagesRecord[key] = match
+        }
+      }
+      // Map plugin asset pages by plugin key
+      if (updatedConfig.plugins) {
+        for (const [key, plugin] of Object.entries(updatedConfig.plugins)) {
+          const assets = (plugin as any)?.assets
+          if (!assets) continue
+          for (const assetPath of Object.values(assets)) {
+            const normalizedPath = String(assetPath).replace(/\\/g, '/').split('/').pop() || ''
+            const match = allPages.find(p => {
+              try {
+                return p.url().includes(`plugins/${key}`) || p.url().includes(normalizedPath)
+              } catch {
+                return false
+              }
+            })
+            if (match && !pagesRecord[key]) pagesRecord[key] = match
+          }
+        }
+      }
+    }
+
+    // Wait for a specific page to appear by URL predicate
+    const findPageByUrl = async (
+      predicate: (url: string) => boolean,
+      timeoutMs = 15_000
+    ): Promise<Page | null> => {
+      const start = Date.now()
+      while (Date.now() - start < timeoutMs) {
+        const allPages = defaultContext.pages()
+        for (const p of allPages) {
+          try {
+            if (predicate(p.url())) return p
+          } catch {
+            /* ignored */
+          }
+        }
+        await sleep(300)
+      }
+      return null
+    }
+
+    // Build initial pages record, then auto-update when new windows appear
+    buildPagesRecord()
+
+    // Listen for new pages (plugin windows created async in ready() hooks)
+    defaultContext.on('page', () => buildPagesRecord())
+
+    // Expose a waitForPage(key) that blocks until a config-keyed page appears
+    const waitForPage = async (key: string, timeoutMs = 15_000): Promise<Page | null> => {
+      if (pagesRecord[key]) return pagesRecord[key]
+      const start = Date.now()
+      while (Date.now() - start < timeoutMs) {
+        buildPagesRecord()
+        if (pagesRecord[key]) return pagesRecord[key]
+        await sleep(300)
+      }
+      return null
+    }
+
+    states.pages = pagesRecord
+    states.findPage = findPageByUrl
+    ;(states as any).waitForPage = waitForPage
 
     // Page recovery: when Chromium subprocesses crash, the CDP page can close.
     // Track this and attempt to re-find the page from the browser context.
@@ -430,11 +573,17 @@ export const open = async (
           const pages = defaultContext.pages()
           for (const p of pages) {
             try {
-              const hasCommoners = await p.evaluate(() => typeof globalThis.commoners !== 'undefined')
+              const hasCommoners = await p.evaluate(
+                () => typeof globalThis.commoners !== 'undefined'
+              )
               if (hasCommoners) return p
-            } catch {}
+            } catch {
+              /* ignored */
+            }
           }
-        } catch {}
+        } catch {
+          /* ignored */
+        }
         if (attempt < retries - 1) await sleep(backoffMs * (attempt + 1))
       }
       return null
@@ -466,12 +615,20 @@ export const open = async (
           // Only intercept function calls — property reads (url, etc.) pass through
           if (typeof value !== 'function') return value
           // Skip event listener methods and internal props to avoid infinite loops
-          if (typeof prop === 'string' && (prop.startsWith('on') || prop === 'then' || prop === 'removeListener' || prop === 'listenerCount'))
+          if (
+            typeof prop === 'string' &&
+            (prop.startsWith('on') ||
+              prop === 'then' ||
+              prop === 'removeListener' ||
+              prop === 'listenerCount')
+          )
             return value
 
           return async (...args: any[]) => {
             if (pageNeedsRecovery) {
-              console.log(`[CDP] Attempting page recovery before ${String(prop)}() at ${elapsed()}...`)
+              console.log(
+                `[CDP] Attempting page recovery before ${String(prop)}() at ${elapsed()}...`
+              )
               const newPage = await findPage()
               if (newPage) {
                 console.log(`[CDP] Page recovered at ${elapsed()}`)
@@ -522,6 +679,9 @@ export const open = async (
 
     // Store tauri cleanup for later
     ;(states as any).__tauriCleanup = tauri.cleanup
+    states.pages = {}
+    states.findPage = async () => null
+    ;(states as any).waitForPage = async () => null
   }
 
   // Non-Desktop Instance
@@ -529,6 +689,9 @@ export const open = async (
     const browser = (states.browser = await chromium.launch({ headless: true }))
     const page = (states.page = await browser.newPage())
     await page.goto(states.url)
+    states.pages = {}
+    states.findPage = async () => null
+    ;(states as any).waitForPage = async () => null
   }
 
   const result = {
@@ -581,11 +744,12 @@ export const open = async (
 
       // Close active servers
       try {
-        if (states.server) await new Promise<void>((resolve) => {
-          states.server.close(() => resolve())
-          // Fallback if close callback never fires
-          setTimeout(resolve, 3000)
-        })
+        if (states.server)
+          await new Promise<void>(resolve => {
+            states.server.close(() => resolve())
+            // Fallback if close callback never fires
+            setTimeout(resolve, 3000)
+          })
       } catch (e: any) {
         console.warn(`[cleanup] Server close warning: ${e.message}`)
       }
