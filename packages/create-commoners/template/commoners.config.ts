@@ -10,6 +10,7 @@ const name = 'My Commoners App'
 
 export default defineConfig({
   name,
+  icon: join(root, 'icon.png'),
 
   pages: {
     home: join(root, 'index.html'),

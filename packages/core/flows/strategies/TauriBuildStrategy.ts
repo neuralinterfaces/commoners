@@ -264,7 +264,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     // Generate src/main.rs (with sidecar lifecycle if services exist)
     writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries))
 
-    // Prepare icon: Tauri requires RGBA PNGs, so convert if needed
+    // Generate icons using `tauri icon` (handles PNG→ICO/ICNS + all required sizes)
     const iconDir = join(srcTauriDir, 'icons')
     mkdirSync(iconDir, { recursive: true })
     let tauriIconPaths: string[] = []
@@ -273,43 +273,44 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     if (rawIconSrc) {
       const resolvedIconPath = isAbsolute(rawIconSrc) ? rawIconSrc : join(config.root, rawIconSrc)
       if (existsSync(resolvedIconPath)) {
-        const pngData = readFileSync(resolvedIconPath)
-        // Tauri requires RGBA PNGs (color type 6). Indexed (3) and RGB (2) are rejected.
-        const colorType = pngData.length > 25 ? pngData[25] : -1
-        if (colorType === 6 || colorType === 2) {
-          const destIcon = join(iconDir, 'icon.png')
-          copyFileSync(resolvedIconPath, destIcon)
-          if (process.platform === 'darwin') {
-            try {
-              execSync(`sips -s format png "${destIcon}" --out "${destIcon}"`, { stdio: 'pipe' })
-            } catch {
-              /* */
-            }
-          }
-          tauriIconPaths = ['icons/icon.png']
-
-          if (process.platform === 'win32') {
-            const destIco = join(iconDir, 'icon.ico')
-            try {
-              writeFileSync(destIco, pngToIco(readFileSync(destIcon)))
-              tauriIconPaths.push('icons/icon.ico')
-            } catch (e) {
-              logger.warn(`Failed to convert icon to ICO: ${(e as Error).message}`)
-            }
-          }
-        } else {
+        try {
+          // `tauri icon` generates all platform formats from a single source PNG
+          execSync(`npx tauri icon "${resolvedIconPath}" --output "${iconDir}"`, {
+            stdio: 'pipe',
+            cwd: srcTauriDir,
+            timeout: 60000,
+          })
+          if (existsSync(join(iconDir, 'icon.png'))) tauriIconPaths.push('icons/icon.png')
+          if (existsSync(join(iconDir, 'icon.ico'))) tauriIconPaths.push('icons/icon.ico')
+          logger.info('Generated Tauri icons via `tauri icon`')
+        } catch (e) {
+          // Fallback for when tauri icon fails (e.g., indexed PNG, missing deps)
           logger.warn(
-            `Icon PNG color type ${colorType} not supported by Tauri (needs RGBA). Generating minimal placeholder.`
+            `\`tauri icon\` failed, using manual fallback: ${(e as Error).message?.slice(0, 80)}`
           )
-          // Generate a minimal 1x1 RGBA PNG as placeholder so tauri-build doesn't fail
-          const minimalPng = createMinimalRgbaPng()
-          writeFileSync(join(iconDir, 'icon.png'), minimalPng)
+          const pngData = readFileSync(resolvedIconPath)
+          const colorType = pngData.length > 25 ? pngData[25] : -1
+          const isRgba = colorType === 6 || colorType === 2
+          const srcData = isRgba ? pngData : createMinimalRgbaPng()
+          if (!isRgba) logger.warn('Icon is not RGBA PNG, using minimal placeholder')
+          writeFileSync(join(iconDir, 'icon.png'), srcData)
           tauriIconPaths = ['icons/icon.png']
           if (process.platform === 'win32') {
-            writeFileSync(join(iconDir, 'icon.ico'), pngToIco(minimalPng))
+            writeFileSync(join(iconDir, 'icon.ico'), pngToIco(srcData))
             tauriIconPaths.push('icons/icon.ico')
           }
         }
+      }
+    }
+
+    // Ensure icon files exist even with no config (tauri-build requires icon.ico on Windows)
+    if (tauriIconPaths.length === 0) {
+      const minimalPng = createMinimalRgbaPng()
+      writeFileSync(join(iconDir, 'icon.png'), minimalPng)
+      tauriIconPaths = ['icons/icon.png']
+      if (process.platform === 'win32') {
+        writeFileSync(join(iconDir, 'icon.ico'), pngToIco(minimalPng))
+        tauriIconPaths.push('icons/icon.ico')
       }
     }
 

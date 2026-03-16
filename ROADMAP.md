@@ -42,6 +42,14 @@ Phase 1 complete: `BuildAdapter` interface + `ViteBuildAdapter` default + `Servi
 
 Cross-platform Storage, Notification, Context, and File System adapters. Designed but not planned for implementation. See [`docs/roadmap/platform-abstractions.md`](./docs/roadmap/platform-abstractions.md).
 
+### Automated Icon Pipeline
+
+Currently: Tauri builds use `tauri icon` CLI for format conversion (PNG→ICO/ICNS/sizes), with manual fallback. Electron relies on electron-builder's auto-conversion. No unified pipeline.
+
+**Goal:** Single `config.icon` (any PNG/SVG) → all platform formats generated automatically at build time. Use `tauri icon` for Tauri, `electron-icon-maker` or `sharp` for Electron, PWA icon generator for web. Cache converted icons for fast rebuilds.
+
+**Current state:** `tauri icon` integrated into TauriBuildStrategy. Demo/bench/starter kit aligned with RGBA PNG icons. Icon requirements documented in config guide.
+
 ### Tauri Remaining Work
 
 - SEA cross-compilation (universal binaries)
