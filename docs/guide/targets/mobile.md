@@ -99,11 +99,14 @@ xcodebuild -exportArchive \
   -exportPath build/ \
   -exportOptionsPlist ExportOptions.plist
 
-# Upload to App Store Connect
+# Upload to App Store Connect (use altool or Transporter)
 xcrun altool --upload-app -f build/App.ipa \
   -t ios \
   --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
   --apiIssuer "$APP_STORE_CONNECT_API_KEY_ISSUER_ID"
+
+# Note: altool is deprecated in newer Xcode versions.
+# Alternative: use Apple's Transporter app or the App Store Connect API directly.
 ```
 
 You'll need an `ExportOptions.plist` specifying your team ID, provisioning profile, and export method (`app-store`).
