@@ -73,9 +73,42 @@ Before we begin, you'll need to collect a range of different environment variabl
 14. `MATCH_PASSWORD` - The password for your Fastlane Match
 
 #### Manual Publishing
-Coming soon...
 
-<!-- NOTE: Removing documentation on Fastlane because of inability to solve https://github.com/fastlane/fastlane/issues/20670 -->
+After a headless build (`commoners build --target ios --headless`), you can publish manually via Xcode:
+
+1. Open the Xcode project: `open ios/App/App.xcworkspace`
+2. Select your signing team in **Signing & Capabilities**
+3. Set the version and build number
+4. **Product → Archive** to create an archive
+5. **Distribute App → App Store Connect** to upload to TestFlight
+6. In [App Store Connect](https://appstoreconnect.apple.com), submit the build for review
+
+For automated publishing, the Fastlane integration is blocked by an [upstream issue](https://github.com/fastlane/fastlane/issues/20670). The CI workflow templates below use `xcodebuild` directly as a workaround.
+
+#### CI Publishing (without Fastlane)
+
+```bash
+# Build the archive
+xcodebuild -workspace ios/App/App.xcworkspace \
+  -scheme App -configuration Release \
+  -archivePath build/App.xcarchive archive
+
+# Export the IPA
+xcodebuild -exportArchive \
+  -archivePath build/App.xcarchive \
+  -exportPath build/ \
+  -exportOptionsPlist ExportOptions.plist
+
+# Upload to App Store Connect
+xcrun altool --upload-app -f build/App.ipa \
+  -t ios \
+  --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+  --apiIssuer "$APP_STORE_CONNECT_API_KEY_ISSUER_ID"
+```
+
+You'll need an `ExportOptions.plist` specifying your team ID, provisioning profile, and export method (`app-store`).
+
+<!-- NOTE: Removing Fastlane docs because of https://github.com/fastlane/fastlane/issues/20670 -->
 <!-- ###### Workflow Configuration
 Configuring a Github Actions workflow will allow you to automate the build and upload process.
 
@@ -161,5 +194,79 @@ What native testing adds beyond web preview:
 - Actual emulator/device behavior
 
 ## Android
-If you are building for Android, you will need to install the following dependencies:
-- [Android Studio](https://developer.android.com/studio)
+
+### Prerequisites
+- [Android Studio](https://developer.android.com/studio) with SDK Platform 33+ and Build Tools
+- Java 17+ (`JAVA_HOME` set)
+
+### Building
+
+```bash
+# Build the Capacitor project
+commoners build --target android
+
+# Headless (CI)
+commoners build --target android --headless
+```
+
+After a headless build, compile the APK/AAB manually:
+
+```bash
+cd android
+./gradlew assembleDebug          # Debug APK
+./gradlew bundleRelease          # Signed AAB for Play Store
+```
+
+### Signing for Play Store
+
+1. **Generate a keystore** (once):
+   ```bash
+   keytool -genkey -v -keystore release.keystore \
+     -alias my-app -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+2. **Configure signing** in `android/app/build.gradle`:
+   ```groovy
+   android {
+       signingConfigs {
+           release {
+               storeFile file('release.keystore')
+               storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+               keyAlias 'my-app'
+               keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+           }
+       }
+       buildTypes {
+           release {
+               signingConfig signingConfigs.release
+           }
+       }
+   }
+   ```
+
+3. **Build a signed AAB**:
+   ```bash
+   export ANDROID_KEYSTORE_PASSWORD="your-password"
+   export ANDROID_KEY_PASSWORD="your-password"
+   cd android && ./gradlew bundleRelease
+   ```
+
+### Publishing to Google Play
+
+#### Manual
+1. Go to [Google Play Console](https://play.google.com/console)
+2. Create your app entry
+3. Upload the AAB from `android/app/build/outputs/bundle/release/`
+4. Submit for review on the internal testing track first
+
+#### CI (GitHub Actions)
+```yaml
+- uses: r0adkll/upload-google-play@v1
+  with:
+    serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+    packageName: com.example.myapp
+    releaseFiles: android/app/build/outputs/bundle/release/*.aab
+    track: internal
+```
+
+Required secret: a Google Play service account JSON key with "Release manager" permissions.

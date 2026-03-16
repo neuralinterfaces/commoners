@@ -1,8 +1,38 @@
 
 # Desktop
-Desktop builds are intended to be installed on a user's computer. These builds are accessible from the desktop, and have access to native features.
 
-Commoners relies on [Electron](https://www.electronjs.org) to generate the necessary files for a desktop application. To enable this feature, simply add the `--target desktop` flag to your build command.
+Desktop builds produce installable applications for macOS, Windows, and Linux.
+
+```bash
+# Development
+commoners --target desktop
+
+# Production build
+commoners build --target desktop
+```
+
+## Choosing a Runtime: Electron vs Tauri
+
+Commoners supports two desktop runtimes. Use `--target desktop` (defaults to Electron) or specify explicitly:
+
+```bash
+commoners --target electron   # Electron (Chromium + Node.js)
+commoners --target tauri      # Tauri (system webview + Rust)
+```
+
+| | Electron | Tauri |
+|---|---|---|
+| **Binary size** | ~100 MB+ | ~4 MB |
+| **WebView** | Bundled Chromium | System (WebView2/WebKit) |
+| **Backend** | Node.js main process | Rust |
+| **Device APIs** | Full (WebBluetooth, WebSerial, WebUSB) | Partial (depends on webview) |
+| **Maturity** | Production-proven | Newer, growing ecosystem |
+| **Service bundling** | extraResources | Sidecars via externalBin |
+| **When to choose** | Need device APIs, full Chromium, or maximum plugin compatibility | Need small binaries, or already using Rust |
+
+Both runtimes support Commoners' service orchestration — your `commoners.config.ts` works the same regardless of runtime.
+
+> **Note:** With bundled services (Python, Rust, Node), the binary size difference narrows. A Tauri app + PyInstaller service is ~80-150 MB vs Electron + PyInstaller at ~170-250 MB.
 
 ## Mac
 While code-signing, you may recieve a `CSSMER_TP_CERT_REVOKED` error, which will cause a `The application "X" can't be opened` error to appear when attempting to open the app.
