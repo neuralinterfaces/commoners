@@ -119,22 +119,32 @@ messaging.emit('my-event', { data: 123 })
 messaging.on('my-event', (data) => console.log(data))
 ```
 
-## Extension Querying (`commoners.query`)
+## Extension Discovery
 
-Find extensions (plugins + services) by capability:
+Query, list, and validate extensions directly from the global:
 
 ```js
-// Find all extensions that provide bluetooth
+// Find extensions by capability
 const btExtensions = commoners.query({ provides: ['bluetooth'] })
-
-// Find extensions for a specific platform
 const desktopExts = commoners.query({ platforms: { desktop: true } })
 
-// Result: Record<string, { type, capabilities }>
-for (const [id, ext] of Object.entries(btExtensions)) {
-  console.log(`${id}: ${ext.type}`, ext.capabilities)
-}
+// List all registered extensions
+const all = commoners.list()
+
+// Get a specific extension by ID
+const ble = commoners.get('ble')
+
+// Validate all requirements are met (returns unmet dependencies)
+const errors = commoners.validate()
+// [{ id: 'myPlugin', missing: ['bluetooth'] }] or []
 ```
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `query` | `(filter) => Record<string, { type, capabilities }>` | Find extensions matching a capability filter |
+| `list` | `() => Record<string, ExtensionInfo>` | All registered extensions |
+| `get` | `(id: string) => ExtensionInfo \| undefined` | Get a specific extension |
+| `validate` | `() => { id, missing }[]` | Check for unmet `requires` dependencies |
 
 ## Capabilities
 
