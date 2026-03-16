@@ -59,6 +59,12 @@ export interface BuildAdapter {
   createDevServer(config: AdapterConfig): Promise<AdapterDevServer>
 
   /**
+   * Create a static preview server for built assets.
+   * Replaces vite.preview() calls in mobile testing.
+   */
+  preview(options: { outDir: string; open?: boolean }): Promise<AdapterDevServer>
+
+  /**
    * Load environment variables for the given mode/root.
    * Replaces vite.loadEnv() calls.
    */

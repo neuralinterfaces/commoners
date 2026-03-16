@@ -11,7 +11,15 @@ import {
   resolveConfig,
 } from './index.js'
 import { getPlugins, getServices } from './utils/extensions.js'
-import { globalTempDir, handleTemporaryDirectories, isDesktop, isMobile, isTauri, isTauriMobile, isCapacitorMobile, vite } from './globals.js'
+import {
+  globalTempDir,
+  handleTemporaryDirectories,
+  isDesktop,
+  isMobile,
+  isTauri,
+  isCapacitorMobile,
+} from './globals.js'
+import { getBuildAdapter } from './adapters/index.js'
 import { onCleanup } from './cleanup.js'
 import { createLogger } from './assets/utils/logger.js'
 
@@ -222,14 +230,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
       // In testing mode, serve the web assets for Playwright instead of opening IDE
       if (process.env.__COMMONERS_TESTING) {
-        const __vite = await vite
-        const server = await __vite.preview({
-          build: { outDir: buildMetadata.web },
-          preview: { open: false },
-        })
-        const port = server.config.preview.port
-        startManager.url = `http://localhost:${port}`
-        startManager.frontend = server
+        const adapter = getBuildAdapter()
+        const previewServer = await adapter.preview({ outDir: buildMetadata.web })
+        startManager.url = previewServer.url
+        startManager.frontend = previewServer
         return startManager
       }
 
@@ -250,7 +254,6 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
 
     // ------------------------------- Desktop -------------------------------
     if (isDesktop(target)) {
-
       // ------------------------------- Electron Desktop -------------------------------
       const electronDevOptions = electron?.dev || {}
       const { load = 'url' } = electronDevOptions // Default to loading from URL

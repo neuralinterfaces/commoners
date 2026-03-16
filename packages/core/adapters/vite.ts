@@ -63,6 +63,22 @@ export class ViteBuildAdapter implements BuildAdapter {
     }
   }
 
+  async preview(options: { outDir: string; open?: boolean }): Promise<AdapterDevServer> {
+    const _vite = await vite
+    const server = await _vite.preview({
+      build: { outDir: options.outDir },
+      preview: { open: options.open ?? false },
+    })
+    const port = server.config.preview.port
+    const url = `http://localhost:${port}`
+    return {
+      url,
+      close: async () => {
+        server.httpServer?.close()
+      },
+    }
+  }
+
   loadEnv(mode: string, root: string, prefix = ''): Record<string, string> {
     // Synchronous Vite loadEnv is not available without the module
     // This will be called after vite is loaded

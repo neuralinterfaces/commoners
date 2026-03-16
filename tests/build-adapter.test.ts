@@ -64,7 +64,7 @@ describe('Service Bundler Registry', () => {
 describe('BuildAdapter interface contract', () => {
   test('default adapter has all required methods', () => {
     const adapter = getBuildAdapter()
-    const methods = ['build', 'createDevServer', 'loadEnv', 'mergeConfig']
+    const methods = ['build', 'createDevServer', 'preview', 'loadEnv', 'mergeConfig']
     for (const method of methods) {
       expect(typeof (adapter as Record<string, unknown>)[method]).toBe('function')
     }
