@@ -8,15 +8,9 @@ Four items gate a confident 1.0.0 release. Everything else is post-1.0.
 
 `test:fast-unit` (17 files, 457 tests) is wired into `ci.yml` (3 OS × 2 Node versions) and `testing.yml` (daily, 3 OS). All tests pass on Windows.
 
-### 2. Windows ASAR Hardening (blocking)
+### ~~2. Windows ASAR Hardening~~ ✅ Done
 
-macOS ASAR integrity is done (`afterSignVerifyAsarIntegrity()`). Windows needs:
-
-- PowerShell verification script (parse 12-byte prelude, compute SHA256, compare via `rcedit`)
-- CI step in `desktop-build.yml` for Windows verification
-- Existing infrastructure in `packages/core/utils/asar/`; see [`docs/roadmap/asar-hardening.md`](./docs/roadmap/asar-hardening.md)
-
-**Effort:** Half day.
+PowerShell verification script fixed (field name + JSON format bugs), CI step exists in `desktop-build.yml`. See [`docs/roadmap/asar-hardening.md`](./docs/roadmap/asar-hardening.md).
 
 ### 3. Desktop Test Stability (in progress)
 
@@ -75,13 +69,12 @@ ctx.pages.profile  // profile page (when navigated)
 
 This aligns with how commoners already tracks windows — the main process Window module has `__id`-keyed windows, and plugins track windows in `this.WINDOWS`. The testing layer just doesn't expose them.
 
-**Implementation:**
-1. **Expose all pages:** `open()` should return `{ pages: Record<string, Page>, mainPage: Page }` or provide `findPage(predicate)` to locate pages by URL pattern or selector
-2. **Map config keys to pages:** Config-declared pages (`pages: { home, profile, settings }`) and plugin asset pages (`authPlugin("auth/index.html")`) should be discoverable by their config key
-3. **Window event tracking:** Use CDP `Target.targetCreated` events to track new windows as they appear, making plugin-created windows findable as soon as they open
-4. **Auth-aware test flow:** Add a `waitForPage(key)` helper that blocks until a specific page appears, enabling test flows like: get auth page → fill password → wait for main page
+**Implemented (partial):** `open()` now returns `pages`, `findPage(predicate)`, and `waitForPage(key)`. Pages auto-update via CDP `page` events. Config pages and plugin asset pages are matched by URL pattern.
 
-**Effort:** 1-2 days. CDP infrastructure already exists in `open()`.
+**Remaining:**
+- Validate `waitForPage('auth')` works with Neurotique's auth splash screen end-to-end
+- Ensure `pages` record keys match config keys reliably across dev/build modes
+- Update `plugins.test.ts` to use the new multi-window API (8 desktop E2E failures)
 
 ### Testing Expansion
 
@@ -123,6 +116,12 @@ Typed command registry, capabilities-driven IPC allowlist, plugin capability dec
 
 | Item | Category |
 |------|----------|
+| Fix `ELECTRON_STRIP_KEYS` — lifecycle hooks were stripped from Electron config | Desktop |
+| Sequential `ready()` hooks + `after[]` plugin dependency ordering | Architecture |
+| Fix `onReady` promise chain (`.catch()` on void) | Desktop |
+| `lifecycleProbe` regression test for config stripping | Testing |
+| Windows ASAR PowerShell verification script fix | Security |
+| Multi-window testing API (`pages`, `findPage`, `waitForPage`) | Testing |
 | Fix `import.meta.url` on Windows | Desktop |
 | Scope Device Modal Styles | Plugins |
 | Split Tests into Individually Runnable Units | Testing |
