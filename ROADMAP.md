@@ -15,17 +15,12 @@ All four release gate items are complete:
 
 ### Near-term (1.1)
 
-- **Auto-update integration** -- Wire `electron-updater` to GitHub Releases with hash verification. Current plugin is a stub.
-- **Activate ServiceHealthMonitor** -- Class exists with health checks, auto-restart, status tracking. Needs to be wired into service `start()` behind config flag.
-- **Plugin runtime abstraction** -- Pass `DesktopRuntime` to plugins instead of raw Electron APIs. Last abstraction gap for Tauri plugin compatibility.
-- **Orphan process cleanup** -- Detect and kill stale service processes from crashed dev sessions.
 - **Multi-window testing validation** -- Validate `waitForPage('auth')` with Neurotique's auth flow. Update `plugins.test.ts` to use multi-window API.
 
 ### Medium-term
 
-- **Vite 8 / Rolldown migration** -- Audit complete (10 hooks, 6 config options, 1 critical: `inlineDynamicImports`). Execute when Vite 8 ships. See [vite-evolution.md](./docs/roadmap/vite-evolution.md).
-- **Testing expansion** -- Protocol E2E, WASM E2E, mobile build output, native emulator testing. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
-- **Tauri remaining work** -- SEA cross-compilation, dev mode testing (requires built app for tauri-driver). See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).
+- **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
+- **Tauri remaining work** -- SEA cross-compilation, dev mode testing, Tauri IPC bridge, code signing. See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).
 
 ### Long-term (demand-driven)
 
@@ -50,6 +45,9 @@ Typed command registry. Capabilities-driven IPC allowlist. Plugin capability dec
 
 ### Security (P0/P1)
 IPC channel validation. ASAR integrity (macOS + Windows). Binary hash verification. CSP with dynamic generation. Code signing integration. Secure Services plugin. 77 security tests.
+
+### Post-1.0 Completed
+Vite 8.0.0 migration (Rolldown bundler, `resolveImportMeta` replaced with no-op). Auto-update plugin rewrite (capabilities, desktop.load, renderer API). ServiceHealthMonitor wired into service start(). Orphan process cleanup (PID file tracking). Plugin runtime abstraction (DesktopRuntime in DesktopPluginContext type).
 
 ### Individual Items (29)
 Extensions unification. IPC async migration (sendSync eliminated). Custom protocol. WASM compilation (wasm-pack). macOS ASAR post-sign verification. Vite evolution audit. CargoService helper. Mobile workflow validation. Documentation overhaul. Dev output cleanup. Plugin dependency ordering. Capability querying (`commoners.query()`). Event bus (`commoners.bus`). Cross-platform icons. Multi-window testing API. Sequential ready() hooks. Config stripping fix + regression test. Starter kit overhaul. `commoners share` command. And more -- see git history.

@@ -1,8 +1,8 @@
-# Vite Evolution: Vite 8 Prep + Plugin Refactor
+# Vite Evolution: Vite 8 Migration (DONE)
 
-Implementation plan for auditing Rollup/esbuild usage, preparing for the Vite 8 / Rolldown migration, and evaluating a Vite plugin refactor of the build system.
+**Status: COMPLETE.** Upgraded to Vite 8.0.0 (Rolldown bundler). 484/485 tests pass. The `resolveImportMeta` plugin was replaced with a no-op (Rolldown handles `import.meta.url` natively). The `rollupOptions` auto-conversion layer handles `inlineDynamicImports` and other Rollup config.
 
-**Timing:** Best timed alongside the Vite 8 release. Track the [Vite 8 RFC](https://github.com/vitejs/vite) for migration guidance.
+**Previous timing note:** This was originally planned for the Vite 8 beta. Vite 8.0.0 stable shipped and migration was completed in one pass.
 
 ---
 
