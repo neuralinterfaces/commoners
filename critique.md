@@ -200,13 +200,19 @@ This is now demonstrably true, not aspirational. The codebase backs it up:
 
 ## 7. The Pitch (Updated)
 
-The previous critique's pitch is still accurate but can be tightened:
+Homepage tagline:
 
-> **Declare your Python ML service, your Rust compute engine, and your Bluetooth hardware interface in one config file. Commoners compiles, bundles, and deploys them across web, desktop, and mobile -- on Electron or Tauri. Your code doesn't change. The runtime does.**
+> **Build Full-Stack Apps on Every Platform**
 
-For the homepage, the shorter version (emphasizing web + desktop + mobile, not just desktop):
+Supporting copy (feature cards):
 
-> **Build cross-platform apps with backend services in any language. One config. One CLI. Web, desktop, and mobile.**
+> **Declare services in Python, Rust, C++, or Node -- Commoners compiles, bundles, and deploys them alongside your web, desktop, or mobile app.**
+
+This pitch works because:
+1. "Full-stack" signals frontend + backend in one framework
+2. "Every platform" covers web, desktop, and mobile without listing them
+3. Durable -- doesn't depend on lack of competitors
+4. The feature cards below resolve any ambiguity about what "full-stack" means here
 
 ---
 

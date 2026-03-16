@@ -4,7 +4,7 @@ layout: home
 
 hero:
   name: Commoners
-  tagline: Build Cross-Platform Apps with Backend Services in Any Language
+  tagline: Build Full-Stack Apps on Every Platform
   image:
     src: /logo-min.png
     alt: Commoners
