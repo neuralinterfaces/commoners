@@ -49,13 +49,13 @@ Vite 8.0.0 upgrade (Rolldown bundler). Auto-update plugin rewrite. ServiceHealth
 `DesktopRuntime` interface + Electron/Tauri implementations. Build/launch strategies for both runtimes. Sidecar lifecycle management. 104 Tauri-specific tests.
 
 ### Architecture Improvements (Batch D, 8/8)
-Typed command registry, capabilities-driven IPC allowlist, plugin capability declarations, plugin hot reload, service health monitoring (class), window event bus, unified async API (`commoners.api`), declarative service bundling.
+Typed command registry, capabilities-driven IPC allowlist, plugin capability declarations, plugin hot reload, service health monitoring (class), window event bus, `commoners.is()` runtime detection, declarative service bundling.
 
 ### Security (P0/P1)
 IPC channel validation with allowlists. ASAR integrity embedding (macOS + Windows). Binary hash verification for service executables. CSP with dynamic generation. Code signing integration. Secure Services plugin (per-session tokens). 77 security tests.
 
 ### Individual Items (29+)
-Extensions unification. Electron IPC async migration (sendSync eliminated). Custom protocol handler. WASM service compilation (wasm-pack). macOS ASAR post-sign verification. Vite evolution audit. CargoService helper. Mobile workflow validation. Documentation overhaul. Dev output cleanup. Plugin dependency ordering. Capability querying (`commoners.query()`). Event bus (`commoners.bus`). Cross-platform icon handling.
+Extensions unification. Electron IPC async migration (sendSync eliminated). Custom protocol handler. WASM service compilation (wasm-pack). macOS ASAR post-sign verification. Vite evolution audit. CargoService helper. Mobile workflow validation. Documentation overhaul. Dev output cleanup. Plugin dependency ordering. Capability querying (`commoners.query()`). Cross-window events (`@commoners/messaging`). Cross-platform icon handling.
 
 ### Reference Documents
 - [Windows Verification Checklist](./windows-verification.md)

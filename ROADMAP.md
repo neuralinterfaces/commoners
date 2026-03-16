@@ -42,7 +42,7 @@ CI test coverage. Windows ASAR hardening. Desktop test stability. Documentation 
 `DesktopRuntime` interface + Electron/Tauri implementations. Build/launch strategies for both. Sidecar lifecycle with generated `main.rs`. Tauri E2E test (builds demo, launches via tauri-driver, verifies commoners global). 104 Tauri tests.
 
 ### Architecture (Batch D, 8/8)
-Typed command registry. Capabilities-driven IPC allowlist. Plugin capability declarations. Plugin hot reload. Service health monitoring (class). Window event bus. Unified async API (`commoners.api`). Declarative service bundling.
+Typed command registry. Capabilities-driven IPC allowlist. Plugin capability declarations. Plugin hot reload. Service health monitoring (class). Cross-window events (`@commoners/messaging`). `commoners.is()` runtime detection. Declarative service bundling.
 
 ### Security (P0/P1)
 IPC channel validation. ASAR integrity (macOS + Windows). Binary hash verification. CSP with dynamic generation. Code signing integration. Secure Services plugin. 77 security tests.
