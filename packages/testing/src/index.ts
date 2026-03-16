@@ -151,6 +151,8 @@ type BrowserTestOutput = {
   findPage: (predicate: (url: string) => boolean, timeoutMs?: number) => Promise<Page | null>
   /** Wait for a config-keyed page (e.g., 'auth', 'home') to appear */
   waitForPage: (key: string, timeoutMs?: number) => Promise<Page | null>
+  /** Subscribe to page open/close events: onPage('open', (key, page) => ...) */
+  onPage: (event: 'open' | 'close', handler: (key: string | null, page: Page) => void) => () => void
 } & Output
 
 export const open = async (
@@ -574,11 +576,48 @@ export const open = async (
       return null
     }
 
+    // Page lifecycle event emitter
+    type PageEventType = 'open' | 'close'
+    type PageEventHandler = (key: string | null, page: Page) => void
+    const pageListeners: Record<PageEventType, PageEventHandler[]> = { open: [], close: [] }
+
+    const onPage = (event: PageEventType, handler: PageEventHandler) => {
+      pageListeners[event].push(handler)
+      return () => {
+        pageListeners[event] = pageListeners[event].filter(h => h !== handler)
+      }
+    }
+
+    const emitPageEvent = (event: PageEventType, key: string | null, page: Page) => {
+      pageListeners[event].forEach(h => h(key, page))
+    }
+
     // Build initial pages record, then auto-update when new windows appear
     buildPagesRecord()
 
     // Listen for new pages (plugin windows created async in ready() hooks)
-    defaultContext.on('page', () => buildPagesRecord())
+    defaultContext.on('page', newPage => {
+      const prevKeys = new Set(Object.keys(pagesRecord))
+      buildPagesRecord()
+      // Find which key was added
+      const newKey = Object.keys(pagesRecord).find(k => !prevKeys.has(k)) || null
+      emitPageEvent('open', newKey, newPage)
+      // Track close events
+      newPage.on('close', () => {
+        const closedKey = Object.entries(pagesRecord).find(([, p]) => p === newPage)?.[0] || null
+        if (closedKey) delete pagesRecord[closedKey]
+        emitPageEvent('close', closedKey, newPage)
+      })
+    })
+
+    // Track close events for initial pages too
+    for (const p of defaultContext.pages()) {
+      p.on('close', () => {
+        const closedKey = Object.entries(pagesRecord).find(([, pg]) => pg === p)?.[0] || null
+        if (closedKey) delete pagesRecord[closedKey]
+        emitPageEvent('close', closedKey, p)
+      })
+    }
 
     // Expose a waitForPage(key) that blocks until a config-keyed page appears
     const waitForPage = async (key: string, timeoutMs = 15_000): Promise<Page | null> => {
@@ -595,6 +634,7 @@ export const open = async (
     states.pages = pagesRecord
     states.findPage = findPageByUrl
     ;(states as any).waitForPage = waitForPage
+    ;(states as any).onPage = onPage
 
     // Page recovery: when Chromium subprocesses crash, the CDP page can close.
     // Track this and attempt to re-find the page from the browser context.
@@ -717,6 +757,7 @@ export const open = async (
     states.pages = {}
     states.findPage = async () => null
     ;(states as any).waitForPage = async () => null
+    ;(states as any).onPage = () => () => {}
   }
 
   // Non-Desktop Instance
@@ -726,6 +767,7 @@ export const open = async (
     await page.goto(states.url)
     states.pages = {}
     states.findPage = async () => null
+    ;(states as any).onPage = () => () => {}
     ;(states as any).waitForPage = async () => null
   }
 
