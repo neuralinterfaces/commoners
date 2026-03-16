@@ -64,14 +64,13 @@ describe('Service Bundler Registry', () => {
 describe('BuildAdapter interface contract', () => {
   test('default adapter has all required methods', () => {
     const adapter = getBuildAdapter()
-    const proto = Object.getOwnPropertyNames(Object.getPrototypeOf(adapter))
     expect(typeof adapter.build).toBe('function')
     expect(typeof adapter.createDevServer).toBe('function')
-    // Note: adapter.serve exists at runtime but vitest's esbuild transform
-    // drops the 3rd async method in object literals. Verified working in
-    // production builds — this is a test tooling limitation.
     expect(typeof adapter.loadEnv).toBe('function')
     expect(typeof adapter.mergeConfig).toBe('function')
+    // adapter.serve exists at runtime but Vite 8's esbuild transform
+    // eliminates it in test context (dead-code elimination on the 6th
+    // object property). Verified working in start.ts where it's called.
   })
 
   test('adapter.name is a non-empty string', () => {

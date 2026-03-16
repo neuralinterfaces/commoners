@@ -7,6 +7,7 @@ import {
   sanitizePluginProperties,
 } from './utils'
 import { queryExtensions, validateRequirements } from './capabilities'
+import { createWebEventBus } from './events/index'
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -23,6 +24,18 @@ const getExtensions = () => (ENV as any).EXTENSIONS ?? {}
 ;(ENV as any).validate = () => validateRequirements(getExtensions())
 ;(ENV as any).list = () => ({ ...getExtensions() })
 ;(ENV as any).get = (id: string) => getExtensions()[id]
+
+// Cross-window events
+if (DESKTOP) {
+  import('./events/electron').then(({ createElectronRendererEvents }) => {
+    ;(ENV as any).events = createElectronRendererEvents(
+      TEMP_COMMONERS.send,
+      TEMP_COMMONERS.on,
+    )
+  })
+} else {
+  ;(ENV as any).events = createWebEventBus()
+}
 
 // Runtime detection — commoners.is('desktop'), commoners.is('mobile'), etc.
 ;(ENV as any).is = (check: string): boolean => {
