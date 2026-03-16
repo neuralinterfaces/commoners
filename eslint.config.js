@@ -21,6 +21,7 @@ export default [
       '**/assets/runtime/**',
       'docs/.vitepress/**',
       'packages/plugins/integrity/**',
+      'packages/plugins/secure-services/**',
     ],
     languageOptions: {
       globals: {
