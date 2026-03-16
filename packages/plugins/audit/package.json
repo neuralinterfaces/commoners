@@ -1,0 +1,20 @@
+{
+  "name": "@commoners/audit",
+  "version": "1.0.0-alpha.3",
+  "description": "SBOM generation and multi-language dependency auditing for Commoners apps",
+  "author": "Neural Interfaces",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/audit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "main": "index.ts",
+  "peerDependencies": {
+    "@commoners/solidarity": ">=1.0.0-alpha.0"
+  }
+}
