@@ -61,9 +61,14 @@ Extensions unification. IPC async migration (sendSync eliminated). Custom protoc
 
 ---
 
+## Known Issues
+
+- **Electron sandbox** -- `app.enableSandbox()` freezes Electron on Windows. Per-window `sandbox: true` works. See [sandbox-investigation.md](./docs/roadmap/sandbox-investigation.md).
+- **Vite 8** -- esbuild transform bug strips 6th+ property from object literals in test context. Reverted to Vite 7. Retry when fixed upstream.
+
 ## Reference Documents
 
-- [docs/roadmap/features.md](./docs/roadmap/features.md) -- Detailed implementation plans
+- [docs/roadmap/features.md](./docs/roadmap/features.md) -- Links to all detailed implementation plans
 - [docs/roadmap/windows-verification.md](./docs/roadmap/windows-verification.md) -- Windows build/signing checklist
-- [docs/roadmap/sandbox-investigation.md](./docs/roadmap/sandbox-investigation.md) -- `app.enableSandbox()` Windows freeze workaround
 - [docs/roadmap/tauri-integration-reference.md](./docs/roadmap/tauri-integration-reference.md) -- Tauri ecosystem comparison
+- [packages/plugins/README.md](./packages/plugins/README.md) -- Plugin support matrix

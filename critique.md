@@ -121,7 +121,7 @@ This is correctly documented as Phase 3 (post-Tauri maturity) in the roadmap. Fo
 
 1. **Security whitepaper scope** -- The P2/P3 security roadmap (audit logging, session management, key rotation) risks scope creep. These are features for enterprise security teams, not the core audience. The P0/P1 work (IPC validation, binary integrity, CSP) is valuable; further security work should be demand-driven.
 
-2. **Platform abstractions roadmap** -- The planned Storage, Notification, Context, File System adapters (`platform-abstractions.md`) overlap with what Capacitor and Tauri already provide. Building these abstractions is a multi-month effort with unclear ROI. Commoners' value is service orchestration and runtime swapping, not competing with Capacitor's plugin ecosystem.
+2. **Platform abstractions** -- Now shipped as plugins (`@commoners/preferences`, `@commoners/storage`, `@commoners/clipboard`, `@commoners/notifications`, `@commoners/context`, `@commoners/messaging`). The previous concern about overlapping with Capacitor/Tauri ecosystems is addressed by providing a unified API that delegates to platform-native backends.
 
 3. **Health monitoring (unintegrated)** -- `ServiceHealthMonitor` is designed but not wired up. This is fine as a post-1.0 feature, but it shouldn't be listed as a capability until it works.
 

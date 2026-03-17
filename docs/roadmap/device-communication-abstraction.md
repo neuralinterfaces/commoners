@@ -2,7 +2,7 @@
 
 Implementation plan for runtime-portable device APIs and C++ WASM compilation via Emscripten.
 
-**Prerequisites:** [Tauri Desktop Backend](./tauri-desktop-backend.md) must be functional (device abstraction needs multiple runtimes to abstract over).
+**Prerequisites:** Tauri Desktop Backend (completed) must be functional (device abstraction needs multiple runtimes to abstract over).
 
 ---
 
@@ -222,7 +222,7 @@ The `loadWasmService()` helper from `commoners:wasm` needs to handle both format
 
 ## Dependencies
 
-- **Requires:** [Tauri Desktop Backend](./tauri-desktop-backend.md) — multiple runtimes to abstract over
+- **Requires:** Tauri Desktop Backend (completed) — multiple runtimes to abstract over
 - **NPM deps (device):** `tauri-plugin-blec` (Tauri BLE), `tauri-plugin-serialplugin` (Tauri Serial), `@capacitor-community/bluetooth-le` (Capacitor BLE)
 - **System deps (C++ WASM):** Emscripten SDK (`emsdk`), `emcc` compiler
 - **Blocks:** Nothing directly (Phase 4 is longer-term)

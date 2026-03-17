@@ -49,7 +49,7 @@ export default defineConfig({
           { text: 'Plugins', link: '/guide/plugins' },
           { text: 'Platform Enhancement', link: '/guide/platform-enhancement' },
           { text: 'Testing', link: '/guide/testing' },
-          { text: 'Release', link: '/guide/release' },
+          { text: 'Build Automation', link: '/guide/build-automation' },
           {
             text: 'Walkthroughs',
             items: [
