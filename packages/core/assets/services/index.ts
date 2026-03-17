@@ -20,16 +20,26 @@ const PID_FILE = join(globalTempServiceWorkspacePath, '.service-pids.json')
 function readPidFile(): Record<string, number> {
   try {
     if (existsSync(PID_FILE)) return JSON.parse(readFileSync(PID_FILE, 'utf8'))
-  } catch { /* corrupt file */ }
+  } catch {
+    /* corrupt file */
+  }
   return {}
 }
 
 function writePidFile(pids: Record<string, number>) {
-  try { writeFileSync(PID_FILE, JSON.stringify(pids), 'utf8') } catch { /* ignore */ }
+  try {
+    writeFileSync(PID_FILE, JSON.stringify(pids), 'utf8')
+  } catch {
+    /* ignore */
+  }
 }
 
 function removePidFile() {
-  try { if (existsSync(PID_FILE)) unlinkSync(PID_FILE) } catch { /* ignore */ }
+  try {
+    if (existsSync(PID_FILE)) unlinkSync(PID_FILE)
+  } catch {
+    /* ignore */
+  }
 }
 
 function cleanupOrphanProcesses() {
@@ -39,7 +49,9 @@ function cleanupOrphanProcesses() {
       process.kill(pid, 0) // Check if process exists
       process.kill(pid, 'SIGTERM') // Kill orphan
       console.log(`[commoners:service] Killed orphan process for "${id}" (PID ${pid})`)
-    } catch { /* process doesn't exist — already cleaned up */ }
+    } catch {
+      /* process doesn't exist — already cleaned up */
+    }
   }
   removePidFile()
 }
@@ -62,6 +74,32 @@ const WINDOWS = process.platform === 'win32'
 
 const MAX_PORT_RETRIES = 3
 const EARLY_EXIT_WINDOW_MS = 5000
+
+// Exit codes that indicate a process crash rather than a port conflict
+const CRASH_EXIT_CODES: Record<number, string> = {
+  // Unix signals (128 + signal number)
+  134: 'SIGABRT (abort)',
+  136: 'SIGFPE (floating point exception)',
+  139: 'SIGSEGV (segmentation fault)',
+  137: 'SIGKILL',
+  // Windows structured exception codes
+  3221225477: 'access violation (segfault)', // 0xC0000005
+  3221225725: 'stack overflow', // 0xC00000FD
+  3221225501: 'illegal instruction', // 0xC000001D
+}
+
+function classifyEarlyExit(code: number | null, stderrBuffer: string): 'crash' | 'port_conflict' {
+  if (code !== null && code in CRASH_EXIT_CODES) return 'crash'
+  // Signal-killed processes on Unix report null code but signal via 'exit' event;
+  // for 'close' event, they report 128 + signal — already handled above.
+  // If stderr contains crash indicators, treat as crash
+  if (
+    stderrBuffer &&
+    /segfault|segmentation fault|abort|core dumped|fatal error/i.test(stderrBuffer)
+  )
+    return 'crash'
+  return 'port_conflict'
+}
 
 const jsExtensions = ['.js', '.cjs', '.mjs']
 
@@ -657,8 +695,10 @@ export async function start(config, id, opts) {
         return
       }
 
-      // Detect startup success vs early exit (port conflict)
+      // Detect startup success vs early exit (port conflict or crash)
       let startupSettled = false
+      let startupExitCode: number | null = null
+      let stderrBuffer = ''
       let resolveStartup: (result: 'success' | 'retry') => void
       const startupPromise = new Promise<'success' | 'retry'>(r => {
         resolveStartup = r
@@ -702,6 +742,10 @@ export async function start(config, id, opts) {
 
       if (childProcess.stderr && monitor.stderr !== false) {
         childProcess.stderr.on('data', data => {
+          if (!startupSettled) {
+            // Buffer stderr during startup for crash diagnostics
+            stderrBuffer += data.toString().slice(0, 4096 - stderrBuffer.length)
+          }
           logger.debug('Emitting service:stderr', { service: label })
           hooks.emit({ type: 'service:stderr', service: label, data })
         })
@@ -731,7 +775,8 @@ export async function start(config, id, opts) {
         config.status = false
 
         if (!startupSettled) {
-          // Early exit during startup — don't notify caller yet
+          // Early exit during startup — capture exit code for diagnostics
+          startupExitCode = code
           settleStartup(code !== 0 ? 'retry' : 'success')
         } else {
           // Normal runtime exit
@@ -749,22 +794,53 @@ export async function start(config, id, opts) {
       if (startupResult === 'retry') {
         delete processes[id]
 
+        const failureKind = classifyEarlyExit(startupExitCode, stderrBuffer)
+
+        if (failureKind === 'crash') {
+          // Process crashed — retrying won't help
+          const crashLabel =
+            startupExitCode !== null && startupExitCode in CRASH_EXIT_CODES
+              ? CRASH_EXIT_CODES[startupExitCode]
+              : `exit code ${startupExitCode}`
+          const stderrSnippet = stderrBuffer.trim()
+          console.error(
+            `[commoners:service] "${label}" crashed during startup: ${crashLabel}` +
+              (stderrSnippet
+                ? `\n  stderr: ${stderrSnippet.split('\n').slice(0, 5).join('\n  stderr: ')}`
+                : '')
+          )
+          hooks.emit({
+            type: 'service:launch:error',
+            service: label,
+            filepath,
+            error: new Error(
+              `Service "${label}" crashed during startup (${crashLabel}).` +
+                (stderrSnippet
+                  ? ` Last stderr: ${stderrSnippet.slice(0, 500)}`
+                  : ' No stderr output captured (hard crash).')
+            ),
+          })
+          return
+        }
+
         if (config.__portAutoAllocated && attempt < MAX_PORT_RETRIES) {
           config.status = null
-          logger.debug(`[${label}] Service exited early (likely port conflict), will retry`)
+          logger.debug(
+            `[${label}] Service exited early (exit code ${startupExitCode}, likely port conflict), will retry`
+          )
           continue
         }
 
         // Exhausted retries or user-specified port — report failure
         console.error(
-          `[commoners:service] "${label}" failed to start (port conflict on ${resolvedURL.port})`
+          `[commoners:service] "${label}" failed to start (exit code ${startupExitCode}, port conflict on ${resolvedURL.port})`
         )
         hooks.emit({
           type: 'service:launch:error',
           service: label,
           filepath,
           error: new Error(
-            `Service "${label}" exited immediately (possible port conflict on port ${resolvedURL.port})`
+            `Service "${label}" exited immediately (exit code ${startupExitCode}, possible port conflict on port ${resolvedURL.port})`
           ),
         })
         return
@@ -790,10 +866,12 @@ export async function start(config, id, opts) {
           resolvedURL.href,
           hConfig,
           hooks,
-          hConfig.autoRestart ? () => {
-            // Restart the service on health failure
-            close(id).then(() => start(config, id, opts))
-          } : undefined
+          hConfig.autoRestart
+            ? () => {
+                // Restart the service on health failure
+                close(id).then(() => start(config, id, opts))
+              }
+            : undefined
         )
         healthMonitor.start()
         ;(active as any).__healthMonitor = healthMonitor
