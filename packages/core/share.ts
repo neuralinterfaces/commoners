@@ -10,11 +10,9 @@ import { buildServices } from './build.js'
 import { createAll } from './assets/services/index.js'
 import { getLocalIP } from './assets/services/ip.js'
 import { getServices } from './utils/extensions.js'
-import { createLogger } from './assets/utils/logger.js'
+import { createMDNS } from './utils/mdns.js'
 
 import type { UserConfig, ResolvedConfig } from './types.js'
-
-const logger = createLogger('share')
 
 export interface ShareOptions {
   services?: string[]
@@ -36,7 +34,6 @@ export async function shareServices(
 ): Promise<ShareResult> {
   const { services: selectedServices, port, hooks, meta } = options
 
-  // Resolve config in dev mode (services go to .commoners/.tmp/services/)
   const resolvedConfig: ResolvedConfig = await resolveConfig(config, {
     services: selectedServices,
     build: false,
@@ -75,12 +72,9 @@ export async function shareServices(
 
   const { active = {}, resolved = {}, close: closeServices } = output
 
-  // Publish via Bonjour (dynamic import so the dependency is optional)
-  let bonjourCleanup = () => {}
-  try {
-    const { Bonjour } = await import('bonjour-service')
-    const bonjour = new Bonjour()
-
+  // Publish via shared mDNS utility
+  const mdns = await createMDNS()
+  if (mdns) {
     for (const [id, service] of Object.entries(active)) {
       const svc = service as any
       if (!svc.url) continue
@@ -88,30 +82,15 @@ export async function shareServices(
         const url = new URL(svc.url)
         const servicePort = parseInt(url.port)
         if (!servicePort) continue
-        bonjour.publish({
-          name: `commoners-${id}`,
-          type: 'http',
-          port: servicePort,
-          txt: { id, url: svc.url, ...meta },
-        })
-        logger.info(`Published ${id} on mDNS (port ${servicePort})`)
-      } catch (e) {
-        logger.warn(`Failed to publish ${id} on mDNS: ${(e as Error).message}`)
-      }
+        mdns.publish({ id, name: `commoners-${id}`, port: servicePort, url: svc.url, meta })
+      } catch { /* skip invalid URLs */ }
     }
-
-    bonjourCleanup = () => {
-      bonjour.unpublishAll()
-      bonjour.destroy()
-    }
-  } catch {
-    logger.debug('bonjour-service not available, skipping mDNS advertisement')
   }
 
   const localIP = getLocalIP()
 
   const cleanup = () => {
-    bonjourCleanup()
+    mdns?.destroy()
     closeServices()
   }
 
