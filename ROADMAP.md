@@ -15,10 +15,12 @@ All four release gate items are complete:
 
 ### Near-term (1.1)
 
-- **Auto-update production validation** -- Plugin rewritten but untested with real GitHub Releases. Needs end-to-end verification. Requires: GitHub repo with releases configured.
+- **Plugin validation** -- New plugins (preferences, storage, clipboard, notifications, context, messaging, audit, autoupdate) are implemented but untested in real apps. Validate with Neurotique and demo projects.
+- **Auto-update production validation** -- Needs end-to-end test with real GitHub Releases. Requires: GitHub repo with releases configured.
 - **iOS TestFlight validation** -- Manual publishing docs written, needs end-to-end test. Requires: Apple Developer account.
 - **Android Play Store validation** -- Signing + CI docs written, needs end-to-end test. Requires: Google Play Console access.
-- **Platform abstractions: additional adapters** -- File system, clipboard, etc. Core set done (storage, notifications, context).
+- **Tauri plugin support** -- Add Tauri-specific code paths for plugins that currently call `require('electron')`. Demand-driven.
+- **Vite 8 migration** -- Attempted and reverted (esbuild transform bug strips 6th+ object property). Retry when fixed upstream.
 
 ### Medium-term
 
