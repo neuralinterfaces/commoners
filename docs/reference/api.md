@@ -1,6 +1,6 @@
 # API Reference
 
-The `commoners` global object is available in all renderer contexts. It provides access to plugins, services, and framework utilities.
+The `commoners` global object is available in all renderer contexts.
 
 ## Core Properties
 
@@ -8,80 +8,31 @@ The `commoners` global object is available in all renderer contexts. It provides
 |----------|------|-------------|
 | `NAME` | `string` | App name from config |
 | `VERSION` | `string` | App version from package.json |
-| `TARGET` | `string` | Current target (`'electron'`, `'web'`, etc.) |
+| `ICON` | `string \| null` | App icon path |
+| `TARGET` | `string` | Specific target (`'electron'`, `'tauri'`, `'web'`, `'ios-capacitor'`, etc.) |
 | `DEV` | `false \| string` | WebSocket URL in dev, `false` in production |
-| `PROD` | `boolean` | `true` in production builds |
-| `DESKTOP` | `object \| false` | Desktop controls (quit, window ID) or `false` |
-| `MOBILE` | `boolean` | `true` on mobile targets |
+| `DESKTOP` | `object \| false` | Desktop controls (quit, close, window ID) or `false` |
+| `MOBILE` | `false \| 'ios' \| 'android'` | Mobile platform or `false` |
 | `WEB` | `boolean` | `true` on web targets |
 | `ROOT` | `string` | Application root path |
+| `READY` | `Promise<Record<string, any>>` | Resolves when all plugins are loaded. Returns loaded plugin APIs. |
+| `PLUGINS` | `Record<string, any>` | Direct access to plugin return values (may be unresolved) |
+| `SERVICES` | `Record<string, ServiceInfo>` | Service URLs and lifecycle controls |
+| `PAGES` | `Record<string, Function>` | Page navigation functions |
+| `EXTENSIONS` | `Record<string, ExtensionInfo>` | All registered extensions with type and capabilities |
+| `CAPABILITIES` | `{ plugins, services }` | Capabilities index for plugins and services |
 
-## Plugins
-
-```js
-// Wait for all plugins to load, then access them
-commoners.READY.then(({ myPlugin }) => {
-  myPlugin.doSomething()
-})
-
-// Or access directly (may be unresolved promises)
-commoners.PLUGINS.myPlugin
-```
-
-## Pages
-
-Navigate between configured pages:
-
-```js
-commoners.PAGES.home()              // Navigate to home page
-commoners.PAGES.settings()          // Navigate to settings page
-commoners.PAGES.profile({ search: '?id=123' }) // With query params
-```
-
-## Services
-
-```js
-// Access service URLs
-commoners.SERVICES.myService.url    // e.g., 'http://localhost:3001'
-
-// Desktop-only: lifecycle controls
-commoners.SERVICES.myService.status()   // 'running' | null
-commoners.SERVICES.myService.close()    // Stop the service
-commoners.SERVICES.myService.onClosed() // Cleanup callback
-```
-
-## Events (`@commoners/messaging`)
-
-Cross-window event communication. Add the [`@commoners/messaging`](/packages/plugins) plugin:
-
-```js
-// commoners.config.ts
-import messaging from '@commoners/messaging'
-export default { plugins: { messaging: messaging() } }
-```
-
-```js
-const { messaging } = await commoners.READY
-
-const unsubscribe = messaging.on('user:login', (data) => {
-  console.log('User logged in:', data)
-})
-
-messaging.emit('user:login', { userId: '123' })
-
-unsubscribe()
-```
+## Methods
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `emit` | `(topic: string, data?: any) => void` | Broadcast event to all windows |
-| `on` | `(topic: string, cb: (data) => void) => () => void` | Subscribe; returns unsubscribe function |
-| `off` | `(topic: string, cb: (data) => void) => void` | Remove a specific listener |
-| `once` | `(topic: string, cb: (data) => void) => () => void` | Subscribe for one event only |
+| `is` | `(check: string) => boolean` | Runtime detection (see below) |
+| `query` | `(filter) => Record<string, { type, capabilities }>` | Find extensions by capability |
+| `list` | `() => Record<string, ExtensionInfo>` | All registered extensions |
+| `get` | `(id: string) => ExtensionInfo \| undefined` | Get a specific extension |
+| `validate` | `() => { id, missing }[]` | Check for unmet `requires` dependencies |
 
 ## Runtime Detection (`commoners.is`)
-
-Check the current runtime with a single call:
 
 ```js
 commoners.is('desktop')  // true on Electron/Tauri
@@ -93,40 +44,63 @@ commoners.is('electron') // true specifically on Electron
 commoners.is('tauri')    // true specifically on Tauri
 ```
 
-| Check | Equivalent |
-|-------|-----------|
-| `commoners.is('desktop')` | `!!commoners.DESKTOP` |
-| `commoners.is('mobile')` | `!!commoners.MOBILE` |
-| `commoners.is('web')` | `commoners.WEB` |
-| `commoners.is('dev')` | `!!commoners.DEV` |
-| `commoners.is('prod')` | `!commoners.DEV` |
-| `commoners.is('electron')` | `commoners.TARGET === 'electron'` |
-| `commoners.is('tauri')` | `commoners.TARGET === 'tauri'` |
-
-## Cross-Window Messaging
-
-Use the [`@commoners/messaging`](/packages/plugins) plugin for cross-window and cross-tab communication:
+## Plugins
 
 ```js
-// commoners.config.ts
-import messaging from '@commoners/messaging'
-export default { plugins: { messaging: messaging() } }
+// Wait for all plugins to load, then access them
+const { myPlugin } = await commoners.READY
+myPlugin.doSomething()
 ```
 
+## Pages
+
+Navigate between configured pages:
+
 ```js
-const { messaging } = await commoners.READY
-messaging.emit('my-event', { data: 123 })
-messaging.on('my-event', (data) => console.log(data))
+commoners.PAGES.home()
+commoners.PAGES.settings()
+commoners.PAGES.profile({ search: '?id=123', hash: '#section' })
+```
+
+## Services
+
+```js
+// Access service URLs (all platforms)
+commoners.SERVICES.myService.url    // e.g., 'http://localhost:3001'
+
+// Desktop-only: lifecycle controls
+commoners.SERVICES.myService.status()     // true (running) | false (stopped) | null (starting)
+commoners.SERVICES.myService.close()      // Stop the service process
+commoners.SERVICES.myService.onClosed(fn) // Register callback for when service exits
+commoners.SERVICES.myService.health()     // Check service health (if monitor.health configured)
+```
+
+> **Note:** `status()`, `close()`, `onClosed()`, and `health()` are only available on desktop (Electron/Tauri). On web and mobile, services are remote — only `url` is available.
+
+### Service Health Monitoring
+
+Enable per-service health checks in your config:
+
+```js
+export default {
+  services: {
+    api: {
+      src: './services/api.ts',
+      monitor: {
+        health: true,                  // Enable with defaults (30s interval, 3 retries)
+        // Or configure:
+        // health: { interval: 10000, retries: 5, autoRestart: true }
+      }
+    }
+  }
+}
 ```
 
 ## Extension Discovery
 
-Query, list, and validate extensions directly from the global:
-
 ```js
 // Find extensions by capability
 const btExtensions = commoners.query({ provides: ['bluetooth'] })
-const desktopExts = commoners.query({ platforms: { desktop: true } })
 
 // List all registered extensions
 const all = commoners.list()
@@ -134,21 +108,12 @@ const all = commoners.list()
 // Get a specific extension by ID
 const ble = commoners.get('ble')
 
-// Validate all requirements are met (returns unmet dependencies)
+// Validate all requirements are met
 const errors = commoners.validate()
 // [{ id: 'myPlugin', missing: ['bluetooth'] }] or []
 ```
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `query` | `(filter) => Record<string, { type, capabilities }>` | Find extensions matching a capability filter |
-| `list` | `() => Record<string, ExtensionInfo>` | All registered extensions |
-| `get` | `(id: string) => ExtensionInfo \| undefined` | Get a specific extension |
-| `validate` | `() => { id, missing }[]` | Check for unmet `requires` dependencies |
-
 ## Capabilities
-
-Access declared capabilities for plugins and services:
 
 ```js
 commoners.CAPABILITIES.plugins   // Record<string, ExtensionCapabilities>
@@ -162,12 +127,30 @@ export default {
   plugins: {
     bluetooth: {
       capabilities: {
-        provides: ['bluetooth', 'scanning'],
-        platforms: { desktop: 'electron', mobile: true },
-        runtime: 'process',
+        provides: ['bluetooth', 'ble', 'device-access'],
+        platforms: { web: true, desktop: true, mobile: true },
+        runtime: 'browser',
+        requires: ['some-other-capability'],
       },
-      // ... plugin hooks
+      // ...
     }
   }
 }
+```
+
+## Cross-Window Messaging (`@commoners/messaging`)
+
+Add the plugin for cross-window event communication:
+
+```js
+// commoners.config.ts
+import messaging from '@commoners/messaging'
+export default { plugins: { messaging: messaging() } }
+```
+
+```js
+const { messaging } = await commoners.READY
+messaging.emit('my-event', { data: 123 })
+const unsub = messaging.on('my-event', (data) => console.log(data))
+unsub() // unsubscribe
 ```

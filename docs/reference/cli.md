@@ -1,45 +1,105 @@
 # CLI Commands
 
-## Main Commands
-### commoners [root]
-Run your project in development mode. 
-- `[root]` - The root directory of the project (`string`)
+## Global Options
 
-### commoners build [root]
-Build the project assets.
-- `[root]` - The root directory of the project (`string`)
-- `--outDir [path]` - The output directory for the build (`string`)
+These options work with all commands:
 
-#### Desktop Builds
-- `--publish [condition]` - Publish a release of your application to GitHub on the provided condition ([`string`](https://www.electron.build/configuration/publish.html#how-to-publish))
-    - **Note:** While [other providers](https://www.electron.build/configuration/publish.html#publishers) are possible to use, they have not been tested with this command.
+| Flag | Description |
+|------|-------------|
+| `--target <target>` | Target platform (see below) |
+| `--config <path>` | Path to configuration file |
+| `--stdin` | Read configuration from STDIN (pipe JSON) |
+| `--no-color` | Disable colored output |
+| `-L, --log-level <level>` | Set log level: `debug`, `info`, `warn`, `error`, `silent` |
 
-##### Mac
-- `--sign` - Enable code signing (`--target desktop` on Mac only). Will be automatically enabled with `--publish`
+## Commands
 
-#### Service Selection
-- `--service [name]` - Build a specific service. Can use multiple times. (`string`)
+### `commoners [root]`
 
-### commoners share [root]
+Run your project in development mode. Also available as `commoners dev`, `commoners start`, or `commoners run`.
+
+```bash
+commoners                       # Dev server (web)
+commoners --target desktop      # Electron dev mode
+commoners --target tauri        # Tauri dev mode
+```
+
+### `commoners init [root]`
+
+Add Commoners to an existing project. Creates `commoners.config.ts` and adds scripts to `package.json`.
+
+```bash
+commoners init                  # Initialize in current directory
+commoners init ./my-app         # Initialize in specific directory
+```
+
+### `commoners build [root]`
+
+Build the project for production.
+
+```bash
+commoners build                         # Web build (default)
+commoners build --target desktop        # Electron desktop build
+commoners build --target tauri          # Tauri desktop build
+commoners build --target mobile         # Mobile (Capacitor)
+commoners build --service api           # Build a specific service
+commoners build --services              # Rebuild all services
+```
+
+| Flag | Description |
+|------|-------------|
+| `--outDir <path>` | Output directory |
+| `--service <name>` | Build specific service(s) |
+| `--services` | Force rebuild all services |
+| `--publish [type]` | Publish release (`always`, `onTag`, `never`) |
+| `--sign` | Enable code signing (desktop on Mac only) |
+| `--headless` | Skip opening native IDEs (for CI) |
+
+### `commoners preview [root]`
+
+Preview your built application. Also available as `commoners launch`.
+
+```bash
+commoners preview                       # Preview web build
+commoners preview --target desktop      # Launch desktop build
+commoners preview --service api         # Launch a specific service
+```
+
+| Flag | Description |
+|------|-------------|
+| `--outDir <path>` | Build output directory to preview |
+| `--service <name>` | Launch specific service(s) |
+| `--port <port>` | Override port (single service only) |
+| `--public` | Launch service as public (services only) |
+
+### `commoners share [root]`
+
 Start services and advertise them on the local network via Bonjour/mDNS.
-- `[root]` - The root directory of the project (`string`)
-- `--service [name]` - Share specific service(s). Can use multiple times. (`string`)
-- `--port [port]` - Override port (single service only) (`number`)
 
-Other devices on the same network can discover shared services automatically (e.g. via `@commoners/local-services` plugin). Press Ctrl+C to stop sharing.
+```bash
+commoners share                         # Share all services
+commoners share --service api           # Share specific service
+commoners share --qr                    # Show QR code for mobile testing
+```
 
-### commoners launch [path]
-Launch your built application.
-- `[path]` - The output directory of the build to launch (`string`)
+| Flag | Description |
+|------|-------------|
+| `--service <name>` | Share specific service(s) |
+| `--port <port>` | Override port (single service only) |
+| `--meta <kv>` | Add metadata as `key=value` (Bonjour txt records) |
+| `--qr` | Display QR code for service URLs |
 
-## Shared Options
-### Target Platform (`commoners` / `build` / `launch`)
-Specify the target platform for the command.
-- `--target [target]`
-    - `web` - Default option
-        - `pwa` - As a Progressive Web App (`build` only)
-    - `desktop` - For your current desktop platform (`boolean`/ `string`)
-        - `electron` - Build with Electron
-    - `mobile` - For the mobile platform corresponding to your build enviroment 
-        - `ios` - For iOS (only available on macOS)
-        - `android` - For Android
+## Target Platforms
+
+| Target | Description |
+|--------|-------------|
+| `web` | Web build (default) |
+| `pwa` | Progressive Web App (build only) |
+| `desktop` | Desktop (defaults to Electron) |
+| `electron` | Electron specifically |
+| `tauri` | Tauri specifically |
+| `mobile` | Mobile (defaults to Capacitor for current OS) |
+| `ios` | iOS via Capacitor |
+| `android` | Android via Capacitor |
+| `ios-tauri` | iOS via Tauri |
+| `android-tauri` | Android via Tauri |
