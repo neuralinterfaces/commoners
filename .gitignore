@@ -23,6 +23,7 @@ CLAUDE.md
 .vite-templates
 **/*.spec
 coverage
+*.pfx
 
 # Mobile platforms
 ios

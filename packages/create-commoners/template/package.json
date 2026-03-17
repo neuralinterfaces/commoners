@@ -8,7 +8,7 @@
     "build": "commoners build",
     "build:desktop": "commoners build --target desktop",
     "build:mobile": "commoners build --target mobile",
-    "preview": "commoners launch"
+    "preview": "commoners preview"
   },
   "dependencies": {
     "@commoners/solidarity": "^1.0.0-alpha.3",

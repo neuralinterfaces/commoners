@@ -231,6 +231,7 @@ cli
           'build': 'commoners build',
           'build:desktop': 'commoners build --target desktop',
           'build:mobile': 'commoners build --target mobile',
+          'preview': 'commoners preview',
         }
 
         for (const [key, value] of Object.entries(scripts)) {
