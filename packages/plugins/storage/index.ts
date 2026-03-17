@@ -1,227 +1,235 @@
 /**
  * @commoners/storage
  *
- * Cross-platform key-value storage.
+ * Cross-platform file storage.
  *
  * Backend per runtime:
- * - Web: IndexedDB (universal browser support)
- * - Electron: JSON file in userData via Node fs (main process IPC)
- * - Tauri: tauri-plugin-store via invoke() (optional dep)
- * - Mobile (Capacitor): @capacitor/preferences (optional dep)
+ * - Web: File System Access API (showOpenFilePicker/showSaveFilePicker) with download fallback
+ * - Electron: Node fs via IPC to main process
+ * - Tauri: tauri-plugin-fs via invoke() (optional)
+ * - Mobile (Capacitor): @capacitor/filesystem (optional)
  *
- * All methods are async. Values are JSON-serializable.
+ * API: read, write, exists, remove, mkdir, readDir
  */
 
 export const capabilities = {
-  provides: ['storage', 'persistence', 'key-value'],
+  provides: ['storage', 'filesystem', 'file-access'],
   platforms: { web: true, desktop: true, mobile: true },
   runtime: 'browser' as const,
 }
 
-export type StorageOptions = {
-  /** Storage namespace to avoid collisions (default: 'commoners') */
-  namespace?: string
+export type FilesystemEncoding = 'utf8' | 'base64' | 'binary'
+
+export type FileInfo = {
+  name: string
+  path: string
+  isDirectory: boolean
+  size?: number
 }
 
-// --- Web backend: IndexedDB ---
+export type FilesystemOptions = {
+  /** Base directory for relative paths on desktop (default: userData) */
+  baseDir?: 'userData' | 'documents' | 'temp' | 'home'
+}
 
-function createIndexedDBBackend(namespace: string) {
-  const DB_NAME = `${namespace}-storage`
-  const STORE_NAME = 'kv'
+// --- Web backend: File System Access API + fallbacks ---
 
-  function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, 1)
-      request.onupgradeneeded = () => {
-        request.result.createObjectStore(STORE_NAME)
+function createWebBackend() {
+  return {
+    async read(path: string, encoding: FilesystemEncoding = 'utf8'): Promise<string | ArrayBuffer> {
+      // Web can only read via file picker
+      if ('showOpenFilePicker' in window) {
+        const [handle] = await (window as any).showOpenFilePicker()
+        const file = await handle.getFile()
+        if (encoding === 'binary') return await file.arrayBuffer()
+        return await file.text()
       }
-      request.onsuccess = () => resolve(request.result)
-      request.onerror = () => reject(request.error)
-    })
-  }
-
-  function tx(mode: IDBTransactionMode): Promise<{ store: IDBObjectStore; done: Promise<void> }> {
-    return openDB().then(db => {
-      const transaction = db.transaction(STORE_NAME, mode)
-      const store = transaction.objectStore(STORE_NAME)
-      const done = new Promise<void>((resolve, reject) => {
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-      })
-      return { store, done }
-    })
-  }
-
-  return {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      const { store, done } = await tx('readonly')
-      return new Promise((resolve, reject) => {
-        const request = store.get(key)
-        request.onsuccess = () => { done.then(() => resolve(request.result)) }
-        request.onerror = () => reject(request.error)
-      })
+      throw new Error('File reading requires the File System Access API (Chrome/Edge) or a desktop build')
     },
 
-    async set<T = unknown>(key: string, value: T): Promise<void> {
-      const { store, done } = await tx('readwrite')
-      store.put(value, key)
-      await done
+    async write(path: string, data: string | ArrayBuffer, encoding: FilesystemEncoding = 'utf8'): Promise<void> {
+      if ('showSaveFilePicker' in window) {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: path.split('/').pop() || 'file',
+        })
+        const writable = await handle.createWritable()
+        await writable.write(data)
+        await writable.close()
+        return
+      }
+      // Fallback: trigger download
+      const blob = typeof data === 'string' ? new Blob([data], { type: 'text/plain' }) : new Blob([data])
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = path.split('/').pop() || 'file'
+      a.click()
+      URL.revokeObjectURL(url)
     },
 
-    async remove(key: string): Promise<void> {
-      const { store, done } = await tx('readwrite')
-      store.delete(key)
-      await done
+    async exists(): Promise<boolean> {
+      return false // Web cannot check arbitrary file existence
     },
 
-    async keys(): Promise<string[]> {
-      const { store, done } = await tx('readonly')
-      return new Promise((resolve, reject) => {
-        const request = store.getAllKeys()
-        request.onsuccess = () => { done.then(() => resolve(request.result as string[])) }
-        request.onerror = () => reject(request.error)
-      })
+    async remove(): Promise<void> {
+      throw new Error('File removal is not available on web')
     },
 
-    async clear(): Promise<void> {
-      const { store, done } = await tx('readwrite')
-      store.clear()
-      await done
+    async mkdir(): Promise<void> {
+      throw new Error('Directory creation is not available on web')
+    },
+
+    async readDir(): Promise<FileInfo[]> {
+      throw new Error('Directory listing is not available on web')
     },
   }
 }
 
-// --- Desktop backend: IPC to main process (Electron) ---
+// --- Desktop backend: IPC to Electron main process ---
 
-function createDesktopBackend(send: Function, invoke: Function) {
+function createDesktopBackend(invoke: Function) {
   return {
-    get: <T = unknown>(key: string): Promise<T | undefined> => invoke('get', key),
-    set: <T = unknown>(key: string, value: T): Promise<void> => invoke('set', key, value),
-    remove: (key: string): Promise<void> => invoke('remove', key),
-    keys: (): Promise<string[]> => invoke('keys'),
-    clear: (): Promise<void> => invoke('clear'),
+    read: (path: string, encoding: FilesystemEncoding = 'utf8') => invoke('read', path, encoding),
+    write: (path: string, data: string | ArrayBuffer, encoding: FilesystemEncoding = 'utf8') => invoke('write', path, data, encoding),
+    exists: (path: string) => invoke('exists', path),
+    remove: (path: string) => invoke('remove', path),
+    mkdir: (path: string) => invoke('mkdir', path),
+    readDir: (path: string) => invoke('readDir', path),
   }
 }
 
-// --- Mobile backend: Capacitor Preferences ---
+// --- Mobile backend: Capacitor Filesystem ---
 
 function createCapacitorBackend() {
-  let Preferences: any = null
+  let Filesystem: any = null
+  let Directory: any = null
 
-  async function getPreferences() {
-    if (!Preferences) {
+  async function getPlugin() {
+    if (!Filesystem) {
       try {
-        const mod = await import('@capacitor/preferences')
-        Preferences = mod.Preferences
+        const mod = await import('@capacitor/filesystem')
+        Filesystem = mod.Filesystem
+        Directory = mod.Directory
       } catch {
-        // Fall back to IndexedDB if Capacitor Preferences not available
         return null
       }
     }
-    return Preferences
+    return Filesystem
   }
 
   return {
-    async get<T = unknown>(key: string): Promise<T | undefined> {
-      const prefs = await getPreferences()
-      if (!prefs) return undefined
-      const { value } = await prefs.get({ key })
-      return value ? JSON.parse(value) : undefined
+    async read(path: string, encoding: FilesystemEncoding = 'utf8'): Promise<string> {
+      const fs = await getPlugin()
+      if (!fs) throw new Error('@capacitor/filesystem not available')
+      const result = await fs.readFile({ path, directory: Directory.Documents, encoding })
+      return result.data
     },
 
-    async set<T = unknown>(key: string, value: T): Promise<void> {
-      const prefs = await getPreferences()
-      if (!prefs) return
-      await prefs.set({ key, value: JSON.stringify(value) })
+    async write(path: string, data: string, encoding: FilesystemEncoding = 'utf8'): Promise<void> {
+      const fs = await getPlugin()
+      if (!fs) throw new Error('@capacitor/filesystem not available')
+      await fs.writeFile({ path, data, directory: Directory.Documents, encoding })
     },
 
-    async remove(key: string): Promise<void> {
-      const prefs = await getPreferences()
-      if (!prefs) return
-      await prefs.remove({ key })
+    async exists(path: string): Promise<boolean> {
+      const fs = await getPlugin()
+      if (!fs) return false
+      try {
+        await fs.stat({ path, directory: Directory.Documents })
+        return true
+      } catch {
+        return false
+      }
     },
 
-    async keys(): Promise<string[]> {
-      const prefs = await getPreferences()
-      if (!prefs) return []
-      const { keys } = await prefs.keys()
-      return keys
+    async remove(path: string): Promise<void> {
+      const fs = await getPlugin()
+      if (!fs) throw new Error('@capacitor/filesystem not available')
+      await fs.deleteFile({ path, directory: Directory.Documents })
     },
 
-    async clear(): Promise<void> {
-      const prefs = await getPreferences()
-      if (!prefs) return
-      await prefs.clear()
+    async mkdir(path: string): Promise<void> {
+      const fs = await getPlugin()
+      if (!fs) throw new Error('@capacitor/filesystem not available')
+      await fs.mkdir({ path, directory: Directory.Documents, recursive: true })
+    },
+
+    async readDir(path: string): Promise<FileInfo[]> {
+      const fs = await getPlugin()
+      if (!fs) return []
+      const result = await fs.readdir({ path, directory: Directory.Documents })
+      return result.files.map((f: any) => ({
+        name: f.name,
+        path: `${path}/${f.name}`,
+        isDirectory: f.type === 'directory',
+        size: f.size,
+      }))
     },
   }
 }
 
 // --- Plugin export ---
 
-export default function storage(options: StorageOptions = {}) {
-  const namespace = options.namespace || 'commoners'
+export default function filesystem(options: FilesystemOptions = {}) {
+  const baseDir = options.baseDir || 'userData'
 
   return {
     capabilities,
 
     isSupported: {
-      load: () => true, // Storage works everywhere
+      load: () => true,
     },
 
     load() {
       const { DESKTOP, MOBILE } = (globalThis as any).commoners || {}
 
-      if (DESKTOP) {
-        // Use IPC to main process for fs-backed storage
-        return createDesktopBackend(this.send, this.invoke)
-      }
-
-      if (MOBILE) {
-        // Try Capacitor Preferences, fall back to IndexedDB
-        const capBackend = createCapacitorBackend()
-        return capBackend
-      }
-
-      // Web: IndexedDB
-      return createIndexedDBBackend(namespace)
+      if (DESKTOP) return createDesktopBackend(this.invoke)
+      if (MOBILE) return createCapacitorBackend()
+      return createWebBackend()
     },
 
-    // Electron main process: fs-backed JSON storage
     desktop: {
       start: function () {
-        const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs')
+        const { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, readdirSync, statSync } = require('node:fs')
         const { join, dirname } = require('node:path')
+        const { app } = require('electron')
 
-        // Resolve storage path — use Electron's userData if available
-        let storagePath: string
-        try {
-          const { app } = require('electron')
-          storagePath = join(app.getPath('userData'), `${namespace}-storage.json`)
-        } catch {
-          storagePath = join(process.cwd(), `.${namespace}-storage.json`)
+        const basePath = app.getPath(baseDir)
+
+        function resolvePath(path: string): string {
+          if (require('node:path').isAbsolute(path)) return path
+          return join(basePath, path)
         }
 
-        // Load existing data
-        const data = new Map<string, unknown>()
-        if (existsSync(storagePath)) {
-          try {
-            const raw = JSON.parse(readFileSync(storagePath, 'utf8'))
-            for (const [k, v] of Object.entries(raw)) data.set(k, v)
-          } catch { /* corrupt file, start fresh */ }
-        }
+        this.handle('read', (_: any, path: string, encoding: string) => {
+          const resolved = resolvePath(path)
+          if (encoding === 'binary') return readFileSync(resolved)
+          return readFileSync(resolved, encoding as BufferEncoding)
+        })
 
-        function persist() {
-          const dir = dirname(storagePath)
+        this.handle('write', (_: any, path: string, data: string | Buffer, encoding: string) => {
+          const resolved = resolvePath(path)
+          const dir = dirname(resolved)
           if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-          writeFileSync(storagePath, JSON.stringify(Object.fromEntries(data)), 'utf8')
-        }
+          writeFileSync(resolved, data, encoding === 'binary' ? undefined : (encoding as BufferEncoding))
+        })
 
-        // Register IPC handlers
-        this.handle('get', (_: any, key: string) => data.get(key))
-        this.handle('set', (_: any, key: string, value: unknown) => { data.set(key, value); persist() })
-        this.handle('remove', (_: any, key: string) => { data.delete(key); persist() })
-        this.handle('keys', () => [...data.keys()])
-        this.handle('clear', () => { data.clear(); persist() })
+        this.handle('exists', (_: any, path: string) => existsSync(resolvePath(path)))
+
+        this.handle('remove', (_: any, path: string) => unlinkSync(resolvePath(path)))
+
+        this.handle('mkdir', (_: any, path: string) => mkdirSync(resolvePath(path), { recursive: true }))
+
+        this.handle('readDir', (_: any, path: string) => {
+          const resolved = resolvePath(path)
+          const entries = readdirSync(resolved, { withFileTypes: true })
+          return entries.map(e => ({
+            name: e.name,
+            path: join(resolved, e.name),
+            isDirectory: e.isDirectory(),
+            size: e.isFile() ? statSync(join(resolved, e.name)).size : undefined,
+          }))
+        })
       },
     },
   }

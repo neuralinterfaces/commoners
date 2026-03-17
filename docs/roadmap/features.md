@@ -16,7 +16,7 @@ Ordered by impact.
 |------|---------|-----------|
 | **`@commoners/audit`** | SBOM generation, multi-language dependency auditing | Compliance-ready for regulated apps (FDA, medical devices). See [security-whitepaper.md](./security-whitepaper.md) |
 | **Auto-update validation** | End-to-end test with real GitHub Releases | Plugin rewritten but untested in production |
-| **Platform abstractions** | `commoners.storage`, `commoners.notifications` across Electron + Web | Genuine value abstracting `electron-store`/fs vs `localStorage`/IndexedDB. See [platform-abstractions.md](./platform-abstractions.md) |
+| **Tauri plugin support** | Add Tauri-specific code paths for plugins that currently use `require('electron')` directly | Demand-driven — most users on Electron today |
 
 ### Medium-term
 

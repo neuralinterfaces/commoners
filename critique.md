@@ -133,7 +133,7 @@ This is correctly documented as Phase 3 (post-Tauri maturity) in the roadmap. Fo
 
 2. **Tauri mobile backend** -- Correctly deferred. Capacitor's mobile story is mature; Tauri mobile is not. No reason to add complexity.
 
-3. **Platform abstractions** (Storage, Notifications, etc.) -- Keep on roadmap but prioritize adapters that serve both Electron and Web consumers (e.g., `commoners.storage` that works across `electron-store`/fs and `localStorage`/IndexedDB). These add genuine value when they abstract across runtimes consumers already use.
+3. **Platform abstractions** -- Now shipped: `@commoners/preferences`, `@commoners/storage`, `@commoners/clipboard`, `@commoners/notifications`, `@commoners/context`, `@commoners/messaging`. Each abstracts across Web, Electron, and Capacitor. Tauri backends are planned.
 
 ---
 
@@ -193,7 +193,7 @@ This is now demonstrably true, not aspirational. The codebase backs it up:
 ### What to invest in next (post-1.0)
 
 1. **`@commoners/audit` plugin** -- SBOM generation, multi-language dependency auditing. Important for regulated applications (FDA, medical devices). Frame as "compliance-ready."
-2. **Platform abstractions (Electron + Web)** -- `commoners.storage`, `commoners.notifications` etc. that abstract across Electron and browser environments. Genuine value for consumers targeting both.
+2. **Tauri plugin support** -- Add Tauri-specific code paths for plugins that currently call `require('electron')` directly. Demand-driven.
 3. **Auto-update production validation** -- Plugin rewritten but untested with real GitHub Releases. Needs end-to-end verification.
 
 ---

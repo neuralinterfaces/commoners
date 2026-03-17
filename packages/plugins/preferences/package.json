@@ -1,13 +1,13 @@
 {
-  "name": "@commoners/filesystem",
+  "name": "@commoners/preferences",
   "version": "1.0.0-alpha.3",
-  "description": "Cross-platform file system access for Commoners apps",
+  "description": "Cross-platform key-value preferences for Commoners apps",
   "author": "Neural Interfaces",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/neuralinterfaces/commoners.git",
-    "directory": "packages/plugins/filesystem"
+    "directory": "packages/plugins/preferences"
   },
   "engines": {
     "node": ">=20.0.0"

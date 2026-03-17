@@ -1,7 +1,7 @@
 {
   "name": "@commoners/storage",
   "version": "1.0.0-alpha.3",
-  "description": "Cross-platform key-value storage for Commoners apps",
+  "description": "Cross-platform file storage for Commoners apps",
   "author": "Neural Interfaces",
   "license": "MIT",
   "repository": {
