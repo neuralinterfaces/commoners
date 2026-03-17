@@ -259,12 +259,14 @@ cli
     console.log('  See https://commoners.dev/getting-started for more')
   })
 
-// Launch the specified build
+// Preview/launch the specified build
 cli
-  .command('launch [root]', 'Launch your build application in the specified directory')
+  .command('launch [root]', 'Preview your built application')
 
-  .example('commoners launch')
-  .example('commoners launch --target desktop')
+  .alias('preview')
+
+  .example('commoners preview')
+  .example('commoners preview --target desktop')
   .example('commoners launch --service api')
 
   .option('--outDir <path>', 'Choose an output directory for your build files')
