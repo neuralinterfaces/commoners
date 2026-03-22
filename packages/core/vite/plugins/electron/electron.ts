@@ -8,7 +8,6 @@ const logger = createLogger('electron')
 
 type ChildProcess = import('node:child_process').ChildProcess
 
-
 const cleanupElectronApp = async () => {
   const { app } = electronGlobalStates
   if (app) {
@@ -20,10 +19,20 @@ const cleanupElectronApp = async () => {
 
 export const electronGlobalStates: { app?: ChildProcess } = {}
 
+/**
+ * Send a JSON command to the running Electron process via stdin.
+ * Used for service hot-reload and other dev-time commands.
+ */
+export function sendCommand(command: string, data?: Record<string, any>): void {
+  const { app } = electronGlobalStates
+  if (app?.stdin?.writable) {
+    app.stdin.write(JSON.stringify({ command, data }) + '\n')
+  }
+}
+
 let cleanupPromise = null
 
 export async function startup(root, hooks: HooksInterface = createNoOpHooks(), outDir?: string) {
-
   cleanupPromise = null // Reset stale promise from previous test/startup
 
   // Point Electron at the outDir (which contains the temp package.json with main field)
@@ -60,7 +69,7 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks(), o
     cwd: root, // Ensure the app is started from the root of the selected project
     env: { ...process.env, FORCE_COLOR: '1' },
     detached: false, // Do not detach the process. This ensures it will exit when the Node.js process exits, otherwise allows a graceful shutdown.
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
   }))
 
   // Clean up electron reference when the child process exits

@@ -53,14 +53,9 @@ sudo apt-get install build-essential
 
 ### Services not reloading in dev mode
 
-Currently, service hot-reload is not implemented in Electron dev mode. When you change a service's source code, restart the dev server:
+In Electron dev mode, service hot-reload is automatic — when you save a service source file, Commoners will stop and restart that service. If a service fails to restart, check the terminal output for errors.
 
-```bash
-# Stop the current dev server (Ctrl+C), then:
-pnpm dev -- --target desktop
-```
-
-Web target dev mode rebuilds services on restart.
+For web target dev mode, services are rebuilt on server restart.
 
 ### Port conflicts
 

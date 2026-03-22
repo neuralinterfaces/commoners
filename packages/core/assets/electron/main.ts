@@ -542,9 +542,6 @@ Security.runVerification(isProduction, {
             inlineScriptHash
           )
 
-          // Setup STDIN commands
-          Lifecycle.setupStdinCommands(() => runtime.window.getAll())
-
           // Create services
           const output = await servicesModule!.createAll(resolvedServices, {
             ...baseServiceOptions,
@@ -567,6 +564,33 @@ Security.runVerification(isProduction, {
           // Keep sync handler as fallback for windows created before services resolved
           runtime.ipc.on(Commands.services.channel, ev => {
             ev.returnValue = __sanitizedServices
+          })
+
+          // Setup STDIN commands with service hot-reload support
+          Lifecycle.setupStdinCommands(() => runtime.window.getAll(), {
+            onServiceReload: async (serviceId: string) => {
+              if (!(serviceId in active)) return
+              console.log(`[commoners] Reloading service: ${serviceId}`)
+              try {
+                await closeService(serviceId)
+                const result = await servicesModule!.start(resolved[serviceId], serviceId, {
+                  ...baseServiceOptions,
+                  hooks,
+                })
+                if (result) {
+                  active[serviceId] = result
+                  __sanitizedServices = servicesModule!.sanitize(resolved)
+                  // Notify renderer windows of updated service URLs
+                  runtime.window.getAll().forEach((win: any) => {
+                    if (!win.isDestroyed()) {
+                      win.webContents.send('commoners:services:updated', __sanitizedServices)
+                    }
+                  })
+                }
+              } catch (err) {
+                console.error(`[commoners] Failed to reload service "${serviceId}":`, err)
+              }
+            },
           })
 
           // Track service status and health

@@ -108,7 +108,12 @@ export function setupDefaultWindowAllClosedHandler(
  * Setup STDIN command interface
  * Allows external commands to control the app (e.g., reload)
  */
-export function setupStdinCommands(getAllWindows: () => any[]): void {
+export function setupStdinCommands(
+  getAllWindows: () => any[],
+  callbacks?: {
+    onServiceReload?: (serviceId: string) => void
+  }
+): void {
   const { createInterface } = require('node:readline')
 
   const rl = createInterface({
@@ -125,12 +130,12 @@ export function setupStdinCommands(getAllWindows: () => any[]): void {
       if (command === 'reload') {
         const { frontend, service } = data || {}
         if (frontend) {
-          getAllWindows().forEach(
-            (win: any) => !win.isDestroyed() && win.webContents.reload()
-          )
+          getAllWindows().forEach((win: any) => !win.isDestroyed() && win.webContents.reload())
         }
         if (service) {
-          console.warn('Service reloads are not yet implemented in the Electron main process.')
+          if (callbacks?.onServiceReload) {
+            callbacks.onServiceReload(service)
+          }
         }
       }
     } catch {

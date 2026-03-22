@@ -112,32 +112,47 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
     handleHotUpdate(ctx) {
       if (!dev) return
 
-      // Detect if the changed file is associated with a plugin
       const changedFile = ctx.file
-      const pluginEntries = Object.entries(config.extensions || {})
+      const extensionEntries = Object.entries(config.extensions || {})
 
-      for (const [id, ext] of pluginEntries) {
-        if (ext.type !== 'plugin' && ext.type !== 'hybrid') continue
-        // Check if the changed file path contains the plugin ID (convention-based detection)
-        if (changedFile.includes(`/plugins/${id}/`) || changedFile.includes(`\\plugins\\${id}\\`)) {
-          // Signal the dev server to broadcast a reload for this plugin
-          const server = ctx.server
-          if (server.ws) {
-            server.ws.send({
-              type: 'custom',
-              event: 'commoners:plugin:reload',
-              data: { id },
-            })
-          }
-          // Also broadcast via the commoners WebSocket server
-          try {
+      for (const [id, ext] of extensionEntries) {
+        // Plugin hot reload
+        if (ext.type === 'plugin' || ext.type === 'hybrid') {
+          if (
+            changedFile.includes(`/plugins/${id}/`) ||
+            changedFile.includes(`\\plugins\\${id}\\`)
+          ) {
+            const server = ctx.server
+            if (server.ws) {
+              server.ws.send({
+                type: 'custom',
+                event: 'commoners:plugin:reload',
+                data: { id },
+              })
+            }
             const wsPort = process.env.COMMONERS_WEBSOCKET_PORT
             if (wsPort) {
-              // The WebSocket server is managed by start.ts — use a custom event to notify
               server.config.logger.info(`[commoners] Hot reloading plugin: ${id}`)
             }
-          } catch {}
-          break
+            break
+          }
+        }
+
+        // Service hot reload (desktop only — sends reload command via stdin)
+        if (ext.type === 'service' || ext.type === 'hybrid') {
+          if (
+            changedFile.includes(`/services/${id}/`) ||
+            changedFile.includes(`\\services\\${id}\\`) ||
+            (ext.src && changedFile.endsWith(ext.src))
+          ) {
+            import('./electron/electron.js')
+              .then(({ sendCommand }) => {
+                ctx.server.config.logger.info(`[commoners] Hot reloading service: ${id}`)
+                sendCommand('reload', { service: id })
+              })
+              .catch(() => undefined) // Ignore — not in desktop mode
+            break
+          }
         }
       }
     },
