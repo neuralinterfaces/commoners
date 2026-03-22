@@ -25,11 +25,7 @@ Commoners is a CLI tool that reads a single `commoners.config.ts` and handles th
 | Web | Yes | No | Yes | Yes | Yes (limited) |
 | Desktop | Electron (Tauri planned) | Webview | No | Electron | No |
 | Mobile | Capacitor | iOS / Android | Native | Cordova | React Native |
-| Backend services | **Any language** | Rust + sidecars | None | None | None |
-| Auto-bundle backends | **Yes** | No | No | No | No |
-| Frontend framework | Any | Any | Any | Vue | React |
-| Local + remote services | **Yes** | No | No | No | No |
-| Commoners overhead | 20–63 KB (web), <0.1% (desktop) | – | – | – | – |
+| Backend services | **Any language, auto-bundled** | Rust + sidecars | None | None | None |
 
 Commoners is the tool that gets your app — frontend and backend — onto every platform from one config.
 

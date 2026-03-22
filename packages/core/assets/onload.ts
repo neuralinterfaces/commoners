@@ -1,5 +1,4 @@
 import { queryExtensions, validateRequirements } from './capabilities'
-import { createWebEvents } from './events/index'
 import {
   asyncFilter,
   isPluginLoadable,
@@ -28,13 +27,15 @@ const getExtensions = () => (ENV as any).EXTENSIONS ?? {}
 ;(ENV as any).list = () => ({ ...getExtensions() })
 ;(ENV as any).get = (id: string) => getExtensions()[id]
 
-// Cross-window events
-if (DESKTOP) {
+// Cross-window events — use compile-time guard to exclude unused event system
+if (__IS_DESKTOP__) {
   import('./events/electron').then(({ createElectronRendererEvents }) => {
     ;(ENV as any).events = createElectronRendererEvents(TEMP_COMMONERS.send, TEMP_COMMONERS.on)
   })
 } else {
-  ;(ENV as any).events = createWebEvents()
+  import('./events/index').then(({ createWebEvents }) => {
+    ;(ENV as any).events = createWebEvents()
+  })
 }
 
 // Runtime detection — commoners.is('desktop'), commoners.is('mobile'), etc.
