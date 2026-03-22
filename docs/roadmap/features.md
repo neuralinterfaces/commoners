@@ -1,6 +1,6 @@
 # Feature Roadmap
 
-See [ROADMAP.md](../../ROADMAP.md) for the canonical roadmap. This file previously duplicated that content.
+See [ROADMAP.md](https://github.com/neuralinterfaces/commoners/blob/main/ROADMAP.md) for the canonical roadmap. This file previously duplicated that content.
 
 ## Reference Documents
 

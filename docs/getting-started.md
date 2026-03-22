@@ -113,7 +113,7 @@ pnpm preview -- --target desktop    # Launch desktop build
 
 ## Next Steps
 - [Configuration](./guide/config.md) — Customize your app
-- [Services](./guide/services.md) — Add backend services
+- [Services](./guide/services/) — Add backend services
 - [Plugins](./guide/plugins.md) — Extend with plugins
 - [Build Automation](./guide/build-automation.md) — CI/CD workflows for all platforms
 - [Commoners Starter Kit](https://github.com/neuralinterfaces/commoners-starter-kit) — Reference project with GitHub Actions CI for web, desktop, and mobile

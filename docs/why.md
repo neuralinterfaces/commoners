@@ -4,7 +4,7 @@
 You have a web app. You want it on desktop, mobile, and the web — ideally from one codebase. Maybe you also have backend services in Python, Rust, or Node that need to ship alongside it.
 
 Existing tools solve parts of this:
-- **Electron / Tauri** handle desktop, but don't manage your backend services or mobile.
+- **Electron / Tauri** handle desktop (and Tauri 2.0 adds mobile), but don't manage your backend services.
 - **Capacitor** handles mobile, but can't bundle local backends or manage desktop.
 - **Framework-specific SDKs** (React Native, Quasar) lock you into a single frontend framework.
 
@@ -23,14 +23,19 @@ Commoners is a CLI tool that reads a single `commoners.config.ts` and handles th
 | Feature | Commoners | Tauri | Capacitor | Quasar | Expo |
 |---|---|---|---|---|---|
 | Web | Yes | No | Yes | Yes | Yes (limited) |
-| Desktop | Electron | Webview | No | Electron | No |
-| Mobile | Capacitor | No | Native | Cordova | React Native |
-| Backend services | **Any language** | Rust only | None | None | None |
+| Desktop | Electron (Tauri planned) | Webview | No | Electron | No |
+| Mobile | Capacitor | iOS / Android | Native | Cordova | React Native |
+| Backend services | **Any language** | Rust + sidecars | None | None | None |
 | Auto-bundle backends | **Yes** | No | No | No | No |
 | Frontend framework | Any | Any | Any | Vue | React |
 | Local + remote services | **Yes** | No | No | No | No |
+| Desktop app size | Electron + 80 KB, Tauri + 32 KB | 12 MB | – | 268 MB | – |
 
 Commoners is the tool that gets your app — frontend and backend — onto every platform from one config.
+
+### A note on desktop app size
+
+Commoners currently uses Electron for desktop, which bundles Chromium (~200 MB). This is the same trade-off Slack, VS Code, and Discord make. If binary size is critical and you don't need multi-language backend services, [Tauri](https://tauri.app) produces ~10 MB desktop apps using the system webview. Commoners plans to support Tauri as an alternative desktop runtime — your services and plugins will work with either.
 
 ## Where Commoners Came From
 Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) for an impossible task: distributing a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux), and mobile (iOS/Android) -- with real-time brain-computer interface backends written in Python and C++. [It works.](https://github.com/neuralinterfaces/brainsatplay)
@@ -38,6 +43,9 @@ Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) 
 Since then, Commoners has been used for commercial products at [Universal Brain](https://universal-brain.com/) and continues to evolve as a general-purpose cross-platform tool.
 
 ## When to Use Something Else
+
+For a detailed comparison with Tauri, Electron, and Capacitor, see [Choosing the Right Tool](./guide/comparisons.md).
+
 Commoners is not always the right choice:
 
 - **You need native performance everywhere** -- Flutter or fully native development (Swift/Kotlin/C++) will outperform WebView-based apps.

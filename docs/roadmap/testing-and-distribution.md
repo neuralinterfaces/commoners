@@ -38,7 +38,7 @@ Several test areas were deferred during recent work and need to be tracked and i
 
 - ~~Full E2E protocol tests~~ — added to desktop-zlaunch launch context
 - ~~E2E WASM compilation test~~ — added, gated behind `wasm-pack` availability
-- Mobile testing TODO gaps (from `tests/mobile-workflow.test.ts` lines 94-133)
+- ~~Mobile testing TODO gaps~~ — platform structure and native config injection tests implemented in `mobile-workflow.test.ts`
 
 ---
 
@@ -102,7 +102,7 @@ Several test areas were deferred during recent work and need to be tracked and i
 
 **Files:**
 - `tests/mobile-build.test.ts` (new)
-- `tests/mobile-workflow.test.ts` (reference; remove TODO block after implementation)
+- `tests/mobile-workflow.test.ts` (reference; mobile testing TODOs are now implemented)
 
 ### 4. Native Emulator Testing
 

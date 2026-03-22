@@ -4,7 +4,7 @@
 
 All four release gate items are complete:
 
-1. **CI test coverage** -- `test:fast-unit` (17 files, 457 tests) in `ci.yml` (3 OS x 2 Node) and `testing.yml` (daily). All pass on Windows.
+1. **CI test coverage** -- `test:fast-unit` (20 files) in `ci.yml` (3 OS x 2 Node) and `testing.yml` (daily). All pass on Windows.
 2. **Windows ASAR hardening** -- PowerShell verification fixed, CI step in `desktop-build.yml`. macOS was already done.
 3. **Desktop test stability** -- Verified on Windows: desktop (23/24) and start (26/28) pass. Remaining failures are C++ toolchain issues, not stability. Port contention mitigated.
 4. **Documentation** -- API reference, plugin guide, testing guide all shipped.
@@ -21,11 +21,15 @@ All four release gate items are complete:
 - **Android Play Store validation** -- Signing + CI docs written, needs end-to-end test. Requires: Google Play Console access.
 - **Tauri plugin support** -- Add Tauri-specific code paths for plugins that currently call `require('electron')`. Demand-driven.
 - **Vite 8 migration** -- Attempted and reverted (esbuild transform bug strips 6th+ object property). Retry when fixed upstream.
+- **Service hot-reload in Electron dev mode** -- Changing a service currently requires restarting the dev server (`lifecycle.ts:133` logs a warning). Implement file-watching and process restart for services during `commoners dev --target desktop`.
+- **C++ service scope clarification** -- Current C++ "support" delegates entirely to user-provided build commands. Either invest in real integration (header management, cross-compilation) or reframe in docs as "custom build command support" rather than first-class C++ support.
 
 ### Medium-term
 
 - **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
 - **Tauri remaining work** -- SEA cross-compilation, dev mode testing, Tauri IPC bridge, code signing. See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).
+- **Showcase page** -- Add a docs page with screenshots and descriptions of production apps built with Commoners (brainsatplay, Universal Brain products). The BCI origin story is a strong differentiator but currently buried in a single paragraph.
+- **Python service friction** -- Document alternatives to conda for PyInstaller (uv, pip, Docker-based builds). Conda is a high barrier for developers unfamiliar with the Python ecosystem.
 
 ### Long-term (demand-driven)
 

@@ -309,9 +309,9 @@ Breakdown of the 28K overhead:
 3. **Minify inline bootstrap script** — the 2.9K inline script in `index.html` could be minified
 4. **Conditional icon bundling** — only include default icon if no custom icon configured
 
-### TODO: Multi-Target Benchmarks
+### Multi-Target Benchmarks
 
-Extend `examples/bench/benchmark.sh` to measure overhead for all build targets:
+`examples/bench/benchmark.sh` measures web build overhead (Commoners vs raw Vite). Extend to cover additional targets:
 - **Electron** — binary size, node_modules contribution, startup time
 - **Tauri** — binary size comparison vs Electron
 - **PWA** — service worker overhead, manifest size
