@@ -116,6 +116,9 @@ export function setupStdinCommands(
 ): void {
   const { createInterface } = require('node:readline')
 
+  // Unref stdin so it doesn't prevent process exit
+  if (process.stdin.unref) process.stdin.unref()
+
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,

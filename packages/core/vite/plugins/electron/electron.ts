@@ -11,6 +11,10 @@ type ChildProcess = import('node:child_process').ChildProcess
 const cleanupElectronApp = async () => {
   const { app } = electronGlobalStates
   if (app) {
+    // Close stdin pipe to allow graceful exit
+    if (app.stdin && !app.stdin.destroyed) {
+      app.stdin.end()
+    }
     app.removeAllListeners()
     await treeKillGracefully(app.pid!)
   }
