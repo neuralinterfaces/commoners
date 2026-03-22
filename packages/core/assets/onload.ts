@@ -62,10 +62,10 @@ if (__IS_DESKTOP__) {
 
 if (__HAS_PLUGINS__ && __PLUGINS) {
   const devSocketListeners = { plugins: {} }
-  const devSocketServer = DEV && !DESKTOP ? new WebSocket(DEV) : null
+  const devSocketServer = __IS_DEV__ && DEV && !DESKTOP ? new WebSocket(DEV) : null
 
-  // Initialize the WebSocket Development Server
-  if (devSocketServer) {
+  // Initialize the WebSocket Development Server (dev only)
+  if (__IS_DEV__ && devSocketServer) {
     const devSocketReady = new Promise(resolve => {
       const ogSend = devSocketServer.send
       devSocketServer.send = async function (data) {
