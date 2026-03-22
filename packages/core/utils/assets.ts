@@ -66,6 +66,7 @@ type CoreAssetInfo =
       output?: string
       force?: boolean
       compile?: BuildFunction // Function to compile the asset
+      defines?: Record<string, string> // Compile-time defines for esbuild
     } & AssetMetadata)
 
 type AssetInfo = CoreAssetInfo | { text: string; output: string }
@@ -315,10 +316,16 @@ export const getAppAssets = async (
     })
   )
 
-  // Bundle onload script for the browser
+  // Bundle onload script for the browser — with compile-time defines for tree-shaking
+  const hasPlugins = Object.keys(getPlugins(resolvedConfig.extensions)).length > 0
   assets.bundle.push({
     input: join(rootDir, 'assets', 'onload.ts'),
     output: 'onload.mjs',
+    defines: {
+      __HAS_PLUGINS__: String(hasPlugins),
+      __IS_DEV__: String(dev),
+      __IS_DESKTOP__: String(isDesktop(target)),
+    },
   })
 
   // Bundle environment files compatible with Vite (Desktop Only)
@@ -636,11 +643,16 @@ export const buildAssets = async (
           // (fs, path, etc.) but NOT these.
           const assetExternals = ['electron', '*.node', '@aws-sdk/*']
 
+          const assetDefines =
+            typeof info === 'object' && 'defines' in info ? info.defines : undefined
+
           const baseConfig: ESBuildBuildOptions = {
             entryPoints: [input],
             bundle: true,
+            treeShaking: true,
             logLevel: 'silent',
             outfile: output,
+            ...(assetDefines ? { define: assetDefines, minifySyntax: true } : {}),
           }
 
           // Force a build format if the proper extension is specified

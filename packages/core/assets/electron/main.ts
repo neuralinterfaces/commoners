@@ -10,7 +10,8 @@ import { join, extname, normalize } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
 
-import * as services from '../services/index'
+// Services module loaded dynamically to reduce bundle size for apps without services
+let servicesModule: typeof import('../services/index') | null = null
 import { existsSync } from 'node:fs'
 import {
   ElectronBrowserWindowFlags,
@@ -214,23 +215,25 @@ Security.runVerification(isProduction, {
   }
 
   // ------------------------ Plugin System ------------------------
-  const { plugins: mutablePlugins, contexts: pluginContexts } = Plugins.initializePlugins(
-    plugins,
-    viteAssetsPath,
-    isProduction,
-    runtime.native,
-    utils,
-    createWindow,
-    Window.restoreWindow,
-    runtime,
-    hooks
-  )
+  const hasPlugins = Object.keys(plugins).length > 0
 
-  const boundRunAppPlugins = Plugins.createBoundRunAppPlugins(
-    mutablePlugins,
-    pluginContexts,
-    isProduction
-  )
+  const { plugins: mutablePlugins, contexts: pluginContexts } = hasPlugins
+    ? Plugins.initializePlugins(
+        plugins,
+        viteAssetsPath,
+        isProduction,
+        runtime.native,
+        utils,
+        createWindow,
+        Window.restoreWindow,
+        runtime,
+        hooks
+      )
+    : { plugins: {} as Record<string, any>, contexts: new Map() }
+
+  const boundRunAppPlugins = hasPlugins
+    ? Plugins.createBoundRunAppPlugins(mutablePlugins, pluginContexts, isProduction)
+    : async () => {}
 
   // Module-level state for preload data injection (eliminates sendSync)
   let __sanitizedServices: Record<string, any> = {}
@@ -510,9 +513,16 @@ Security.runVerification(isProduction, {
 
   // ------------------------ Service Resolution ------------------------
   const baseServiceOptions = { target: 'desktop', build: isProduction, root: PROJECT_ROOT_DIR }
+  const hasServices = config.services && Object.keys(config.services).length > 0
 
-  services
-    .resolveAll(config.services, baseServiceOptions)
+  const resolveServices = hasServices
+    ? import('../services/index').then(mod => {
+        servicesModule = mod
+        return mod.resolveAll(config.services, baseServiceOptions)
+      })
+    : Promise.resolve({})
+
+  resolveServices
     .then(async resolvedServices => {
       await boundRunAppPlugins([resolvedServices])
 
@@ -536,7 +546,7 @@ Security.runVerification(isProduction, {
           Lifecycle.setupStdinCommands(() => runtime.window.getAll())
 
           // Create services
-          const output = await services.createAll(resolvedServices, {
+          const output = await servicesModule!.createAll(resolvedServices, {
             ...baseServiceOptions,
             onClosed: (id: string, code: number) =>
               runtime.scopedIPC.serviceSend(id, 'closed', code),
@@ -549,7 +559,7 @@ Security.runVerification(isProduction, {
           const { active = {}, resolved = {}, close: closeService } = output
 
           // Populate module-level state so future windows get services via additionalArguments
-          __sanitizedServices = services.sanitize(resolved)
+          __sanitizedServices = servicesModule!.sanitize(resolved)
           __serviceStatuses = Object.fromEntries(
             Object.keys(resolved).map(id => [id, id in active ? active[id].status : 'remote'])
           )
@@ -581,7 +591,7 @@ Security.runVerification(isProduction, {
                     // Auto-restart: close and re-create the service
                     if (active[id]) {
                       closeService(id)
-                      services
+                      servicesModule!
                         .start(resolved[id], id, { ...baseServiceOptions, hooks })
                         .then(result => {
                           if (result) active[id] = result
@@ -724,7 +734,7 @@ Security.runVerification(isProduction, {
     Window.setShuttingDown(true)
     try {
       await boundRunAppPlugins([Lifecycle.getQuitMessage()], 'quit')
-      await services.close()
+      if (servicesModule) await servicesModule.close()
     } catch (err) {
       console.error(err)
     }
