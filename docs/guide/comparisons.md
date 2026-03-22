@@ -8,20 +8,9 @@ Every cross-platform framework makes trade-offs. This page is an honest guide to
 |---|---|---|---|---|
 | **Platforms** | Web + Desktop + Mobile | Desktop + Mobile | Mobile + PWA | Desktop |
 | **Backend services** | Any language, auto-bundled | Rust + manual sidecars | – | Node.js (in-process) |
-| **Frontend framework** | Any | Any | Any | Any |
 | **Desktop runtime** | Electron or Tauri | System webview | – | Chromium |
-| **App size overhead** | 20–63 KB (web)<br/>70 KB–? (Electron)<br/>20–63 KB (Tauri) | – | – | – |
-| **License** | MIT | MIT/Apache-2.0 | MIT | MIT |
 
-Commoners adds a runtime layer on top of the underlying tool. The overhead scales with what you configure:
-
-| | No plugins/services | With plugins + services |
-|---|---|---|
-| **Runtime** (onload.mjs) | 5 KB | 13 KB |
-| **Config bundle** | 1 KB | 50 KB+ (depends on config complexity) |
-| **Electron main process** | 31 KB (+ lazy chunks) | 52 KB+ |
-
-For desktop builds, this overhead is negligible — Electron is 268 MB and Tauri is 12 MB, so even the full Commoners runtime is <0.1% of the final app. Run `bash examples/bench/benchmark.sh --desktop` to reproduce.
+Commoners adds a ~20 KB runtime on top of the underlying tool. For desktop builds, Electron is 268 MB and Tauri is 12 MB, so the overhead is negligible. Run `bash examples/bench/benchmark.sh --desktop` to reproduce.
 
 ## When to Choose Commoners
 
