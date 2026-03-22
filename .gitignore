@@ -16,8 +16,8 @@ target
 
 
 # AI
-CLAUDE.md
-.claude 
+.claude/*
+!.claude/commands/
 
 # Testing Resources
 .vite-templates
