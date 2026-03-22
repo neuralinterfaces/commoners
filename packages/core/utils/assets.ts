@@ -19,7 +19,7 @@ import { resolveConfigPath } from '../index.js'
 import { createNoOpHooks } from '../ui.js'
 import { copyAsset } from './copy.js'
 import { encodePath } from './encode.js'
-import { isDesktop, rootDir, vite } from '../globals.js'
+import { isDesktop, isElectron, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
 import { BuildError } from '../errors.js'
 import { createLogger } from '../assets/utils/logger.js'
@@ -302,9 +302,12 @@ export const getAppAssets = async (
     bundle: [],
   }
 
-  // Create Config
+  // Create Config — .cjs is only needed for Electron's main process
+  const configExtensions = CONFIG_EXTENSION_TARGETS.filter(
+    ext => ext !== '.cjs' || isElectron(target)
+  )
   assets.bundle.push(
-    ...CONFIG_EXTENSION_TARGETS.map(ext => {
+    ...configExtensions.map(ext => {
       const output = `commoners.config${ext}`
       return configPath
         ? { input: configPath, output }

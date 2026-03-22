@@ -22,7 +22,8 @@ All four release gate items are complete:
 - **Tauri plugin support** -- Add Tauri-specific code paths for plugins that currently call `require('electron')`. Demand-driven.
 - **Vite 8 migration** -- Attempted and reverted (esbuild transform bug strips 6th+ object property). Retry when fixed upstream.
 - **Service hot-reload in Electron dev mode** -- Changing a service currently requires restarting the dev server (`lifecycle.ts:133` logs a warning). Implement file-watching and process restart for services during `commoners dev --target desktop`.
-- **C++ service scope clarification** -- Current C++ "support" delegates entirely to user-provided build commands. Either invest in real integration (header management, cross-compilation) or reframe in docs as "custom build command support" rather than first-class C++ support.
+- **C++ service scope clarification** -- Current C++ "support" delegates entirely to user-provided build commands. Either invest in real integration (header management, cross-compilation) or reframe in docs as "custom build command support" rather than first-class C++ support. (Docs reframed in guide/services/cpp.md.)
+- **Onload script tree-shaking** -- `onload.mjs` is 14 KB even for apps with zero plugins. The plugin runtime, WebSocket dev server, and Electron IPC code could be conditionally excluded at build time using compile-time defines (the config bundling step already knows whether plugins exist).
 
 ### Medium-term
 
