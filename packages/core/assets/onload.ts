@@ -1,4 +1,5 @@
-import { removeAllListeners, removeListener } from 'process'
+import { queryExtensions, validateRequirements } from './capabilities'
+import { createWebEvents } from './events/index'
 import {
   asyncFilter,
   isPluginLoadable,
@@ -6,8 +7,10 @@ import {
   resolveLazy,
   sanitizePluginProperties,
 } from './utils'
-import { queryExtensions, validateRequirements } from './capabilities'
-import { createWebEvents } from './events/index'
+
+declare const __HAS_PLUGINS__: boolean
+declare const __IS_DEV__: boolean
+declare const __IS_DESKTOP__: boolean
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -20,7 +23,7 @@ const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
 // Extension discovery — commoners.query(), .validate(), .list(), .get()
 const getExtensions = () => (ENV as any).EXTENSIONS ?? {}
-;(ENV as any).query = (filter) => queryExtensions(getExtensions(), filter)
+;(ENV as any).query = filter => queryExtensions(getExtensions(), filter)
 ;(ENV as any).validate = () => validateRequirements(getExtensions())
 ;(ENV as any).list = () => ({ ...getExtensions() })
 ;(ENV as any).get = (id: string) => getExtensions()[id]
@@ -28,10 +31,7 @@ const getExtensions = () => (ENV as any).EXTENSIONS ?? {}
 // Cross-window events
 if (DESKTOP) {
   import('./events/electron').then(({ createElectronRendererEvents }) => {
-    ;(ENV as any).events = createElectronRendererEvents(
-      TEMP_COMMONERS.send,
-      TEMP_COMMONERS.on,
-    )
+    ;(ENV as any).events = createElectronRendererEvents(TEMP_COMMONERS.send, TEMP_COMMONERS.on)
   })
 } else {
   ;(ENV as any).events = createWebEvents()
@@ -40,18 +40,26 @@ if (DESKTOP) {
 // Runtime detection — commoners.is('desktop'), commoners.is('mobile'), etc.
 ;(ENV as any).is = (check: string): boolean => {
   switch (check) {
-    case 'desktop': return !!DESKTOP
-    case 'mobile': return !!MOBILE
-    case 'web': return !!WEB
-    case 'dev': return !!DEV
-    case 'prod': return !DEV
-    case 'electron': return (ENV as any).TARGET === 'electron'
-    case 'tauri': return (ENV as any).TARGET === 'tauri'
-    default: return false
+    case 'desktop':
+      return !!DESKTOP
+    case 'mobile':
+      return !!MOBILE
+    case 'web':
+      return !!WEB
+    case 'dev':
+      return !!DEV
+    case 'prod':
+      return !DEV
+    case 'electron':
+      return (ENV as any).TARGET === 'electron'
+    case 'tauri':
+      return (ENV as any).TARGET === 'tauri'
+    default:
+      return false
   }
 }
 
-if (__PLUGINS) {
+if (__HAS_PLUGINS__ && __PLUGINS) {
   const devSocketListeners = { plugins: {} }
   const devSocketServer = DEV && !DESKTOP ? new WebSocket(DEV) : null
 
@@ -92,11 +100,14 @@ if (__PLUGINS) {
                 const ctx = {
                   send: (channel, ...args) =>
                     devSocketServer &&
-                    devSocketServer.send(JSON.stringify({ context: 'plugins', id: pluginId, channel, args })),
+                    devSocketServer.send(
+                      JSON.stringify({ context: 'plugins', id: pluginId, channel, args })
+                    ),
                   sendSync: false,
                   on: (channel, listener) => {
                     const pluginListeners = devSocketListeners['plugins'][pluginId] ?? {}
-                    const channelListeners = (pluginListeners[channel] = pluginListeners[channel] ?? {})
+                    const channelListeners = (pluginListeners[channel] =
+                      pluginListeners[channel] ?? {})
                     const symbol = Symbol()
                     channelListeners[symbol] = listener
                     return symbol
@@ -170,11 +181,13 @@ if (__PLUGINS) {
       return false
     }
   }).then(async supported => {
-    const sanitized = await Promise.all(supported.map(async ([id, o]) => {
-      let { load } = sanitizePluginProperties(o, TARGET)
-      load = await resolveLazy(load)
-      return { id, load }
-    }))
+    const sanitized = await Promise.all(
+      supported.map(async ([id, o]) => {
+        let { load } = sanitizePluginProperties(o, TARGET)
+        load = await resolveLazy(load)
+        return { id, load }
+      })
+    )
 
     sanitized.forEach(async ({ id, load }) => {
       loaded[id] = undefined // Register that all supported plugins are technically loaded

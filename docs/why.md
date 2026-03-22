@@ -29,7 +29,7 @@ Commoners is a CLI tool that reads a single `commoners.config.ts` and handles th
 | Auto-bundle backends | **Yes** | No | No | No | No |
 | Frontend framework | Any | Any | Any | Vue | React |
 | Local + remote services | **Yes** | No | No | No | No |
-| Desktop app size | Electron + 70 KB, Tauri + 20 KB | 12 MB | – | 268 MB | – |
+| Commoners overhead | 20–63 KB (web), <0.1% (desktop) | – | – | – | – |
 
 Commoners is the tool that gets your app — frontend and backend — onto every platform from one config.
 
