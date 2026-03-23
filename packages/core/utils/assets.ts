@@ -13,6 +13,7 @@ import {
   basename,
 } from 'node:path'
 import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
 
 // Internal Imports
 import { resolveConfigPath } from '../index.js'
@@ -948,7 +949,10 @@ export const bundleConfig = async (
     // User-facing target guards for dead-code elimination in config files.
     // Usage: if (__COMMONERS_DESKTOP__) { /* desktop-only plugin */ }
     // Targets: web, desktop, mobile (universal) + electron, tauri, ios, android (subtargets)
+    // Rewrite import.meta.url to the *source* config file so getDirname() etc.
+    // resolve paths relative to the project root, not the bundle output directory.
     define: {
+      'import.meta.url': JSON.stringify(pathToFileURL(input).href),
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
       __COMMONERS_MOBILE__: JSON.stringify(
