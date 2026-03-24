@@ -969,6 +969,20 @@ export const bundleConfig = async (
       __COMMONERS_ANDROID__: JSON.stringify(
         target === 'android' || target === 'android-capacitor' || target === 'android-tauri'
       ),
+      // For browser targets, inline process.env.* values at build time.
+      // The process/browser polyfill provides an empty env object, so any
+      // process.env.* references would be undefined at runtime. Inline
+      // VITE_ and COMMONERS_ prefixed values (matching Vite's envPrefix)
+      // so config code like `process.env.VITE_BASE_PATH || '/'` resolves
+      // correctly when the config is re-bundled for the browser.
+      // Non-prefixed vars are NOT inlined to avoid leaking secrets.
+      ...(!node
+        ? Object.fromEntries(
+            Object.entries(process.env)
+              .filter(([k]) => k.startsWith('VITE_') || k.startsWith('COMMONERS_'))
+              .map(([k, v]) => [`process.env.${k}`, JSON.stringify(v ?? '')])
+          )
+        : {}),
     },
 
     resolve: {
