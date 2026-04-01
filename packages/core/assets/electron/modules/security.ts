@@ -95,7 +95,11 @@ export async function runVerification(
  * In production, replaces 'unsafe-inline' in script-src with a sha256 hash of the
  * inline script. In dev mode, keeps 'unsafe-inline' because HMR changes script content.
  */
-function buildDefaultCSP(devServerUrl?: string, serviceUrls?: string[], scriptHash?: string): string {
+function buildDefaultCSP(
+  devServerUrl?: string,
+  serviceUrls?: string[],
+  scriptHash?: string
+): string {
   const connectSources = ["'self'"]
   if (devServerUrl) connectSources.push(devServerUrl, 'ws:')
   if (serviceUrls) connectSources.push(...serviceUrls)
@@ -124,7 +128,7 @@ function buildDefaultCSP(devServerUrl?: string, serviceUrls?: string[], scriptHa
  */
 export function setupContentSecurityPolicy(
   setupCSP: (csp: string) => void,
-  cspSetting?: string | false,
+  cspSetting?: string | false | Record<string, string[]>,
   devServerUrl?: string,
   serviceUrls?: string[],
   scriptHash?: string
@@ -132,7 +136,27 @@ export function setupContentSecurityPolicy(
   // User explicitly disabled CSP
   if (cspSetting === false) return
 
-  const csp = typeof cspSetting === 'string' ? cspSetting : buildDefaultCSP(devServerUrl, serviceUrls, scriptHash)
+  let csp: string
+  if (typeof cspSetting === 'string') {
+    csp = cspSetting
+  } else {
+    // Build default CSP, then merge per-directive overrides if provided
+    csp = buildDefaultCSP(devServerUrl, serviceUrls, scriptHash)
+    if (typeof cspSetting === 'object' && cspSetting !== null) {
+      const directives = new Map(
+        csp.split('; ').map(d => {
+          const [key, ...vals] = d.split(' ')
+          return [key, vals]
+        })
+      )
+      for (const [key, values] of Object.entries(cspSetting)) {
+        directives.set(key, values)
+      }
+      csp = Array.from(directives.entries())
+        .map(([key, vals]) => `${key} ${vals.join(' ')}`)
+        .join('; ')
+    }
+  }
 
   setupCSP(csp)
 }

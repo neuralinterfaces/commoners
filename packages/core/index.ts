@@ -117,8 +117,18 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   )
 
   const resolvedRoot = configPath ? dirname(configPath) : root || process.cwd()
+  const hasIndexHTML = existsSync(join(resolvedRoot, 'index.html'))
 
-  let config = {} as UserConfig // No user-defined configuration found
+  if (!configPath && !hasIndexHTML) {
+    const err = new ConfigurationError(
+      'Not a Commoners project',
+      `No commoners.config.ts (or .js) and no index.html found in ${resolvedRoot}`
+    )
+    logger.error(err.message, { root: resolvedRoot, reason: err.details })
+    throw err
+  }
+
+  let config = {} as UserConfig
 
   if (configPath) {
     const configOutputPath = join(resolvedRoot, globalTempDir, `commoners.config.mjs`)
@@ -127,28 +137,44 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
     // file (no code-split chunks), and doesn't need browser polyfills.
     const esbuild = await import('esbuild')
     mkdirSync(dirname(configOutputPath), { recursive: true })
-    await esbuild.build({
-      entryPoints: [configPath],
-      bundle: true,
-      platform: 'node',
-      format: 'esm',
-      outfile: configOutputPath,
-      logLevel: 'silent',
-      // Externalize packages that cannot be bundled into a config snapshot:
-      // - electron: only available inside the Electron runtime
-      // - *.node: native addons (e.g. keytar) require a loader at runtime
-      // - @aws-sdk/*: optional peer of unzipper, not always installed
-      external: ['electron', '*.node', '@aws-sdk/*', '@commoners/solidarity', 'commoners'],
-      // Rewrite import.meta.url to the *source* config file so getDirname() etc.
-      // resolve paths relative to the project root, not the temp output directory.
-      define: { 'import.meta.url': JSON.stringify(pathToFileURL(configPath).href) },
-      // esbuild wraps CJS deps in __commonJS which uses __require (a require polyfill).
-      // In .mjs files, require() is unavailable. Inject createRequire so __require works.
-      // Use the output file URL (not import.meta.url, which is overridden by define above).
-      banner: {
-        js: `import { createRequire as __bundled_createRequire } from 'node:module';const require = __bundled_createRequire(${JSON.stringify(pathToFileURL(configOutputPath).href)});`,
-      },
-    })
+    try {
+      await esbuild.build({
+        entryPoints: [configPath],
+        bundle: true,
+        platform: 'node',
+        format: 'esm',
+        outfile: configOutputPath,
+        logLevel: 'silent',
+        // Externalize packages that cannot be bundled into a config snapshot:
+        // - electron: only available inside the Electron runtime
+        // - *.node: native addons (e.g. keytar) require a loader at runtime
+        // - @aws-sdk/*: optional peer of unzipper, not always installed
+        external: ['electron', '*.node', '@aws-sdk/*', '@commoners/solidarity', 'commoners'],
+        // Rewrite import.meta.url to the *source* config file so getDirname() etc.
+        // resolve paths relative to the project root, not the temp output directory.
+        define: { 'import.meta.url': JSON.stringify(pathToFileURL(configPath).href) },
+        // esbuild wraps CJS deps in __commonJS which uses __require (a require polyfill).
+        // In .mjs files, require() is unavailable. Inject createRequire so __require works.
+        // Use the output file URL (not import.meta.url, which is overridden by define above).
+        banner: {
+          js: `import { createRequire as __bundled_createRequire } from 'node:module';const require = __bundled_createRequire(${JSON.stringify(pathToFileURL(configOutputPath).href)});`,
+        },
+      })
+    } catch (err: any) {
+      if (err.errors?.length) {
+        const lines = err.errors.map((e: any) => {
+          const loc = e.location
+          const where = loc
+            ? `\n        \x1b[2mat ${loc.file}:${loc.line}:${loc.column}\x1b[0m`
+            : ''
+          const text = e.text.replace(/"([^"]+)"/g, '\x1b[1;37m"$1"\x1b[0;31m')
+          return `    \x1b[31m✗ ${text}\x1b[0m${where}`
+        })
+        const msg = `\n  \x1b[1;31m✗ Failed to bundle config file\x1b[0m\n\n${lines.join('\n\n')}\n`
+        throw new Error(msg)
+      }
+      throw err
+    }
 
     const fileURL = pathToFileURL(configOutputPath).href
 
@@ -349,6 +375,16 @@ export async function resolveConfig(
         service,
       }
     }
+  }
+
+  // Validate that the project has something to run
+  const hasPages = Object.keys(o.pages).length > 0 || existsSync(join(root, 'index.html'))
+  const hasServices = Object.keys(resolvedServices).length > 0
+  if (!hasPages && !hasServices) {
+    throw new ConfigurationError(
+      'Empty configuration',
+      'Config must define at least one page (or an index.html) or one service'
+    )
   }
 
   o.extensions = resolvedExtensions

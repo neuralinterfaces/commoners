@@ -119,7 +119,15 @@ type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> }
 export type WritableElectronBuilderConfig = DeepWriteable<ElectronBuilderConfiguration>
 
 // ------------------- Support -------------------
-export const validMobileTargets = ['mobile', 'ios', 'android', 'ios-capacitor', 'android-capacitor', 'ios-tauri', 'android-tauri']
+export const validMobileTargets = [
+  'mobile',
+  'ios',
+  'android',
+  'ios-capacitor',
+  'android-capacitor',
+  'ios-tauri',
+  'android-tauri',
+]
 
 export const validDesktopTargets = ['desktop', 'electron', 'tauri']
 
@@ -144,7 +152,14 @@ export type ViteOptions = { dev?: boolean; hooks?: HooksInterface }
 export type ServerOptions = { printUrls?: boolean }
 
 export type TargetType = (typeof valid.target)[number]
-export type SpecificTargetType = 'electron' | 'tauri' | 'ios-capacitor' | 'android-capacitor' | 'ios-tauri' | 'android-tauri' | 'web'
+export type SpecificTargetType =
+  | 'electron'
+  | 'tauri'
+  | 'ios-capacitor'
+  | 'android-capacitor'
+  | 'ios-tauri'
+  | 'android-tauri'
+  | 'web'
 
 // export type PlatformType = typeof validDesktopTargets[number]
 
@@ -276,7 +291,11 @@ type DesktopPluginContext = {
   utils: typeof utils // Legacy — prefer runtime abstraction for Tauri compatibility
   createWindow: (page: string, opts: BrowserWindowConstructorOptions) => BrowserWindow
   send: (channel: string, ...args: any[]) => void
-  handle: (channel: string, callback: (...args: any[]) => any, win?: BrowserWindow) => { remove: () => void }
+  handle: (
+    channel: string,
+    callback: (...args: any[]) => any,
+    win?: BrowserWindow
+  ) => { remove: () => void }
   on: (
     channel: string,
     callback: (event: IpcMainEvent, ...args: any[]) => void,
@@ -389,7 +408,7 @@ export type ElectronSecuritySettings = {
   contextIsolation?: boolean // Enable context isolation (default: true)
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
   asarIntegrity?: boolean | { strict?: boolean } // Enable ASAR integrity checks (default: true)
-  csp?: string | false // Content Security Policy override. Set to false to disable CSP entirely.
+  csp?: string | false | Record<string, string[]> // Content Security Policy override. String for full CSP, object for per-directive overrides, false to disable.
 }
 
 export type ElectronOptions = {
