@@ -138,7 +138,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
       // - electron: only available inside the Electron runtime
       // - *.node: native addons (e.g. keytar) require a loader at runtime
       // - @aws-sdk/*: optional peer of unzipper, not always installed
-      external: ['electron', '*.node', '@aws-sdk/*'],
+      external: ['electron', '*.node', '@aws-sdk/*', '@commoners/solidarity', 'commoners'],
       // Rewrite import.meta.url to the *source* config file so getDirname() etc.
       // resolve paths relative to the project root, not the temp output directory.
       define: { 'import.meta.url': JSON.stringify(pathToFileURL(configPath).href) },

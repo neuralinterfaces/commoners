@@ -542,97 +542,104 @@ Security.runVerification(isProduction, {
             inlineScriptHash
           )
 
-          // Create services
-          const output = await servicesModule!.createAll(resolvedServices, {
-            ...baseServiceOptions,
-            onClosed: (id: string, code: number) =>
-              runtime.scopedIPC.serviceSend(id, 'closed', code),
-            onLog: (id: string, msg: Buffer) =>
-              runtime.scopedIPC.serviceSend(id, 'log', msg.toString()),
-            hooks,
-            hashManifest: serviceHashManifest,
-          })
+          // Create services (skip if no services module was loaded)
+          let active: Record<string, any> = {}
+          let resolved: Record<string, any> = {}
 
-          const { active = {}, resolved = {}, close: closeService } = output
-
-          // Populate module-level state so future windows get services via additionalArguments
-          __sanitizedServices = servicesModule!.sanitize(resolved)
-          __serviceStatuses = Object.fromEntries(
-            Object.keys(resolved).map(id => [id, id in active ? active[id].status : 'remote'])
-          )
-
-          // Keep sync handler as fallback for windows created before services resolved
-          runtime.ipc.on(Commands.services.channel, ev => {
-            ev.returnValue = __sanitizedServices
-          })
-
-          // Setup STDIN commands with service hot-reload support
-          Lifecycle.setupStdinCommands(() => runtime.window.getAll(), {
-            onServiceReload: async (serviceId: string) => {
-              if (!(serviceId in active)) return
-              console.log(`[commoners] Reloading service: ${serviceId}`)
-              try {
-                await closeService(serviceId)
-                const result = await servicesModule!.start(resolved[serviceId], serviceId, {
-                  ...baseServiceOptions,
-                  hooks,
-                })
-                if (result) {
-                  active[serviceId] = result
-                  __sanitizedServices = servicesModule!.sanitize(resolved)
-                  // Notify renderer windows of updated service URLs
-                  runtime.window.getAll().forEach((win: any) => {
-                    if (!win.isDestroyed()) {
-                      win.webContents.send('commoners:services:updated', __sanitizedServices)
-                    }
-                  })
-                }
-              } catch (err) {
-                console.error(`[commoners] Failed to reload service "${serviceId}":`, err)
-              }
-            },
-          })
-
-          // Track service status and health
-          const healthMonitors = new Map<string, any>()
-          for (let id in resolved) {
-            const isRemote = !(id in active)
-            runtime.scopedIPC.serviceOn(id, 'status', ev => {
-              ev.returnValue = isRemote ? 'remote' : active[id].status
+          if (servicesModule) {
+            const output = await servicesModule.createAll(resolvedServices, {
+              ...baseServiceOptions,
+              onClosed: (id: string, code: number) =>
+                runtime.scopedIPC.serviceSend(id, 'closed', code),
+              onLog: (id: string, msg: Buffer) =>
+                runtime.scopedIPC.serviceSend(id, 'log', msg.toString()),
+              hooks,
+              hashManifest: serviceHashManifest,
             })
-            runtime.scopedIPC.serviceOn(id, 'close', () => isRemote || closeService(id))
 
-            // Health monitoring: start monitor if service has a URL and monitor config
-            const serviceConfig = resolved[id] as any
-            if (serviceConfig.url && serviceConfig.monitor) {
-              import('../services/health').then(({ ServiceHealthMonitor }) => {
-                const monitor = new ServiceHealthMonitor(
-                  id,
-                  serviceConfig.url,
-                  serviceConfig.monitor,
-                  hooks,
-                  () => {
-                    // Auto-restart: close and re-create the service
-                    if (active[id]) {
-                      closeService(id)
-                      servicesModule!
-                        .start(resolved[id], id, { ...baseServiceOptions, hooks })
-                        .then(result => {
-                          if (result) active[id] = result
-                        })
-                    }
+            const { close: closeService } = output
+            active = output.active ?? {}
+            resolved = output.resolved ?? {}
+
+            // Populate module-level state so future windows get services via additionalArguments
+            __sanitizedServices = servicesModule.sanitize(resolved)
+            __serviceStatuses = Object.fromEntries(
+              Object.keys(resolved).map(id => [id, id in active ? active[id].status : 'remote'])
+            )
+
+            // Keep sync handler as fallback for windows created before services resolved
+            runtime.ipc.on(Commands.services.channel, ev => {
+              ev.returnValue = __sanitizedServices
+            })
+
+            // Setup STDIN commands with service hot-reload support
+            Lifecycle.setupStdinCommands(() => runtime.window.getAll(), {
+              onServiceReload: async (serviceId: string) => {
+                if (!(serviceId in active)) return
+                console.log(`[commoners] Reloading service: ${serviceId}`)
+                try {
+                  await closeService(serviceId)
+                  const result = await servicesModule.start(resolved[serviceId], serviceId, {
+                    ...baseServiceOptions,
+                    hooks,
+                  })
+                  if (result) {
+                    active[serviceId] = result
+                    __sanitizedServices = servicesModule.sanitize(resolved)
+                    // Notify renderer windows of updated service URLs
+                    runtime.window.getAll().forEach((win: any) => {
+                      if (!win.isDestroyed()) {
+                        win.webContents.send('commoners:services:updated', __sanitizedServices)
+                      }
+                    })
                   }
-                )
-                monitor.start()
-                healthMonitors.set(id, monitor)
+                } catch (err) {
+                  console.error(`[commoners] Failed to reload service "${serviceId}":`, err)
+                }
+              },
+            })
+
+            // Track service status and health
+            const healthMonitors = new Map<string, any>()
+            for (let id in resolved) {
+              const isRemote = !(id in active)
+              runtime.scopedIPC.serviceOn(id, 'status', ev => {
+                ev.returnValue = isRemote ? 'remote' : active[id].status
+              })
+              runtime.scopedIPC.serviceOn(id, 'close', () => isRemote || closeService(id))
+
+              // Health monitoring: start monitor if service has a URL and monitor config
+              const serviceConfig = resolved[id] as any
+              if (serviceConfig.url && serviceConfig.monitor) {
+                import('../services/health').then(({ ServiceHealthMonitor }) => {
+                  const monitor = new ServiceHealthMonitor(
+                    id,
+                    serviceConfig.url,
+                    serviceConfig.monitor,
+                    hooks,
+                    () => {
+                      // Auto-restart: close and re-create the service
+                      if (active[id]) {
+                        closeService(id)
+                        servicesModule
+                          .start(resolved[id], id, { ...baseServiceOptions, hooks })
+                          .then(result => {
+                            if (result) active[id] = result
+                          })
+                      }
+                    }
+                  )
+                  monitor.start()
+                  healthMonitors.set(id, monitor)
+                })
+              }
+
+              // Health IPC handler
+              runtime.scopedIPC.scopedHandle('services', id, 'health', async () => {
+                const monitor = healthMonitors.get(id)
+                return monitor ? monitor.getStatus() : 'unknown'
               })
             }
-
-            // Health IPC handler
-            runtime.scopedIPC.scopedHandle('services', id, 'health', async () => {
-              const monitor = healthMonitors.get(id)
-              return monitor ? monitor.getStatus() : 'unknown'
-            })
           }
 
           // Custom protocol handler
