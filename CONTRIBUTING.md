@@ -103,3 +103,7 @@ The generated changeset file should be committed with your PR.
 3. Add a changeset if applicable (`pnpm changeset`)
 4. Ensure `pnpm build` and `pnpm test` pass
 5. Submit a PR against `dev`
+
+## Releases
+
+For cutting a new release and publishing to npm, see [`docs/RELEASE.md`](docs/RELEASE.md). That doc covers the two release paths (changeset-driven and manual bump), the linked-package versioning model, and the verification checklist before announcing a release.
