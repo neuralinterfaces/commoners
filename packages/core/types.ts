@@ -61,8 +61,15 @@ export type SecurityEvent =
   | { type: 'security:integrity:start'; asarPath: string }
   | { type: 'security:integrity:complete'; asarPath: string; success: boolean }
   | { type: 'security:protocol:blocked'; origin: string; url: string }
-  | { type: 'security:service:integrity:pass'; service: string; hash: string }
-  | { type: 'security:service:integrity:fail'; service: string; expected: string; actual: string }
+  | { type: 'security:service:integrity:pass'; service: string; signer?: string; hash?: string }
+  | {
+      type: 'security:service:integrity:fail'
+      service: string
+      expected: string
+      actual: string
+      reason?: string
+    }
+  | { type: 'security:service:integrity:skipped'; service: string; reason: string }
   | { type: 'security:asar:strict:error'; message: string }
   | { type: 'security:ipc:validation-fail'; channel: string; message: string }
   | { type: 'security:info'; message: string; context?: string }
@@ -409,6 +416,16 @@ export type ElectronSecuritySettings = {
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
   asarIntegrity?: boolean | { strict?: boolean } // Enable ASAR integrity checks (default: true)
   csp?: string | false | Record<string, string[]> // Content Security Policy override. String for full CSP, object for per-directive overrides, false to disable.
+  /**
+   * Expected publisher (substring of cert subject) for service binary verification.
+   * When set on a signed build, each executable service is verified against the OS
+   * code-signing chain (Authenticode on Windows, codesign on macOS) before spawn,
+   * and the leaf cert subject must contain this string. Sealed inside app.asar via
+   * ASAR integrity, so it cannot be redirected by an attacker. Skipped on platforms
+   * without native code signing (Linux). Pair with code-signing in your build
+   * pipeline; without signing, every spawn will be rejected.
+   */
+  expectedPublisher?: string
 }
 
 export type ElectronOptions = {

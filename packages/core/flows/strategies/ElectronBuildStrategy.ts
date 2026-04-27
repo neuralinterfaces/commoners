@@ -9,16 +9,15 @@ import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_ELECTRON, DIR_ELECTRON } from '../../constants.js'
 import { parseOptions } from '../../assets/electron/modules/config.js'
 
-import {
-  globalTempDir,
-  getBuildConfig,
-  templateDir,
-  electronVersion,
-} from '../../globals.js'
+import { globalTempDir, getBuildConfig, templateDir, electronVersion } from '../../globals.js'
 import { configureForDesktop } from '../../index.js'
 import merge from '../../utils/merge.js'
 import { lstatSync } from '../../utils/lstat.js'
-import { getIcon, ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE } from '../../assets/utils/icons.js'
+import {
+  getIcon,
+  ELECTRON_PREFERENCE,
+  ELECTRON_WINDOWS_PREFERENCE,
+} from '../../assets/utils/icons.js'
 import { getAssetBuildPath } from '../../utils/assets.js'
 import { loadEnvironmentVariables } from '../../assets/services/env/index.js'
 import path from 'node:path'
@@ -27,8 +26,7 @@ import type { WritableElectronBuilderConfig } from '../../types.js'
 const logger = createLogger('ElectronBuildStrategy')
 
 // Utility functions
-const replaceAllSpecialCharacters = (str: string) =>
-  str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
+const replaceAllSpecialCharacters = (str: string) => str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 
 const convertToBaseRegexString = (str: string) =>
   new RegExp(str).toString().split('/').slice(1, -1).join('/')
@@ -43,11 +41,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     return target === TARGET_DESKTOP_ELECTRON
   }
 
-  protected shouldUseTempDir(target: string): boolean {
+  protected shouldUseTempDir(_target: string): boolean {
     return true // Electron builds use temporary directories
   }
 
-  protected getTempDir(root: string, target: string): string {
+  protected getTempDir(root: string, _target: string): string {
     return join(root, globalTempDir, DIR_ELECTRON)
   }
 
@@ -85,8 +83,12 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     const { buildElectronAssets } = await import('../../vite/plugins/electron/index.js')
     await buildElectronAssets(root, stagingDir, true, { command: 'build', mode: 'production' }, {})
 
-    // Generate service binary hash manifest before packaging
-    await this.generateServiceHashManifest(context, stagingDir)
+    // Generate service trust manifest before packaging — sealed inside app.asar
+    // via ASAR integrity. Used at runtime to OS-verify each service binary's code
+    // signature before spawning. Replaces the older byte-hash manifest, which
+    // could not survive code signing (signtool/codesign mutate bytes after
+    // hashes were computed, causing legitimate signed binaries to be rejected).
+    await this.generateServiceTrustManifest(context, stagingDir)
 
     // Build electron-builder configuration
     const electronBuilderConfig = await this.buildElectronConfig(
@@ -98,7 +100,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Package the app
     const { build } = await import('electron-builder')
     await build(electronBuilderConfig)
-    
+
     logger.debug('Emitting build:electron:complete', { name, outDir })
     context.hooks.emit({ type: 'build:electron:complete' })
 
@@ -236,7 +238,6 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     extraResources: string[],
     signIgnore: string[]
   ): Promise<void> {
-
     const { config, stagingDir, root, target, assets } = context
     const { getAppAssets, buildAssets } = await import('../../utils/assets.js')
 
@@ -244,30 +245,31 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     const appAssetCollection = await getAppAssets(config, false, stagingDir)
     const appAssets = await buildAssets(appAssetCollection, { outDir: stagingDir, root, target })
 
-
-    const allAssets = [ ...appAssets, ...assets ]
+    const allAssets = [...appAssets, ...assets]
 
     const resolveFileLocation = (file: string) => {
       const relPath = relative(cwdRelativeOutDir, file)
       return join(relativeOutDir, relPath)
     }
 
-    allAssets.forEach(({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
-      const location = resolveFileLocation(file)
+    allAssets.forEach(
+      ({ file, extraResource, sign, isDirectory = lstatSync(file).isDirectory() }) => {
+        const location = resolveFileLocation(file)
 
-      if (extraResource) {
-        const glob = isDirectory ? join(location, '**') : location
-        extraResources.push(glob)
-        files.push(`!${glob}`)
-      }
+        if (extraResource) {
+          const glob = isDirectory ? join(location, '**') : location
+          extraResources.push(glob)
+          files.push(`!${glob}`)
+        }
 
-      // Ignore Code Signing for Certain Files
-      if (sign === false) {
-        signIgnore.push(
-          convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`)
-        )
+        // Ignore Code Signing for Certain Files
+        if (sign === false) {
+          signIgnore.push(
+            convertToBaseRegexString(`${replaceAllSpecialCharacters(location)}(/.*)?$`)
+          )
+        }
       }
-    })
+    )
   }
 
   /**
@@ -320,10 +322,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
         if (defaultValue !== undefined) {
           buildConfig[key] = defaultValue
         }
-      } else if (
-        typeof buildConfig[key] === 'string' &&
-        !isAbsolute(buildConfig[key] as string)
-      ) {
+      } else if (typeof buildConfig[key] === 'string' && !isAbsolute(buildConfig[key] as string)) {
         buildConfig[key] = path.join(root, buildConfig[key] as string)
       }
     }
@@ -342,11 +341,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   /**
    * Configure code signing settings
    */
-  private configureCodeSigning(
-    buildConfig: WritableElectronBuilderConfig,
-    config: any
-  ): void {
-
+  private configureCodeSigning(buildConfig: WritableElectronBuilderConfig, config: any): void {
     const toSign = this.willSign(config)
     if (!toSign) {
       // Disable code signing for Mac
@@ -357,10 +352,10 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
       // Remove environment variables that may interfere with signing
       const envVariablePrefixes = ['CSC_', 'WIN_CSC_']
-      const matchedEnvVariables = Object.keys(process.env).filter((key) =>
-        envVariablePrefixes.some((prefix) => key.startsWith(prefix))
+      const matchedEnvVariables = Object.keys(process.env).filter(key =>
+        envVariablePrefixes.some(prefix => key.startsWith(prefix))
       )
-      matchedEnvVariables.forEach((key) => delete process.env[key])
+      matchedEnvVariables.forEach(key => delete process.env[key])
 
       logger.debug('Code signing disabled')
     } else {
@@ -389,7 +384,7 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
       if (process.platform === 'darwin') {
         const missingMacVars = ['APPLE_ID', 'APPLE_ID_PASSWORD', 'APPLE_TEAM_ID'].filter(
-          (v) => !process.env[v]
+          v => !process.env[v]
         )
         const hasCSCLink = !!process.env.CSC_LINK
 
@@ -419,14 +414,13 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     buildConfig: WritableElectronBuilderConfig,
     config: any
   ): Promise<void> {
-
     const forceIntegrity = process.env.COMMONERS_FORCE_ASAR_INTEGRITY === 'true'
     const willSign = this.willSign(config)
     if (!willSign && !forceIntegrity) {
       logger.debug('ASAR integrity disabled since the application will not be signed')
       return
     }
-    
+
     const { securitySettings } = parseOptions(config, true)
 
     // Check if security is completely disabled
@@ -463,45 +457,59 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
     // Chain afterSign hook: verify ASAR hash survived code signing on macOS
     const existingAfterSign = buildConfig.afterSign as any
-    buildConfig.afterSign = chainAfterSign(
-      existingAfterSign,
-      afterSignVerifyAsarIntegrity
-    ) as any
+    buildConfig.afterSign = chainAfterSign(existingAfterSign, afterSignVerifyAsarIntegrity) as any
 
     logger.debug('ASAR integrity hooks configured (afterPack + afterSign)')
   }
 
   /**
-   * Generate a SHA256 hash manifest of executable service binaries.
-   * Uses the declarative serviceManifest from resolved config.
-   * Written to the build output so it's packaged into the ASAR,
-   * enabling runtime integrity verification before spawning services.
+   * Generate a service trust manifest declaring the expected code-signing publisher
+   * for each executable service. Written to the build output so it's packaged into
+   * the ASAR — sealed by ASAR integrity at runtime, an attacker cannot redirect the
+   * trust without invalidating the asar.
+   *
+   * At runtime, the service launcher asks the OS to verify each binary's actual
+   * code signature (Authenticode on Windows, codesign on macOS) and asserts the
+   * signing identity matches the sealed expected publisher. This replaces an older
+   * byte-hash design that broke on signed builds, because hashes were computed
+   * before signtool/codesign mutated the binaries.
+   *
+   * If `electron.security.expectedPublisher` is not set in the user config, no
+   * trust manifest is written and runtime verification is skipped (compatible with
+   * unsigned dev builds).
    */
-  private async generateServiceHashManifest(
-    context: BuildContext,
-    outDir: string
-  ): Promise<void> {
-    const { existsSync, readFileSync, writeFileSync } = await import('node:fs')
-    const { sha256 } = await import('../../utils/asar/hash.js')
+  private async generateServiceTrustManifest(context: BuildContext, outDir: string): Promise<void> {
+    const { writeFileSync } = await import('node:fs')
 
-    const { serviceManifest } = context.config
-    const hashes: Record<string, string> = {}
+    const { config } = context
+    const electron = (config as any).electron
+    const security = electron?.security
+    const expectedPublisher: string | undefined =
+      typeof security === 'object' ? security.expectedPublisher : undefined
+
+    if (!expectedPublisher) {
+      logger.debug('Service trust manifest skipped (electron.security.expectedPublisher not set)')
+      return
+    }
+
+    const { serviceManifest } = config
+    const trust: Record<string, { expectedPublisher: string }> = {}
 
     for (const [id, entry] of Object.entries(serviceManifest)) {
       if (!entry.executable || !entry.filepath) continue
-      if (!existsSync(entry.filepath)) continue
-
-      const buf = readFileSync(entry.filepath)
-      const hash = sha256(buf)
-      hashes[id] = hash
-      entry.hash = hash
-      logger.debug(`Service hash: ${id} -> ${hash.slice(0, 12)}...`)
+      trust[id] = { expectedPublisher }
     }
 
-    if (Object.keys(hashes).length > 0) {
-      const manifestPath = join(outDir, 'service-hashes.json')
-      writeFileSync(manifestPath, JSON.stringify(hashes, null, 2))
-      logger.info('Service hash manifest generated', { services: Object.keys(hashes) })
+    if (Object.keys(trust).length === 0) {
+      logger.debug('Service trust manifest skipped (no executable services)')
+      return
     }
+
+    const manifestPath = join(outDir, 'service-trust.json')
+    writeFileSync(manifestPath, JSON.stringify(trust, null, 2))
+    logger.info('Service trust manifest generated', {
+      services: Object.keys(trust),
+      expectedPublisher,
+    })
   }
 }

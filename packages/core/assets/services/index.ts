@@ -9,6 +9,7 @@ import { loadEnvironmentVariables } from './env/index.js'
 
 import { getLocalIP } from './ip.js'
 import { createLogger } from '../utils/logger.js'
+import { verifySignature } from '../utils/sign-verify.js'
 import { globalServiceWorkspacePath, globalTempServiceWorkspacePath } from './paths.js'
 import { ServiceHealthMonitor, HealthMonitorConfig } from './health.js'
 
@@ -67,7 +68,13 @@ type ServiceOptions = {
   services?: any // Truthy
   build?: boolean // Default: true
   hooks?: HooksInterface
-  hashManifest?: Record<string, string> | null // SHA256 hashes of service binaries for integrity verification
+  /**
+   * Code-signing trust manifest declaring the expected publisher for each
+   * executable service. Verified at spawn via the OS code-signing chain
+   * (Authenticode on Windows, codesign on macOS) so signed-build mutation
+   * doesn't break verification the way byte-hashing did.
+   */
+  serviceTrust?: Record<string, { expectedPublisher: string }> | null
 }
 
 const WINDOWS = process.platform === 'win32'
@@ -631,30 +638,48 @@ export async function start(config, id, opts) {
           })
         }
 
-        // Verify binary integrity when a hash manifest is available
-        if (isExecutable(ext) && opts.hashManifest?.[id]) {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { createHash } = require('node:crypto')
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { readFileSync } = require('node:fs')
-          const actual = createHash('sha256').update(readFileSync(resolvedFilepath)).digest('hex')
-          if (actual !== opts.hashManifest[id]) {
+        // Verify binary code signature when a trust manifest is available.
+        // Replaces an older byte-hash check that didn't survive code signing.
+        // The OS validates the cert chain + revocation; we assert the signing
+        // identity matches the expected publisher sealed in the trust manifest.
+        if (isExecutable(ext) && opts.serviceTrust?.[id]) {
+          const { expectedPublisher } = opts.serviceTrust[id]
+          const result = verifySignature(resolvedFilepath, expectedPublisher)
+          if (!result.valid) {
             hooks.emit({
               type: 'security:service:integrity:fail',
               service: label,
-              expected: opts.hashManifest[id],
-              actual,
+              expected: expectedPublisher,
+              actual: result.signer ?? '(no signer)',
+              reason: result.error,
             })
+            console.error(
+              `[commoners:service] "${label}" signature verification failed: ${result.error ?? 'unknown'}`
+            )
             return hooks.emit({
               type: 'service:launch:error',
               error: new Error(
-                `Service binary integrity check failed for ${label}: expected ${opts.hashManifest[id].slice(0, 12)}..., got ${actual.slice(0, 12)}...`
+                `Service binary signature verification failed for ${label}: ${result.error ?? 'unknown'}`
               ),
               service: label,
               filepath: resolvedFilepath,
             })
           }
-          hooks.emit({ type: 'security:service:integrity:pass', service: label, hash: actual })
+          if (result.skipped) {
+            // Platform doesn't support OS-level code-signing verification (e.g. Linux).
+            // Surface as a separate signal rather than implying we verified.
+            hooks.emit({
+              type: 'security:service:integrity:skipped',
+              service: label,
+              reason: 'platform does not support code-signing verification',
+            })
+          } else {
+            hooks.emit({
+              type: 'security:service:integrity:pass',
+              service: label,
+              signer: result.signer,
+            })
+          }
         }
 
         const baseProcessOptions = {

@@ -489,15 +489,18 @@ Security.runVerification(isProduction, {
 
   if (config.name) runtime.app.setName(config.name)
 
-  // ------------------------ Service Hash Manifest ------------------------
-  let serviceHashManifest: Record<string, string> | null = null
+  // ------------------------ Service Trust Manifest ------------------------
+  // Sealed inside app.asar (via ASAR integrity), so an attacker who can write
+  // to resources/ cannot redirect the trust. At spawn time, the OS verifies the
+  // service binary's actual code signature against this expected publisher.
+  let serviceTrustManifest: Record<string, { expectedPublisher: string }> | null = null
   let inlineScriptHash: string | undefined
   if (isProduction) {
     try {
-      const hashManifestPath = join(ASSET_ROOT_DIR, 'service-hashes.json')
-      if (existsSync(hashManifestPath)) {
+      const trustManifestPath = join(ASSET_ROOT_DIR, 'service-trust.json')
+      if (existsSync(trustManifestPath)) {
         const { readFileSync } = require('node:fs')
-        serviceHashManifest = JSON.parse(readFileSync(hashManifestPath, 'utf8'))
+        serviceTrustManifest = JSON.parse(readFileSync(trustManifestPath, 'utf8'))
       }
     } catch {}
 
@@ -554,7 +557,7 @@ Security.runVerification(isProduction, {
               onLog: (id: string, msg: Buffer) =>
                 runtime.scopedIPC.serviceSend(id, 'log', msg.toString()),
               hooks,
-              hashManifest: serviceHashManifest,
+              serviceTrust: serviceTrustManifest,
             })
 
             const { close: closeService } = output
