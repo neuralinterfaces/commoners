@@ -39,6 +39,29 @@ describe('Plugin Integration (Desktop)', () => {
       // checks plugin returns an object with echo, env, src
       expect(pluginTypes.checks).toBe('object')
     })
+
+    test('No plugin entry is a Promise (loader must store resolved values)', async () => {
+      // Regression: assets/onload.ts used to do `loaded[id] = load.call(...); await loaded[id]`
+      // which stored the Promise in `loaded[id]` instead of the resolved value.
+      // Consumers that synchronously destructured + read sub-properties (e.g.
+      // `const { windows } = await commoners.READY; windows.popup.create()`) silently
+      // saw `undefined` because Promises have no own enumerable props.
+      const offenders = await output.page.evaluate(() => {
+        return commoners.READY.then(plugins => {
+          const result: Record<string, string> = {}
+          for (const [id, value] of Object.entries(plugins)) {
+            if (value && typeof (value as any).then === 'function') {
+              result[id] = `value is a Promise (constructor: ${value?.constructor?.name})`
+            }
+          }
+          return result
+        })
+      })
+
+      expect(offenders, `Plugins still wrapped as Promises: ${JSON.stringify(offenders)}`).toEqual(
+        {}
+      )
+    })
   })
 
   describe('@commoners/windows plugin', () => {
@@ -49,43 +72,44 @@ describe('Plugin Integration (Desktop)', () => {
       expect(pluginKeys).toContain('windows')
     })
 
-    test('Windows plugin load() returns popup manager when ready() completes first', async () => {
-      // The windows plugin's load() calls this.invoke('windows') to get existing
-      // windows from the main process. If ready() hasn't registered that IPC handler
-      // yet, load() may fail. This is a known race condition that needs a framework fix.
+    test('Windows plugin load() returns popup manager (not a Promise wrapper)', async () => {
+      // Regression test for a bug in assets/onload.ts where the renderer's plugin
+      // loader stored the unresolved Promise in `loaded[id]` instead of the
+      // awaited value. PLUGINS.windows ended up a Promise — `'popup' in windows`
+      // was always false, and `windows.popup.create()` blew up at runtime.
+      // Synchronous destructuring + property access must work.
       const result = await output.page.evaluate(() => {
         return commoners.READY.then(plugins => {
           const windows = plugins.windows
-          if (!windows || typeof windows !== 'object') return { loaded: false }
-          const hasPopup = 'popup' in windows
-          if (!hasPopup) return { loaded: false }
           return {
-            loaded: true,
-            hasCreate: typeof windows.popup?.create === 'function',
-            hasWindows: typeof windows.popup?.windows === 'object',
+            isPromise: windows && typeof (windows as any).then === 'function',
+            constructorName: windows?.constructor?.name,
+            type: typeof windows,
+            ownKeys: windows ? Object.keys(windows) : [],
+            hasPopup: !!windows?.popup,
+            hasPopupCreate: typeof windows?.popup?.create === 'function',
+            hasPopupWindows: typeof windows?.popup?.windows === 'object',
           }
         })
       })
 
-      if (!result.loaded) {
-        // Known issue: ready() race condition — log but don't fail
-        console.log('[windows] Plugin load() incomplete — ready() IPC handler race condition')
-        return
-      }
-
-      expect(result.hasCreate).toBe(true)
-      expect(result.hasWindows).toBe(true)
+      expect(result.isPromise, 'PLUGINS.windows must be the resolved manager, not a Promise').toBe(
+        false
+      )
+      expect(result.type).toBe('object')
+      expect(result.ownKeys).toContain('popup')
+      expect(result.hasPopup).toBe(true)
+      expect(result.hasPopupCreate).toBe(true)
+      expect(result.hasPopupWindows).toBe(true)
     })
 
     test('Windows plugin popup manager creates windows with expected API', async () => {
       const result = await output.page.evaluate(() => {
         return commoners.READY.then(async plugins => {
           const popup = plugins.windows?.popup
-          if (!popup) return { skipped: true, reason: 'windows plugin not loaded (ready race)' }
-
+          if (!popup) return { skipped: true, reason: 'windows plugin not loaded' }
           const win = popup.create()
           if (!win) return { skipped: true, reason: 'create returned null' }
-
           return {
             skipped: false,
             hasOpen: typeof win.open === 'function',
@@ -95,11 +119,10 @@ describe('Plugin Integration (Desktop)', () => {
         })
       })
 
-      if (result.skipped) {
-        console.log(`[windows] Skipped: ${result.reason}`)
-        return
-      }
-
+      // The "skipped" branches above should no longer fire after the onload.ts
+      // unwrap fix. If they do, the regression is back — fail loudly rather than
+      // silently logging.
+      expect(result.skipped, `[windows] popup manager unavailable: ${result.reason}`).toBe(false)
       expect(result.hasOpen).toBe(true)
       expect(result.hasClose).toBe(true)
       expect(result.hasSend).toBe(true)

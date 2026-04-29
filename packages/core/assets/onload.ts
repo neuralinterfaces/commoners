@@ -134,8 +134,7 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
                     if (symbol) delete channelListeners[symbol]
                   },
                 }
-                loaded[pluginId] = load.call(ctx, ENV)
-                await loaded[pluginId]
+                loaded[pluginId] = await load.call(ctx, ENV)
               }
             } catch (e) {
               pluginErrorMessage(pluginId, 'reload', e)
@@ -245,8 +244,12 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
                 },
               }
 
-          loaded[id] = load.call(ctx, ENV)
-          await loaded[id]
+          // Replace the slot with the resolved value so consumers reading
+          // ENV.PLUGINS.<id> get the manager/handle, not a Promise. Without
+          // this, e.g. PLUGINS.windows is the Promise itself, so
+          // PLUGINS.windows.participant is undefined and any consumer trying
+          // to use the per-window API blows up at runtime.
+          loaded[id] = await load.call(ctx, ENV)
         }
 
         registerPluginAsLoaded(id)
