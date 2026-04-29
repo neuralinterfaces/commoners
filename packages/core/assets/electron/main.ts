@@ -181,7 +181,12 @@ Security.runVerification(isProduction, {
     return null
   }
 
-  async function loadPage(win: BrowserWindow, page?: string): Promise<string> {
+  async function loadPage(
+    win: BrowserWindow,
+    page?: string,
+    search: string = '',
+    hash: string = ''
+  ): Promise<string> {
     if (page && Protocol.isValidUrl(page)) {
       runtime.window.loadURL(win, page)
       return page
@@ -196,11 +201,16 @@ Security.runVerification(isProduction, {
 
     try {
       new URL(location)
-      runtime.window.loadURL(win, location)
+      runtime.window.loadURL(win, location + search + hash)
       return location
     } catch {}
 
-    const loadFile = (loc: string) => runtime.window.loadURL(win, pathToFileURL(loc).href)
+    // file:// URLs accept query strings and fragments — append the captured search/hash
+    // from the originating navigate() call so the destination page sees them on
+    // window.location. Without this, dev-mode in-window navigation between file://
+    // pages loses ?id=... etc.
+    const loadFile = (loc: string) =>
+      runtime.window.loadURL(win, pathToFileURL(loc).href + search + hash)
 
     const result = await loadFile(location)
       .then(() => location)
@@ -349,7 +359,7 @@ Security.runVerification(isProduction, {
         }
       }
 
-      await loadPage(win, pathname)
+      await loadPage(win, pathname, urlObj.search, urlObj.hash)
     })
 
     Object.defineProperty(win, '__show', {
@@ -721,7 +731,10 @@ Security.runVerification(isProduction, {
                 return new Response(`Page not found: ${resolvedPath}`, { status: 404 })
               }
 
-              // Propagate search and hash from protocol URL to page location
+              // Propagate search and hash from protocol URL to page location.
+              // Must pass them to loadPage too — without this, the destination
+              // page loads at its base URL and the renderer's window.location.search
+              // is empty (mirror of the will-navigate fix above).
               const targetWindow = Window.restoreWindow()!
               if (targetWindow) {
                 const __location = Window.getWindowLocation(
@@ -731,7 +744,7 @@ Security.runVerification(isProduction, {
                   __location.search = search || undefined
                   __location.hash = hash || undefined
                 }
-                loadPage(targetWindow, resolvedPath)
+                loadPage(targetWindow, resolvedPath, search || '', hash || '')
               }
 
               // Return page content as Response to satisfy protocol.handle()
