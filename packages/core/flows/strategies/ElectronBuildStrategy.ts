@@ -481,6 +481,15 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   private async generateServiceTrustManifest(context: BuildContext, outDir: string): Promise<void> {
     const { writeFileSync } = await import('node:fs')
 
+    // SKIP_SIGNING=1 produces an unsigned dev-test build. Skip writing the trust
+    // manifest so the runtime signature-verification block is bypassed (it only
+    // fires when serviceTrust[id] is present). Without this, an unsigned
+    // bundled service would fail to launch on a SKIP_SIGNING build.
+    if (process.env.SKIP_SIGNING === '1') {
+      logger.info('Service trust manifest skipped (SKIP_SIGNING=1 unsigned build)')
+      return
+    }
+
     const { config } = context
     const electron = (config as any).electron
     const security = electron?.security
