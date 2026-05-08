@@ -485,11 +485,16 @@ Security.runVerification(isProduction, {
   runtime.ipc.on(Commands.mainReadyPong.channel, (_, id) => callbacks.run(`ready:main:${id}`))
 
   // ------------------------ Single Instance ------------------------
-  Window.makeSingleInstance(Window.restoreWindow, {
-    requestLock: () => runtime.native.app.requestSingleInstanceLock(),
-    exit: () => runtime.lifecycle.exit(),
-    onSecond: cb => runtime.native.app.on('second-instance', cb),
-  })
+  // Default-on. Apps that want concurrent instances (or dev workflows where
+  // an old Electron process is still holding the OS lock) can opt out with
+  // `electron: { singleInstance: false }` in commoners.config.
+  if (electronOptions.singleInstance !== false) {
+    Window.makeSingleInstance(Window.restoreWindow, {
+      requestLock: () => runtime.native.app.requestSingleInstanceLock(),
+      exit: () => runtime.lifecycle.exit(),
+      onSecond: cb => runtime.native.app.on('second-instance', cb),
+    })
+  }
 
   // ------------------------ Protocol Registration ------------------------
   const hasCustomProtocol = !!protocolOptions.scheme

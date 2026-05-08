@@ -434,6 +434,11 @@ export type ElectronOptions = {
   protocol?: string | CustomScheme
   build?: ElectronBuilderConfiguration
   security?: boolean | ElectronSecuritySettings // Whether to use secure builds (default: true)
+  // When true (default), a second launch of the app focuses the existing
+  // window instead of starting a new instance. Set to false to allow
+  // concurrent instances — useful in dev for hot-reloading scenarios where
+  // the previous Electron process hasn't released its OS lock yet.
+  singleInstance?: boolean
   dev?: {
     load?: 'url' | 'file' // Load the Electron pages from a file or URL
   }
