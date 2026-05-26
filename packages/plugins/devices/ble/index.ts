@@ -64,7 +64,7 @@ export const desktop = {
     const { session } = webContents
 
     const WIN_STATES: {
-      select?: Function
+      select?: (deviceId: MACAddress | '') => void
       match?: DeviceInformation
     } = {}
 
@@ -92,6 +92,15 @@ export const desktop = {
           `Commoners Bluetooth Plugin does not support devices that need ${details.pairingKind} permissions.`
         )
     })
+
+    // Grant Bluetooth permissions so `navigator.bluetooth.getDevices()`
+    // returns previously-selected devices and the renderer can
+    // reconnect without a fresh picker. Mirrors the serial plugin's
+    // approach (`setDevicePermissionHandler(() => true)`). Permissions
+    // are session-scoped — for cross-restart persistence, layer a
+    // store on top (out of scope for the in-session reconnect fix).
+    session.setPermissionCheckHandler((_webContents, permission) => permission === 'bluetooth')
+    session.setDevicePermissionHandler(details => details.deviceType === 'bluetooth')
 
     webContents.on('select-bluetooth-device', (event, devices, callback) => {
       event.preventDefault()
@@ -128,7 +137,7 @@ export function load() {
 
   const { __id } = DESKTOP
 
-  const callbacks: Record<string, Function[]> = {}
+  const callbacks: Record<string, Array<(...args: unknown[]) => void>> = {}
 
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`
