@@ -50,18 +50,6 @@ export const capabilities = {
   runtime: 'browser' as const,
 }
 
-// `navigator.bluetooth.getDevices()` is gated behind the
-// WebBluetoothNewPermissionsBackend Chromium feature flag (see
-// chrome://flags/#enable-web-bluetooth-new-permissions-backend). Without
-// this switch, the API is undefined in the renderer even though
-// requestDevice() works — so picker-skip / silent-reconnect flows that
-// rely on getDevices() to find a previously-granted device fail
-// immediately. The switch must be appended before app.whenReady();
-// commoners' main.ts iterates plugins for this map pre-ready.
-export const commandLineSwitches = {
-  'enable-features': 'WebBluetoothNewPermissionsBackend',
-}
-
 // @capacitor-community/bluetooth-le must be installed by the user
 export const isSupported = {
   capacitor: capacitorConfiguration,
@@ -76,7 +64,7 @@ export const desktop = {
     const { session } = webContents
 
     const WIN_STATES: {
-      select?: (deviceId: MACAddress | '') => void
+      select?: (...args: unknown[]) => unknown
       match?: DeviceInformation
     } = {}
 
@@ -104,21 +92,6 @@ export const desktop = {
           `Commoners Bluetooth Plugin does not support devices that need ${details.pairingKind} permissions.`
         )
     })
-
-    // Grant Bluetooth device permissions so `navigator.bluetooth.getDevices()`
-    // returns previously-selected devices and the renderer can
-    // reconnect without a fresh picker. Permissions are session-scoped —
-    // for cross-restart persistence, layer a store on top (out of scope
-    // for the in-session reconnect fix).
-    //
-    // NOTE: do NOT also set `setPermissionCheckHandler` here. That
-    // handler covers many permission types (clipboard, media, etc.)
-    // and overriding it without returning true for non-bluetooth
-    // permissions terminates the renderer with `bad IPC message,
-    // reason 105` when other permissions are subsequently requested.
-    // setDevicePermissionHandler alone is sufficient for the BLE
-    // reconnect path.
-    session.setDevicePermissionHandler(details => details.deviceType === 'bluetooth')
 
     webContents.on('select-bluetooth-device', (event, devices, callback) => {
       event.preventDefault()
@@ -155,7 +128,7 @@ export function load() {
 
   const { __id } = DESKTOP
 
-  const callbacks: Record<string, Array<(...args: unknown[]) => void>> = {}
+  const callbacks: Record<string, ((...args: unknown[]) => unknown)[]> = {}
 
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`
