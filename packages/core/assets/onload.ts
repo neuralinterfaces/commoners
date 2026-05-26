@@ -201,6 +201,14 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
                 ...DESKTOP,
                 send: (channel, ...args) =>
                   TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
+                // Mirrors send() but accepts a transferList — required
+                // when shipping transferable objects (MessagePort,
+                // ArrayBuffer) through commoners IPC. Main-side
+                // `this.on(channel, handler)` receives the
+                // IpcMainEvent untouched; handlers read event.ports[]
+                // when expecting transferables.
+                postMessage: (channel, message, transfer) =>
+                  TEMP_COMMONERS.postMessage(`plugins:${id}:${channel}`, message, transfer),
                 invoke: (channel, ...args) =>
                   TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
                 on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
