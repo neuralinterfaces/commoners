@@ -1,0 +1,33 @@
+{
+  "name": "@commoners/haptics",
+  "version": "1.0.0-alpha.1",
+  "description": "Cross-platform haptic feedback for Commoners apps",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "author": "Neural Interfaces",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/haptics"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
+  },
+  "peerDependencies": {
+    "@capacitor/haptics": "^8.0.0",
+    "@commoners/solidarity": ">=1.0.0-alpha.0"
+  },
+  "peerDependenciesMeta": {
+    "@capacitor/haptics": {
+      "optional": true
+    }
+  }
+}
