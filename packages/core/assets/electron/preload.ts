@@ -16,16 +16,19 @@ const args = (() => {
   try {
     // Try to access process.argv - works in non-sandboxed mode
     if (typeof process !== 'undefined' && process.argv) {
-      return process.argv.slice(1).reduce((acc, arg) => {
-        const match = arg.match(/^--(__.+)=(.+)$/)
-        if (match) {
-          acc[match[1]] = match[2]
-          try {
-            acc[match[1]] = JSON.parse(acc[match[1]])
-          } catch {}
-        }
-        return acc
-      }, {} as Record<string, any>)
+      return process.argv.slice(1).reduce(
+        (acc, arg) => {
+          const match = arg.match(/^--(__.+)=(.+)$/)
+          if (match) {
+            acc[match[1]] = match[2]
+            try {
+              acc[match[1]] = JSON.parse(acc[match[1]])
+            } catch {}
+          }
+          return acc
+        },
+        {} as Record<string, any>
+      )
     }
   } catch (e) {
     // In sandbox mode, process.argv might not be available
@@ -65,7 +68,8 @@ if (typeof window !== 'undefined') {
 
 // Capabilities-driven IPC allowlist — validates channels against declared plugin/service IDs.
 // Falls back to prefix-based check if no allowlist is provided (backward compatible).
-const _allowlistData = args.__ipcAllowlist as { serviceIds: string[]; pluginIds: string[] } | null ?? null
+const _allowlistData =
+  (args.__ipcAllowlist as { serviceIds: string[]; pluginIds: string[] } | null) ?? null
 const _allowedServiceIds = _allowlistData ? new Set(_allowlistData.serviceIds) : null
 const _allowedPluginIds = _allowlistData ? new Set(_allowlistData.pluginIds) : null
 
@@ -99,12 +103,36 @@ const TEMP_COMMONERS = {
 
   // Will be scoped by plugin in onload.ts
   // All IPC wrappers validate channel prefixes to prevent access to internal Electron channels
-  on: (channel, listener) => { if (isAllowedChannel(channel)) ipcRenderer.on(channel, listener) },
-  once: (channel, listener) => { if (isAllowedChannel(channel)) ipcRenderer.once(channel, listener) },
-  send: (channel, ...args) => { if (isAllowedChannel(channel)) ipcRenderer.send(channel, ...args) },
-  invoke: (channel, ...args) => isAllowedChannel(channel) ? ipcRenderer.invoke(channel, ...args) : Promise.reject(new Error(`Blocked IPC channel: ${channel}`)),
-  removeListener: (channel, listener) => { if (isAllowedChannel(channel)) ipcRenderer.removeListener(channel, listener) },
-  removeAllListeners: channel => { if (isAllowedChannel(channel)) ipcRenderer.removeAllListeners(channel) },
+  on: (channel, listener) => {
+    if (isAllowedChannel(channel)) ipcRenderer.on(channel, listener)
+  },
+  once: (channel, listener) => {
+    if (isAllowedChannel(channel)) ipcRenderer.once(channel, listener)
+  },
+  send: (channel, ...args) => {
+    if (isAllowedChannel(channel)) ipcRenderer.send(channel, ...args)
+  },
+  // postMessage parallels send() but accepts a `transfer` array for
+  // transferable objects (MessagePort, ArrayBuffer). Required for
+  // plugins that establish renderer↔renderer channels routed through
+  // main (e.g. sense:// broker subscriber ports between BrowserWindows).
+  // The corresponding main-side ipcMain.on(channel, listener) receives
+  // IpcMainEvent.ports[] populated by Electron — existing scoped-on
+  // infrastructure forwards the event untouched, so handlers just read
+  // event.ports when expecting transferables.
+  postMessage: (channel, message, transfer) => {
+    if (isAllowedChannel(channel)) ipcRenderer.postMessage(channel, message, transfer)
+  },
+  invoke: (channel, ...args) =>
+    isAllowedChannel(channel)
+      ? ipcRenderer.invoke(channel, ...args)
+      : Promise.reject(new Error(`Blocked IPC channel: ${channel}`)),
+  removeListener: (channel, listener) => {
+    if (isAllowedChannel(channel)) ipcRenderer.removeListener(channel, listener)
+  },
+  removeAllListeners: channel => {
+    if (isAllowedChannel(channel)) ipcRenderer.removeAllListeners(channel)
+  },
 }
 
 // Handle service interactions
