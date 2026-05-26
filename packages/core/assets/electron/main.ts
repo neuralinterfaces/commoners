@@ -82,6 +82,20 @@ if (process.env.__COMMONERS_TESTING) {
   }
 }
 
+// Apply plugin-declared command-line switches before app.whenReady().
+// Plugins that need Chromium features enabled (e.g. the BLE plugin needs
+// `WebBluetoothNewPermissionsBackend` so navigator.bluetooth.getDevices()
+// returns paired devices) export a `commandLineSwitches: { switch: value }`
+// map. Values are appended via app.commandLine.appendSwitch so multiple
+// plugins can each contribute to multi-value switches like `enable-features`.
+for (const plugin of Object.values(plugins)) {
+  const switches = (plugin as any).commandLineSwitches as Record<string, string> | undefined
+  if (!switches) continue
+  for (const [name, value] of Object.entries(switches)) {
+    runtime.app.commandLine.appendSwitch(name, value)
+  }
+}
+
 // ------------------------ Setup ------------------------
 Lifecycle.setupQuitHandler(() => runtime.lifecycle.quit())
 Lifecycle.handleUncaughtExceptions((title, content) => runtime.dialog.showErrorBox(title, content))
