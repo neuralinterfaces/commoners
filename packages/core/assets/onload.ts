@@ -167,7 +167,13 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
 
   const registerPluginAsLoaded = id => {
     if (!DESKTOP) return
-    return TEMP_COMMONERS.send('commoners:plugins:loaded', DESKTOP.__id, id) // Notify the main process that the plugin is loaded
+    // Renderers that ship a custom preload (e.g. a transparent
+    // ambient-feedback overlay using only raw Electron IPC) won't
+    // have the commoners preload installed → TEMP_COMMONERS.send is
+    // undefined. Skip the notify rather than throwing — the renderer
+    // doesn't participate in the commoners IPC graph by design.
+    if (typeof TEMP_COMMONERS.send !== 'function') return
+    return TEMP_COMMONERS.send('commoners:plugins:loaded', DESKTOP.__id, id)
   }
 
   asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {
