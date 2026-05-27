@@ -207,8 +207,34 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
                 // `this.on(channel, handler)` receives the
                 // IpcMainEvent untouched; handlers read event.ports[]
                 // when expecting transferables.
-                postMessage: (channel, message, transfer) =>
-                  TEMP_COMMONERS.postMessage(`plugins:${id}:${channel}`, message, transfer),
+                //
+                // MessagePort caveat: contextBridge cannot serialize
+                // MessagePort across the V8 isolation boundary
+                // (Electron raises "Invalid value for transfer" if
+                // we try to pass one through the contextBridge-exposed
+                // postMessage). Detect that case and route via
+                // window.postMessage + the preload's
+                // `__commoners_port_transfer` listener, which DOES
+                // transfer MessagePort across the world boundary.
+                // Non-port transfers (ArrayBuffer-only) take the direct
+                // path since ArrayBuffer survives contextBridge.
+                postMessage: (channel, message, transfer) => {
+                  const scoped = `plugins:${id}:${channel}`
+                  const hasPort =
+                    Array.isArray(transfer) &&
+                    transfer.some(
+                      t => typeof MessagePort !== 'undefined' && t instanceof MessagePort
+                    )
+                  if (hasPort) {
+                    window.postMessage(
+                      { __commoners_port_transfer: { channel: scoped } },
+                      '*',
+                      transfer as Transferable[]
+                    )
+                  } else {
+                    TEMP_COMMONERS.postMessage(scoped, message, transfer)
+                  }
+                },
                 invoke: (channel, ...args) =>
                   TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
                 on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
