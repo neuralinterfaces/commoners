@@ -120,6 +120,18 @@ const TEMP_COMMONERS = {
   // IpcMainEvent.ports[] populated by Electron — existing scoped-on
   // infrastructure forwards the event untouched, so handlers just read
   // event.ports when expecting transferables.
+  //
+  // **MessagePort caveat**: when called directly from the preload
+  // (e.g. via the per-plugin ctx in onload.ts) this works. When
+  // called from the main world via contextBridge, MessagePort objects
+  // serialize to invalid values across the V8 isolation boundary
+  // (Electron's IPC then errors with "Invalid value for transfer").
+  // The main-world consumer must go through the
+  // `__commoners_port_transfer` window.postMessage pattern below
+  // instead; that pattern transfers ports same-window via DOM
+  // postMessage (which supports MessagePort transfer between main
+  // world and isolated preload world), then this preload forwards
+  // via ipcRenderer.postMessage.
   postMessage: (channel, message, transfer) => {
     if (isAllowedChannel(channel)) ipcRenderer.postMessage(channel, message, transfer)
   },
@@ -189,6 +201,42 @@ if (isContextIsolated) {
 } else {
   globalThis[globalVariableName] = TEMP_COMMONERS
 }
+
+// MessagePort transfer workaround for contextBridge.
+//
+// Electron's contextBridge cannot serialize MessagePort objects
+// across the main-world ↔ isolated-world boundary
+// (https://www.electronjs.org/docs/latest/tutorial/message-ports —
+// "transferring MessagePort instances between the main world and
+// the isolated world is non-trivial"). When the main world calls
+// `commoners.<plugin>.postMessage(channel, msg, [port])` via the
+// contextBridge-exposed function, the port arrives in the preload
+// as an invalid value + ipcRenderer.postMessage errors with
+// "Invalid value for transfer".
+//
+// Workaround: the main-world consumer instead dispatches a
+// `window.postMessage({ __commoners_port_transfer: { channel } }, '*',
+// [port])`. Both worlds share the same window event loop for DOM
+// events, and window.postMessage DOES support MessagePort transfer
+// across the world boundary. The preload listener below catches the
+// message, recovers the port via event.ports, and forwards via
+// ipcRenderer.postMessage — which works cleanly because it's now
+// entirely within the preload's isolated world.
+//
+// The scoped per-plugin send in onload.ts uses this pattern
+// automatically when the caller passes a non-empty transfer list.
+window.addEventListener('message', (ev: MessageEvent) => {
+  const data = (ev as { data?: { __commoners_port_transfer?: { channel?: unknown } } }).data
+  const meta = data?.__commoners_port_transfer
+  if (!meta || ev.ports.length === 0) return
+  const channel = typeof meta.channel === 'string' ? meta.channel : null
+  if (!channel || !isAllowedChannel(channel)) return
+  try {
+    ipcRenderer.postMessage(channel, null, ev.ports as unknown as MessagePort[])
+  } catch (err) {
+    console.warn('[commoners] port-transfer forward failed:', err)
+  }
+})
 
 // Proxy console methods from the main process
 if (args.__main) {
