@@ -238,13 +238,16 @@ window.addEventListener('message', (ev: MessageEvent) => {
   }
 })
 
-// Proxy console methods from the main process
+// Proxy console methods from the main process. Use a line prefix
+// rather than console.groupCollapsed so the entries survive console
+// export — DevTools' "Save as..." serializes collapsed groups to
+// just the header line, dropping everything inside. With a flat
+// `[main]` prefix, exported logs preserve the full main-process
+// output and reviewers can read them in their text editor of choice.
 if (args.__main) {
   ;['log', 'warn', 'error'].forEach(method =>
     ipcRenderer.on(`commoners:console.${method}`, (_, ...args) => {
-      console.groupCollapsed('Commoners Electron Process')
-      console[method](...args)
-      console.groupEnd()
+      console[method]('[main]', ...args)
     })
   )
 }
