@@ -999,7 +999,19 @@ export const bundleConfig = async (
       outDir,
 
       rollupOptions: {
-        external: nodeExternals,
+        // Externalize wasm-pack output packages — same rationale as
+        // the loadConfigFromFile path's esbuild external rule. The
+        // Node-target output uses CJS-specific globals (`__dirname`,
+        // sync `fs.readFileSync`) and (per the web target) `fetch()`
+        // calls for the .wasm bytes that don't work when bundled
+        // into the config snapshot. Externalize so Node's runtime
+        // resolver picks the right per-target build via the package's
+        // `exports` conditions.
+        external: (id: string) => {
+          if (nodeExternals.includes(id)) return true
+          if (/-wasm$/.test(id) || /^wasm-/.test(id)) return true
+          return false
+        },
         plugins: [
           importMetaResolvePlugin(), // Ensure import.meta.url is resolved correctly within each source file
           // Fix inter-chunk imports on Windows: Vite/Rollup may generate absolute
