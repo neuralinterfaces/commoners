@@ -5,18 +5,23 @@ import type { CommonersEvents } from './index'
  * Messages are relayed through the main process to all other windows.
  */
 export function createElectronRendererEvents(
-  send: (channel: string, ...args: any[]) => void,
-  on: (channel: string, listener: (event: any, ...args: any[]) => void) => void,
+  send: ((channel: string, ...args: any[]) => void) | undefined,
+  on: ((channel: string, listener: (event: any, ...args: any[]) => void) => void) | undefined
 ): CommonersEvents {
   const listeners = new Map<string, Set<(data: any) => void>>()
 
   const EVENTS_EMIT_CHANNEL = 'commoners:events:emit'
   const EVENTS_RECEIVE_CHANNEL = 'commoners:events:receive'
 
-  on(EVENTS_RECEIVE_CHANNEL, (_event: any, topic: string, data: any) => {
-    const cbs = listeners.get(topic)
-    if (cbs) cbs.forEach(cb => cb(data))
-  })
+  // In renderers with a custom preload (no commoners IPC), `send`/`on`
+  // are undefined. The events API stays local-only — emit() still
+  // fires same-window listeners, just doesn't reach other windows.
+  if (typeof on === 'function') {
+    on(EVENTS_RECEIVE_CHANNEL, (_event: any, topic: string, data: any) => {
+      const cbs = listeners.get(topic)
+      if (cbs) cbs.forEach(cb => cb(data))
+    })
+  }
 
   function onTopic(topic: string, cb: (data: any) => void): () => void {
     if (!listeners.has(topic)) listeners.set(topic, new Set())
@@ -38,7 +43,7 @@ export function createElectronRendererEvents(
   }
 
   function emit(topic: string, data?: any): void {
-    send(EVENTS_EMIT_CHANNEL, topic, data)
+    if (typeof send === 'function') send(EVENTS_EMIT_CHANNEL, topic, data)
     const cbs = listeners.get(topic)
     if (cbs) cbs.forEach(cb => cb(data))
   }
