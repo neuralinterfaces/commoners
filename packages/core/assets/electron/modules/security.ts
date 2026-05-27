@@ -110,6 +110,16 @@ function buildDefaultCSP(
   return [
     "default-src 'self'",
     `script-src 'self' ${scriptInline} 'wasm-unsafe-eval'`,
+    // Module workers via `new Worker(new URL('./worker.ts', import.meta.url),
+    // { type: 'module' })` — the canonical Vite-supported pattern — resolve to
+    // a `blob:` URL in dev (Vite wraps the module body as a blob to deliver
+    // it as a worker source). Without an explicit `worker-src`, browsers fall
+    // back to `script-src`, which does NOT allow `blob:` here → the
+    // `new Worker(...)` call throws silently and the worker never starts.
+    // 'self' covers production bundles where the worker file is served from
+    // the same origin. Same broad pattern as default-src — open enough that
+    // standard worker usage works; not a loosening of the script policy.
+    "worker-src 'self' blob:",
     "style-src 'self' 'unsafe-inline'",
     `connect-src ${connectSources.join(' ')}`,
     "img-src 'self' data:",
