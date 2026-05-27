@@ -202,11 +202,26 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
 
       try {
         if (load) {
+          // Renderers that ship a custom preload (e.g. transparent
+          // overlay canvas using raw Electron IPC) won't have the
+          // commoners preload installed → TEMP_COMMONERS.{send,on,...}
+          // are undefined. Build the desktop ctx defensively: each
+          // method no-ops + warns if the underlying TEMP_COMMONERS
+          // call isn't available, instead of throwing TypeError at
+          // every plugin's renderer-side load(). Plugin consumer
+          // calls (e.g. `commoners.<plugin>.on(...)`) still surface
+          // the missing-method warning, but the plugin's own
+          // initialization completes — keeping the rest of the
+          // renderer running on its custom IPC.
+          const tempCall = (method: string, fallback: any) => {
+            const fn = TEMP_COMMONERS[method]
+            return typeof fn === 'function' ? fn.bind(TEMP_COMMONERS) : fallback
+          }
           const ctx = DESKTOP
             ? {
                 ...DESKTOP,
                 send: (channel, ...args) =>
-                  TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
+                  tempCall('send', () => undefined)(`plugins:${id}:${channel}`, ...args),
                 // Mirrors send() but accepts a transferList — required
                 // when shipping transferable objects (MessagePort,
                 // ArrayBuffer) through commoners IPC. Main-side
@@ -238,18 +253,22 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
                       transfer as Transferable[]
                     )
                   } else {
-                    TEMP_COMMONERS.postMessage(scoped, message, transfer)
+                    tempCall('postMessage', () => undefined)(scoped, message, transfer)
                   }
                 },
                 invoke: (channel, ...args) =>
-                  TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
-                on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
+                  tempCall('invoke', () => Promise.resolve(undefined))(
+                    `plugins:${id}:${channel}`,
+                    ...args
+                  ),
+                on: (channel, listener) =>
+                  tempCall('on', () => undefined)(`plugins:${id}:${channel}`, listener),
                 once: (channel, listener) =>
-                  TEMP_COMMONERS.once(`plugins:${id}:${channel}`, listener),
+                  tempCall('once', () => undefined)(`plugins:${id}:${channel}`, listener),
                 removeAllListeners: channel =>
-                  TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`),
+                  tempCall('removeAllListeners', () => undefined)(`plugins:${id}:${channel}`),
                 removeListener: (channel, listener) =>
-                  TEMP_COMMONERS.removeListener(`plugins:${id}:${channel}`, listener),
+                  tempCall('removeListener', () => undefined)(`plugins:${id}:${channel}`, listener),
               }
             : // NOTE: Hook up with a custom WebSocket implementation
               {
