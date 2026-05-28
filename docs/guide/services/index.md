@@ -65,7 +65,7 @@ commoners build --service test --service other-service
 ## Supported Services
 
 ### [Node.js](https://nodejs.org)
-Services written in JavaScript or TypeScript are automatically bundled using [esbuild](https://esbuild.github.io) and [pkg](https://www.npmjs.com/package/pkg).
+Services written in JavaScript or TypeScript are automatically bundled using [esbuild](https://esbuild.github.io) the Node.js [Single Executable Applications (SEAs)](https://nodejs.org/api/single-executable-applications.html) feature.
 
 ```js
 export default {

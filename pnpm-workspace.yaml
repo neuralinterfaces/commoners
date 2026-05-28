@@ -1,8 +1,9 @@
 packages:
   - packages/**
-  - tests/**
+  - examples/**
   - '!**/dist/**'
   - '!packages/plugins/autoupdate'
+  - '!packages/create-commoners/template'
 onlyBuiltDependencies:
   - '@commoners/testing'
   - electron

@@ -1,10 +1,15 @@
-import { removeAllListeners, removeListener } from 'process'
+import { queryExtensions, validateRequirements } from './capabilities'
 import {
   asyncFilter,
   isPluginLoadable,
   pluginErrorMessage,
+  resolveLazy,
   sanitizePluginProperties,
 } from './utils'
+
+declare const __HAS_PLUGINS__: boolean
+declare const __IS_DEV__: boolean
+declare const __IS_DESKTOP__: boolean
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -15,12 +20,52 @@ delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
 
-if (__PLUGINS) {
-  const devSocketListeners = { plugins: {} }
-  const devSocketServer = DEV && !DESKTOP ? new WebSocket(DEV) : null
+// Extension discovery — commoners.query(), .validate(), .list(), .get()
+const getExtensions = () => (ENV as any).EXTENSIONS ?? {}
+;(ENV as any).query = filter => queryExtensions(getExtensions(), filter)
+;(ENV as any).validate = () => validateRequirements(getExtensions())
+;(ENV as any).list = () => ({ ...getExtensions() })
+;(ENV as any).get = (id: string) => getExtensions()[id]
 
-  // Initialize the WebSocket Development Server
-  if (devSocketServer) {
+// Cross-window events — use compile-time guard to exclude unused event system
+if (__IS_DESKTOP__) {
+  import('./events/electron').then(({ createElectronRendererEvents }) => {
+    ;(ENV as any).events = createElectronRendererEvents(TEMP_COMMONERS.send, TEMP_COMMONERS.on)
+  })
+} else {
+  import('./events/index').then(({ createWebEvents }) => {
+    ;(ENV as any).events = createWebEvents()
+  })
+}
+
+// Runtime detection — commoners.is('desktop'), commoners.is('mobile'), etc.
+;(ENV as any).is = (check: string): boolean => {
+  switch (check) {
+    case 'desktop':
+      return !!DESKTOP
+    case 'mobile':
+      return !!MOBILE
+    case 'web':
+      return !!WEB
+    case 'dev':
+      return !!DEV
+    case 'prod':
+      return !DEV
+    case 'electron':
+      return (ENV as any).TARGET === 'electron'
+    case 'tauri':
+      return (ENV as any).TARGET === 'tauri'
+    default:
+      return false
+  }
+}
+
+if (__HAS_PLUGINS__ && __PLUGINS) {
+  const devSocketListeners = { plugins: {} }
+  const devSocketServer = __IS_DEV__ && DEV && !DESKTOP ? new WebSocket(DEV) : null
+
+  // Initialize the WebSocket Development Server (dev only)
+  if (__IS_DEV__ && devSocketServer) {
     const devSocketReady = new Promise(resolve => {
       const ogSend = devSocketServer.send
       devSocketServer.send = async function (data) {
@@ -35,6 +80,70 @@ if (__PLUGINS) {
 
     devSocketServer.onmessage = async function (message) {
       const data = JSON.parse(message.data)
+
+      // Handle plugin hot reload
+      if (data.type === 'system:plugin:reload') {
+        const pluginId = data.id
+        if (pluginId && loaded[pluginId] !== undefined) {
+          const plugin = __PLUGINS[pluginId]
+          if (plugin) {
+            // Call unload hook if present
+            try {
+              if (plugin.unload) plugin.unload(ENV)
+            } catch (e) {
+              pluginErrorMessage(pluginId, 'unload', e)
+            }
+            // Re-load the plugin
+            try {
+              let { load } = sanitizePluginProperties(plugin, TARGET)
+              load = await resolveLazy(load)
+              if (load) {
+                const ctx = {
+                  send: (channel, ...args) =>
+                    devSocketServer &&
+                    devSocketServer.send(
+                      JSON.stringify({ context: 'plugins', id: pluginId, channel, args })
+                    ),
+                  sendSync: false,
+                  on: (channel, listener) => {
+                    const pluginListeners = devSocketListeners['plugins'][pluginId] ?? {}
+                    const channelListeners = (pluginListeners[channel] =
+                      pluginListeners[channel] ?? {})
+                    const symbol = Symbol()
+                    channelListeners[symbol] = listener
+                    return symbol
+                  },
+                  once: function (channel, listener) {
+                    const subscription = this.on(channel, (...args) => {
+                      delete devSocketListeners['plugins'][pluginId]?.[channel]?.[subscription]
+                      listener(...args)
+                    })
+                  },
+                  removeAllListeners: channel => {
+                    const pluginListeners = devSocketListeners['plugins'][pluginId]
+                    if (!channel) for (const key in pluginListeners) delete pluginListeners[key]
+                    else delete pluginListeners?.[channel]
+                  },
+                  removeListener: (channel, listener) => {
+                    const pluginListeners = devSocketListeners['plugins'][pluginId]
+                    const channelListeners = pluginListeners?.[channel]
+                    if (!channelListeners) return
+                    const symbol = Object.getOwnPropertySymbols(channelListeners).find(
+                      sym => channelListeners[sym] === listener
+                    )
+                    if (symbol) delete channelListeners[symbol]
+                  },
+                }
+                loaded[pluginId] = await load.call(ctx, ENV)
+              }
+            } catch (e) {
+              pluginErrorMessage(pluginId, 'reload', e)
+            }
+          }
+        }
+        return
+      }
+
       const { context, id, channel, args } = data
       const matchingContext = devSocketListeners[context]
       if (!matchingContext) return console.error(`Unknown WS message context: ${context}`)
@@ -58,8 +167,13 @@ if (__PLUGINS) {
 
   const registerPluginAsLoaded = id => {
     if (!DESKTOP) return
-    const identifier = ['commoners:loaded', DESKTOP.__id, id].join(':')
-    return TEMP_COMMONERS.send(identifier) // Notify the main process that the plugin is loaded
+    // Renderers that ship a custom preload (e.g. a transparent
+    // ambient-feedback overlay using only raw Electron IPC) won't
+    // have the commoners preload installed → TEMP_COMMONERS.send is
+    // undefined. Skip the notify rather than throwing — the renderer
+    // doesn't participate in the commoners IPC graph by design.
+    if (typeof TEMP_COMMONERS.send !== 'function') return
+    return TEMP_COMMONERS.send('commoners:plugins:loaded', DESKTOP.__id, id)
   }
 
   asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {
@@ -72,11 +186,14 @@ if (__PLUGINS) {
     } catch (e) {
       return false
     }
-  }).then(supported => {
-    const sanitized = supported.map(([id, o]) => {
-      const { load } = sanitizePluginProperties(o, TARGET)
-      return { id, load }
-    })
+  }).then(async supported => {
+    const sanitized = await Promise.all(
+      supported.map(async ([id, o]) => {
+        let { load } = sanitizePluginProperties(o, TARGET)
+        load = await resolveLazy(load)
+        return { id, load }
+      })
+    )
 
     sanitized.forEach(async ({ id, load }) => {
       loaded[id] = undefined // Register that all supported plugins are technically loaded
@@ -85,22 +202,73 @@ if (__PLUGINS) {
 
       try {
         if (load) {
+          // Renderers that ship a custom preload (e.g. transparent
+          // overlay canvas using raw Electron IPC) won't have the
+          // commoners preload installed → TEMP_COMMONERS.{send,on,...}
+          // are undefined. Build the desktop ctx defensively: each
+          // method no-ops + warns if the underlying TEMP_COMMONERS
+          // call isn't available, instead of throwing TypeError at
+          // every plugin's renderer-side load(). Plugin consumer
+          // calls (e.g. `commoners.<plugin>.on(...)`) still surface
+          // the missing-method warning, but the plugin's own
+          // initialization completes — keeping the rest of the
+          // renderer running on its custom IPC.
+          const tempCall = (method: string, fallback: any) => {
+            const fn = TEMP_COMMONERS[method]
+            return typeof fn === 'function' ? fn.bind(TEMP_COMMONERS) : fallback
+          }
           const ctx = DESKTOP
             ? {
                 ...DESKTOP,
                 send: (channel, ...args) =>
-                  TEMP_COMMONERS.send(`plugins:${id}:${channel}`, ...args),
-                sendSync: (channel, ...args) =>
-                  TEMP_COMMONERS.sendSync(`plugins:${id}:${channel}`, ...args),
+                  tempCall('send', () => undefined)(`plugins:${id}:${channel}`, ...args),
+                // Mirrors send() but accepts a transferList — required
+                // when shipping transferable objects (MessagePort,
+                // ArrayBuffer) through commoners IPC. Main-side
+                // `this.on(channel, handler)` receives the
+                // IpcMainEvent untouched; handlers read event.ports[]
+                // when expecting transferables.
+                //
+                // MessagePort caveat: contextBridge cannot serialize
+                // MessagePort across the V8 isolation boundary
+                // (Electron raises "Invalid value for transfer" if
+                // we try to pass one through the contextBridge-exposed
+                // postMessage). Detect that case and route via
+                // window.postMessage + the preload's
+                // `__commoners_port_transfer` listener, which DOES
+                // transfer MessagePort across the world boundary.
+                // Non-port transfers (ArrayBuffer-only) take the direct
+                // path since ArrayBuffer survives contextBridge.
+                postMessage: (channel, message, transfer) => {
+                  const scoped = `plugins:${id}:${channel}`
+                  const hasPort =
+                    Array.isArray(transfer) &&
+                    transfer.some(
+                      t => typeof MessagePort !== 'undefined' && t instanceof MessagePort
+                    )
+                  if (hasPort) {
+                    window.postMessage(
+                      { __commoners_port_transfer: { channel: scoped } },
+                      '*',
+                      transfer as Transferable[]
+                    )
+                  } else {
+                    tempCall('postMessage', () => undefined)(scoped, message, transfer)
+                  }
+                },
                 invoke: (channel, ...args) =>
-                  TEMP_COMMONERS.invoke(`plugins:${id}:${channel}`, ...args),
-                on: (channel, listener) => TEMP_COMMONERS.on(`plugins:${id}:${channel}`, listener),
+                  tempCall('invoke', () => Promise.resolve(undefined))(
+                    `plugins:${id}:${channel}`,
+                    ...args
+                  ),
+                on: (channel, listener) =>
+                  tempCall('on', () => undefined)(`plugins:${id}:${channel}`, listener),
                 once: (channel, listener) =>
-                  TEMP_COMMONERS.once(`plugins:${id}:${channel}`, listener),
+                  tempCall('once', () => undefined)(`plugins:${id}:${channel}`, listener),
                 removeAllListeners: channel =>
-                  TEMP_COMMONERS.removeAllListeners(`plugins:${id}:${channel}`),
+                  tempCall('removeAllListeners', () => undefined)(`plugins:${id}:${channel}`),
                 removeListener: (channel, listener) =>
-                  TEMP_COMMONERS.removeListener(`plugins:${id}:${channel}`, listener),
+                  tempCall('removeListener', () => undefined)(`plugins:${id}:${channel}`, listener),
               }
             : // NOTE: Hook up with a custom WebSocket implementation
               {
@@ -135,8 +303,12 @@ if (__PLUGINS) {
                 },
               }
 
-          loaded[id] = load.call(ctx, ENV)
-          await loaded[id]
+          // Replace the slot with the resolved value so consumers reading
+          // ENV.PLUGINS.<id> get the manager/handle, not a Promise. Without
+          // this, e.g. PLUGINS.windows is the Promise itself, so
+          // PLUGINS.windows.participant is undefined and any consumer trying
+          // to use the per-window API blows up at runtime.
+          loaded[id] = await load.call(ctx, ENV)
         }
 
         registerPluginAsLoaded(id)

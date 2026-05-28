@@ -2,19 +2,21 @@
 import { extname, isAbsolute, join, relative } from 'node:path'
 
 // General Internal Imports
-import { isDesktop, vite, chalk } from '../globals.js'
+import { isDesktop, isTauri, vite, chalk } from '../globals.js'
 import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
+import { getPlugins } from '../utils/extensions.js'
+import { ScopedLogger } from './logger.js'
 
 // Internal Plugins
 import electronPlugin from './plugins/electron/index.js'
 import commonersPlugin from './plugins/commoners.js'
 
 // Internal Imports
-import { printServiceMessage } from '../utils/formatting.js'
 import { getAssetBuildPath } from '../utils/assets.js'
 
 import { getAllIcons, getIcon } from '../assets/utils/icons.js'
 import { safePath } from '../assets/utils/paths.js'
+import { existsSync } from 'node:fs'
 
 type ManifestOptions = import('vite-plugin-pwa').ManifestOptions
 type VitePWAOptions = import('vite-plugin-pwa').VitePWAOptions
@@ -25,22 +27,13 @@ type ViteServerOptions = import('vite').ServerOptions
 const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path))
 
 // Run a development server
-export const createServer = async (config: ResolvedConfig, opts: ServerOptions) => {
+export const createServer = async (config: ResolvedConfig) => {
   const _vite = await vite
-  const _chalk = await chalk
+  const { hooks } = config
 
   // Create the frontend server
-  const server = await _vite.createServer(await resolveViteConfig(config, {}, false))
+  const server = await _vite.createServer(await resolveViteConfig(config, { hooks }, false))
   await server.listen()
-
-  // Print out the URL if everything was initialized here (i.e. dev mode)
-  if (opts.printUrls !== false) {
-    const { port, host } = server.config.server
-    const protocol = server.config.server.https ? 'https' : 'http'
-    const url = `${protocol}://${host || 'localhost'}:${port}`
-    await printServiceMessage('Commoners Development Server', _chalk.cyanBright(url))
-  }
-
   return server
 }
 
@@ -63,10 +56,9 @@ const resolvePWAOptions = (
   else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [pwaOpts.includeAssets]
 
   // Only include preferred icons
-  const icons = getAllIcons(icon).map((src: string) =>
-    relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir))
-  )
-  pwaOpts.includeAssets.push(...icons.map(safePath)) // Include specified assets
+  const icons = getAllIcons(icon).map((src: string) => relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir)))
+  const scopedIconPaths = icons.map(src => safePath(src))
+  pwaOpts.includeAssets.push(...scopedIconPaths) // Include specified assets
 
   const baseManifest = {
     id: `?${appId}=1`,
@@ -84,22 +76,29 @@ const resolvePWAOptions = (
 
     // Generated
     icons: icons.map(src => {
-      return {
-        src: safePath(src),
-        type: `image/${extname(src).slice(1)}`,
-        sizes: 'any',
-      }
+      return { src: safePath(src), type: `image/${extname(src).slice(1)}`, sizes: 'any' }
     }),
   } as Partial<ManifestOptions>
 
   pwaOpts.manifest = 'manifest' in pwaOpts ? { ...baseManifest, ...pwaOpts.manifest } : baseManifest // Naive merge
+
+  // Configure workbox for proper caching behavior
+  if (!('workbox' in pwaOpts)) {
+    pwaOpts.workbox = {
+      globPatterns: ['**/*.{html,js,css,svg,png,webp,ico,woff2}'], // Cache common web assets
+      additionalManifestEntries: [ ...scopedIconPaths.map(src => ({ url: src, revision: null }))], // Ensures that icons are cached
+      cleanupOutdatedCaches: true, // Ensure outdated caches are cleaned up
+      clientsClaim: true, // Force service worker to activate immediately
+      skipWaiting: true,
+    }
+  }
 
   return pwaOpts as ResolvedConfig['pwa']
 }
 
 export const resolveViteConfig = async (
   commonersConfig: ResolvedConfig,
-  { dev = true }: ViteOptions,
+  { dev = true, hooks }: ViteOptions,
   build = true
 ) => {
   const _vite = await vite
@@ -124,13 +123,21 @@ export const resolveViteConfig = async (
     icon,
     description,
     pages = {},
-    plugins: commonersPlugins,
     electron,
   } = commonersConfig
 
+  const commonersPlugins = getPlugins(commonersConfig.extensions)
+
+  // Ensure root is absolute for all operations
+  const absoluteRoot = isAbsolute(root) ? root : resolve(root)
+
   // Desktop Build
-  if (isDesktopTarget) {
-    const plugin = await electronPlugin({ build, root, outDir, electron })
+  if (isTauri(target)) {
+    const tauriPlugin = (await import('./plugins/tauri/index.js')).default
+    const plugin = await tauriPlugin({ root: absoluteRoot, outDir, hooks, config: commonersConfig })
+    plugins.push(...plugin)
+  } else if (isDesktopTarget) {
+    const plugin = await electronPlugin({ build, root: absoluteRoot, outDir, electron, hooks })
     plugins.push(...plugin)
   }
 
@@ -143,21 +150,21 @@ export const resolveViteConfig = async (
         appId,
         icon,
         description,
-        root,
+        root: absoluteRoot,
       },
       outDir
     )
 
     const VitePWAPlugin = await import('vite-plugin-pwa').then(m => m.VitePWA)
 
-    // @ts-ignore
-    plugins.push(...VitePWAPlugin({ registerType: 'autoUpdate', ...opts }))
+    const pwaPlugins = VitePWAPlugin({ registerType: 'autoUpdate', ...opts })
+    plugins.push(...(Array.isArray(pwaPlugins) ? pwaPlugins : [pwaPlugins]))
   }
 
   // Get html files from plugins
   const pluginPages = Object.values(commonersPlugins).reduce((acc, plugin) => {
     Object.values(plugin.assets ?? {}).forEach(assetSrc => {
-      if (extname(assetSrc) === '.html') acc[crypto.randomUUID()] = getAbsolutePath(root, assetSrc)
+      if (extname(assetSrc) === '.html') acc[crypto.randomUUID()] = getAbsolutePath(absoluteRoot, assetSrc)
     })
     return acc
   }, {}) as Record<string, string>
@@ -166,23 +173,23 @@ export const resolveViteConfig = async (
 
   const rollupOptions = {}
 
-  // Resolve pages
-  if (Object.keys(collectedPages).length) {
-    const rootHTML = getAbsolutePath(root, 'index.html')
-    const allPages = Object.values(collectedPages)
-    if (allPages.length) {
-      if (!allPages.includes(rootHTML)) allPages.push(rootHTML)
-      const allUniquePages = Array.from(new Set(allPages))
-      rollupOptions.input = allUniquePages.reduce((acc, filepath) => {
-        acc[crypto.randomUUID()] = filepath
-        return acc
-      }, {})
-    }
-  }
+  // Always resolve pages with the root HTML file
+  const rootHTML = getAbsolutePath(absoluteRoot, 'index.html')
+  const rootHTMLExists = existsSync(rootHTML)
+  const allPages = Object.values(collectedPages)
+  if (rootHTMLExists && !allPages.includes(rootHTML)) allPages.push(rootHTML)
+  const allUniquePages = Array.from(new Set(allPages))
+  rollupOptions.input = allUniquePages.reduce((acc, filepath) => {
+    acc[crypto.randomUUID()] = filepath
+    return acc
+  }, {})
+  
+  const nPages = allPages.length
+  const hasAnyPages = nPages > 0
 
   const serverConfig = {
     port,
-    open: !isDesktopTarget && !process.env.VITEST, // Open the browser unless testing / building for desktop
+    open: hasAnyPages && !isDesktopTarget && !process.env.VITEST, // Open the browser unless testing / building for desktop
   } as ViteServerOptions
 
   if (isPublic) serverConfig.host = '0.0.0.0'
@@ -191,7 +198,7 @@ export const resolveViteConfig = async (
   const viteConfig = _vite.defineConfig({
     logLevel: dev ? 'silent' : 'info',
     base: './',
-    root, // Resolve index.html from the root directory
+    root: absoluteRoot, // Resolve index.html from the root directory (must be absolute)
     build: {
       emptyOutDir: false,
       outDir,
@@ -205,7 +212,7 @@ export const resolveViteConfig = async (
 
   const mergedConfig = _vite.mergeConfig(viteConfig, viteUserConfig)
   const mode = dev ? 'development' : 'production'
-  const env = _vite.loadEnv(mode, root, mergedConfig.envPrefix)
+  const env = _vite.loadEnv(mode, absoluteRoot, mergedConfig.envPrefix)
 
   mergedConfig.plugins = [
     ...mergedConfig.plugins,

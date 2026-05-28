@@ -14,13 +14,21 @@ const __runCleanupCallback = (cb, code) => {
 export const cleanup = (code = 0) => {
 
   if (willBeAsync()) {
-    return new Promise(async resolve => {
-      for (const cb of callbacks) await __runCleanupCallback(cb, code)
-      resolve(true)
-    })
+    // Use an async IIFE instead of new Promise(async ...) to avoid swallowing rejections
+    return (async () => {
+      for (const cb of callbacks) {
+        try {
+          await __runCleanupCallback(cb, code)
+        } catch (error) {
+          console.error(`Cleanup callback error: ${error.message}`)
+        }
+      }
+      return true
+    })()
   }
 
   for (const cb of callbacks) __runCleanupCallback(cb, code)
+  return true
 }
 
 const originalExit = process.exit.bind(process)
@@ -34,13 +42,14 @@ const __exit = (code, force = true) => {
   const normalized = typeof code === 'number' ? code : (code === 'SIGINT' ? 0 : 1);
 
   if (isAsync) {
-    return cleanup(code)
+    const promise = cleanup(code) as Promise<unknown>
+    return promise
     .catch(error => console.error(`Async Cleanup Error: ${error.message}`))
     .finally(() => {
       if (willExit) runOriginalExit(normalized) // Do not force exit on SIGINT
     })
   }
-  
+
   try {
     cleanup(code)
   } catch (error) {
@@ -48,6 +57,7 @@ const __exit = (code, force = true) => {
   }
 
   if (willExit) runOriginalExit(normalized) // Exit with original code
+  return undefined
 }
 
 let __EXITING = {
@@ -61,6 +71,19 @@ export const exit = (code, force = true) => {
   return __EXITING.output = __exit(code, force)
 }
 
+// Register exit event handlers for cleanup.
+// Each handler checks __COMMONERS_TESTING at call time (not registration time) because
+// cleanup.ts may be imported before the testing flag is set. In testing mode, the test
+// runner's afterAll handler is responsible for cleanup — these handlers must not interfere
+// with vitest's worker lifecycle (e.g., preventing process.exit from actually exiting).
 const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
-exitEvents.forEach(event => process.on(event, (code) => exit(code, false))) // Register exit events, do not force exit though
-process.exit = exit
+exitEvents.forEach(event => process.on(event, (code) => {
+  if (!globalThis.process?.env?.__COMMONERS_TESTING) exit(code, false)
+}))
+
+// Override process.exit to run cleanup before exiting.
+// In testing mode, defer to the original exit to avoid interfering with vitest's worker lifecycle.
+process.exit = ((code?: number) => {
+  if (globalThis.process?.env?.__COMMONERS_TESTING) return originalExit(code)
+  return exit(code, true)
+}) as any

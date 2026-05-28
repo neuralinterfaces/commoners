@@ -1,10 +1,12 @@
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import { vite } from '../../../globals.js'
 import { rootDir } from '../../../globals.js'
 
 import { withExternalBuiltins } from './inbuilt.js'
 import { resolveServerUrl } from './server.js'
 import { electronGlobalStates, startup } from './electron.js'
+import { createNoOpHooks, Hooks } from '../../../ui.js'
+import { HooksInterface } from '../../../types.js'
 
 type UserConfig = import('vite').UserConfig
 type ConfigEnv = import('vite').ConfigEnv
@@ -40,8 +42,7 @@ async function resolveViteConfig(options: ElectronOptions): Promise<InlineConfig
       emptyOutDir: false,
     },
     resolve: {
-      // @ts-ignore
-      browserField: false,
+      browserField: false as const,
       conditions: ['node'],
       mainFields: ['module', 'jsnext:main', 'jsnext'],
     },
@@ -53,7 +54,7 @@ async function resolveViteConfig(options: ElectronOptions): Promise<InlineConfig
 
 export const buildWithVite = async (options: ElectronOptions) => {
   const _vite = await vite
-  const resolvedConfig = await resolveViteConfig(options)
+  const resolvedConfig = await resolveViteConfig(options) // NOTE: Could have hooks
   return _vite.build(withExternalBuiltins(resolvedConfig))
 }
 
@@ -64,7 +65,7 @@ const getElectronBuildOptions = async (root: string, outDir: string, build: bool
   const mainLocation = join(electronTemplateBase, 'main.ts')
   const preloadLocation = join(electronTemplateBase, 'preload.ts')
 
-  outDir = resolve(outDir) // Resolve the outDir to an absolute path
+  if (!isAbsolute(outDir)) outDir = resolve(root, outDir) // Ensure outDir is absolute
 
   const sharedBuildConfig = { minify: build, outDir }
 
@@ -101,18 +102,20 @@ export const buildElectronAssets = async (
   }
 }
 
-export const startElectronInstance = root => startup(root)
+export const startElectronInstance = (root, hooks: HooksInterface = createNoOpHooks(), outDir?: string) => startup(root, hooks, outDir)
 
 export default async function commonersElectronPlugin({
   build,
   root,
   outDir,
   electron,
+  hooks = createNoOpHooks(),
 }: {
   build: boolean
   root: string
   outDir: string
   electron: any
+  hooks?: HooksInterface
 }): Promise<Plugin[]> {
   let userConfig: UserConfig
   let configEnv: ConfigEnv
@@ -140,7 +143,9 @@ export default async function commonersElectronPlugin({
             assignFromUserConfig.forEach(assignToConfig)
 
             const buildOptions = options.vite.build
-            buildOptions.watch ??= {}
+            // Disable watch mode in testing to prevent file-change-triggered reloads
+            // that would destroy the CDP page reference
+            if (!process.env.__COMMONERS_TESTING) buildOptions.watch ??= {}
             buildOptions.minify ??= false
 
             options.vite.plugins = [
@@ -151,13 +156,14 @@ export default async function commonersElectronPlugin({
 
                   if (options.onstart) {
                     options.onstart.call(this, {
-                      startup: () => startElectronInstance(root),
+                      startup: () => startElectronInstance(root, hooks, outDir),
                       reload() {
+                        // hooks.emit({ type: 'electron:reload', config: userConfig })
                         if (electronGlobalStates.app) server.ws.send({ type: 'full-reload' })
-                        else startElectronInstance(root)
+                        else startElectronInstance(root, hooks, outDir)
                       },
                     })
-                  } else startElectronInstance(root)
+                  } else startElectronInstance(root, hooks, outDir)
                 },
               },
             ]

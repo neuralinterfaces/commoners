@@ -1,0 +1,19 @@
+{
+  "name": "create-commoners",
+  "version": "1.0.0-alpha.3",
+  "description": "Scaffold a new Commoners project",
+  "type": "module",
+  "bin": {
+    "create-commoners": "./dist/index.mjs"
+  },
+  "files": [
+    "dist",
+    "template"
+  ],
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
+  }
+}

@@ -1,19 +1,72 @@
-# Plugins
-## Official Plugins
-### Device Access
-#### `@commoners/bluetooth` 
-Connect seamlessly to Bluetooth Low Energy devices across **all platforms** using the [Web Bluetooth API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API) (web, desktop) or Capacitor's `@capacitor-community/bluetooth-le` plugin (web, desktop, mobile)
+# Official Plugins
 
-#### `@commoners/serial`
-Connect seamlessly to Serial devices on both **web** and **desktop** using the [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API).
+Official plugins for the Commoners framework. Each plugin provides a cross-platform API that adapts to the current runtime.
 
-### Local Services
-#### `@commoners/local-services`
-Register and monitor services available on your local network using mDNS services. Available on **desktop** builds. Only available in development for **web** and **mobile**.
+## Platform Abstractions
 
-### Window Management
-### `@commoners/splash-screen`
-Display a splash screen while your application loads. Available on **desktop** builds.
+| Plugin | Web | Electron | Tauri | Mobile (Capacitor) | Status |
+|--------|-----|----------|-------|-------------------|--------|
+| `@commoners/preferences` | IndexedDB | Node fs (JSON) | Planned | @capacitor/preferences | New |
+| `@commoners/storage` | File System Access API | Node fs | Planned | @capacitor/filesystem | New |
+| `@commoners/clipboard` | navigator.clipboard | electron.clipboard | Planned | @capacitor/clipboard | New |
+| `@commoners/notifications` | Notification API | Electron Notification | Planned | @capacitor/local-notifications | New |
+| `@commoners/context` | navigator/globals | app.getPath() | Planned | @capacitor/app + device | New |
+| `@commoners/messaging` | BroadcastChannel | IPC relay | Planned | BroadcastChannel | New |
 
-### `@commoners/windows`
-Create multiple windows in your application. Available on **desktop** and **web** builds.
+## Device Communication
+
+| Plugin | Web | Electron | Tauri | Mobile (Capacitor) | Status |
+|--------|-----|----------|-------|-------------------|--------|
+| `@commoners/bluetooth` | navigator.bluetooth | Web API + permission bridge | Not supported | @capacitor-community/bluetooth-le | Tested |
+| `@commoners/serial` | navigator.serial | Web API + permission bridge | Not supported | Android only (MFi restriction on iOS) | Tested |
+
+## Desktop
+
+| Plugin | Web | Electron | Tauri | Mobile | Status |
+|--------|-----|----------|-------|--------|--------|
+| `@commoners/windows` | window.open() | BrowserWindow + IPC | Planned | N/A | Tested |
+| `@commoners/splash-screen` | N/A | Custom BrowserWindow | Planned | N/A | Tested |
+| `@commoners/autoupdate` | N/A | electron-updater | Planned | N/A | New |
+
+## Security
+
+| Plugin | Web | Electron | Tauri | Mobile | Status |
+|--------|-----|----------|-------|--------|--------|
+| `@commoners/integrity` | N/A | ASAR + binary hashes | Planned | N/A | Tested (77 tests) |
+| `@commoners/secure-services` | N/A | Per-session tokens | Planned | N/A | Tested (15 tests) |
+| `@commoners/audit` | Build-time SBOM | Build-time SBOM | Build-time SBOM | Build-time SBOM | New |
+
+## Networking
+
+| Plugin | Web | Electron | Tauri | Mobile | Status |
+|--------|-----|----------|-------|--------|--------|
+| `@commoners/local-services` | N/A | Bonjour/mDNS (runtime) | Planned | N/A | Tested |
+
+## Usage
+
+```ts
+// commoners.config.ts
+import preferences from '@commoners/preferences'
+import notifications from '@commoners/notifications'
+
+export default {
+  plugins: {
+    preferences: preferences(),
+    notifications: notifications(),
+  }
+}
+```
+
+```ts
+// In your app
+const { preferences, notifications } = await commoners.READY
+
+await preferences.set('theme', 'dark')
+const theme = await preferences.get('theme')
+
+await notifications.notify({ title: 'Saved', body: 'Your preferences were saved' })
+```
+
+## Tauri Support
+
+Most plugins implement Electron desktop hooks but not Tauri equivalents yet. The `DesktopRuntime` abstraction means the plugin IPC pattern (`this.handle`, `this.send`, `this.invoke`) is the same across runtimes — plugins that use only these abstractions work on both. Plugins that call `require('electron')` directly need Tauri-specific code paths, which will be added as Tauri adoption grows.

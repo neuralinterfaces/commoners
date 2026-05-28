@@ -1,0 +1,7 @@
+node_modules
+dist
+.commoners
+build
+ios
+android
+.env.local

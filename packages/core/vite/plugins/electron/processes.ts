@@ -6,6 +6,26 @@ export interface PidTree {
   children?: PidTree[]
 }
 
+/** Check if a process is still alive */
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0) // Signal 0 checks existence without killing
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Wait for a process to die, with timeout */
+async function waitForDeath(pid: number, timeoutMs: number): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (!isAlive(pid)) return true
+    await new Promise(r => setTimeout(r, 100))
+  }
+  return !isAlive(pid)
+}
+
 /**
  * Gracefully kill a process tree, waiting for exit before forcing.
  * On Windows, uses taskkill (/T /F) which is inherently non-graceful.
@@ -17,7 +37,10 @@ export async function treeKillGracefully(pid: number) {
       const output = execSync(`tasklist /FI "PID eq ${pid}"`, { encoding: 'utf8' })
       if (!output.includes(`${pid}`)) return
       execSync(`taskkill /PID ${pid} /T /F`) // Kill the whole process tree forcibly
-    } catch (err) {}
+    } catch (err) {
+      // Process may already be dead, which is fine
+      console.debug(`Failed to kill process ${pid}:`, err instanceof Error ? err.message : err)
+    }
   } else {
     const tree = pidTree({ pid, ppid: process.pid })
     await killTreeGracefully(tree)
@@ -45,7 +68,7 @@ export function pidTree(tree: PidTree): PidTree {
 }
 
 /**
- * Kill a single process tree node with grace period and fallback.
+ * Kill a single process tree node with grace period and SIGKILL fallback.
  */
 export async function killTreeGracefully(tree: PidTree): Promise<void> {
   if (tree.children) {
@@ -54,5 +77,15 @@ export async function killTreeGracefully(tree: PidTree): Promise<void> {
 
   try {
     process.kill(tree.pid, 'SIGTERM')
-  } catch {} // Already dead or invalid PID
+  } catch {
+    return // Already dead or invalid PID
+  }
+
+  // Wait up to 3s for graceful exit, then force-kill
+  const died = await waitForDeath(tree.pid, 3000)
+  if (!died) {
+    try {
+      process.kill(tree.pid, 'SIGKILL')
+    } catch {} // Already dead
+  }
 }

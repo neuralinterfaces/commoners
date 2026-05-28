@@ -1,0 +1,134 @@
+name: Desktop Build
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: 'Sign the build (requires secrets)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      # macOS: import certificates for signed builds
+      - name: Import macOS certificates
+        if: runner.os == 'macOS' && (github.event_name == 'release' || inputs.sign)
+        uses: apple-actions/import-codesign-certs@v2
+        with:
+          p12-file-base64: ${{ secrets.MAC_CERTS }}
+          p12-password: ${{ secrets.MAC_CERTS_PASSWORD }}
+
+      # Signed build (on release or manual dispatch with sign=true)
+      - name: Build signed desktop app
+        if: github.event_name == 'release' || inputs.sign
+        run: pnpm exec commoners build --target desktop --sign
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      # Ad-hoc signed build on push (macOS only) — tests ASAR integrity without certificates
+      - name: Build ad-hoc signed desktop app (macOS)
+        if: runner.os == 'macOS' && github.event_name == 'push'
+        run: pnpm exec commoners build --target desktop --sign
+
+      # Unsigned build with forced ASAR integrity (on push, Windows only)
+      - name: Build unsigned desktop app (Windows)
+        if: runner.os == 'Windows' && github.event_name == 'push'
+        run: pnpm exec commoners build --target desktop
+        env:
+          COMMONERS_FORCE_ASAR_INTEGRITY: 'true'
+
+      # Upload build artifacts
+      - name: Upload macOS artifacts
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos
+          path: |
+            .commoners/electron/*.dmg
+            .commoners/electron/*.zip
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload Windows artifacts
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows
+          path: |
+            .commoners/electron/*.exe
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Full ASAR integrity verification on macOS
+      - name: Verify ASAR integrity (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          APP=$(find .commoners/electron -name '*.app' -maxdepth 2 | head -1)
+          if [ -n "$APP" ]; then
+            chmod +x tests/asar/ci-verify-asar-integrity.sh
+            tests/asar/ci-verify-asar-integrity.sh "$APP"
+          else
+            echo "::warning::.app bundle not found in build output"
+          fi
+
+      # ASAR integrity verification on Windows
+      - name: Verify ASAR integrity (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $unpackedDir = Get-ChildItem -Path ".commoners/electron" -Directory -Filter "win-*" | Select-Object -First 1
+          if ($unpackedDir) {
+            .\tests\asar\ci-verify-asar-integrity.ps1 -AppPath $unpackedDir.FullName
+          } else {
+            Write-Host "::warning::Windows unpacked directory not found in build output"
+          }

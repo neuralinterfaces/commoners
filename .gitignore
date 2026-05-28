@@ -12,14 +12,18 @@ build
 !packages/core/assets/**
 dist
 dist-ssr
+target
+
 
 # AI
-CLAUDE.md
+.claude/*
+!.claude/commands/
 
 # Testing Resources
 .vite-templates
 **/*.spec
 coverage
+*.pfx
 
 # Mobile platforms
 ios
@@ -27,11 +31,6 @@ android
 
 # Documentation
 cache
-
-# Lock files (PNPM only)
-**/pnpm-lock.yaml
-*.lock
-*/**/*-lock.json
 
 # Logs
 logs
@@ -43,6 +42,11 @@ pnpm-debug.log*
 lerna-debug.log*
 *.local
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -52,3 +56,4 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+service-hashes.json

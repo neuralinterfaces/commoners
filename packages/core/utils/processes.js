@@ -1,31 +1,35 @@
-const chalk = import('chalk').then(m => m.default)
 
 import { spawn } from 'node:child_process'
+import { createNoOpHooks } from '../ui.js'
+import { createLogger } from '../assets/utils/logger.js'
+
+const logger = createLogger('processes')
 
 const children = {}
 
 const kill = code => {
   for (const child in children) children[child].kill()
-  // process.exit();
 }
 
 // Ensure all processes are killed
 process.on('uncaughtException', e => {
-  console.error(e)
+  // Log critical errors but let the process handle it
+  if (process.env.NODE_ENV === 'development') console.error(e)
   kill()
 })
 
 process.on('beforeExit', kill)
 
-export const runCommand = async (string, options) => {
+export const runCommand = async (string, options, hooks = createNoOpHooks()) => {
   const splitCommand = string.split(' ')
   const [command, ...args] = splitCommand
-  await spawnProcess(command, args, options)
+  await spawnProcess(command, args, options, hooks)
 }
 
-export const spawnProcess = (command, args, { env = {}, opts = {}, cwd } = {}) => {
+export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } = {}, hooks = createNoOpHooks()) => {
   return new Promise(async resolve => {
-    const _chalk = await chalk
+
+    label = label || command
 
     // NOTE: We don't need this in production builds...
     const customPath = `${process.cwd()}/node_modules/.bin` // Include this library's node_modules in the PATH
@@ -41,20 +45,36 @@ export const spawnProcess = (command, args, { env = {}, opts = {}, cwd } = {}) =
 
     children[proc.pid] = proc
 
+    // Cleanup function to remove process and listeners
+    const cleanup = (res) => {
+      delete children[proc.pid]
+      // Remove all listeners to prevent memory leaks
+      proc.removeAllListeners()
+      if (proc.stdout) proc.stdout.removeAllListeners()
+      if (proc.stderr) proc.stderr.removeAllListeners()
+      resolve(res)
+    }
+
+    // Process output is handled by the service management system
+    // Individual process logs are no longer logged to console
     if (opts.log !== false) {
-      proc.stdout.on('data', data => console.log(_chalk.gray(data.toString())))
-      proc.on('data', data => console.log(_chalk.gray(data.toString())))
-      proc.stderr.on('data', e => {
-        console.log(_chalk.gray(e))
+      proc.stdout?.on('data', (data) => {
+        logger.debug('Emitting service:stdout', { service: label })
+        hooks.emit({ type: 'service:stdout', data, service: label })
       })
-      proc.on('error', e => {
-        console.log(_chalk.gray(e))
+      proc.stderr?.on('data', (data) => {
+        logger.debug('Emitting service:stderr', { service: label })
+        hooks.emit({ type: 'service:stderr', data, service: label })
+      })
+      proc.on('error', (error) => {
+        logger.debug('Emitting service:error', { service: label, error: error.message })
+        hooks.emit({ type: 'service:error', error, service: label })
       })
     }
 
-    proc.on('exit', res => {
-      delete children[proc.pid]
-      resolve(res)
-    })
+    // Handle both exit and close to ensure cleanup
+    proc.once('exit', cleanup)
+    proc.once('close', cleanup)
+    proc.once('error', cleanup)
   })
 }

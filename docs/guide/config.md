@@ -16,13 +16,29 @@ export default {
 ```
 
 ### Icon
-The `icon` property defines the path to the icon of your application. This value is used as the default `<link rel="shortcut icon">` of your application and as the Electron application icon.
+The `icon` property defines the path to the icon of your application.
 
 ```js
 export default {
-    icon: './assets/vite.png',
+    icon: './icon.png',
 }
 ```
+
+**Recommended:** Use a single **RGBA PNG** (color type 6) at **1024x1024** pixels. This is the universal format that works across all targets:
+
+| Target | What happens | Notes |
+|--------|-------------|-------|
+| **Web** | Used as favicon | Any PNG works |
+| **PWA** | Manifest icons | Vite PWA plugin handles sizing |
+| **Electron** | App icon | electron-builder auto-converts to ICO/ICNS |
+| **Tauri** | App + resource icon | Must be RGBA PNG (indexed PNGs are rejected at compile time) |
+| **iOS** | App icon | Needs 1024x1024 source for all AppIcon sizes |
+| **Android** | Launcher icon | Needs high-res source for mipmap generation |
+
+**Common issues:**
+- **Indexed PNGs** (color type 3) fail on Tauri. Use RGBA (color type 6).
+- **Small icons** may look pixelated on high-DPI displays. Use 512x512 minimum.
+- You can provide light/dark variants: `icon: { light: './icon-light.png', dark: './icon-dark.png' }`
 
 ### Pages
 The `pages` property defines the pages of your application. This value is a proxy for `vite.build.rollupOptions.input` and specifies which HTML files in your application should be built.
@@ -143,14 +159,61 @@ The `electron` property defines the Electron options of your application. This v
 ```js
 export default {
     electron: {
-        nodeIntegration: true
+        nodeIntegration: true,
         window: {
             width: 800,
             height: 600,
-        }
+        },
     },
 }
 ```
+
+#### `electron.build`
+Pass any [electron-builder configuration](https://www.electron.build/configuration) directly. Your values are merged with the Commoners defaults, with your config taking precedence.
+
+```js
+export default {
+    electron: {
+        build: {
+            appId: 'com.example.myapp',
+            win: {
+                target: ['nsis', 'portable'],
+                rfc3161TimeStampServer: 'http://timestamp.digicert.com',
+            },
+            mac: {
+                target: ['dmg', 'zip'],
+                category: 'public.app-category.developer-tools',
+            },
+            nsis: {
+                oneClick: false,
+                allowToChangeInstallationDirectory: true,
+            },
+        },
+    },
+}
+```
+
+#### `electron.security`
+Configure security features for the Electron build.
+
+```js
+export default {
+    electron: {
+        security: {
+            // Enable or disable ASAR integrity validation (default: true when signing)
+            asarIntegrity: true,
+
+            // Or pass options:
+            // asarIntegrity: { strict: true },
+
+            // Disable ASAR integrity entirely:
+            // asarIntegrity: false,
+        },
+    },
+}
+```
+
+When `build.sign` or `build.publish` is enabled, ASAR integrity hashes are automatically embedded into the application binary and verified at runtime via Electron fuses. See [Desktop Targets](./targets/desktop) for platform-specific signing details.
 
 ### Vite
 The `vite` property defines the Vite options of your application. This value is used to configure the Vite options of your application.

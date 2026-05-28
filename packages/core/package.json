@@ -1,22 +1,32 @@
 {
   "name": "@commoners/solidarity",
   "description": "Build solidarity across platform",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.4",
   "type": "module",
+  "author": "Neural Interfaces",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/core"
+  },
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/main.mjs",
       "require": "./dist/main.cjs"
     },
     "./services": {
-      "types": "./dist/types/services/index.d.ts",
+      "types": "./dist/services/index.d.ts",
       "import": "./dist/services.mjs",
       "require": "./dist/services.cjs"
     },
+    "./ui": {
+      "import": "./dist/ui.mjs",
+      "require": "./dist/ui.cjs"
+    },
     "./config": {
-      "types": "./dist/types/config.d.ts",
+      "types": "./dist/config.d.ts",
       "import": "./dist/config.mjs",
       "require": "./dist/config.cjs"
     }
@@ -36,37 +46,44 @@
   },
   "dependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
-    "@electron-toolkit/utils": "^3.0.0",
-    "@electron/asar": "^4.0.1",
-    "@electron/fuses": "^2.0.0",
-    "@electron/notarize": "^2.3.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@electron/asar": "^4.1.0",
+    "@electron/fuses": "^2.1.0",
+    "@electron/notarize": "^3.1.1",
+    "bonjour-service": "^1.3.0",
+    "boxen": "^8.0.1",
     "chalk": "^5.2.0",
     "dotenv": "^16.3.1",
-    "electron": "^38.1.0",
-    "electron-builder": "24.13.3",
-    "electron-builder-squirrel-windows": "^24.0.0",
-    "esbuild": "^0.23.0",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
+    "electron-builder-squirrel-windows": "^26.0.0",
+    "esbuild": "^0.27.3",
+    "figures": "^6.1.0",
     "js-yaml": "^4.1.0",
     "open": "^9.1.0",
-    "pkg": "^5.8.1",
+    "ora": "^9.0.0",
+    "path-browserify": "^1.0.1",
     "plist": "^3.1.0",
-    "vite": "^7.1.7",
-    "vite-plugin-dts": "^4.5.3",
-    "vite-plugin-node-polyfills": "^0.24.0",
-    "vite-plugin-pwa": "^1.0.3",
+    "process": "^0.11.10",
+    "vite": "^7.3.1",
+    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-pwa": "^1.2.0",
     "ws": "^8.18.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@types/node": "^20.19.15",
     "typescript": "^5.0.0",
-    "vite-plugin-static-copy": "^3.1.2"
+    "vite-plugin-static-copy": "^3.2.0"
+  },
+  "optionalDependencies": {
+    "rcedit": "^4.0.1"
   },
   "peerDependencies": {
-    "@capacitor/android": "^6.1.0",
+    "@capacitor/android": "^8.2.0",
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^6.1.0",
-    "@capacitor/ios": "^6.1.0"
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/ios": "^8.2.0"
   },
   "peerDependenciesMeta": {
     "@capacitor/android": {

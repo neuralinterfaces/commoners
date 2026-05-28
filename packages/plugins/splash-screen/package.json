@@ -1,6 +1,16 @@
 {
   "name": "@commoners/splash-screen",
-  "version": "0.0.62",
+  "version": "1.0.0-alpha.3",
+  "description": "Splash screen plugin for Commoners desktop applications",
+  "author": "Neural Interfaces",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/splash-screen"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "license": "MIT",
@@ -9,9 +19,9 @@
     "build": "vite build"
   },
   "devDependencies": {
-    "vite": "^7.1.7"
+    "vite": "^7.3.1"
   },
   "peerDependencies": {
-    "@commoners/solidarity": ">=0.0.62 <0.1.0"
+    "@commoners/solidarity": "1.0.0-alpha.3 || >=1.0.0 <2.0.0"
   }
 }

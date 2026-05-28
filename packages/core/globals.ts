@@ -1,20 +1,40 @@
 // Built-In Modules
 import { join, resolve } from 'node:path'
 import { dirname } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { exists, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 
 import { removeDirectory } from './utils/files.js'
+import { getFilename } from './utils/paths.js'
 import { SpecificTargetType } from './types.js'
 
 import { onCleanup } from './cleanup.js'
 export { cleanup } from './cleanup.js'
 
+// Error classes
+import { BuildError, PlatformError } from './errors.js'
+
+// Constants
+import {
+  TARGET_DESKTOP,
+  TARGET_DESKTOP_ELECTRON,
+  TARGET_DESKTOP_TAURI,
+  TARGET_MOBILE,
+  TARGET_IOS,
+  TARGET_ANDROID,
+  TARGET_IOS_CAPACITOR,
+  TARGET_ANDROID_CAPACITOR,
+  TARGET_IOS_TAURI,
+  TARGET_ANDROID_TAURI,
+  PLATFORM_MAC,
+  DIR_ELECTRON,
+} from './constants.js'
+
 // External Packages
 import * as yaml from 'js-yaml'
 
 // Internal Imports
-import { printFailure, printSubtle } from './utils/formatting.js'
+
 import {
   TargetType,
   WritableElectronBuilderConfig,
@@ -22,6 +42,10 @@ import {
   validDesktopTargets,
   validMobileTargets,
 } from './types.js'
+
+import { globalWorkspacePath } from './assets/services/paths.js'
+export { globalWorkspacePath }
+
 
 // Dynamic Imports
 export const chalk = import('chalk').then(m => m.default)
@@ -33,50 +57,64 @@ const getOS = () =>
 export const PLATFORM = getOS() // Declared Mobile OR Implicit Desktop Patform
 
 // Ensure __filename is available in ES Modules
-const ____filename = new URL('', import.meta.url).pathname
-const __filename =
-  ____filename.startsWith('/') && PLATFORM === 'windows' ? ____filename.slice(1) : ____filename // NOTE: For some reason, a slash has started to be added here...
+const __filename = getFilename(import.meta.url)
 const require = createRequire(import.meta.url)
 const { version: electronVersion } = require('electron/package.json')
 export { electronVersion }
 
-export const globalWorkspacePath = '.commoners'
+export const globalTempDir = join(globalWorkspacePath, '.tmp')
 
-export const globalTempDir = join(globalWorkspacePath, '.temp')
+let activeStagingDir: string
+export const handleTemporaryDirectories = async (
+  config,
+  overwrite = false,
+  options: { cleanupOnExit?: boolean } = {}
+) => {
 
-let __selectedTempDir: string
-export const handleTemporaryDirectories = async (tempDir = globalTempDir, overwrite = false) => {
-  const canOverwrite = overwrite && __selectedTempDir === tempDir
-  const hasTempDir = existsSync(tempDir)
-  const isOverWritten = canOverwrite && hasTempDir
+  const tempDir = config.outDir || resolve(config.root, globalTempDir)
+
+  const { cleanupOnExit = true } = options
+  const canOverwrite = overwrite && activeStagingDir === tempDir
+  const runMetadataFile = join(tempDir, 'commoners.metadata.json')
+  const hasTempMetadata = existsSync(runMetadataFile)
+  const isOverWritten = canOverwrite && hasTempMetadata
 
   // NOTE: Ensure that the single temporary directory is not overwritten for different targets
-  if (!canOverwrite && existsSync(tempDir)) {
-    await printFailure('An active development build was detected for this project.')
-    await printSubtle('Shut down the active build and try again.')
-    await printSubtle(`To reset this error, you may also delete the ${resolve(tempDir)} directory.`)
-    process.exit(1)
+  if (!canOverwrite && hasTempMetadata) {
+      const metadata = JSON.parse(readFileSync(runMetadataFile, 'utf-8'))
+      const { createdAt } = metadata
+      const createdAtDate = new Date(createdAt)
+
+      // In test environments, clean up stale metadata instead of throwing
+      if (process.env.__COMMONERS_TESTING) {
+        removeDirectory(tempDir)
+      } else {
+        throw new BuildError(
+          `Active development build detected (${createdAtDate.toLocaleString()})`,
+          `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
+        )
+      }
   }
+
+  // Create a temporary metadata file
+  if (!existsSync(dirname(runMetadataFile))) mkdirSync(dirname(runMetadataFile), { recursive: true })
+  writeFileSync(runMetadataFile, JSON.stringify({ createdAt: new Date().toISOString(), tempDir }), 'utf-8')
 
   let removed = false
 
-  __selectedTempDir = tempDir
-  const onClose = () => {
-    // Prevent double-calling
-    if (removed) return
+  activeStagingDir = tempDir
+  const clearTemporaryFiles = () => {
+    if (removed) return // Prevent double-calling
     removed = true
-
-    // Remove the temporary directories
-    removeDirectory(tempDir)
-    removeDirectory(`${tempDir}.services`)
+    removeDirectory(tempDir) // Remove the temporary directories
   }
 
-  // Always clear the temp directories on exit
-  onCleanup(onClose)
+  // Only register cleanup on exit if cleanupOnExit is true (e.g., for dev builds)
+  if (cleanupOnExit) onCleanup(clearTemporaryFiles)
 
   return {
     overwrite: isOverWritten,
-    close: onClose,
+    close: clearTemporaryFiles,
   }
 }
 
@@ -85,18 +123,42 @@ export const getDefaultMainLocation = outDir => join(outDir, 'main.cjs')
 export const isDesktop = (target: TargetType) => validDesktopTargets.includes(target)
 export const isMobile = (target: TargetType) => validMobileTargets.includes(target)
 
+/** Check if a target uses the Electron backend */
+export const isElectron = (target: TargetType) => target === TARGET_DESKTOP_ELECTRON
+
+/** Check if a target uses the Tauri backend (desktop or mobile) */
+export const isTauri = (target: TargetType) =>
+  target === TARGET_DESKTOP_TAURI || target === TARGET_IOS_TAURI || target === TARGET_ANDROID_TAURI
+
+/** Check if a target uses the Capacitor backend (mobile only) */
+export const isCapacitor = (target: TargetType) =>
+  target === TARGET_IOS_CAPACITOR || target === TARGET_ANDROID_CAPACITOR
+
+/** Check if a target is a Tauri mobile target */
+export const isTauriMobile = (target: TargetType) =>
+  target === TARGET_IOS_TAURI || target === TARGET_ANDROID_TAURI
+
+/** Check if a target is a Capacitor mobile target */
+export const isCapacitorMobile = (target: TargetType) =>
+  target === TARGET_IOS_CAPACITOR || target === TARGET_ANDROID_CAPACITOR
+
 export const getNormalizedTarget = (target: TargetType) => {
   const isDesktopTarget = isDesktop(target)
   const isMobileTarget = isMobile(target)
-  return isDesktopTarget ? 'desktop' : isMobileTarget ? 'mobile' : 'web'
+  return isDesktopTarget ? TARGET_DESKTOP : isMobileTarget ? TARGET_MOBILE : 'web'
 }
 
 export const getSpecificTarget = (target: TargetType) => {
   if (!target)
     target = 'web' // Default to web target
-  else if (target === 'mobile')
-    target = PLATFORM === 'mac' ? 'ios' : 'android' // Auto-detect mobile platform
-  else if (target === 'desktop') target = 'electron' // Auto-detect desktop platform
+  else if (target === TARGET_MOBILE)
+    target = PLATFORM === PLATFORM_MAC ? TARGET_IOS_CAPACITOR : TARGET_ANDROID_CAPACITOR
+  else if (target === TARGET_IOS)
+    target = TARGET_IOS_CAPACITOR // ios → ios-capacitor (default iOS backend)
+  else if (target === TARGET_ANDROID)
+    target = TARGET_ANDROID_CAPACITOR // android → android-capacitor (default Android backend)
+  else if (target === TARGET_DESKTOP)
+    target = TARGET_DESKTOP_ELECTRON // desktop → electron (default desktop backend)
   return target as SpecificTargetType
 }
 
@@ -104,21 +166,25 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
   if (allow.includes(target)) return target
   target = getSpecificTarget(target)
 
-  const _chalk = await chalk
-
-  // Provide a custom warning message for tauri
-  if (target === 'tauri') {
-    console.error(_chalk.yellow(`Tauri is not yet supported.`))
-    process.exit(1)
-  }
-
   if (universalTargetTypes.includes(target)) return target
   if (isDesktop(target)) return target
-  else if (isMobile(target) && (PLATFORM === 'mac' || target === 'mobile' || target === 'android'))
-    return target // Linux and Windows can build for android
+  else if (isMobile(target)) {
+    // iOS targets (capacitor or tauri) require macOS
+    if ((target === TARGET_IOS_CAPACITOR || target === TARGET_IOS_TAURI) && PLATFORM !== PLATFORM_MAC) {
+      throw new PlatformError(
+        `Target '${target}' requires macOS`,
+        `iOS builds can only be done on macOS.`
+      )
+    }
+    // Android targets work on all platforms; macOS can build for all
+    if (PLATFORM === PLATFORM_MAC || target === TARGET_ANDROID_CAPACITOR || target === TARGET_ANDROID_TAURI)
+      return target
+  }
 
-  console.error(`No commoners command for ${_chalk.bold(target)} on ${_chalk.bold(PLATFORM)}`)
-  process.exit(1)
+  throw new PlatformError(
+    `Target '${target}' not supported on ${PLATFORM}`,
+    `This platform (${PLATFORM}) cannot build for target: ${target}`
+  )
 }
 
 // Get Configuration File and Path
@@ -126,22 +192,4 @@ export const rootDir = dirname(require.resolve(__filename))
 
 export const templateDir = join(rootDir, 'assets')
 export const getBuildConfig = (): WritableElectronBuilderConfig =>
-  yaml.load(readFileSync(join(templateDir, 'electron', 'electron-builder.yml')).toString())
-
-// const resolveKey = (key) => {
-//     if (valid.mode.includes(key)) return MODE
-//     else if (valid.platform.includes(key)) return PLATFORM
-//     else if (valid.target.includes(key)) return TARGET
-//     return
-// }
-
-// export const resolvePlatformSpecificValue = (o) => {
-//     if (o && typeof o === 'object') {
-//         const resolvedKey = Object.keys(o).find(resolveKey)
-//         if (resolvedKey) return resolvePlatformSpecificValue(o[resolvedKey]) // Return resolved value
-//     }
-
-//     else if (typeof o === 'function') return resolvePlatformSpecificValue(o())
-
-//     return o
-// }
+  yaml.load(readFileSync(join(templateDir, DIR_ELECTRON, 'electron-builder.yml')).toString())

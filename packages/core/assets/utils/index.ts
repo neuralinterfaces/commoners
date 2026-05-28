@@ -1,4 +1,34 @@
-const isDesktop = target => target === 'desktop' || target === 'electron' // Duplicated from globals.ts
+/**
+ * Symbol used to mark lazy factory functions.
+ * Users wrap their dynamic imports with `lazy()` to enable tree-shaking.
+ */
+export const LAZY_MARKER = Symbol.for('commoners:lazy')
+
+/**
+ * Mark a factory function as a lazy loader for tree-shaking.
+ * Usage: `desktop: lazy(() => import('./desktop-hooks'))`
+ */
+export function lazy<T>(factory: () => Promise<T>): () => Promise<T> {
+  ;(factory as any)[LAZY_MARKER] = true
+  return factory
+}
+
+/**
+ * Resolve a lazy factory value. Lazy factories are functions marked with
+ * `lazy()` that return a Promise (e.g. `lazy(() => import('./module'))`).
+ * If the value is not a lazy factory, it is returned as-is.
+ */
+export async function resolveLazy(value) {
+  if (typeof value === 'function' && value[LAZY_MARKER]) {
+    const resolved = await value()
+    return resolved?.__esModule || resolved?.default !== undefined
+      ? resolved.default
+      : resolved
+  }
+  return value
+}
+
+const isDesktop = target => target === 'desktop' || target === 'electron' || target === 'tauri' // Duplicated from globals.ts
 
 // https://advancedweb.hu/how-to-use-async-functions-with-array-filter-in-javascript/
 export const asyncFilter = async (arr, predicate) =>
@@ -35,24 +65,6 @@ export async function isPluginFeatureSupported(plugin, feature) {
 export function isPluginLoadable(plugin) {
   return isPluginFeatureSupported.call(this, plugin, 'load')
 }
-
-// const commonPluginFeatures = [ 'load', 'start', 'ready', 'quit' ]
-
-// export async function isPluginSupported (plugin, target) {
-
-//     const isDesktopBuild = target === 'desktop'
-
-//     let { desktop } = plugin
-//     if (desktop && isDesktopBuild) return true // Desktop plugins are always supported in desktop builds
-
-//     const supported = []
-//     for (const feature of commonPluginFeatures) {
-//         const supported = await isPluginFeatureSupported.call(this, plugin, feature)
-//         supported.push(supported)
-//     }
-
-//     return supported.some(supported => supported) // Support if any feature is supported
-// }
 
 export const sanitizePluginProperties = (plugin, target) => {
   const copy = { ...plugin }

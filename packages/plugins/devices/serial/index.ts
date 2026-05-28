@@ -1,9 +1,28 @@
 import createModal from '../modal.js'
 
+// Android USB serial support via Capacitor
+// NOTE: iOS serial is not supported due to Apple MFi program restrictions.
+// Apple requires MFi certification for serial/USB accessory communication,
+// which is not available through standard Capacitor plugins.
+const capacitorConfiguration = {
+  name: 'UsbSerial',
+  manifest: {
+    'uses-feature': [{ 'android:name': 'android.hardware.usb.host', 'android:required': 'false' }],
+    'uses-permission': [{ 'android:name': 'android.permission.USB_PERMISSION' }],
+  },
+}
+
+export const capabilities = {
+  provides: ['serial', 'device-access'],
+  platforms: { web: true, desktop: true, mobile: 'android' as const },
+  runtime: 'browser' as const,
+}
+
 export const isSupported = {
+  capacitor: capacitorConfiguration,
   load: ({ WEB, MOBILE }) => {
     if (WEB) return 'serial' in navigator // Ensure serial feature is available
-    if (MOBILE) return MOBILE === 'android'
+    if (MOBILE) return MOBILE === 'android' // iOS serial not supported (MFi restriction)
   },
 }
 

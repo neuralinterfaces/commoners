@@ -1,0 +1,27 @@
+{
+  "name": "@commoners/secure-services",
+  "version": "1.0.0-alpha.3",
+  "description": "Per-session authentication tokens for service communication",
+  "author": "Neural Interfaces",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/secure-services"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.3.1"
+  },
+  "peerDependencies": {
+    "@commoners/solidarity": ">=1.0.0-alpha.0"
+  }
+}

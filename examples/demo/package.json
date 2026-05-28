@@ -1,0 +1,35 @@
+{
+  "name": "@commoners/demo",
+  "version": "1.0.0-alpha.3",
+  "private": true,
+  "description": "A test app for the commoners library",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neuralinterfaces/commoners.git"
+  },
+  "author": {
+    "name": "Garrett Flynn",
+    "email": "garrettmflynn@gmail.com",
+    "url": "https://garrettflynn.com/"
+  },
+  "workspaces": [
+    "src/services/*"
+  ],
+  "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.1.2",
+    "@commoners/bluetooth": "workspace:*",
+    "@commoners/local-services": "workspace:*",
+    "@commoners/serial": "workspace:*",
+    "@commoners/splash-screen": "workspace:*",
+    "@commoners/windows": "workspace:*"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0"
+  },
+  "main": ".commoners/.tmp/electron/main.cjs"
+}

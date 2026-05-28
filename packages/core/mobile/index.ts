@@ -9,6 +9,9 @@ import { chalk } from '../globals.js'
 import { onCleanup } from '../cleanup.js'
 
 import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfiguration } from '../types.js'
+import { getPlugins } from '../utils/extensions.js'
+import { DependencyError, PlatformError } from '../errors.js'
+import { TARGET_IOS, TARGET_ANDROID, MOBILE_IOS_PLIST_PATH, MOBILE_ANDROID_MANIFEST_PATH } from '../constants.js'
 
 // Internal Utilities
 import { runCommand } from '../utils/processes.js'
@@ -37,7 +40,10 @@ const getBaseConfig = ({ name, appId, outDir }) => {
 const isCapacitorConfig = (o: CapacitorConfig) =>
   o && typeof o === 'object' && 'name' in o && 'plugin' in o
 
-const getCapacitorConfig = (o: Plugin) => o.isSupported?.capacitor
+const getCapacitorConfig = (o: Plugin) => {
+  const support = o.isSupported
+  return (typeof support === 'object' && 'capacitor' in support) ? support.capacitor : undefined
+}
 
 const getCapacitorPluginAccessor = (plugin: Plugin) => {
   const capacitorPlugin = getCapacitorConfig(plugin)
@@ -46,18 +52,20 @@ const getCapacitorPluginAccessor = (plugin: Plugin) => {
   return {
     ref: capacitorPlugin,
     setParent: (v: boolean) => {
-      const supportObj = plugin.isSupported as SupportConfiguration
+      const supportObj = plugin.isSupported as { capacitor?: CapacitorConfig | false }
       if (v === false) supportObj.capacitor = false // Disable plugin for mobile
     },
   }
 }
 
-const getCapacitorPluginAccessors = (plugins: ResolvedConfig['plugins']) =>
+const getCapacitorPluginAccessors = (plugins: Record<string, Plugin>) =>
   Object.values(plugins)
     .map(o => getCapacitorPluginAccessor(o))
     .filter(x => x)
 
-export const prebuild = ({ plugins, root }: ResolvedConfig) => {
+export const prebuild = (config: ResolvedConfig) => {
+  const { root } = config
+  const plugins = getPlugins(config.extensions)
   const require = getRequireForRoot(root)
 
   // Map Capacitor plugin information to their availiabity
@@ -68,14 +76,14 @@ export const prebuild = ({ plugins, root }: ResolvedConfig) => {
 }
 
 type MobileOptions = {
-  target: 'ios' | 'android'
+  target: typeof TARGET_IOS | typeof TARGET_ANDROID
   outDir: string
 }
 
 type ConfigOptions = {
   name: ResolvedConfig['name']
   appId: ResolvedConfig['appId']
-  plugins: ResolvedConfig['plugins']
+  plugins: Record<string, Plugin>
   outDir: string
   root: string
 }
@@ -114,21 +122,33 @@ export const openConfig = async ({ name, appId, plugins, outDir, root }: ConfigO
 }
 
 const addProjectTarget = async (target, config: ResolvedConfig, outDir: string) => {
-  const { name, appId, plugins, root } = config
+  const { name, appId, root } = config
+  const plugins = getPlugins(config.extensions)
   const { close } = await openConfig({ name, appId, plugins, outDir, root })
-  await runCommand(`npx cap add ${target} && npx cap copy ${target}`)
+  await runCommand(`npx cap add ${target} && npx cap copy ${target}`, { cwd: root })
   close()
 }
 
 const syncProject = async (config: ResolvedConfig, outDir: string) => {
-  const { name, appId, target, plugins, root } = config
+  const { name, appId, target, root } = config
+  const plugins = getPlugins(config.extensions)
   const { close } = await openConfig({ name, appId, plugins, outDir, root })
-  await runCommand(`npx cap sync ${target}`)
+  await runCommand(`npx cap sync ${target}`, { cwd: root })
   close()
 }
 
+export const runInRoot = async (fn: (config: ResolvedConfig) => Promise<void>, config: ResolvedConfig) => {
+    const { root } = config
+    const initialWorkingDirectory = process.cwd()
+    process.chdir(root) // Change to output directory for mobile commands
+    const updatedConfig = { ...config }
+    await fn(updatedConfig)
+    process.chdir(initialWorkingDirectory) // Reset working directory
+}
+
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
-  const { plugins, root } = config
+  const { root } = config
+  const plugins = getPlugins(config.extensions)
 
   const projectBase = resolvePath(root, target)
 
@@ -145,11 +165,14 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
 
   const installedPlugins = commonersPlugins.filter(({ plugin }) => {
     if (isInstalled(plugin, require.resolve)) return true
-    else ignored.push(plugin)
+    else {
+      ignored.push(plugin)
+      return false
+    }
   })
 
   // Inject the appropriate permissions into the info.plist file (iOS only)
-  if (target === 'ios') {
+  if (target === TARGET_IOS) {
     const xml = plist.parse(readFileSync(platformConfigPath, 'utf8')) as any
     installedPlugins.forEach(({ plist = {} }) =>
       Object.entries(plist).forEach(([key, value]) => (xml[key] = value))
@@ -157,19 +180,78 @@ export const init = async ({ target, outDir }: MobileOptions, config: ResolvedCo
     writeFileSync(platformConfigPath, plist.build(xml))
   }
 
-  // Inject the appropriate permissions into the AndroidManifest.xml file (Android only) (UNTESTED)
-  else if (target === 'android') {
+  // Inject the appropriate permissions into the AndroidManifest.xml file (Android only)
+  else if (target === TARGET_ANDROID) {
     const xml = readFileSync(platformConfigPath, 'utf8')
     const result = await xml2js.parseStringPromise(xml)
     const androidManifest = result.manifest
 
-    // console.log('Original', androidManifest)
-    // installedPlugins.forEach(({ manifest = {}}) =>{
-    //     console.log('Adding', manifest)
-    //     Object.entries(manifest).forEach(([key, value]) => androidManifest[key] = value)
-    // })
+    // Ensure tools namespace is declared (needed for tools: attributes)
+    if (!androidManifest.$) {
+      androidManifest.$ = {}
+    }
+    if (!androidManifest.$['xmlns:tools']) {
+      androidManifest.$['xmlns:tools'] = 'http://schemas.android.com/tools'
+    }
 
-    // console.log('Final', androidManifest)
+    // Inject permissions from plugins
+    installedPlugins.forEach(({ manifest = {} }) => {
+      // Handle uses-permission entries
+      if (manifest['uses-permission']) {
+        if (!androidManifest['uses-permission']) {
+          androidManifest['uses-permission'] = []
+        }
+
+        const permissions = Array.isArray(manifest['uses-permission'])
+          ? manifest['uses-permission']
+          : [manifest['uses-permission']]
+
+        permissions.forEach(permission => {
+          // Check if permission already exists
+          const exists = androidManifest['uses-permission'].some(existing => {
+            const existingName = existing.$?.['android:name'] || existing['android:name']
+            const permName = permission.$?.['android:name'] || permission['android:name']
+            return existingName === permName
+          })
+
+          if (!exists) {
+            // Format permission with $ wrapper for attributes
+            const formattedPermission: any = { $: {} }
+            Object.entries(permission).forEach(([key, value]) => {
+              if (key.startsWith('android:') || key.startsWith('tools:')) {
+                formattedPermission.$[key] = value
+              } else {
+                formattedPermission[key] = value
+              }
+            })
+            androidManifest['uses-permission'].push(formattedPermission)
+          }
+        })
+      }
+
+      // Handle other manifest entries (features, etc.)
+      Object.entries(manifest).forEach(([key, value]) => {
+        if (key === 'uses-permission') return // Already handled above
+
+        if (!androidManifest[key]) {
+          androidManifest[key] = []
+        }
+
+        const entries = Array.isArray(value) ? value : [value]
+        entries.forEach(entry => {
+          // Format entry with $ wrapper for attributes
+          const formattedEntry: any = { $: {} }
+          Object.entries(entry).forEach(([attrKey, attrValue]) => {
+            if (attrKey.startsWith('android:') || attrKey.startsWith('tools:')) {
+              formattedEntry.$[attrKey] = attrValue
+            } else {
+              formattedEntry[attrKey] = attrValue
+            }
+          })
+          androidManifest[key].push(formattedEntry)
+        })
+      })
+    })
 
     writeFileSync(platformConfigPath, new xml2js.Builder().buildObject(result))
   }
@@ -190,21 +272,19 @@ const checkPlaformConfigExists = async (platform, root) => {
   const projectBase = resolvePath(root, platform)
   const configFilePath = join(
     projectBase,
-    platform === 'ios' ? 'App/App/info.plist' : 'app/src/main/AndroidManifest.xml'
+    platform === TARGET_IOS ? MOBILE_IOS_PLIST_PATH : MOBILE_ANDROID_MANIFEST_PATH
   )
   if (!existsSync(configFilePath)) {
-    const _chalk = await chalk
-    console.log(
-      `Please ensure that ${_chalk.bold(`@capacitor/${platform}`)} is installed at the base of your project.`
+    throw new DependencyError(
+      `@capacitor/${platform} is not installed`,
+      `Platform-specific files not found at: ${configFilePath}. Run 'npx cap add ${platform}' to initialize.`
     )
-    process.exit(1)
   }
   return configFilePath
 }
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (config: ResolvedConfig) => {
-  const _chalk = await chalk
 
   const notInstalled = new Set()
 
@@ -223,39 +303,38 @@ export const checkDepsInstalled = async (config: ResolvedConfig) => {
 
   if (notInstalled.size > 0) {
     const installationCommand = `npm install -D ${[...notInstalled].join(' ')}`
-    console.log(
-      _chalk.bold('\nEnsure the following packages are installed at the base of your project:')
+    throw new DependencyError(
+      'Missing required Capacitor dependencies',
+      `The following packages must be installed:\n  ${installationCommand}`
     )
-    console.log(installationCommand, '\n')
-    process.exit(1)
   }
 }
 
-export const open = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
+export const open = async (
+  { target, outDir }: MobileOptions,
+  config: ResolvedConfig,
+  options?: { headless?: boolean }
+) => {
+  const { root } = config
+
   await checkDepsInstalled(config)
 
   await syncProject(config, outDir)
 
   if (assets.has(config)) {
     const info = assets.create(config)
-    await runCommand(`npx @capacitor/assets generate --${target}`) // Generate assets
+    await runCommand(`npx @capacitor/assets generate --${target}`, { cwd: root })
     assets.cleanup(info)
   }
 
-  await runCommand(`npx cap open ${target}`)
+  if (options?.headless) return // Skip opening IDE in CI/headless mode
+
+  await runCommand(`npx cap open ${target}`, { cwd: root })
 }
 
-export const launch = async target => {
-  const _chalk = await chalk
-
-  throw new Error(`Cannot launch for ${target} yet...`)
-
-  // if (existsSync(platform))  {
-  //     console.log(_chalk.red(`This project is not initialized for ${platform}`))
-  //     process.exit()
-  // }
-
-  // await checkDepsInstalled(platform)
-  // await openConfig(() => runCommand("npx cap sync"))
-  // await runCommand(`npx cap run ${platform}`)
+export const launch = async (target: typeof TARGET_IOS | typeof TARGET_ANDROID, root?: string) => {
+  // Launch opens the native IDE (Xcode for iOS, Android Studio for Android)
+  // The capacitor CLI command 'npx cap open' must run from the project root
+  const options = root ? { cwd: root } : {}
+  await runCommand(`npx cap open ${target}`, options)
 }

@@ -1,362 +1,138 @@
-import electron, { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join, basename, extname, posix, sep } from 'node:path'
+/**
+ * Electron Main Process - Orchestration Layer
+ *
+ * This file coordinates all Electron main process functionality by delegating
+ * to specialized modules. It serves as the entry point and orchestrator.
+ */
+
+import type { BrowserWindow } from 'electron'
+import { join, extname, normalize } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as utils from '@electron-toolkit/utils'
 
-import * as services from '../services/index'
+// Services module loaded dynamically to reduce bundle size for apps without services
+let servicesModule: typeof import('../services/index') | null = null
 import { existsSync } from 'node:fs'
 import {
   ElectronBrowserWindowFlags,
   ElectronWindowOptions,
   ExtendedElectronBrowserWindow,
-  ElectronSecuritySettings
 } from '../../types'
-import { runAppPlugins } from '../plugins'
 import { ELECTRON_PREFERENCE, ELECTRON_WINDOWS_PREFERENCE, getIcon } from '../utils/icons'
-import { hasSignature, verifySignature } from './security'
-import { createInterface } from 'node:readline'
+// Inline toFilePath to avoid cross-directory import that breaks Rollup bundling
+const toFilePath = (urlOrPathname: string): string => {
+  if (urlOrPathname.startsWith('file://')) return fileURLToPath(urlOrPathname)
+  if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(urlOrPathname))
+    return urlOrPathname.slice(1)
+  return urlOrPathname
+}
+import { resolveHooks } from '../utils/hooks'
 
-import { session } from 'electron'
+// Import all modules
+import * as Config from './modules/config'
+import * as Security from './modules/security'
+import * as IPC from './modules/ipc'
+import * as Window from './modules/window'
+import * as Protocol from './modules/protocol'
+import * as Lifecycle from './modules/lifecycle'
+import * as Plugins from './modules/plugins'
+import { Commands } from './modules/commands'
+import { generateIPCAllowlist, validateChannel, serializeAllowlist } from './modules/ipc-allowlist'
+import type { IPCAllowlist } from './modules/ipc-allowlist'
 
+// Runtime abstraction
+import { createElectronRuntime } from '../runtime/electron'
+import type { DesktopRuntime } from '../runtime/types'
+const runtime: DesktopRuntime = createElectronRuntime()
+
+// Configure IPC module with runtime backend
+IPC.setIPCBackend(runtime.native.ipcMain, () => runtime.window.getAll())
+IPC.setSendToRenderer((win, channel, ...args) =>
+  runtime.window.sendToRenderer(win, channel, ...args)
+)
+
+// ------------------------ Configuration ------------------------
 const isProduction = !utils.is.dev
+const paths = Config.getPaths(isProduction)
+const { ASSET_ROOT_DIR, PROJECT_ROOT_DIR, viteAssetsPath, DEV_SERVER_URL } = paths
 
-// Get the Commoners configuration file
-const ASSET_ROOT_DIR = __dirname
-const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL
-const PROJECT_ROOT_DIR = isProduction ? ASSET_ROOT_DIR : process.cwd() // CWD is the project root in development
-const viteAssetsPath = join(ASSET_ROOT_DIR, 'assets')
-const configPath = join(viteAssetsPath, 'commoners.config.cjs') // Load the .cjs config version
-const _config = require(configPath) // Requires putting the dist at the Resource Path
-const config = _config.default || _config
+const electronConfig = Config.loadConfig()
+const { config, electron: electronOptions, plugins } = electronConfig
 
-// Resolve high-level configuration options
-const electronOptions = config.electron ?? {}
-const protocolOptions = electronOptions.protocol
-  ? typeof electronOptions.protocol === 'string'
-    ? { scheme: electronOptions.protocol }
-    : electronOptions.protocol
-  : {}
-const windowOptions = electronOptions.window ?? {}
+const options = Config.parseOptions(electronConfig, isProduction)
+const { protocolOptions, windowOptions, securitySettings } = options
 
+// Generate capabilities-driven IPC allowlist from declared plugins and services
+const pluginIds = Object.keys(plugins)
+const serviceIds = Object.keys(config.services || {})
+const ipcAllowlist = generateIPCAllowlist(pluginIds, serviceIds)
 
-const DEFAULT_SECURITY_SETTINGS: ElectronSecuritySettings = {
-  contextIsolation: true, // Enable context isolation by default
-  nodeIntegration: false, // Disable Node.js integration by default
-  sandbox: false, // Disable sandboxing by default
-  devTools: !isProduction, // Disable devTools in production
-}
-
-const __userSecuritySetting = electronOptions.security || true
-
-const securitySettings: ElectronSecuritySettings = {}
-if (__userSecuritySetting) {
-  if (__userSecuritySetting) {
-    Object.assign(securitySettings, DEFAULT_SECURITY_SETTINGS)
-    if (typeof __userSecuritySetting === 'object') Object.assign(securitySettings, __userSecuritySetting) // Merge with custom security settings if provided
+// Set remote debugging port early — must happen before app.whenReady()
+// This is done here (not in the plugin start() hook) because Chromium reads
+// command-line switches during initialization, which may complete before the
+// async plugin lifecycle runs.
+if (process.env.__COMMONERS_TESTING) {
+  const testingPlugin = Object.values(plugins).find((p: any) => p.options?.remoteDebuggingPort)
+  if (testingPlugin) {
+    const { remoteDebuggingPort, remoteAllowOrigins } = (testingPlugin as any).options
+    if (remoteDebuggingPort)
+      runtime.app.commandLine.appendSwitch('remote-debugging-port', `${remoteDebuggingPort}`)
+    if (remoteAllowOrigins)
+      runtime.app.commandLine.appendSwitch('remote-allow-origins', `${remoteAllowOrigins}`)
   }
 }
 
-const globals: {
-  firstInitialized: boolean
-  mainWindow: BrowserWindow | null
-  quitMessage: string | null
-  plugins: {
-    preload?: any
-    load?: any
-    unload?: any
-  }
-  isShuttingDown: boolean
-} = {
-  firstInitialized: false,
-  isShuttingDown: false,
-  mainWindow: null,
-  plugins: {},
-  quitMessage: null,
-}
+// ------------------------ Setup ------------------------
+Lifecycle.setupQuitHandler(() => runtime.lifecycle.quit())
+Lifecycle.handleUncaughtExceptions((title, content) => runtime.dialog.showErrorBox(title, content))
 
-globalThis.COMMONERS_QUIT = (message?: string) => {
-  globals.quitMessage = message || null // Store the quit message
-  app.quit() // Quit the application
-}
-
-const runVerification = async () => {
-  // Verify that the application integrity is intact when running in production
-  if (isProduction) {
-    const signatureExists = await hasSignature() // Check if the application has a valid signature
-
-    if (signatureExists) {
-      const isValid = await verifySignature() // Perform the executable signature check
-
-      if (!isValid) {
-        const messageBase = `This application has an invalid signature, which indicates a security issue or corruption.`
-        electron.dialog.showErrorBox(
-          `${app.getName()} Integrity Check Failed`,
-          `${messageBase}\n\nPlease contact support or reinstall the application.`
-        )
-
-        globalThis.COMMONERS_QUIT(messageBase) // Exit with error message
-        return false
-      }
-    } else {
-      console.warn(
-        `⚠️  ${app.getName()} does not appear to be signed. Please ensure that the application is intentionally unsigned.`
-      )
-    }
-  }
-
-  return true
-}
+// Configure capabilities-driven IPC allowlist
+IPC.setIPCAllowlist(ipcAllowlist)
 
 // Block application startup until verification is complete
-runVerification().then(isValid => {
+Security.runVerification(isProduction, {
+  showErrorBox: (title, content) => runtime.dialog.showErrorBox(title, content),
+  getAppName: () => runtime.app.getName(),
+  quit: () => runtime.lifecycle.quit(),
+}).then(async isValid => {
   if (!isValid) return
 
-  const decodePath = path => {
-    const decoded = decodeURIComponent(path.replace(/\/+$/, '')) // Remove trailing slashes and decode
-    return decoded.replaceAll(sep, posix.sep) // Normalize path separators for comparison
-  }
+  const hooks = await resolveHooks(electronOptions.hooks, config.hooks)
 
-  function normalizeAndCompare(path1, path2, comparison = (a, b) => a === b) {
-    path1 = decodePath(path1)
-    path2 = decodePath(path2)
-    return comparison(path1, path2)
-  }
+  // Provide hooks to IPC module for validation event emission
+  IPC.setHooks(hooks)
 
-  async function checkLinkType(url) {
-    try {
-      const response = await fetch(url, { method: 'HEAD' })
-      const contentDisposition = response.headers.get('Content-Disposition')
-      if (contentDisposition && contentDisposition.includes('attachment')) return 'download' // Download if attachment
-      if (!response.headers.get('Content-Type').startsWith('text/html')) return 'unknown' // Unknown if not HTML
-      return 'webpage'
-    } catch (error) {
-      return 'unknown'
-    }
-  }
+  // ------------------------ Helper Functions ------------------------
+  const callbacks = new IPC.CallbackManager()
 
-  // Custom Window Flags
-  // __main: Is Main Window
-  // __show: Used to block show behavior
+  const onRendererReady = (id: number, callback: () => void) =>
+    callbacks.add(`ready:renderer:${id}`, callback)
+  const onMainReady = (id: number, callback: () => void) =>
+    callbacks.add(`ready:main:${id}`, callback)
+  const onLoaded = (id: number, pluginId: string, callback: () => void) =>
+    callbacks.add(`loaded:${id}:${pluginId}`, callback)
 
-  const chalk = import('chalk').then(m => m.default)
-
-  function send(this: BrowserWindow, channel: string, ...args: any[]) {
-    try {
-      return this.webContents.send(channel, ...args)
-    } catch (e) {} // Catch in case messages are registered as sendable for a window that has been closed
-  }
-
-  type ReadyFunction = (win: BrowserWindow) => any
-  let readyQueue: ReadyFunction[] = []
-
-  const onNextWindowReady = (f: ReadyFunction) => {
-    const windows = BrowserWindow.getAllWindows()
-    if (windows.length === 0) return readyQueue.push(f) // No windows yet
-    windows.forEach(win => f(win)) // Call immediately if windows already exist
-  }
-
-  const getScopedIdentifier = (type, source, attr) => `${type}:${source}:${attr}`
-
-  const scopedOn = (type, id, channel, callback) => {
-    const event = getScopedIdentifier(type, id, channel)
-    ipcMain.on(event, callback)
-    const remove = () => ipcMain.removeListener(event, callback)
-    return {
-      remove, // A helper function to remove the listener
-    }
-  }
-
-  const scopedHandle = (type, id, channel, callback) => {
-    const event = getScopedIdentifier(type, id, channel)
-    ipcMain.handle(event, callback)
-    const remove = () => ipcMain.removeHandler(event)
-    return {
-      remove, // A helper function to remove the handler
-    }
-  }
-
-  const scopedSend = (type, id, channel, ...args) => {
-    const windows = BrowserWindow.getAllWindows()
-    const event = getScopedIdentifier(type, id, channel)
-    windows.forEach(win => send.call(win, event, ...args)) // Send to all windows
-  }
-
-  const serviceSend = (id, channel, ...args) => scopedSend('services', id, channel, ...args)
-  const serviceOn = (id, channel, callback) => scopedOn('services', id, channel, callback)
-
-  const pluginSend = (pluginName, channel, ...args) =>
-    scopedSend('plugins', pluginName, channel, ...args)
-  const pluginOn = (pluginName, channel, callback) =>
-    scopedOn('plugins', pluginName, channel, callback)
-  const pluginHandle = (pluginName, channel, callback) =>
-    scopedHandle('plugins', pluginName, channel, callback)
-
-  // Transfer all the main console commands to the browser
-  const ogConsoleMethods: any = {}
-  ;['log', 'warn', 'error'].forEach(method => {
-    const ogMethod = (ogConsoleMethods[method] = console[method])
-    console[method] = (...args) => {
-      onNextWindowReady(win => send.call(win, `commoners:console.${method}`, ...args))
-      ogMethod(...args)
-    }
-  })
-
-  process.on('uncaughtException', err => {
-    if (err.code === 'EPIPE') return // Ignore EPIPE errors. These often occur when using console.log during a plugins's quit() method, but only if Ctrl+C is pressed
-
-    electron.dialog.showErrorBox('Uncaught Commoners Error', `${err.message}\n\n${err.stack}`)
-  })
-
-  // Populate platform variable if it doesn't exist
-  const platform =
-    process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux'
+  // ------------------------ Platform Detection ------------------------
+  const platform = Lifecycle.getPlatform()
   const isWindows = platform === 'windows'
   const isLinux = platform === 'linux'
 
-  // --------------- App Window Management ---------------
-  function restoreWindow() {
-    const { mainWindow } = globals
-    if (mainWindow) mainWindow.isMinimized() ? mainWindow.restore() : mainWindow.focus()
-    return mainWindow
-  }
+  // ------------------------ Window Management Setup ------------------------
+  const windowContext = Window.getWindowContext()
 
-  async function makeSingleInstance() {
-    if (process.mas) return
-    if (!app.requestSingleInstanceLock()) {
-      const _chalk = await chalk
-      console.error(_chalk.yellow('Another instance of this application is already running.'))
-      app.exit() // Skip quit callbacks
-    } else app.on('second-instance', () => restoreWindow())
-  }
-
-  makeSingleInstance()
-
-  // Copy the plugins in case they aren't extensible
-  const PLUGINS = Object.entries(config.plugins ?? {}).reduce((acc, [key, value]) => {
-    acc[key] = { ...value }
-    return acc
-  }, {})
-
-  // Precreate contexts to track custom properties
-  const contexts = Object.entries(PLUGINS).reduce((acc, [id, plugin]) => {
-    const { assets = {} } = plugin
-
-    acc[id] = {
-      id,
-
-      MOBILE: false,
-      DESKTOP: true,
-      WEB: false,
-
-      // Packaged Electron Utilities
-      electron,
-      utils,
-
-      // Helper Functions
-      createWindow: (page: string, opts: ElectronWindowOptions) => createWindow(page, opts),
-      open: () =>
-        app
-          .whenReady()
-          .then(() => globals.firstInitialized && (restoreWindow() || createMainWindow())),
-      send: function (channel, ...args) {
-        return pluginSend(this.id, channel, ...args)
-      },
-      handle: function (channel, callback, win?: BrowserWindow) {
-        const listener = pluginHandle(this.id, channel, callback)
-        if (win) win.__listeners.push(listener) // Store the listener in the window
-        return listener
-      },
-      on: function (channel, callback, win?: BrowserWindow) {
-        const listener = pluginOn(this.id, channel, callback)
-        if (win) win.__listeners.push(listener)
-        return listener
-      },
-
-      setAttribute: function (win, attr, value) {
-        win[getScopedIdentifier('window', this.id, attr)] = value
-      },
-      getAttribute: function (win, attr) {
-        return win[getScopedIdentifier('window', this.id, attr)]
-      },
-
-      // Provide specific variables from the plugin
-      plugin: {
-        assets: Object.entries(assets).reduce((acc, [key, src]) => {
-          const filename = basename(src)
-          const isHTML = extname(filename) === '.html'
-          if (!isProduction || isHTML) acc[key] = src
-          else acc[key] = join(viteAssetsPath, 'plugins', id, key, filename)
-          return acc
-        }, {}),
-      },
-    }
-    return acc
-  }, {})
-
-  const boundRunAppPlugins = runAppPlugins.bind({
-    env: {
-      WEB: false,
-      DESKTOP: true,
-      MOBILE: false,
-      TARGET: 'electron',
-      DEV: !isProduction,
-      PROD: isProduction,
-    },
-    plugins: PLUGINS,
-    contexts,
-  })
-
-  const runWindowPlugin = async (win, id, type) => {
-    const plugin = PLUGINS[id]
-
-    const desktopState = plugin.desktop ?? {}
-
-    const types = {
-      load: type === 'load',
-      unload: type === 'unload',
-    }
-
-    // Coordinate the state transitions for the plugins
-    const thisPlugin = desktopState[type]
-
-    if (!thisPlugin) return
-
-    const context = contexts[id]
-
-    const { createWindow } = context
-    if (types.load) context.createWindow = (page, opts) => createWindow(page, opts, [id]) // Do not recursively call window creation in load function
-
-    const result = await thisPlugin.call(context, win, id)
-    return result
-  }
-
-  const runWindowPlugins = async (
-    win: BrowserWindow | null = null,
-    type = 'load',
-    toIgnore: string[] = []
-  ) => {
-    return await Promise.all(
-      Object.keys(PLUGINS).map(async id => {
-        if (toIgnore.includes(id)) return
-        return runWindowPlugin(win, id, type)
-      })
-    )
-  }
-
-  // ------------------- Configure the main window properties -------------------
   const preload = join(ASSET_ROOT_DIR, 'preload.cjs')
 
   const defaultIcon = getIcon(config.icon, {
     preferredFormats: isWindows ? ELECTRON_WINDOWS_PREFERENCE : ELECTRON_PREFERENCE,
   })
 
-  const linuxIcon = defaultIcon // config.icon?.linux || defaultIcon
-
+  const linuxIcon = defaultIcon
   const platformDependentWindowConfig = isLinux && linuxIcon ? { icon: linuxIcon } : {}
 
-  if (securitySettings.sandbox) app.enableSandbox() // Enable sandboxing if not explicitly disabled
+  Security.applySecuritySettings(securitySettings)
 
-  // Aggregate window options on plugins
-  Object.entries(PLUGINS).forEach(([id, plugin]) => {
+  // Aggregate window options from plugins
+  Object.entries(plugins).forEach(([id, plugin]) => {
     const { desktop: { mainWindowOverrides } = {} } = plugin
     if (!mainWindowOverrides) return
     Object.assign(windowOptions, mainWindowOverrides)
@@ -367,419 +143,652 @@ runVerification().then(isValid => {
     ...platformDependentWindowConfig,
   }
 
-  let windowCount = 0
+  // ------------------------ Page Loading Helpers ------------------------
+  function getPageLocation(pathname: string = 'index.html', alt = false): string | null {
+    if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
 
-  // ------------------------ Window Page Load Behavior ------------------------
-  const loadPage = async (win, page) => {
-    if (isValidUrl(page)) {
-      win.loadURL(page)
+    // Convert URL-style paths to file paths first (handles /C: on Windows), then normalize
+    pathname = normalize(toFilePath(pathname))
+
+    const isContained = Protocol.normalizeAndCompare(pathname, ASSET_ROOT_DIR, (a, b) =>
+      a.startsWith(b)
+    )
+
+    const location = isContained ? pathname : join(ASSET_ROOT_DIR, pathname)
+
+    // If location has an extension, verify it exists
+    if (extname(location)) {
+      if (!existsSync(location)) return null // File does not exist
+      return location
+    }
+
+    // No extension - try different variations
+    const html = location + '.html'
+    const index = join(location, 'index.html')
+
+    // For ASAR files, we can't use existsSync/lstatSync to check directories
+    // So we always try index.html first for paths without extensions
+    // This handles both regular directories and ASAR virtual directories
+
+    // Try in order: index.html in directory, .html file, fallback to index
+    if (existsSync(index)) return index
+    if (existsSync(html)) return html
+
+    // In production (ASAR), fall back since existsSync may not work for virtual directories
+    if (isProduction) return alt ? html : index
+
+    // In dev mode, no phantom pages — file must actually exist
+    return null
+  }
+
+  async function loadPage(
+    win: BrowserWindow,
+    page?: string,
+    search: string = '',
+    hash: string = ''
+  ): Promise<string> {
+    if (page && Protocol.isValidUrl(page)) {
+      runtime.window.loadURL(win, page)
       return page
     }
 
     const location = getPageLocation(page)
 
+    if (!location) {
+      console.error(`[404] Page not found: ${page}`)
+      return ''
+    }
+
     try {
-      new URL(location) // test if the URL is valid
-      win.loadURL(location)
+      new URL(location)
+      runtime.window.loadURL(win, location + search + hash)
       return location
     } catch {}
 
-    // NOTE: Catching the alternative location results in a delay depending on load time
-    const loadFile = location => win.loadURL(`file://${location}`)
+    // file:// URLs accept query strings and fragments — append the captured search/hash
+    // from the originating navigate() call so the destination page sees them on
+    // window.location. Without this, dev-mode in-window navigation between file://
+    // pages loses ?id=... etc.
+    const loadFile = (loc: string) =>
+      runtime.window.loadURL(win, pathToFileURL(loc).href + search + hash)
 
     const result = await loadFile(location)
       .then(() => location)
       .catch(() => {
-        const location = getPageLocation(page, true)
-        loadFile(location) // Try loading the file with an alt path
-        return location
+        const altLocation = getPageLocation(page, true)
+        if (!altLocation) return ''
+        loadFile(altLocation)
+        return altLocation
       })
 
     return result
   }
 
-  const isValidUrl = url => {
-    try {
-      new URL(url)
-      return true
-    } catch (e) {
-      return false
-    }
-  }
+  // ------------------------ Plugin System ------------------------
+  const hasPlugins = Object.keys(plugins).length > 0
 
-  const isCommonersAsset = location => {
-    if (isValidUrl(location))
-      return isCommonersUrl(location) // Check if it's a file URL
-    else {
-      const normalizedPath = decodePath(location)
-      return normalizeAndCompare(normalizedPath, ASSET_ROOT_DIR, (a, b) => a.startsWith(b)) // Check if the path starts with the root directory
-    }
-  }
-
-  const isCommonersUrl = url => {
-    try {
-      const urlObj = new URL(url)
-      return (
-        (DEV_SERVER_URL && DEV_SERVER_URL.startsWith(urlObj.origin)) || urlObj.protocol === 'file:'
+  const { plugins: mutablePlugins, contexts: pluginContexts } = hasPlugins
+    ? Plugins.initializePlugins(
+        plugins,
+        viteAssetsPath,
+        isProduction,
+        runtime.native,
+        utils,
+        createWindow,
+        Window.restoreWindow,
+        runtime,
+        hooks
       )
-    } catch (e) {
-      return false
-    }
-  }
+    : { plugins: {} as Record<string, any>, contexts: new Map() }
 
+  const boundRunAppPlugins = hasPlugins
+    ? Plugins.createBoundRunAppPlugins(mutablePlugins, pluginContexts, isProduction)
+    : async () => {}
+
+  // Module-level state for preload data injection (eliminates sendSync)
+  let __sanitizedServices: Record<string, any> = {}
+  let __serviceStatuses: Record<string, any> = {}
+
+  // ------------------------ Window Creation ------------------------
   async function createWindow(
-    page,
+    page?: string,
     options: ElectronWindowOptions = {},
-    toIgnore?: string[],
+    toIgnore: string[] = [],
     isMainWindow: boolean = false
-  ) {
-    if (typeof options === 'function') options = options.call(electron) // Resolve to base options
+  ): Promise<BrowserWindow> {
+    if (typeof options === 'function') options = options.call(runtime.native)
     const { onInitialized, ...coreOptions } = options
 
     const copy = structuredClone({ ...defaultWindowConfig, ...coreOptions })
 
-    // Ensure web preferences exist
     if (!copy.webPreferences) copy.webPreferences = {}
     const { webPreferences } = copy
-    if (!('preload' in webPreferences)) webPreferences.preload = preload // Provide preload script if not otherwise specified
-    if (!('additionalArguments' in webPreferences))webPreferences.additionalArguments = []
+    if (!('preload' in webPreferences)) webPreferences.preload = preload
+    if (!('additionalArguments' in webPreferences)) webPreferences.additionalArguments = []
 
-    // Apply security-related settings to webPreferences
-    const webPreferencesSecuritySettings = [ 'sandbox', 'devTools', 'contextIsolation', 'nodeIntegration' ]
-    const securitySettingsForWebPreferences = Object.entries(securitySettings).reduce((acc, [key, value]) => {
-      if (webPreferencesSecuritySettings.includes(key)) acc[key] = value
-      return acc
-    }, {})
-    Object.assign(webPreferences, securitySettingsForWebPreferences) // Merge security settings into web preferences
+    const securitySettingsForWebPreferences =
+      Security.getWebPreferencesSecuritySettings(securitySettings)
+    Object.assign(webPreferences, securitySettingsForWebPreferences)
 
-    const __listeners = []
-
-    const __id = windowCount
+    const __listeners: IPC.ListenerHandle[] = []
+    const __id = Window.getNextWindowId()
     const transferredFlags = { __id, __main: isMainWindow }
 
-    windowCount++
+    const __location = { search: undefined, hash: undefined }
 
     webPreferences.additionalArguments.push(
-      ...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`)
+      ...Object.entries(transferredFlags).map(([key, value]) => `--${key}=${value}`),
+      `--__ipcAllowlist=${serializeAllowlist(ipcAllowlist)}`,
+      `--__services=${JSON.stringify(__sanitizedServices)}`,
+      `--__serviceStatuses=${JSON.stringify(__serviceStatuses)}`,
+      `--__location=${JSON.stringify(__location)}`
     )
 
     const flags = {
       ...transferredFlags,
       __show: true,
       __listeners,
+      __loading: {},
+      __loaded: Promise.resolve(),
     } as ElectronBrowserWindowFlags
 
-    const win = new BrowserWindow({ ...copy, show: false }) as ExtendedElectronBrowserWindow // Always initially hide the window
+    const win = (await runtime.window.create(undefined, copy)) as ExtendedElectronBrowserWindow
     Object.assign(win, flags)
 
-    win.webContents.on('did-fail-load', (e, errorCode, errorDesc) => {
+    const onReadyPromise = new Promise(resolve => onRendererReady(__id, () => resolve(true)))
+
+    runtime.window.onWebContentsEvent(win, 'did-fail-load', (_e, errorCode, errorDesc) => {
       console.error(`[LOAD FAIL] ${errorCode}: ${errorDesc}`)
     })
 
-    win.webContents.on('crashed', () => console.error('[RENDERER CRASHED]'))
+    runtime.window.onWebContentsEvent(win, 'crashed', () => console.error('[RENDERER CRASHED]'))
 
     const { devTools } = webPreferences
-    if (devTools === false) win.webContents.on('devtools-opened', () => win.webContents.closeDevTools())
+    if (devTools === false)
+      runtime.window.onWebContentsEvent(win, 'devtools-opened', () =>
+        win.webContents.closeDevTools()
+      )
 
-    // Safe window management behaviors
-    const originalManagers = {
-      close: win.close,
-      show: win.show,
-    }
+    Window.setupWindowBehaviors(win)
 
-    Object.entries(originalManagers).forEach(([key, value]) => {
-      win[key] = function (...args) {
-        if (key === 'show' && !win.__show) return // Skip show behavior. Do not show for testing
-        if (globals.isShuttingDown) return // Skip if process is shutting down
-        return value.call(this, ...args)
-      }
-    })
+    Window.registerWindow(__id, win)
+    Window.updateWindowLocation(__id, __location)
 
-    const __location = {
-      search: undefined,
-      hash: undefined,
-    }
-
-    // Catch all navigation events
-    win.webContents.on('will-navigate', async (event, url) => {
+    // Navigation handling
+    runtime.window.onNavigate(win, async (event, url) => {
       event.preventDefault()
 
       const urlObj = new URL(url)
 
-      if (!isCommonersUrl(url)) {
-        const type = await checkLinkType(url)
-        if (type === 'download') return win.webContents.downloadURL(url) // Download
-        if (isMainWindow)
-          return shell.openExternal(url) // Only open externally if main window
-        else return win.loadURL(url) // Otherwise just load URL in the window (e.g. for PDFs)
+      if (!Protocol.isCommonersUrl(url, DEV_SERVER_URL)) {
+        const type = await Protocol.checkLinkType(url)
+        if (type === 'download') return win.webContents.downloadURL(url)
+        if (isMainWindow) return runtime.shell.openExternal(url)
+        else return runtime.window.loadURL(win, url)
       }
 
       __location.search = urlObj.search
       __location.hash = urlObj.hash
-      await loadPage(win, urlObj.pathname) // Required for successful navigation relative to the root (e.g. "../..")
+      Window.updateWindowLocation(__id, __location)
 
-      // // NOTE: This does not work when using loadFile
-      // const pageIdentifier = urlObj.pathname + urlObj.search + urlObj.hash
-      // loadPage(win, pageIdentifier) // Required for successful navigation relative to the root (e.g. "../..")
+      // Extract path relative to ASSET_ROOT_DIR
+      // This handles cases where navigation resolves to the ASAR file itself or parent directories
+      let pathname = urlObj.pathname
+
+      // Handle ASAR paths - extract path within the ASAR archive
+      // URL pathname will be like: /path/to/app.asar/pages/windows/index.html
+      // We need to extract just: pages/windows/index.html
+      const asarIndex = pathname.indexOf('.asar/')
+      if (asarIndex !== -1) {
+        // Extract path after .asar/
+        pathname = pathname.slice(asarIndex + 6) // '.asar/'.length = 6
+        if (!pathname || pathname === '/') pathname = 'index.html'
+      } else if (pathname.endsWith('.asar')) {
+        // Navigation resolved exactly to the .asar file (e.g., '../..')
+        pathname = 'index.html'
+      } else {
+        // Convert URL pathname to a file system path for comparison
+        // On Windows, URL pathname is like /C:/Users/... but ASSET_ROOT_DIR uses backslashes
+        const filePath = toFilePath(pathname)
+        const normalizedFilePath = Protocol.decodePath(filePath)
+        const normalizedAssetRoot = Protocol.decodePath(ASSET_ROOT_DIR)
+        if (normalizedFilePath.startsWith(normalizedAssetRoot)) {
+          pathname = normalizedFilePath.slice(normalizedAssetRoot.length)
+          if (pathname.startsWith('/')) pathname = pathname.slice(1)
+          if (!pathname) pathname = 'index.html'
+        }
+      }
+
+      await loadPage(win, pathname, urlObj.search, urlObj.hash)
     })
 
     Object.defineProperty(win, '__show', {
       get: () => flags.__show,
       set: v => {
-        if (flags.__show === null) return // Lock set behavior
+        if (flags.__show === null) return
         flags.__show = v
       },
       configurable: false,
     })
 
-    ipcMain.once(`commoners:close:${__id}`, () => win.close())
-
-    ipcMain.on(`commoners:location:${__id}`, event => (event.returnValue = __location))
-
-    // ------------------------ Main Window Default Behaviors ------------------------
     if (isMainWindow) {
-      ipcMain.once(`commoners:ready:${__id}`, () => {
-        globals.mainWindow = win
-        globals.firstInitialized = true
-        readyQueue.forEach(f => f(win))
-        readyQueue = []
-      })
-
-      // De-register the main window
-      win.once('close', () => {
-        globals.mainWindow = null
+      runtime.window.onClose(win, () => {
+        Window.setMainWindow(null)
       })
     }
 
-    // ------------------------ Default Quit Behavior ------------------------
-    ipcMain.once('commoners:quit', (_, message) => globalThis.COMMONERS_QUIT(message))
+    runtime.ipc.once(Commands.quit.channel, (_, message) => globalThis.COMMONERS_QUIT?.(message))
 
-    // ------------------------ Open Windows Externally ------------------------
-    win.webContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url)
+    runtime.window.setWindowOpenHandler(win, ({ url }) => {
+      runtime.shell.openExternal(url)
       return { action: 'deny' }
     })
 
-    // ------------------------ Window Shutdown Behavior ------------------------
-    win.once('close', async () => {
-      await runWindowPlugins(win, 'unload', toIgnore)
-      __listeners.forEach(l => l.remove()) // Clear listeners attached to the window. These are created using the ipcMain.on proxy
+    runtime.window.onClose(win, async () => {
+      await Plugins.runPluginHooks(win, 'unload', mutablePlugins, pluginContexts, toIgnore)
+      __listeners.forEach(l => l.remove())
     })
 
-    // ------------------------ Window Load Behavior ------------------------
-    win.__ready = new Promise(resolve => ipcMain.once(`commoners:ready:${__id}`, () => resolve())) // Wait for the window to be ready to show
+    // Run plugin load hooks
+    const called = Object.keys(mutablePlugins).reduce(
+      (acc, id) => {
+        acc[id] = Plugins.runPluginHook(
+          win,
+          id,
+          'load',
+          mutablePlugins,
+          pluginContexts,
+          createWindow
+        )
+        return acc
+      },
+      {} as Record<string, Promise<any>>
+    )
 
-    // Synchronously run all plugin load callbacks
-    const called = Object.keys(PLUGINS).reduce((acc, id) => {
-      acc[id] = runWindowPlugin(win, id, 'load') // Possible promise
-      return acc
-    }, {})
+    win.__loading = Object.entries(called).reduce(
+      (acc, [id, promise]) => {
+        acc[id] = new Promise(resolve => onLoaded(__id, id, async () => resolve(await promise)))
+        return acc
+      },
+      {} as Record<string, Promise<any>>
+    )
 
-    // Then asyncronously load the plugin results. Allow for accessing the load status of each plugin
-    win.__loading = Object.entries(called).reduce((acc, [id, promise]) => {
-      const listener = `commoners:loaded:${__id}:${id}`
-      acc[id] = new Promise(resolve => ipcMain.once(listener, async () => resolve(await promise)))
-      return acc
-    }, {})
-
-    // Allow querying load state with exclusions
     win.__loaded = Promise.all(Object.values(win.__loading)).then(() => {})
 
-    // ------------------------ Window Page Load Behavior ------------------------
     const loadPromise = loadPage(win, page)
 
-    // ------------------------ Window Creation Callback ------------------------
-    if (onInitialized) onInitialized.call(electron, win)
+    if (onInitialized) onInitialized.call(runtime.native, win)
 
-    // ------------------------ Show Window after Global Variables are Set ------------------------
     await loadPromise
       .then(async location => {
-        const isAsset = isCommonersAsset(location)
+        const isAsset = Protocol.isCommonersAsset(location, ASSET_ROOT_DIR, DEV_SERVER_URL)
 
-        // Load all commoners plugins before showing the asset window
-        if (isAsset)
-          await new Promise(resolve => {
-            const readyChannel = `commoners:ready:${__id}`
-            ipcMain.once(readyChannel, () => resolve(true))
-            send.call(win, readyChannel) // Notify the main process that the window is loading
+        if (isAsset) {
+          await new Promise(async resolve => {
+            await onReadyPromise
+            onMainReady(__id, () => resolve(true))
+            IPC.send(win, Commands.mainReadyPing.channel, __id)
           })
-        // Or just wait for the window to be ready to show
-        else
-          await new Promise(resolve => {
-            const isReadyToShow = win.__ready
-            if (isReadyToShow)
-              return resolve(true) // Already ready to show
-            else win.once('ready-to-show', () => resolve(true))
-          })
+        } else {
+          await new Promise(async resolve => runtime.window.onReadyToShow(win, () => resolve(true)))
+        }
       })
-      .finally(() => win.show())
+      .finally(() => runtime.window.show(win))
 
     return win
   }
 
-  function getPageLocation(pathname: string = 'index.html', alt = false) {
-    if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
-
-    pathname = pathname.startsWith('/') && isWindows ? pathname.slice(1) : pathname // Remove leading slash on Windows
-
-    const isContained = normalizeAndCompare(pathname, ASSET_ROOT_DIR, (a, b) => a.startsWith(b))
-
-    // Check if dirname in the path
-    const location = isContained ? pathname : join(ASSET_ROOT_DIR, pathname)
-
-    // Assume a file
-    if (extname(location)) return location // Return if file extension is present
-
-    const html = location + '.html' // Add .html extension if not present
-    const index = join(location, 'index.html')
-
-    if (existsSync(html)) return html // Return if .html file exists
-    if (existsSync(index)) return index // Return if index.html file exists
-    return alt ? html : index // NOTE: This is because we cannot check for existence in the .asar archive
+  async function createMainWindow(): Promise<BrowserWindow | undefined> {
+    return Window.createMainWindow(createWindow, windowOptions, () => runtime.window.getAll())
   }
 
-  async function createMainWindow() {
-    const windows = BrowserWindow.getAllWindows()
-    if (windows.find(o => o.__main)) return // Force only one main window
-    return await createWindow(undefined, windowOptions, [], true)
+  // ------------------------ IPC Handlers ------------------------
+  IPC.setupConsoleRedirection()
+
+  // Events relay: broadcast to all other windows, excluding sender
+  runtime.ipc.on('commoners:events:emit', (event, topic, data) => {
+    const senderWebContents = event.sender
+    const allWindows = runtime.window.getAll()
+    for (const win of allWindows) {
+      if (win.webContents !== senderWebContents && !win.isDestroyed()) {
+        win.webContents.send('commoners:events:receive', topic, data)
+      }
+    }
+  })
+
+  runtime.ipc.on(Commands.close.channel, (_, _id) => {
+    const win = Window.getWindowById(_id)
+    if (win && !win.isDestroyed()) win.close()
+    Window.unregisterWindow(_id)
+  })
+
+  runtime.ipc.on(Commands.location.channel, (ev, id) => {
+    ev.returnValue = Window.getWindowLocation(id)
+  })
+
+  runtime.ipc.on(Commands.rendererReady.channel, (_, id) => {
+    const win = Window.getWindowById(id)
+    const isMain = win && (win as ExtendedElectronBrowserWindow).__main
+
+    if (isMain) {
+      Window.setMainWindow(win)
+      Window.setFirstInitialized()
+      Window.flushReadyQueue(win)
+    }
+
+    callbacks.run(`ready:renderer:${id}`)
+  })
+
+  runtime.ipc.on(Commands.pluginsLoaded.channel, (_, pageId, pluginId) =>
+    callbacks.run(`loaded:${pageId}:${pluginId}`)
+  )
+  runtime.ipc.on(Commands.mainReadyPong.channel, (_, id) => callbacks.run(`ready:main:${id}`))
+
+  // ------------------------ Single Instance ------------------------
+  // Default-on. Apps that want concurrent instances (or dev workflows where
+  // an old Electron process is still holding the OS lock) can opt out with
+  // `electron: { singleInstance: false }` in commoners.config.
+  if (electronOptions.singleInstance !== false) {
+    Window.makeSingleInstance(Window.restoreWindow, {
+      requestLock: () => runtime.native.app.requestSingleInstanceLock(),
+      exit: () => runtime.lifecycle.exit(),
+      onSecond: cb => runtime.native.app.on('second-instance', cb),
+    })
   }
 
-  const baseServiceOptions = { target: 'desktop', build: isProduction, root: PROJECT_ROOT_DIR }
-
+  // ------------------------ Protocol Registration ------------------------
   const hasCustomProtocol = !!protocolOptions.scheme
   if (hasCustomProtocol) {
-    const { protocol } = electron
-    protocol.registerSchemesAsPrivileged([protocolOptions])
+    runtime.protocol.registerScheme(protocolOptions)
   }
 
-  if (config.name) app.setName(config.name)
+  if (config.name) runtime.app.setName(config.name)
 
-  services.resolveAll(config.services, baseServiceOptions).then(async resolvedServices => {
-    await boundRunAppPlugins([resolvedServices]) // Run plugins on start with resolved services
-
-    app.whenReady().then(async () => {
-      // session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-      //   console.log(`[CSP] Headers received for ${details.url}`)
-      //   callback({
-      //     responseHeaders: {
-      //       ...details.responseHeaders
-      //     }
-      //   })
-      // })
-
-      // ------------------------ STDIN Commands ------------------------
-
-      const rl = createInterface({
-        input: process.stdin,
-        output: process.stdout, // optional
-        terminal: false,
-      })
-
-      rl.on('line', line => {
-        try {
-          const msg = JSON.parse(line.trim())
-          const { command, data } = msg
-          if (command === 'reload') {
-            const { frontend, service } = data || {}
-            if (frontend)
-              BrowserWindow.getAllWindows().forEach(
-                win => !win.isDestroyed() && win.webContents.reload()
-              )
-            if (service)
-              console.warn('Service reloads are not yet implemented in the Electron main process.')
-          }
-        } catch {}
-      })
-
-      // ------------------------ Service Creation ------------------------
-      const output = await services.createAll(resolvedServices, {
-        ...baseServiceOptions,
-        onClosed: (id, code) => serviceSend(id, 'closed', code),
-        onLog: (id, msg) => serviceSend(id, 'log', msg.toString()),
-      })
-
-      const { active = {}, resolved = {}, close: closeService } = output
-
-      ipcMain.on('commoners:services', event => (event.returnValue = services.sanitize(resolved))) // Expose to renderer process (and ensure URLs are correct)
-
-      // ------------------------Track Service Status in Windows ------------------------
-      for (let id in resolved) {
-        const isRemote = !(id in active)
-        serviceOn(
-          id,
-          'status',
-          event => (event.returnValue = isRemote ? 'remote' : active[id].status)
-        )
-        serviceOn(id, 'close', () => isRemote || closeService(id))
-      }
-
-      if (hasCustomProtocol) {
-        const { scheme } = protocolOptions
-        const { protocol, net } = electron
-        app.setAppUserModelId(`com.${scheme}`)
-
-        // console.log("Registered protocol", protocolOptions)
-
-        protocol.handle(scheme, req => {
-          const loadedURL = new URL(req.url)
-          const { host, pathname, search, hash } = loadedURL
-          const updatedPathname = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
-
-          // Proxy the services through the custom protocol
-          if (host === 'services') {
-            const splitPath = updatedPathname.split('/')
-            const serviceId = splitPath[0]
-            const resolvedPath = splitPath.slice(1).join('/') + search + hash
-            const resolvedURL = new URL(resolvedPath, services[serviceId].url)
-            if (services[host]) return net.fetch(resolvedURL.href)
-            return new Response(`${resolvedPath} is not a valid request`, { status: 404 })
-          }
-
-          const resolvedPath =
-            host === 'pages'
-              ? updatedPathname
-              : (updatedPathname ? `${host}${updatedPathname}` : host) + search + hash
-          loadPage(restoreWindow(), resolvedPath)
-        })
-      }
-
-      // ------------------------ App Ready Behavior ------------------------
-      await boundRunAppPlugins([active], 'ready') // Non-Window Load Behavior
-
-      // --------------------- Main Window Creation ---------------------
-      createMainWindow()
-      app.on('activate', () => createMainWindow())
-    })
-  })
-
-  app.on('ready', async () => {
-    const signals = ['SIGTERM', 'SIGINT']
-    signals.forEach(signal => {
-      process.on(signal, () => {
-        globals.isShuttingDown = true
-        const message = `Received ${signal}. Shutting down gracefully...`
-        globalThis.COMMONERS_QUIT(message) // Handle signals gracefully
-      })
-    })
-  })
-
-  // ------------------------ Default Close Behavior ------------------------
-  app.on(
-    'window-all-closed',
-    () => platform !== 'mac' && globalThis.COMMONERS_QUIT('All windows have been closed.')
-  ) // Quit when all windows are closed, except on macOS.
-
-  // ------------------------ App Shutdown Behavior ------------------------
-  app.on('before-quit', async ev => {
-    ev.preventDefault()
-    globals.isShuttingDown = true // Set the shutdown state
+  // ------------------------ Service Trust Manifest ------------------------
+  // Sealed inside app.asar (via ASAR integrity), so an attacker who can write
+  // to resources/ cannot redirect the trust. At spawn time, the OS verifies the
+  // service binary's actual code signature against this expected publisher.
+  let serviceTrustManifest: Record<string, { expectedPublisher: string }> | null = null
+  let inlineScriptHash: string | undefined
+  if (isProduction) {
     try {
-      await boundRunAppPlugins([globals.quitMessage], 'quit') // Run plugins on quit
-      services.close()
+      const trustManifestPath = join(ASSET_ROOT_DIR, 'service-trust.json')
+      if (existsSync(trustManifestPath)) {
+        const { readFileSync } = require('node:fs')
+        serviceTrustManifest = JSON.parse(readFileSync(trustManifestPath, 'utf8'))
+      }
+    } catch {}
+
+    try {
+      const scriptHashPath = join(ASSET_ROOT_DIR, 'script-hashes.json')
+      if (existsSync(scriptHashPath)) {
+        const { readFileSync } = require('node:fs')
+        const scriptHashes = JSON.parse(readFileSync(scriptHashPath, 'utf8'))
+        inlineScriptHash = scriptHashes.inlineScriptHash
+      }
+    } catch {}
+  }
+
+  // ------------------------ Service Resolution ------------------------
+  const baseServiceOptions = { target: 'desktop', build: isProduction, root: PROJECT_ROOT_DIR }
+  const hasServices = config.services && Object.keys(config.services).length > 0
+
+  const resolveServices = hasServices
+    ? import('../services/index').then(mod => {
+        servicesModule = mod
+        return mod.resolveAll(config.services, baseServiceOptions)
+      })
+    : Promise.resolve({})
+
+  resolveServices
+    .then(async resolvedServices => {
+      await boundRunAppPlugins([resolvedServices])
+
+      runtime.lifecycle
+        .onReady(async () => {
+          // Collect service URLs for CSP connect-src
+          const serviceUrls = Object.values(resolvedServices)
+            .map((s: any) => s.url)
+            .filter(Boolean) as string[]
+
+          // Setup Content Security Policy
+          Security.setupContentSecurityPolicy(
+            csp => runtime.session.setupCSP(csp),
+            securitySettings.csp,
+            DEV_SERVER_URL,
+            serviceUrls,
+            inlineScriptHash
+          )
+
+          // Create services (skip if no services module was loaded)
+          let active: Record<string, any> = {}
+          let resolved: Record<string, any> = {}
+
+          if (servicesModule) {
+            const output = await servicesModule.createAll(resolvedServices, {
+              ...baseServiceOptions,
+              onClosed: (id: string, code: number) =>
+                runtime.scopedIPC.serviceSend(id, 'closed', code),
+              onLog: (id: string, msg: Buffer) =>
+                runtime.scopedIPC.serviceSend(id, 'log', msg.toString()),
+              hooks,
+              serviceTrust: serviceTrustManifest,
+            })
+
+            const { close: closeService } = output
+            active = output.active ?? {}
+            resolved = output.resolved ?? {}
+
+            // Populate module-level state so future windows get services via additionalArguments
+            __sanitizedServices = servicesModule.sanitize(resolved)
+            __serviceStatuses = Object.fromEntries(
+              Object.keys(resolved).map(id => [id, id in active ? active[id].status : 'remote'])
+            )
+
+            // Keep sync handler as fallback for windows created before services resolved
+            runtime.ipc.on(Commands.services.channel, ev => {
+              ev.returnValue = __sanitizedServices
+            })
+
+            // Setup STDIN commands with service hot-reload support
+            Lifecycle.setupStdinCommands(() => runtime.window.getAll(), {
+              onServiceReload: async (serviceId: string) => {
+                if (!(serviceId in active)) return
+                console.log(`[commoners] Reloading service: ${serviceId}`)
+                try {
+                  await closeService(serviceId)
+                  const result = await servicesModule.start(resolved[serviceId], serviceId, {
+                    ...baseServiceOptions,
+                    hooks,
+                  })
+                  if (result) {
+                    active[serviceId] = result
+                    __sanitizedServices = servicesModule.sanitize(resolved)
+                    // Notify renderer windows of updated service URLs
+                    runtime.window.getAll().forEach((win: any) => {
+                      if (!win.isDestroyed()) {
+                        win.webContents.send('commoners:services:updated', __sanitizedServices)
+                      }
+                    })
+                  }
+                } catch (err) {
+                  console.error(`[commoners] Failed to reload service "${serviceId}":`, err)
+                }
+              },
+            })
+
+            // Track service status and health
+            const healthMonitors = new Map<string, any>()
+            for (let id in resolved) {
+              const isRemote = !(id in active)
+              runtime.scopedIPC.serviceOn(id, 'status', ev => {
+                ev.returnValue = isRemote ? 'remote' : active[id].status
+              })
+              runtime.scopedIPC.serviceOn(id, 'close', () => isRemote || closeService(id))
+
+              // Health monitoring: start monitor if service has a URL and monitor config
+              const serviceConfig = resolved[id] as any
+              if (serviceConfig.url && serviceConfig.monitor) {
+                import('../services/health').then(({ ServiceHealthMonitor }) => {
+                  const monitor = new ServiceHealthMonitor(
+                    id,
+                    serviceConfig.url,
+                    serviceConfig.monitor,
+                    hooks,
+                    () => {
+                      // Auto-restart: close and re-create the service
+                      if (active[id]) {
+                        closeService(id)
+                        servicesModule
+                          .start(resolved[id], id, { ...baseServiceOptions, hooks })
+                          .then(result => {
+                            if (result) active[id] = result
+                          })
+                      }
+                    }
+                  )
+                  monitor.start()
+                  healthMonitors.set(id, monitor)
+                })
+              }
+
+              // Health IPC handler
+              runtime.scopedIPC.scopedHandle('services', id, 'health', async () => {
+                const monitor = healthMonitors.get(id)
+                return monitor ? monitor.getStatus() : 'unknown'
+              })
+            }
+          }
+
+          // Custom protocol handler
+          if (hasCustomProtocol) {
+            const { scheme } = protocolOptions
+            runtime.app.setAppUserModelId(`com.${scheme}`)
+
+            runtime.protocol.handleRequest(scheme, async req => {
+              // Validate request origin to prevent cross-origin access
+              const origin = req.headers['origin'] || ''
+              const referer = req.headers['referer'] || ''
+              const source = origin || referer
+
+              if (source) {
+                const isAppOrigin = source.startsWith(`${scheme}://`)
+                const isDevOrigin = DEV_SERVER_URL && source.startsWith(DEV_SERVER_URL)
+                const isFileOrigin = source.startsWith('file://')
+                if (!isAppOrigin && !isDevOrigin && !isFileOrigin) {
+                  hooks.emit({ type: 'security:protocol:blocked', origin: source, url: req.url })
+                  return new Response('Forbidden', { status: 403 })
+                }
+              }
+
+              const loadedURL = new URL(req.url)
+              const { host, pathname, search, hash } = loadedURL
+              const updatedPathname = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+
+              if (host === 'services') {
+                const splitPath = updatedPathname.split('/')
+                const serviceId = splitPath[0]
+                const resolvedPath = splitPath.slice(1).join('/') + search + hash
+                const serviceInfo = resolved[serviceId]
+                if (serviceInfo?.url) {
+                  const resolvedURL = new URL(resolvedPath, serviceInfo.url)
+                  return runtime.protocol.fetch(resolvedURL.href)
+                }
+                return new Response(`${serviceId} is not a valid service`, { status: 404 })
+              }
+
+              if (host === 'plugins') {
+                const splitPath = updatedPathname.split('/')
+                const pluginId = splitPath[0]
+                const pluginPath = splitPath.slice(1).join('/')
+                const plugin = plugins[pluginId]
+                if (plugin?.assets) {
+                  const assetKey = Object.keys(plugin.assets).find(
+                    k => pluginPath.startsWith(k) || pluginPath === k
+                  )
+                  if (assetKey) {
+                    const assetLocation = getPageLocation(
+                      join('plugins', pluginId, assetKey, pluginPath.slice(assetKey.length))
+                    )
+                    if (!assetLocation)
+                      return new Response(`Plugin asset not found: ${pluginPath}`, { status: 404 })
+                    try {
+                      return runtime.protocol.fetch(pathToFileURL(assetLocation).href)
+                    } catch {
+                      return new Response(`Plugin asset not found: ${pluginPath}`, { status: 404 })
+                    }
+                  }
+                }
+                return new Response(`${pluginId} is not a valid plugin`, { status: 404 })
+              }
+
+              // Pages host: navigate window and return file content as Response
+              const resolvedPath =
+                host === 'pages'
+                  ? updatedPathname
+                  : updatedPathname
+                    ? `${host}${updatedPathname}`
+                    : host
+
+              // Validate page exists before navigating
+              const pageLocation = getPageLocation(resolvedPath)
+              if (!pageLocation) {
+                return new Response(`Page not found: ${resolvedPath}`, { status: 404 })
+              }
+
+              // Propagate search and hash from protocol URL to page location.
+              // Must pass them to loadPage too — without this, the destination
+              // page loads at its base URL and the renderer's window.location.search
+              // is empty (mirror of the will-navigate fix above).
+              const targetWindow = Window.restoreWindow()!
+              if (targetWindow) {
+                const __location = Window.getWindowLocation(
+                  (targetWindow as ExtendedElectronBrowserWindow).__id
+                )
+                if (__location) {
+                  __location.search = search || undefined
+                  __location.hash = hash || undefined
+                }
+                loadPage(targetWindow, resolvedPath, search || '', hash || '')
+              }
+
+              // Return page content as Response to satisfy protocol.handle()
+              try {
+                const fetchUrl = DEV_SERVER_URL ? pageLocation : pathToFileURL(pageLocation).href
+                return runtime.protocol.fetch(fetchUrl)
+              } catch {
+                return new Response(`Failed to load page: ${resolvedPath}`, { status: 500 })
+              }
+            })
+          }
+
+          await boundRunAppPlugins([active], 'ready')
+
+          createMainWindow()
+          runtime.lifecycle.onActivate(() => createMainWindow())
+        })
+        .catch(err => {
+          console.error('[commoners:main] Error in app.whenReady chain:', err)
+        })
+    })
+    .catch(err => {
+      console.error('[commoners:main] Error in service resolution chain:', err)
+    })
+
+  // ------------------------ Lifecycle Handlers ------------------------
+  Lifecycle.setupSignalHandlers(Window.setShuttingDown, {
+    quit: () => runtime.lifecycle.quit(),
+    onReady: cb => runtime.lifecycle.onReady(cb),
+  })
+  Lifecycle.setupDefaultWindowAllClosedHandler(cb => runtime.native.app.on('window-all-closed', cb))
+
+  runtime.lifecycle.onBeforeQuit(async () => {
+    Window.setShuttingDown(true)
+    try {
+      await boundRunAppPlugins([Lifecycle.getQuitMessage()], 'quit')
+      if (servicesModule) await servicesModule.close()
     } catch (err) {
       console.error(err)
-    } finally {
-      app.exit()
-    } // Exit gracefully
+    }
   })
 })

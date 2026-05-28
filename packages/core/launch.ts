@@ -1,167 +1,123 @@
-import { existsSync, readdirSync } from 'node:fs'
-import { extname, join } from 'node:path'
-import { cpus } from 'node:os'
+/**
+ * Launch operations using Flow architecture
+ * Provides backward-compatible API while delegating to new LaunchFlow
+ */
 
-import {
-  PLATFORM,
-  ensureTargetConsistent,
-  isMobile,
-  isDesktop,
-  globalWorkspacePath,
-  chalk,
-  vite,
-} from './globals.js'
-import { ConfigResolveOptions, LaunchConfig } from './types.js'
-import { printFailure, printSubtle } from './utils/formatting.js'
-import { spawnProcess } from './utils/processes.js'
-
-import * as mobile from './mobile/index.js'
-import { createAll } from './assets/services/index.js'
+import { join } from 'node:path'
+import { createLogger } from './assets/utils/logger.js'
+import { createLaunchFlow } from './flows/index.js'
 import { resolveConfig } from './index.js'
+import { globalWorkspacePath } from './globals.js'
+import { createAll } from './assets/services/index.js'
+import { getServices } from './utils/extensions.js'
+import { ValidationError } from './errors.js'
 
-type ViteServerOptions = import('vite').ServerOptions
+import type { ConfigResolveOptions, LaunchConfig } from './types.js'
+import type { Logger } from './assets/utils/logger.js'
 
-const matchFile = (directory, extensions) => {
-  if (!existsSync(directory)) return null
-  return readdirSync(directory).find(file => {
-    const fileExtension = extname(file)
-    return extensions.some(ext => fileExtension === ext)
-  })
+// Lazy logger instance (created on first use)
+let logger: Logger
+function getLogger() {
+  if (!logger) {
+    logger = createLogger('launch')
+  }
+  return logger
 }
 
-const getDesktopPath = outDir => {
-  let baseDir = ''
-  let filename = null
-
-  const platform = {
-    mac: PLATFORM === 'mac',
-    windows: PLATFORM === 'windows',
-    linux: PLATFORM === 'linux',
+// Lazy singleton flow instance (created on first use)
+let launchFlow: ReturnType<typeof createLaunchFlow> | null = null
+function getLaunchFlow() {
+  if (!launchFlow) {
+    launchFlow = createLaunchFlow()
   }
-
-  if (platform.mac) {
-    const isMx = /Apple\sM\d+/.test(cpus()[0].model)
-    baseDir = join(outDir, `${PLATFORM}${isMx ? '-arm64' : ''}`)
-    filename = matchFile(baseDir, ['.app'])
-  } else if (platform.windows) {
-    baseDir = join(outDir, `win-unpacked`)
-    filename = matchFile(baseDir, ['.exe'])
-  } else if (platform.linux) {
-    baseDir = join(outDir, `linux-unpacked`)
-    filename = matchFile(outDir, ['.AppImage', '.deb', '.rpm', '.snap'])
-    if (filename) baseDir = outDir
-    else {
-      baseDir = join(outDir, `linux-unpacked`)
-      filename = matchFile(baseDir, [''])
-    }
-  }
-
-  const fullPath = filename && join(baseDir, filename)
-  if (!fullPath || !existsSync(fullPath)) return null
-  return fullPath
+  return launchFlow
 }
 
+// ------------------------ Main Exports ------------------------
+
+/**
+ * Launch services for a configuration
+ * Standalone service launching without full app launch
+ */
 export const launchServices = async (
   config: LaunchConfig,
   opts?: { services: ConfigResolveOptions['services'] }
-) => {
+): Promise<any> => {
+  getLogger().debug('Launching services')
+
   const resolvedConfig = await resolveConfig(config, { ...opts, build: true })
-  const { target, root, services } = resolvedConfig
+  const { target, root } = resolvedConfig
+  const services = getServices(resolvedConfig.extensions)
 
   const serviceNames = Object.keys(services)
-  if (!serviceNames.length) return await printFailure(`No services specified.`)
+  if (!serviceNames.length) {
+    throw new ValidationError(
+      'No services specified',
+      'You must specify at least one service to launch. Check your configuration.'
+    )
+  }
+
+  getLogger().info('Creating services', { count: serviceNames.length })
 
   // Ensure users can access the created services
-  return await createAll(services, {
-    root,
-    target,
-    services: true,
-    build: true,
-  })
+  return await createAll(services, { root, target, services: true, build: true })
 }
 
-export const resolveAppToLaunch = (config: LaunchConfig) => {
+/**
+ * Resolve the output directory for app launch
+ */
+export const resolveAppToLaunch = (config: LaunchConfig): string => {
   const { root, outDir } = config
-  if (outDir) return outDir // Use the specified output directory
+
+  if (outDir) {
+    getLogger().debug('Using specified output directory', { outDir })
+    return outDir
+  }
 
   const { target } = config
-  return join(root ?? '', globalWorkspacePath, target)
+  const resolvedOutDir = join(root ?? '', globalWorkspacePath, target)
+
+  getLogger().debug('Using default output directory', { outDir: resolvedOutDir })
+
+  return resolvedOutDir
 }
 
-export const launchApp = async (config: LaunchConfig, args = []) => {
-  const _chalk = await chalk
+/**
+ * Launch application using new Flow architecture
+ * Delegates to LaunchFlow for orchestration
+ *
+ * @param config - Launch configuration
+ * @param args - Additional launch arguments (currently unused in new architecture)
+ * @returns Launch result with server info (for web) or empty object
+ */
+export const launchApp = async (
+  config: LaunchConfig,
+): Promise<any> => {
+  getLogger().debug('Starting app launch with flow architecture')
 
-  let { target } = config
-  const { outDir: originalOutDir } = config
+  try {
+    // Resolve configuration first
+    const resolvedConfig = await resolveConfig(config)
+    const { hooks } = resolvedConfig
 
-  const { port, public: isPublic } = config
-
-  if (originalOutDir && getDesktopPath(originalOutDir)) target = 'electron' // Autodetect Electron target
-
-  target = await ensureTargetConsistent(target)
-  const outDir = resolveAppToLaunch(config)
-
-  if (!existsSync(outDir)) {
-    await printFailure(`The expected output directory was not found`)
-    await printSubtle(`Attempting to launch from ${outDir}`)
-    return
-  }
-
-  if (isMobile(target)) {
-    process.chdir(outDir)
-    await mobile.launch(target)
-    await printSubtle(`Opening native launcher for ${target}...`)
-  } else if (isDesktop(target)) {
-    const fullPath = getDesktopPath(outDir)
-
-    if (!fullPath) throw new Error(`This application has not been built for ${PLATFORM} yet.`)
-
-    let runExecutableCommand = 'open' // Default to macOS command
-
-    const resolvedArgs = [`"${fullPath}"`] // The path to the executable file
-    const userArgs = new Set([...args]) // User-provided arguments
-
-    // Set the appropriate command based on the platform
-    if (PLATFORM === 'windows' || PLATFORM === 'linux') runExecutableCommand = resolvedArgs.shift() // Run executable directly
-    if (PLATFORM === 'linux') userArgs.add('--no-sandbox') // Ensure No Sandbox
-    if (PLATFORM === 'mac' && userArgs.size) resolvedArgs.push('--args') // macOS-specific flag to pass additional arguments
-    resolvedArgs.push(...userArgs) // Add any additional arguments
-
-    printSubtle([runExecutableCommand, ...resolvedArgs].join(' '))
-
-    await spawnProcess(runExecutableCommand, resolvedArgs, { env: process.env }) // Share the same environment variables
-  } else {
-    const __vite = await vite
-
-    const serverConfig = {
+    // Extract launch options
+    const { port, public: isPublic } = resolvedConfig
+    
+    // Delegate to LaunchFlow for orchestration
+    const result = await getLaunchFlow().launch(resolvedConfig, {
+      hooks,
       port,
-
-      open: !process.env.VITEST,
-    } as ViteServerOptions
-
-    if (isPublic) serverConfig.host = '0.0.0.0'
-
-    const server = await __vite.createServer({
-      configFile: false,
-      root: outDir,
-      server: serverConfig,
+      host: isPublic ? '0.0.0.0' : undefined,
     })
 
-    await server.listen()
+    logger.info('App launch completed successfully')
 
-    // Print out the URL if everything was initialized here (i.e. dev mode)
-    const { port: resolvedPort, host: resolvedHost } = server.config.server
-    const protocol = server.config.server.https ? 'https' : 'http'
-    const url = `${protocol}://localhost:${resolvedPort}`
-    printSubtle(
-      `Server is running on ${_chalk.cyan(url)}${resolvedHost !== 'localhost' ? ` (${resolvedHost})` : ''}`
-    )
-
-    return {
-      url,
-      server,
-    }
+    return result
+  } catch (error) {
+    logger.error('App launch failed', {}, error as Error)
+    throw error
   }
-
-  return {}
 }
+
+// Export for backward compatibility and direct access
+export { launchFlow }

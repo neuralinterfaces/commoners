@@ -1,53 +1,59 @@
 # Why Commoners?
 
 ## The Problem
-If WebViews can render HTML, CSS, and JavaScript applications on web, desktop, and mobile environments, *why is it so hard to publish across all these platforms?*
+You have a web app. You want it on desktop, mobile, and the web — ideally from one codebase. Maybe you also have backend services in Python, Rust, or Node that need to ship alongside it.
 
-The story only gets more complicated when you consider the need for advanced features like custom backends, Bluetooth and serial communication, and the reconciliation of other platform-specific APIs.
+Existing tools solve parts of this:
+- **Electron / Tauri** handle desktop (and Tauri 2.0 adds mobile), but don't manage your backend services.
+- **Capacitor** handles mobile, but can't bundle local backends or manage desktop.
+- **Framework-specific SDKs** (React Native, Quasar) lock you into a single frontend framework.
 
-In particular, Commoners was developed for an impossible task in modern web development: The distribution of a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux) and mobile (iOS/Android) platforms. And [it works](https://github.com/neuralinterfaces/brainsatplay)!
+No single tool handles the full picture: **your app on every platform**, with backend services that compile, bundle, and deploy automatically.
 
-## The Solution
-With a basic knowledge of HTML, CSS, and JavaScript, **anyone can write cross-platform applications** with Commoners.
+## What Commoners Does Differently
+Commoners is a CLI tool that reads a single `commoners.config.ts` and handles the rest:
 
-By providing a consistent development workflow across platforms, Commoners allows you to focus on what matters: your unique application logic.
+1. **Declares services in any language** -- TypeScript, Python, C++, Rust. Each service gets auto-compiled and bundled for your target platform.
+2. **Adapts services to the target** -- On desktop, services run as local processes bundled inside the app. On web and mobile, the same services deploy remotely. Your frontend code doesn't change.
+3. **Stays framework-agnostic** -- Your frontend is HTML, CSS, and JavaScript. Use React, Vue, Svelte, or nothing at all.
+4. **Manages platform-specific code** -- Plugins handle Bluetooth, Serial, window management, and other platform APIs without polluting your core logic.
 
-Commoners is built around the complementary approaches of [progressive enhancement](https://www.gov.uk/service-manual/technology/using-progressive-enhancement) and [graceful degradation](https://developer.mozilla.org/en-US/docs/Glossary/Graceful_degradation), ensuring that your application will work on any platform, regardless of its capabilities.
+## How It Compares
 
-We've dubbed our approach **platform enhancement**, allowing you to create multi-page static sites that work across all major platforms.
+| Feature | Commoners | Tauri | Capacitor | Quasar | Expo |
+|---|---|---|---|---|---|
+| Web | Yes | No | Yes | Yes | Yes (limited) |
+| Desktop | Electron (Tauri planned) | Webview | No | Electron | No |
+| Mobile | Capacitor | iOS / Android | Native | Cordova | React Native |
+| Backend services | **Any language, auto-bundled** | Rust + sidecars | None | None | None |
 
-While Commoner is best characterized as a rapid prototyping tool for research software, I'm using Commoners for commercial products at [Universal Brain](https://universal-brain.com/). And you can too!
+Commoners is the tool that gets your app — frontend and backend — onto every platform from one config.
 
-## The Alternatives
-Sometimes Commoners will not be the best solution for your project. Here are some alternatives to consider:
+### A note on desktop app size
 
-### Framework-Specific SDKs
-- [React Native](https://reactnative.dev) - React Native is a powerful cross-platform solution that requires **React** as its primary frontend framework.
-- [Quasar](https://quasar.dev) - Quasar is a powerful cross-platform solution that requires **Vue.js** as its primary frontend framework.
+Commoners currently uses Electron for desktop, which bundles Chromium (~200 MB). This is the same trade-off Slack, VS Code, and Discord make. If binary size is critical and you don't need multi-language backend services, [Tauri](https://tauri.app) produces ~10 MB desktop apps using the system webview. Commoners plans to support Tauri as an alternative desktop runtime — your services and plugins will work with either.
 
-### Non-JavaScript SDKs
-- [Flutter](https://flutter.dev) - While Flutter is an elegant cross-platform solution, it uses **Dart** as its primary language. This is a barrier to entry for many developers.
+## Where Commoners Came From
+Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) for an impossible task: distributing a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux), and mobile (iOS/Android) -- with real-time brain-computer interface backends written in Python and C++. [It works.](https://github.com/neuralinterfaces/brainsatplay)
 
-### Full Native Development
-- [Swift](https://developer.apple.com/swift/) - Swift is a powerful language for developing iOS applications.
-- [Kotlin](https://kotlinlang.org) - Kotlin is a powerful language for developing Android applications.
-- [C++](https://isocpp.org) - C++ is a powerful language for developing desktop applications.
+Since then, Commoners has been used for commercial products at [Universal Brain](https://universal-brain.com/) and continues to evolve as a general-purpose cross-platform tool.
 
-While WebViews will never be as performant as full native applications, Commoners is designed to make the most of their potential. Consequently, Commoners applications are more than enough for many sophisticated PoCs, MVPs, and production applications—including, as we've shown at [Neural Interfaces](https://github.com/neuralinterfaces), time-sensitive brain-computer interface (BCI) systems.
+## When to Use Something Else
 
-### Platform-Specific Tools
-We love the following tools and use them in Commoners to provide you with a reliable and streamlined development workflow.
+For a detailed comparison with Tauri, Electron, and Capacitor, see [Choosing the Right Tool](./guide/comparisons.md).
 
-- [Vite](https://vitejs.dev) - Vite is a lightning-fast build tool for modern web development. It is a foundational piece of the Commoners, providing a streamlined development workflow for all platforms.
-- [Electron](https://www.electronjs.org) - Electron is a powerful framework for building cross-platform **desktop** applications using Chromium and Node.js.
-- [Capacitor](https://capacitorjs.com) - Capacitor is a powerful framework for building cross-platform **mobile** applications using WebViews. Native plugins are available for advanced features.
+Commoners is not always the right choice:
 
-While direct use of `vite`, `electron`, and `capacitor` will be beneficial for some situations, Commoners provides a few key advantages over these platform-specific solutions:
-1. Separates platform-specific code from the core, allowing you to focus on what matters.
-2. Maintains a consistent development workflow across all your projects.
-3. Allows you to prototype features for different platforms—web, desktop, mobile, or all at once—to decide the ideal form factor for your application.
-4. Provides community plugins for advanced features such as Bluetooth and serial communication, discovery of local services, and more.
-5. Automatically packages local backends into your desktop builds.
+- **You need native performance everywhere** -- Flutter or fully native development (Swift/Kotlin/C++) will outperform WebView-based apps.
+- **You only need desktop with Rust** -- Tauri produces smaller binaries and has a mature Rust integration. Commoners plans to support Tauri as an alternative desktop runtime.
+- **You only need mobile** -- Capacitor or React Native may be simpler if you don't need desktop or multi-language backends.
+- **You're locked into a framework** -- Quasar (Vue) and Expo (React) offer deeper integration with their respective ecosystems.
 
-#### Future Integrations
-- [Tauri](https://tauri.app) - A promising solution for distributing cross-platform applications as WebViews. We are currently evaluating Tauri for inclusion in Commoners.
+## Platform-Specific Tools We Build On
+Commoners composes existing tools rather than replacing them:
+
+- [Vite](https://vitejs.dev) -- Build tooling and dev server for all platforms.
+- [Electron](https://www.electronjs.org) -- Desktop runtime (Chromium + Node.js).
+- [Capacitor](https://capacitorjs.com) -- Mobile runtime (native WebViews).
+
+Commoners adds the orchestration layer that connects these tools with your backend services and manages the differences between platforms.

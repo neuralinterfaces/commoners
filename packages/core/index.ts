@@ -1,30 +1,50 @@
 // Built-In Modules
-import { dirname, join, relative, normalize, resolve, isAbsolute } from 'node:path'
-import { existsSync, unlink, writeFileSync } from 'node:fs'
+import { dirname, join, resolve, isAbsolute } from 'node:path'
+import { existsSync, mkdirSync, unlink, writeFileSync } from 'node:fs'
 
 // Internal Imports
-import {
-  globalWorkspacePath,
-  getDefaultMainLocation,
-  templateDir,
-  ensureTargetConsistent,
-  isMobile,
-} from './globals.js'
+import { templateDir, ensureTargetConsistent, globalTempDir } from './globals.js'
 import { onCleanup } from './cleanup.js'
 
 import {
   ConfigResolveOptions,
+  Extension,
+  Plugin,
   ResolvedConfig,
+  ResolvedExtensions,
+  ResolvedServices,
   ServiceCreationOptions,
   UserConfig,
+  UserService,
 } from './types.js'
 import { resolveAll, createAll } from './assets/services/index.js'
 import { resolveFile, getJSON } from './utils/files.js'
 import merge from './utils/merge.js'
-import { bundleConfig } from './utils/assets.js'
-import { printFailure, printSubtle } from './utils/formatting.js'
 import { lstatSync } from './utils/lstat.js'
 import { pathToFileURL } from 'node:url'
+
+// Error classes
+import { ConfigurationError, ValidationError } from './errors.js'
+
+// Security utilities
+import { validatePath } from './utils/security.js'
+
+// Logging
+import { createLogger } from './assets/utils/logger.js'
+const logger = createLogger('config')
+
+import { resolveHooks } from './assets/utils/hooks.js'
+export { resolveHooks }
+
+// Export error classes for consumers
+export {
+  CommonersError,
+  ConfigurationError,
+  ValidationError,
+  DependencyError,
+  PlatformError,
+  BuildError,
+} from './errors.js'
 
 const getAbsolutePath = (root: string, path: string) => (isAbsolute(path) ? path : join(root, path))
 
@@ -34,10 +54,30 @@ export * from './globals.js'
 export * from './assets/services/index.js' // Service Helpers
 
 export * as format from './utils/formatting.js'
+export {
+  getBuildAdapter,
+  setBuildAdapter,
+  registerServiceBundler,
+  getServiceBundler,
+} from './adapters/index.js'
+export type { BuildAdapter, ServiceBundler, AdapterConfig } from './adapters/types.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
+export { shareServices } from './share.js'
 export { app as start, services as startServices } from './start.js'
+export { packageFile } from './utils/assets.js'
 export { merge } // Other Helpers
+export { lazy } from './assets/utils/index.js' // Lazy factory helper for tree-shaking
+export {
+  Logger,
+  LogLevel,
+  createLogger,
+  getLogger,
+  configureLogger,
+  setGlobalLogLevel,
+  setGlobalUI,
+  getGlobalUI,
+} from './assets/utils/logger.js' // Logging
 
 // ------------------ Configuration File Handling ------------------
 export const resolveConfigPath = (base = '') =>
@@ -48,21 +88,16 @@ const isDirectory = (root: string) => lstatSync(root).isDirectory()
 const isCommonersProject = async (root: string = process.cwd()) => {
   const rootExists = existsSync(root)
 
-  let failMessage = ''
+  let failError: ConfigurationError | undefined
 
   // Root does not exist
-  if (root && !rootExists) failMessage = `This path does not exist.`
-  // No index.html file
-  else if (!existsSync(join(root, 'index.html')))
-    failMessage = `This directory does not contain an index.html file.`
+  if (root && !rootExists)
+    failError = new ConfigurationError('Invalid Commoners project', `This path does not exist.`)
 
-  if (failMessage) {
-    await printFailure(`Invalid Commoners project`)
-    await printSubtle(failMessage)
-    return false
+  if (failError) {
+    logger.error(failError.message, { root, reason: failError.details })
+    throw failError
   }
-
-  return true
 }
 
 export async function loadConfigFromFile(root: string = resolveConfigPath()) {
@@ -73,9 +108,7 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
     if (!isDirectory(root)) root = dirname(root) // Get the parent directory
   }
 
-  const isValidProject = await isCommonersProject(root)
-
-  if (!isValidProject) process.exit(1)
+  await isCommonersProject(root)
 
   const configPath = resolveConfigPath(
     rootExists
@@ -84,28 +117,137 @@ export async function loadConfigFromFile(root: string = resolveConfigPath()) {
   )
 
   const resolvedRoot = configPath ? dirname(configPath) : root || process.cwd()
+  const hasIndexHTML = existsSync(join(resolvedRoot, 'index.html'))
 
-  let config = {} as UserConfig // No user-defined configuration found
+  if (!configPath && !hasIndexHTML) {
+    const err = new ConfigurationError(
+      'Not a Commoners project',
+      `No commoners.config.ts (or .js) and no index.html found in ${resolvedRoot}`
+    )
+    logger.error(err.message, { root: resolvedRoot, reason: err.details })
+    throw err
+  }
+
+  let config = {} as UserConfig
 
   if (configPath) {
-    const configOutputPath = join(resolvedRoot, globalWorkspacePath, `commoners.config.mjs`)
-    const outputFiles = await bundleConfig(configPath, configOutputPath, { node: true })
+    const configOutputPath = join(resolvedRoot, globalTempDir, `commoners.config.mjs`)
+
+    // Use esbuild directly — faster than Vite's Rollup pipeline, produces a single
+    // file (no code-split chunks), and doesn't need browser polyfills.
+    const esbuild = await import('esbuild')
+    mkdirSync(dirname(configOutputPath), { recursive: true })
+    try {
+      await esbuild.build({
+        entryPoints: [configPath],
+        bundle: true,
+        platform: 'node',
+        format: 'esm',
+        outfile: configOutputPath,
+        logLevel: 'silent',
+        // Externalize packages that cannot be bundled into a config snapshot:
+        // - electron: only available inside the Electron runtime
+        // - *.node: native addons (e.g. keytar) require a loader at runtime
+        // - @aws-sdk/*: optional peer of unzipper, not always installed
+        external: [
+          'electron',
+          '*.node',
+          '@aws-sdk/*',
+          '@commoners/solidarity',
+          'commoners',
+          // wasm-pack output: --target nodejs produces CJS using
+          // `__dirname` + `require('fs')` to sync-load the .wasm. When
+          // bundled by esbuild into an ESM config snapshot, __dirname
+          // is undefined → "is not defined in ES module scope".
+          // Externalizing lets Node resolve it at runtime via the real
+          // node_modules + nested package.json (`"type": "commonjs"`).
+          // Pattern is intentionally broad: any package whose name
+          // ends in `-wasm` or starts with `wasm-` is a wasm-pack
+          // output and should not be bundled into the config.
+          // esbuild `external` glob: `*-wasm` matches any-suffix.
+          '*-wasm',
+          'wasm-*',
+        ],
+        // Rewrite import.meta.url to the *source* config file so getDirname() etc.
+        // resolve paths relative to the project root, not the temp output directory.
+        define: { 'import.meta.url': JSON.stringify(pathToFileURL(configPath).href) },
+        // esbuild wraps CJS deps in __commonJS which uses __require (a require polyfill).
+        // In .mjs files, require() is unavailable. Inject createRequire so __require works.
+        // Use the output file URL (not import.meta.url, which is overridden by define above).
+        banner: {
+          js: `import { createRequire as __bundled_createRequire } from 'node:module';const require = __bundled_createRequire(${JSON.stringify(pathToFileURL(configOutputPath).href)});`,
+        },
+      })
+    } catch (err: any) {
+      if (err.errors?.length) {
+        const lines = err.errors.map((e: any) => {
+          const loc = e.location
+          const where = loc
+            ? `\n        \x1b[2mat ${loc.file}:${loc.line}:${loc.column}\x1b[0m`
+            : ''
+          const text = e.text.replace(/"([^"]+)"/g, '\x1b[1;37m"$1"\x1b[0;31m')
+          return `    \x1b[31m✗ ${text}\x1b[0m${where}`
+        })
+        const msg = `\n  \x1b[1;31m✗ Failed to bundle config file\x1b[0m\n\n${lines.join('\n\n')}\n`
+        throw new Error(msg)
+      }
+      throw err
+    }
 
     const fileURL = pathToFileURL(configOutputPath).href
 
     try {
       config = (await import(fileURL)).default as UserConfig
     } finally {
-      onCleanup(() => outputFiles.forEach(file => unlink(file, () => {})))
+      onCleanup(() => unlink(configOutputPath, () => {}))
     }
   }
 
-  // Set the root of the project
-
-  config.root = relative(process.cwd(), resolvedRoot) || resolvedRoot
+  // Set the root of the project (always absolute for consistent path resolution)
+  config.root = resolvedRoot
 
   return config
 }
+
+// ------------------- Extension Classification -------------------
+const pluginKeys = ['load', 'desktop', 'isSupported', 'start', 'ready', 'quit', 'assets']
+const serviceKeys = ['src', 'url', 'port', 'build', 'publish', 'ssl', 'env']
+
+function isPluginLike(ext: Extension): ext is Plugin {
+  if (typeof ext !== 'object' || ext === null) return false
+  return pluginKeys.some(key => key in ext)
+}
+
+function isServiceLike(ext: Extension): ext is UserService {
+  if (typeof ext === 'string') return true
+  if (typeof ext !== 'object' || ext === null) return false
+  return serviceKeys.some(key => key in ext)
+}
+
+function classifyExtensions(extensions: Record<string, Extension>): {
+  plugins: Record<string, Plugin>
+  services: Record<string, UserService>
+} {
+  const plugins: Record<string, Plugin> = {}
+  const services: Record<string, UserService> = {}
+
+  for (const [id, ext] of Object.entries(extensions)) {
+    const plugin = isPluginLike(ext)
+    const service = isServiceLike(ext)
+
+    if (plugin) plugins[id] = ext as Plugin
+    if (service) services[id] = ext as UserService
+    if (!plugin && !service) {
+      // Default: treat as plugin if it's an object with no recognized keys
+      plugins[id] = ext as Plugin
+    }
+  }
+
+  return { plugins, services }
+}
+
+// ------------------- Extension Helpers -------------------
+export { getPlugins, getServices } from './utils/extensions.js'
 
 export async function resolveConfig(
   o: UserConfig = {},
@@ -116,25 +258,33 @@ export async function resolveConfig(
 
     // Advanced Service Configuration
     services,
+
+    hooks: hooksOverride,
   }: ConfigResolveOptions = {}
 ) {
-  if ((o as Record<string, any>).__resolved) return o as ResolvedConfig
+  const isResolved = (o as Record<string, any>).__resolved
 
-  // Mobile commands must always run from the root of the specified project
-  if (isMobile(o.target) && o.root) {
-    process.chdir(o.root)
-    delete o.root
-  }
+  if (isResolved) return o as ResolvedConfig
 
-  const root = o.root ?? (o.root = process.cwd()) // Always carry the root of the project
+  // Always use absolute root path for consistent path resolution
+  const root = o.root ? (isAbsolute(o.root) ? o.root : resolve(o.root)) : process.cwd()
+  o.root = root
 
-  const { services: ogServices, plugins, vite, ...temp } = o
+  const { services: ogServices, plugins, extensions, vite, ...temp } = o
 
   const userPkg = getJSON(join(root, 'package.json'))
 
   // Merge Config and package.json (transformed name)
+  const {
+    hooks, // Do not copy
+    electron = {},
+    ...rest
+  } = temp
 
-  const copy = merge(structuredClone(temp), {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { hooks: _electronHooks, ...electronRest } = electron
+
+  o = merge(structuredClone({ ...rest, electron: electronRest }), {
     ...userPkg,
     name: userPkg.name
       ? userPkg.name
@@ -144,101 +294,171 @@ export async function resolveConfig(
       : 'Commoners App',
   }) as Partial<ResolvedConfig>
 
-  if (copy.outDir && !isAbsolute(copy.outDir)) copy.outDir = join(copy.root, copy.outDir)
+  o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
 
-  copy.plugins = plugins ?? {} // Transfer the original plugins
-  copy.services = (ogServices as Record<string, any>) ?? {} // Transfer original functions on publish
-  copy.vite = vite ?? {} // Transfer the original Vite config
+  if (o.outDir && !isAbsolute(o.outDir))
+    o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute
 
-  const target = (copy.target = await ensureTargetConsistent(copy.target))
+  // Classify extensions and merge into plugins/services
+  const classified = extensions ? classifyExtensions(extensions) : { plugins: {}, services: {} }
 
-  if (!copy.electron) copy.electron = {}
+  const mergedPlugins: Record<string, Plugin> = { ...(plugins ?? {}), ...classified.plugins }
+  const mergedUserServices: Record<string, any> = {
+    ...((ogServices as Record<string, any>) ?? {}),
+    ...classified.services,
+  }
+
+  o.vite = vite ?? {} // Transfer the original Vite config
+
+  o.target = await ensureTargetConsistent(o.target)
+
+  if (!o.electron) o.electron = {}
 
   // Set default values for certain properties shared across config and package.json
-  if (!copy.icon) copy.icon = join(templateDir, 'icon.png')
+  if (!o.icon) o.icon = join(templateDir, 'icon.png')
 
-  if (!copy.version) copy.version = '0.0.0'
+  if (!o.version) o.version = '0.0.0'
 
-  if (!copy.appId) copy.appId = `com.${copy.name.replace(/\s/g, '').toLowerCase()}.app`
+  if (!o.appId) o.appId = `com.${o.name.replace(/\s/g, '').toLowerCase()}.app`
 
   // Always have a build options object
-  if (!copy.build) copy.build = {}
+  if (!o.build) o.build = {}
 
   // Resolve pages
-  if (!copy.pages) copy.pages = {}
+  if (!o.pages) o.pages = {}
 
-  copy.pages = Object.entries(copy.pages).reduce((acc, [id, filepath]) => {
-    acc[id] = getAbsolutePath(root, filepath)
+  o.pages = Object.entries(o.pages).reduce((acc, [id, filepath]) => {
+    // Validate page paths to prevent traversal
+    const absolutePath = getAbsolutePath(root, filepath)
+    acc[id] = validatePath(absolutePath, root, `page "${id}"`)
     return acc
   }, {})
 
+  const { target } = o
+
+  // Check whether the selected services are valid
   if (services) {
-    const selectedServices = typeof services === 'string' ? [services] : services
-    const allServices = Object.keys(copy.services)
+    const selectedServices =
+      typeof services === 'string'
+        ? [services]
+        : Array.isArray(services)
+          ? services
+          : Object.keys(services)
+    const allServices = Object.keys(mergedUserServices)
     if (selectedServices) {
       if (!selectedServices.every(name => allServices.includes(name))) {
-        await printFailure(`Invalid service selection`)
-        await printSubtle(`Available services: ${allServices.join(', ')}`) // Print actual services as a nice list
-
-        process.exit(1)
+        const invalidServices = selectedServices.filter(name => !allServices.includes(name))
+        throw new ValidationError(
+          'Invalid service selection',
+          `Unknown services: ${invalidServices.join(', ')}. Available services: ${allServices.join(', ')}`
+        )
       }
     }
   }
 
-  copy.services = await resolveAll(copy.services, { target, build, services, root: copy.root }) // Resolve selected services
-
-  // Resolution flag
-  Object.defineProperty(copy, '__resolved', {
-    value: true,
-    writable: false,
+  const resolvedServices = await resolveAll(mergedUserServices, {
+    target,
+    build,
+    services,
+    root: o.root,
   })
 
-  return copy as ResolvedConfig
+  // Build canonical extensions record from merged plugins + resolved services
+  const resolvedExtensions: ResolvedExtensions = {}
+
+  for (const [id, plugin] of Object.entries(mergedPlugins)) {
+    resolvedExtensions[id] = {
+      type: 'plugin',
+      capabilities: (plugin as any).capabilities,
+      plugin: plugin as Plugin,
+    }
+  }
+
+  for (const [id, service] of Object.entries(resolvedServices)) {
+    if (resolvedExtensions[id]) {
+      // Same ID exists as plugin — this is a hybrid extension
+      resolvedExtensions[id].type = 'hybrid'
+      resolvedExtensions[id].service = service
+      // Merge capabilities (service caps may have runtime/platform info)
+      if (service.capabilities) {
+        resolvedExtensions[id].capabilities = {
+          ...resolvedExtensions[id].capabilities,
+          ...service.capabilities,
+        }
+      }
+    } else {
+      resolvedExtensions[id] = {
+        type: 'service',
+        capabilities: service.capabilities,
+        service,
+      }
+    }
+  }
+
+  // Validate that the project has something to run
+  const hasPages = Object.keys(o.pages).length > 0 || existsSync(join(root, 'index.html'))
+  const hasServices = Object.keys(resolvedServices).length > 0
+  if (!hasPages && !hasServices) {
+    throw new ConfigurationError(
+      'Empty configuration',
+      'Config must define at least one page (or an index.html) or one service'
+    )
+  }
+
+  o.extensions = resolvedExtensions
+
+  // Generate declarative service manifest
+  const { extname } = await import('node:path')
+  const serviceManifest: Record<string, import('./types.js').ServiceManifestEntry> = {}
+  for (const [id, ext] of Object.entries(resolvedExtensions)) {
+    if (!ext.service) continue
+    const svc = ext.service
+    const isWasm = !!(svc as any).__wasm || (svc as any).type === 'wasm'
+    const fp = svc.filepath
+    const svcExt = fp ? extname(fp) : ''
+    serviceManifest[id] = {
+      src: svc.__src || undefined,
+      filepath: fp || undefined,
+      compile: svc.__compile,
+      autobuild: svc.__autobuild,
+      executable: !isWasm && (svcExt === '.exe' || svcExt === '' || !svcExt),
+      wasm: isWasm,
+      capabilities: svc.capabilities,
+    }
+  }
+  o.serviceManifest = serviceManifest
+
+  Object.defineProperty(o, '__resolved', { value: true, writable: false }) // Resolution flag
+  return o as ResolvedConfig
 }
 
 const writePackageJSON = (o, root = '') =>
   writeFileSync(join(root, 'package.json'), JSON.stringify(o, null, 2)) // Will not update userPkg—but this variable isn't used for the Electron process
 
-// Ensure project can handle --desktop command
+// Ensure project can handle --desktop command.
+// Writes a package.json into the outDir (temp directory) instead of modifying the host
+// project's package.json. This avoids polluting the user's repo with transient state
+// and eliminates stale "main" fields if the build crashes before cleanup.
 export const configureForDesktop = (outDir, root = '', defaults = {}) => {
   const userPkg = getJSON(join(root, 'package.json'))
 
   const pkg = {
     ...defaults,
     ...userPkg,
+    main: 'main.cjs', // Entry point relative to outDir
   }
 
-  const resolvedOutDir = root ? relative(root, outDir) : outDir
-  const defaultMainLocation = getDefaultMainLocation(resolvedOutDir)
+  // Resolve outDir to absolute if needed
+  const absoluteOutDir = isAbsolute(outDir) ? outDir : resolve(root || process.cwd(), outDir)
 
-  if (!pkg.main || normalize(pkg.main) !== normalize(defaultMainLocation)) {
-    // Write back the original package.json on exit
-    let __reset = false
-    const reset = () => {
-      if (__reset) return
-      __reset = true
-      writePackageJSON(pkg, root)
-    }
-
-    onCleanup(reset)
-
-    writePackageJSON(
-      {
-        ...pkg,
-        main: defaultMainLocation,
-      },
-      root
-    )
-
-    return { reset }
-  }
+  // Write the Electron package.json into the temp outDir, not the host root
+  mkdirSync(absoluteOutDir, { recursive: true })
+  writePackageJSON(pkg, absoluteOutDir)
 
   return {
-    reset: () => {}, // No reset needed
+    reset: () => {}, // No host file was modified — nothing to reset
   }
 }
 
-export const createServices = (
-  services: ResolvedConfig['services'],
-  opts: ServiceCreationOptions = {}
-) => createAll(services, opts)
+export const createServices = (services: ResolvedServices, opts: ServiceCreationOptions = {}) =>
+  createAll(services, opts)

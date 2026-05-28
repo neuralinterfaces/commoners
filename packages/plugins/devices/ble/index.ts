@@ -44,6 +44,12 @@ const capacitorConfiguration = {
   },
 }
 
+export const capabilities = {
+  provides: ['bluetooth', 'ble', 'device-access'],
+  platforms: { web: true, desktop: true, mobile: true },
+  runtime: 'browser' as const,
+}
+
 // @capacitor-community/bluetooth-le must be installed by the user
 export const isSupported = {
   capacitor: capacitorConfiguration,
@@ -58,7 +64,7 @@ export const desktop = {
     const { session } = webContents
 
     const WIN_STATES: {
-      select?: Function
+      select?: (...args: unknown[]) => unknown
       match?: DeviceInformation
     } = {}
 
@@ -122,7 +128,7 @@ export function load() {
 
   const { __id } = DESKTOP
 
-  const callbacks: Record<string, Function[]> = {}
+  const callbacks: Record<string, ((...args: unknown[]) => unknown)[]> = {}
 
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`

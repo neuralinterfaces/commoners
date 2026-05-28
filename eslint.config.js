@@ -1,4 +1,5 @@
 import js from '@eslint/js'
+import globals from 'globals'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
 import prettier from 'eslint-plugin-prettier'
@@ -15,8 +16,19 @@ export default [
       'build/**',
       '.commoners/**',
       'docs/.vitepress/dist/**',
+      'docs/.vitepress/cache/**',
+      '**/assets/**',
+      'docs/.vitepress/**',
+      'packages/plugins/integrity/**',
+      'packages/plugins/secure-services/**',
     ],
     languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        commoners: 'readonly',
+        Electron: 'readonly',
+      },
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 'latest',

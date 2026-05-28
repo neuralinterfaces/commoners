@@ -30,6 +30,7 @@ export default createPackageConfig({
   entryPoint: {
     main: 'index.ts',
     services: 'services/index.ts',
+    ui: 'ui.ts',
     config: 'config.ts',
   },
   packageName: '@commoners/solidarity',

@@ -1,0 +1,20 @@
+{
+  "name": "@commoners/notifications",
+  "version": "1.0.0-alpha.3",
+  "description": "Cross-platform notifications for Commoners apps",
+  "author": "Neural Interfaces",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/plugins/notifications"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "type": "module",
+  "main": "index.ts",
+  "peerDependencies": {
+    "@commoners/solidarity": ">=1.0.0-alpha.0"
+  }
+}

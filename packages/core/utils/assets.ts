@@ -1,5 +1,5 @@
 // Built-In Modules
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import {
   dirname,
   extname,
@@ -12,25 +12,32 @@ import {
   posix,
   basename,
 } from 'node:path'
+import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
 
 // Internal Imports
 import { resolveConfigPath } from '../index.js'
-import { copyAsset, copyAssetOld } from './copy.js'
+import { createNoOpHooks } from '../ui.js'
+import { copyAsset } from './copy.js'
 import { encodePath } from './encode.js'
-import { chalk, isDesktop, rootDir, vite } from '../globals.js'
+import { isDesktop, isElectron, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
+import { BuildError } from '../errors.js'
+import { createLogger } from '../assets/utils/logger.js'
 import {
   ResolvedConfig,
   ResolvedService,
   PackageBuildInfo,
   ServiceRebuildOption,
 } from '../types.js'
+import { getPlugins, getServices } from './extensions.js'
 import { withExternalBuiltins } from '../vite/plugins/electron/inbuilt.js'
-import { printSubtle } from './formatting.js'
 import { getAllIcons } from '../assets/utils/icons.js'
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from './esbuild/plugins.js'
 import { getEnvFilesForMode, tryStatSync } from '../assets/services/env/utils.js'
+
+const logger = createLogger('assets')
 
 const CONFIG_EXTENSION_TARGETS = [
   '.cjs',
@@ -60,6 +67,7 @@ type CoreAssetInfo =
       output?: string
       force?: boolean
       compile?: BuildFunction // Function to compile the asset
+      defines?: Record<string, string> // Compile-time defines for esbuild
     } & AssetMetadata)
 
 type AssetInfo = CoreAssetInfo | { text: string; output: string }
@@ -111,41 +119,33 @@ export const getAssetLinkPath = (path, outDir, root = outDir) => {
   return result
 }
 
-export const packageFile = async (info: PackageBuildInfo) => {
-  const _chalk = await chalk
-
-  const { name, src, out, force } = info
+export const packageFile = async (info: PackageBuildInfo, _hooks = createNoOpHooks()) => {
+  const { src, out, force } = info
 
   const outDir = dirname(out)
-  const outName = basename(out, extname(out))
-
-  const tempOut = join(outDir, outName) + '.js'
 
   const shouldBuild = mustBuild({ out: outDir, force })
 
-  if (!shouldBuild) {
-    printSubtle(`Using cached ${_chalk.bold(name)} build`)
-    return outDir
-  }
+  if (!shouldBuild) return { built: false, outDir }
 
-  const esbuild = await import('esbuild')
-  const pkg = await import('pkg')
+  // Use Node.js Single Executable Application (SEA) instead of pkg
+  const { createSEA } = await import('./sea.js')
 
-  await esbuild.build({
-    entryPoints: [src],
-    bundle: true,
-    logLevel: 'silent',
-    outfile: tempOut,
-    format: 'cjs',
-    platform: 'node',
-    external: ['*.node'],
+  const result = await createSEA({
+    src,
+    out,
+    force,
+    sign: true,
   })
 
-  await pkg.exec([tempOut, '--target', 'node16', '--out-path', outDir])
+  if (!result.success) {
+    throw new BuildError(
+      'SEA executable creation failed',
+      `Failed to create Single Executable Application: ${result.error}. Source: ${src}, Output: ${out}`
+    )
+  }
 
-  rmSync(tempOut, { force: true })
-
-  return outDir
+  return { built: true, outDir } // Return the output directory
 }
 
 async function buildService(
@@ -161,43 +161,140 @@ async function buildService(
     root: ResolvedConfig['root']
   },
   name,
-  force = false
+  force = false,
+  hooks = createNoOpHooks()
 ) {
   out = resolve(out)
   const buildInfo = { name, src, out, force }
 
-  // Dynamic Configuration
-  if (typeof build === 'function') {
-    const ctx = { package: packageFile }
-    build = await build.call(ctx, buildInfo)
-    if (!build) return // No file emitted
-  }
+  logger.debug('Emitting service:build:start', { service: name, src, out })
+  hooks.emit({ type: 'service:build:start', service: name, src, out })
 
-  // Handle string build commands
-  if (typeof build === 'string') {
-    // Output path
-    if (existsSync(build)) return build // NOTE: Can be resolved by the above build function
+  try {
+    const startTime = performance.now()
 
-    // Stop if the build is not required
-    if (!mustBuild({ out, force })) {
-      const _chalk = await chalk
-      await printSubtle(`Using cached ${_chalk.bold(name)} build`)
-      return // Skipping without a specific path returned
+    // Dynamic Configuration
+    let wasBuilt = null
+    let fromFunction = false
+    if (typeof build === 'function') {
+      fromFunction = true
+      const ctx = {
+        package: async arg => {
+          const result = await packageFile(arg, hooks)
+          wasBuilt = result.built
+          return result.outDir
+        },
+      }
+
+      build = await build.call(ctx, buildInfo)
+      if (!build) return // No file emitted
     }
 
-    // Terminal Command
-    await spawnProcess(build, [], { cwd: root })
-  }
+    // Handle string build commands
+    if (typeof build === 'string') {
+      // Output path
+      if (existsSync(build)) {
+        const endTime = performance.now()
+        if (typeof wasBuilt === 'boolean' && !wasBuilt) {
+          logger.debug('Emitting service:build:cached', { service: name, src, out: build })
+          hooks.emit({ type: 'service:build:cached', service: name, src, out: build })
+        } else {
+          logger.debug('Emitting service:build:end', {
+            service: name,
+            src,
+            out: build,
+            duration: endTime - startTime,
+          })
+          hooks.emit({
+            type: 'service:build:end',
+            service: name,
+            src,
+            out: build,
+            duration: endTime - startTime,
+          })
+        }
+        return build // NOTE: Can be resolved by the above build function
+      }
 
-  // Auto Build Configuration
-  else return await packageFile(buildInfo)
+      // Stop if the build is not required.
+      // Always re-run commands from custom build functions — they handle their
+      // own caching (e.g. Cargo) and the binary copy must be refreshed.
+      if (!fromFunction && !mustBuild({ out, force })) {
+        logger.debug('Emitting service:build:cached', { service: name, src, out })
+        return hooks.emit({ type: 'service:build:cached', service: name, src, out })
+      }
+
+      // Terminal Command
+      await spawnProcess(build, [], { cwd: root, label: name }, hooks)
+      const endTime = performance.now()
+      logger.debug('Emitting service:build:end', {
+        service: name,
+        src,
+        out,
+        duration: endTime - startTime,
+      })
+      hooks.emit({
+        type: 'service:build:end',
+        service: name,
+        src,
+        out,
+        duration: endTime - startTime,
+      })
+    }
+
+    // Auto Build Configuration
+    else {
+      const { built } = await packageFile(buildInfo, hooks)
+      const endTime = performance.now()
+      if (built) {
+        logger.debug('Emitting service:build:end', {
+          service: name,
+          src,
+          out,
+          duration: endTime - startTime,
+        })
+        hooks.emit({
+          type: 'service:build:end',
+          service: name,
+          src,
+          out,
+          duration: endTime - startTime,
+        })
+      } else {
+        logger.debug('Emitting service:build:cached', { service: name, src, out })
+        hooks.emit({ type: 'service:build:cached', service: name, src, out })
+      }
+    }
+  } catch (error) {
+    logger.debug('Emitting service:build:error', {
+      service: name,
+      src,
+      out,
+      error: (error as Error).message,
+    })
+    hooks.emit({ type: 'service:build:error', service: name, src, out, error })
+    throw error // Re-throw the error for further handling
+  }
 }
 
 // Derive assets to be transferred to the Commoners folder
 
 // NOTE: A configuration file is required because we can't transfer plugins between browser and node without it...
-export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) => {
-  const { root, target, outDir } = resolvedConfig
+export const getAppAssets = async (
+  resolvedConfig: ResolvedConfig,
+  dev = false,
+  runtimeOutDir?: string
+) => {
+  const { root, target } = resolvedConfig
+  const outDir = runtimeOutDir ?? resolvedConfig.outDir
+
+  // Ensure required parameters are defined
+  if (!root || !outDir) {
+    throw new BuildError(
+      'Missing required configuration',
+      `root and outDir must be defined. Got root=${root}, outDir=${outDir}`
+    )
+  }
 
   const configPath = resolveConfigPath(root)
 
@@ -207,9 +304,12 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
     bundle: [],
   }
 
-  // Create Config
+  // Create Config — .cjs is only needed for Electron's main process
+  const configExtensions = CONFIG_EXTENSION_TARGETS.filter(
+    ext => ext !== '.cjs' || isElectron(target)
+  )
   assets.bundle.push(
-    ...CONFIG_EXTENSION_TARGETS.map(ext => {
+    ...configExtensions.map(ext => {
       const output = `commoners.config${ext}`
       return configPath
         ? { input: configPath, output }
@@ -217,10 +317,16 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
     })
   )
 
-  // Bundle onload script for the browser
+  // Bundle onload script for the browser — with compile-time defines for tree-shaking
+  const hasPlugins = Object.keys(getPlugins(resolvedConfig.extensions)).length > 0
   assets.bundle.push({
     input: join(rootDir, 'assets', 'onload.ts'),
     output: 'onload.mjs',
+    defines: {
+      __HAS_PLUGINS__: String(hasPlugins),
+      __IS_DEV__: String(dev),
+      __IS_DESKTOP__: String(isDesktop(target)),
+    },
   })
 
   // Bundle environment files compatible with Vite (Desktop Only)
@@ -237,16 +343,24 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
   }
 
   // Copy All Icons
-  if (resolvedConfig.icon)
-    assets.copy.push(...getAllIcons(resolvedConfig.icon).map(icon => getAbsolutePath(root, icon)))
+  if (resolvedConfig.icon && root)
+    assets.copy.push(
+      ...getAllIcons(resolvedConfig.icon)
+        .filter(icon => icon)
+        .map(icon => getAbsolutePath(root, icon))
+    )
 
   // Handle Provided Plugins
-  for (const [id, plugin] of Object.entries(resolvedConfig.plugins)) {
+  const plugins = getPlugins(resolvedConfig.extensions)
+  for (const [id, plugin] of Object.entries(plugins)) {
     const pluginAssets = { ...(plugin.assets ?? {}) }
 
     // Only bundle assets in production mode
     if (!dev)
       Object.entries(pluginAssets).map(([key, assetSrc]) => {
+        // Skip undefined or null assets
+        if (!assetSrc || !root) return
+
         // Skip HTML files for bundling or copying
         // Handle in the main Vite build process instead
         if (extname(assetSrc) === '.html') return (pluginAssets[key] = assetSrc)
@@ -254,6 +368,7 @@ export const getAppAssets = async (resolvedConfig: ResolvedConfig, dev = false) 
         const absPath = getAbsolutePath(root, assetSrc)
 
         const filename = basename(assetSrc)
+        if (!filename || !id || !key) return // Skip if any component is invalid
         const assetPath = join('plugins', id, key, filename)
         const outPath = getAssetBuildPath(assetPath, outDir, true) // Always resolve in a way that's consistent with Electron
         const extension = extname(filename)
@@ -301,10 +416,23 @@ const resolveAssetInfo = (info, outDir, root) => {
   }
 }
 
+export const getServicesToBuild = (resolvedConfig: ResolvedConfig, dev = false) => {
+  const resolvedServices = getServices(resolvedConfig.extensions)
+  const servicesToBuild = Object.keys(resolvedServices).filter(name => {
+    const { __src, __compile, __autobuild } = resolvedServices[name]
+    if (dev && !__compile && !__autobuild) return false // Skip services that don't have an original source or final filepath
+    if (!__src) return false // Skip if source is undefined
+    return true
+  })
+
+  return servicesToBuild
+}
+
 export const getServiceAssets = (
   resolvedConfig: ResolvedConfig,
   dev = false,
-  rebuildServices: ServiceRebuildOption = true
+  rebuildServices: ServiceRebuildOption = true,
+  hooks = createNoOpHooks()
 ) => {
   const { root } = resolvedConfig
 
@@ -315,31 +443,64 @@ export const getServiceAssets = (
   }
 
   // Handle Provided Services
-  const resolvedServices = resolvedConfig.services as ResolvedConfig['services']
+  const resolvedServices = getServices(resolvedConfig.extensions)
+  const servicesToBuild = getServicesToBuild(resolvedConfig, dev)
+  if (servicesToBuild.length === 0) return assets // No services to build
 
-  for (const [name, resolvedService] of Object.entries(resolvedServices)) {
-    // @ts-ignore
-    const { build, base, filepath, __src, __compile, __autobuild } = resolvedService
+  for (const name of servicesToBuild) {
+    const resolvedService = resolvedServices[name] as ResolvedService & {
+      __src?: string
+      __autobuild?: boolean
+    }
 
-    // if (!dev && !publish) continue // Avoid building unpublished services
+    const { build, base, filepath, __src, __autobuild, ssl } = resolvedService
 
-    if (dev && !__compile && !__autobuild) continue // Skip services that don't have an original source or final filepath
-    if (!__src) continue // Skip if source is undefined
+    // WASM services: copy pkg/ output into web assets directory (not extraResources)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal __wasm marker not on public type
+    if ((resolvedService as any).__wasm || (resolvedService as any).type === 'wasm') {
+      if (filepath) {
+        assets.copy.push({
+          input: filepath,
+          output: join('services', name),
+          force: true,
+        })
+      }
+      continue
+    }
+
+    // Include SSL certificate files as extra resources for desktop builds
+    if (ssl && !dev) {
+      if (ssl.__keySource) {
+        assets.copy.push({
+          input: ssl.__keySource,
+          // Output relative to build dir, will be placed in extraResources
+          output: join('ssl', basename(ssl.__keySource)),
+          extraResource: true,
+        })
+      }
+      if (ssl.__certSource) {
+        assets.copy.push({
+          input: ssl.__certSource,
+          // Output relative to build dir, will be placed in extraResources
+          output: join('ssl', basename(ssl.__certSource)),
+          extraResource: true,
+        })
+      }
+    }
 
     const allowCompilation = !(dev && __autobuild)
 
-    const bundleConfig = {
+    const bundleConfig: CoreAssetInfo & { compile?: BuildFunction } = {
       input: __src,
       output: filepath,
       force: true,
-    } as any
+    }
 
     // Compile service when not in development mode or when the service is not autobuilt
     if (allowCompilation) {
       bundleConfig.compile = async function ({ src, out }) {
-        const _chalk = await chalk
-
-        if (!dev) console.log(`\n👊 Packaging ${_chalk.bold(name)} service\n`)
+        logger.debug('Emitting service:build', { service: name, src, out, method: 'compile' })
+        hooks.emit({ type: 'service:build', service: name, src, out, method: 'compile' })
 
         const rebuild =
           typeof rebuildServices === 'boolean' ? rebuildServices : rebuildServices.includes(name)
@@ -353,15 +514,26 @@ export const getServiceAssets = (
             root,
           },
           name,
-          rebuild // Force rebuild if specified
+          rebuild, // Force rebuild if specified
+          hooks
         )
 
         const toCopy = output === null ? null : (output ?? base ?? filepath)
 
         if (!existsSync(toCopy)) {
-          console.warn(
-            `${_chalk.bold(`Missing ${_chalk.red(name)} build file`)}\nCould not find ${toCopy}`
-          )
+          logger.debug('Emitting service:build:error', {
+            service: name,
+            src,
+            out,
+            missingFile: toCopy,
+          })
+          hooks.emit({
+            type: 'service:build:error',
+            service: name,
+            src,
+            out,
+            error: new Error(`Missing build file: ${toCopy}`),
+          })
           return null // Do not try to copy or bundle the missing file
         }
 
@@ -381,17 +553,17 @@ export const buildAssets = async (
     outDir,
     root,
     target,
+    dev = false,
   }: {
     outDir: string
     root: string
     target
+    dev?: boolean
   }
 ) => {
-  const _chalk = await chalk
   const _vite = await vite
 
   const isDesktopTarget = isDesktop(target)
-
   mkdirSync(outDir, { recursive: true }) // Ensure asset output directory exists
 
   const outputs: AssetOutput[] = []
@@ -410,16 +582,12 @@ export const buildAssets = async (
       continue // Skip if no result
     // Copy results.
     else if (existsSync(result)) {
-      if (isDesktopTarget) assets.copy.push({ input: result, extraResource: true, sign: true })
+      if (!dev && isDesktopTarget)
+        assets.copy.push({ input: result, output, extraResource: true, sign: true })
     }
 
     // Or attempt auto-bundle
-    else
-      toBundle.push({
-        ...resolvedInfo,
-        extraResource: true,
-        sign: true,
-      })
+    else toBundle.push({ ...resolvedInfo, extraResource: true, sign: true })
   }
 
   // Create an assets folder with copied assets (ESM)
@@ -452,7 +620,9 @@ export const buildAssets = async (
           build: {
             emptyOutDir: false, // Ensure assets already built are maintained
             outDir, // Configure the output directory of the linked build assets
-            rollupOptions: { input },
+            rollupOptions: {
+              input,
+            },
           },
         })
       }
@@ -462,13 +632,28 @@ export const buildAssets = async (
         const outputExtension = extname(output)
 
         if (basename(input, extname(input)) == 'commoners.config')
-          await bundleConfig(input, output) // Bundle config file differently using Rollup
+          await bundleConfig(input, output, {
+            node: outputExtension === '.cjs',
+            desktop: isDesktopTarget,
+            target,
+          })
         else {
+          // Externalize packages that cannot be bundled: Electron runtime,
+          // native .node addons, and optional dependencies that may not be
+          // installed.  platform: 'node' auto-externalizes Node built-ins
+          // (fs, path, etc.) but NOT these.
+          const assetExternals = ['electron', '*.node', '@aws-sdk/*']
+
+          const assetDefines =
+            typeof info === 'object' && 'defines' in info ? info.defines : undefined
+
           const baseConfig: ESBuildBuildOptions = {
             entryPoints: [input],
             bundle: true,
+            treeShaking: true,
             logLevel: 'silent',
             outfile: output,
+            ...(assetDefines ? { define: assetDefines, minifySyntax: true } : {}),
           }
 
           // Force a build format if the proper extension is specified
@@ -481,7 +666,7 @@ export const buildAssets = async (
             buildForBrowser({
               outfile: output,
               platform: 'node',
-              // external: ["*.node"],
+              external: assetExternals,
               plugins: [nativeNodeModulesPlugin()],
             })
 
@@ -501,26 +686,27 @@ export const buildAssets = async (
         outputs.push(assetOutputInfo)
       }
     })
-  )
+  ).catch(error => {
+    throw new BuildError(
+      'Asset build failed',
+      `Failed to build assets: ${error.message}. Stack: ${error.stack}`
+    )
+  })
 
   // Copy static assets
   assets.copy.map(info => {
     const isObject = typeof info === 'object'
     const file = isObject ? info.input : info
     const locationToEncode = (isObject ? info.output : undefined) ?? file
-    const forceSpecifiedLocation = isObject && info.force
-
     const extraResource = isObject ? info.extraResource : false
+    const forceSpecifiedLocation = extraResource || (isObject && info.force)
 
     // Ensure extra resources are copied to the output directory
-    const output: AssetOutput = {
-      file: extraResource
-        ? copyAssetOld(file, { outDir, root })
-        : copyAsset(
-            file,
-            forceSpecifiedLocation ? locationToEncode : getAssetBuildPath(locationToEncode, outDir)
-          ),
-    }
+    const outputLocation = forceSpecifiedLocation
+      ? locationToEncode
+      : getAssetBuildPath(locationToEncode, outDir)
+    const isContained = outputLocation.startsWith(file) // Avoid duplication
+    const output: AssetOutput = { file: isContained ? file : copyAsset(file, outputLocation) }
 
     // Handle extra resources
     if (isObject) {
@@ -534,7 +720,101 @@ export const buildAssets = async (
   return outputs
 }
 
-export const bundleConfig = async (input, outFile, { node = false } = {}) => {
+// Properties consumed by each runtime context.
+// Browser (.mjs): only plugins are read from the config import (onload.ts).
+// Electron (.cjs): main process reads name, icon, electron, plugins, services, hooks.
+export const BROWSER_CONFIG_KEYS = ['plugins']
+export const ELECTRON_CONFIG_KEYS = ['name', 'icon', 'electron', 'plugins', 'services', 'hooks']
+
+// Keys to strip from each runtime context.
+// Browser strips: Electron-specific hooks + service internals + build-time only props
+// Electron strips: browser-only lifecycle hooks + build-time only props
+export const BROWSER_STRIP_KEYS = [
+  'desktop',
+  'src',
+  'url',
+  'port',
+  'build',
+  'publish',
+  'ssl',
+  'env',
+  'assets',
+]
+// NOTE: `assets` is NOT stripped from Electron — main process reads plugin.assets for protocol handler
+// Only strip renderer-side keys from Electron config — the main process needs
+// start/ready/quit/isSupported to run the plugin lifecycle.
+export const ELECTRON_STRIP_KEYS = ['load']
+
+/**
+ * Strip keys from extension/plugin/service objects per runtime context.
+ * Used by generateStrippedEntry at build time and exported for testing.
+ */
+export function stripExtensionKeys(
+  exts: Record<string, any>,
+  stripKeys: string[]
+): Record<string, any> {
+  if (!exts || typeof exts !== 'object') return exts
+  const out: Record<string, any> = {}
+  for (const id in exts) {
+    const ext = exts[id]
+    if (typeof ext !== 'object' || ext === null) {
+      out[id] = ext
+      continue
+    }
+    const s: Record<string, any> = {}
+    for (const k in ext) {
+      if (!stripKeys.includes(k)) s[k] = ext[k]
+    }
+    out[id] = s
+  }
+  return out
+}
+
+/**
+ * Generate a wrapper module that imports the real config and re-exports
+ * only the properties consumed by the target runtime.
+ */
+function generateStrippedEntry(configImportPath: string, node: boolean): string {
+  const keepKeys = node ? ELECTRON_CONFIG_KEYS : BROWSER_CONFIG_KEYS
+  const propsExpr = keepKeys.map(k => `${k}: _cfg.${k}`).join(', ')
+
+  // Strip irrelevant keys from plugin/extension/service objects per runtime.
+  const stripKeys = node ? ELECTRON_STRIP_KEYS : BROWSER_STRIP_KEYS
+
+  return [
+    `import _cfg from '${configImportPath}';`,
+    // Strip extensions at the property level so hybrid extensions only carry
+    // the properties relevant to this runtime context.
+    `function _stripExt(exts) {`,
+    `  if (!exts || typeof exts !== 'object') return exts;`,
+    `  var out = {};`,
+    `  for (var id in exts) {`,
+    `    var ext = exts[id];`,
+    `    if (typeof ext !== 'object' || ext === null) { out[id] = ext; continue; }`,
+    `    var s = {};`,
+    `    for (var k in ext) {`,
+    // Keep the property if it's NOT in the strip list (i.e. keep unknown keys too)
+    `      if (${JSON.stringify(stripKeys)}.indexOf(k) === -1) s[k] = ext[k];`,
+    `    }`,
+    `    out[id] = s;`,
+    `  }`,
+    `  return out;`,
+    `}`,
+    `var _out = { ${propsExpr} };`,
+    // Apply per-property stripping to plugins/extensions
+    `if (_out.plugins) _out.plugins = _stripExt(_out.plugins);`,
+    `if (_out.extensions) _out.extensions = _stripExt(_out.extensions);`,
+    // For Electron: also strip plugin-side keys from services
+    ...(node ? [`if (_out.services) _out.services = _stripExt(_out.services);`] : []),
+    `export default _out;`,
+  ].join('\n')
+}
+
+export const bundleConfig = async (
+  input,
+  outFile,
+  { node = false, desktop = false, target = '' } = {}
+) => {
   const _vite = await vite
 
   const logLevel = 'silent'
@@ -548,12 +828,98 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
 
   const root = dirname(input)
 
-  if (!node) {
-    const nodePolyfills = await import('vite-plugin-node-polyfills').then(
-      ({ nodePolyfills }) => nodePolyfills
-    )
-    plugins.push(nodePolyfills())
-  }
+  // --- Automatic config stripping ---
+  // Generate a temp entry that imports the real config and re-exports only the
+  // properties consumed by this runtime context. This prevents leaking service
+  // configuration (build commands, ports, file paths) into browser bundles and
+  // keeps Electron bundles free of browser-only config.
+  const configImportPath = input.replace(/\\/g, '/') // Normalize Windows paths
+  const strippedEntryPath = join(
+    root,
+    `.commoners-config-entry${extension === '.cjs' ? '.cjs' : '.mjs'}`
+  )
+  writeFileSync(strippedEntryPath, generateStrippedEntry(configImportPath, node))
+
+  // For browser targets, provide lightweight aliases for common Node.js built-ins.
+  // We avoid vite-plugin-node-polyfills because it pulls in node-stdlib-browser which
+  // includes crypto-browserify → elliptic (vulnerable, unnecessary for browser targets).
+  // Desktop (Electron) has native Node.js — only process needs to be excluded there
+  // since the preload script provides it.
+  // Shim for node:url — provides fileURLToPath for browser context.
+  // URL/URLSearchParams are globally available in all modern browsers.
+  const nodeUrlShimId = '\0node-url-shim'
+  const nodeUrlShimCode = `
+    export function fileURLToPath(url) {
+      if (typeof url === 'string') return url.startsWith('file://') ? url.slice(7) : url;
+      return url?.pathname || url?.href?.slice(7) || String(url);
+    }
+    export function pathToFileURL(p) { return new globalThis.URL('file://' + p); }
+    export const URL = globalThis.URL;
+    export const URLSearchParams = globalThis.URLSearchParams;
+    export default { fileURLToPath, pathToFileURL, URL, URLSearchParams };
+  `
+
+  const nodeAliases: Record<string, string> = node
+    ? {}
+    : (() => {
+        const _require = createRequire(import.meta.url)
+
+        // Resolve browser polyfills. In pnpm strict mode, these may not be
+        // hoisted to the bundled dist location. Fall back to resolving from
+        // the @commoners/solidarity package entry which has them as direct deps.
+        const resolvePolyfill = (id: string) => {
+          try {
+            return _require.resolve(id)
+          } catch {
+            const fallback = createRequire(_require.resolve('@commoners/solidarity'))
+            return fallback.resolve(id)
+          }
+        }
+
+        const pathBrowserify = resolvePolyfill('path-browserify')
+        const processBrowser = resolvePolyfill('process/browser')
+        return {
+          path: pathBrowserify,
+          'node:path': pathBrowserify,
+          'node:url': nodeUrlShimId,
+          ...(!desktop ? { process: processBrowser } : {}),
+        }
+      })()
+
+  // Externalize Node built-ins that don't have browser equivalents and aren't
+  // used in config bundles. Keep node:url and node:path aliased above.
+  const nodeExternals = node
+    ? []
+    : [
+        'os',
+        'dgram',
+        'fs',
+        'child_process',
+        'net',
+        'tls',
+        'http',
+        'https',
+        'crypto',
+        'stream',
+        'zlib',
+        'dns',
+        'cluster',
+        'module',
+        'node:os',
+        'node:fs',
+        'node:child_process',
+        'node:net',
+        'node:tls',
+        'node:http',
+        'node:https',
+        'node:crypto',
+        'node:stream',
+        'node:zlib',
+        'node:dns',
+        'node:cluster',
+        'node:module',
+        'node:dgram',
+      ]
 
   const config = _vite.defineConfig({
     configFile: false, // Block loading any user-defined vite.config.ts file
@@ -562,11 +928,70 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
     base: './',
     root,
 
-    plugins,
+    plugins: [
+      ...plugins,
+      // Virtual module plugin to serve the node:url shim
+      ...(node
+        ? []
+        : [
+            {
+              name: 'node-url-shim',
+              resolveId(id) {
+                return id === nodeUrlShimId ? id : null
+              },
+              load(id) {
+                return id === nodeUrlShimId ? nodeUrlShimCode : null
+              },
+            },
+          ]),
+    ],
+
+    // User-facing target guards for dead-code elimination in config files.
+    // Usage: if (__COMMONERS_DESKTOP__) { /* desktop-only plugin */ }
+    // Targets: web, desktop, mobile (universal) + electron, tauri, ios, android (subtargets)
+    // Rewrite import.meta.url to the *source* config file so getDirname() etc.
+    // resolve paths relative to the project root, not the bundle output directory.
+    define: {
+      'import.meta.url': JSON.stringify(pathToFileURL(input).href),
+      __COMMONERS_TARGET__: JSON.stringify(target),
+      __COMMONERS_DESKTOP__: JSON.stringify(desktop),
+      __COMMONERS_MOBILE__: JSON.stringify(
+        target === 'mobile' || target.startsWith('ios') || target.startsWith('android')
+      ),
+      __COMMONERS_WEB__: JSON.stringify(target === 'web' || target === 'pwa'),
+      __COMMONERS_ELECTRON__: JSON.stringify(target === 'electron' || target === 'desktop'),
+      __COMMONERS_TAURI__: JSON.stringify(
+        target === 'tauri' || target === 'ios-tauri' || target === 'android-tauri'
+      ),
+      __COMMONERS_IOS__: JSON.stringify(
+        target === 'ios' || target === 'ios-capacitor' || target === 'ios-tauri'
+      ),
+      __COMMONERS_ANDROID__: JSON.stringify(
+        target === 'android' || target === 'android-capacitor' || target === 'android-tauri'
+      ),
+      // For browser targets, inline process.env.* values at build time.
+      // The process/browser polyfill provides an empty env object, so any
+      // process.env.* references would be undefined at runtime. Inline
+      // VITE_ and COMMONERS_ prefixed values (matching Vite's envPrefix)
+      // so config code like `process.env.VITE_BASE_PATH || '/'` resolves
+      // correctly when the config is re-bundled for the browser.
+      // Non-prefixed vars are NOT inlined to avoid leaking secrets.
+      ...(!node
+        ? Object.fromEntries(
+            Object.entries(process.env)
+              .filter(([k]) => k.startsWith('VITE_') || k.startsWith('COMMONERS_'))
+              .map(([k, v]) => [`process.env.${k}`, JSON.stringify(v ?? '')])
+          )
+        : {}),
+    },
+
+    resolve: {
+      alias: nodeAliases,
+    },
 
     build: {
       lib: {
-        entry: input,
+        entry: strippedEntryPath,
         formats: [format],
         fileName: () => outFileName,
       },
@@ -574,9 +999,39 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
       outDir,
 
       rollupOptions: {
-        external: ['os', 'dgram'], // Ensure Node.js modules are treated as external
+        // Externalize wasm-pack output packages — same rationale as
+        // the loadConfigFromFile path's esbuild external rule. The
+        // Node-target output uses CJS-specific globals (`__dirname`,
+        // sync `fs.readFileSync`) and (per the web target) `fetch()`
+        // calls for the .wasm bytes that don't work when bundled
+        // into the config snapshot. Externalize so Node's runtime
+        // resolver picks the right per-target build via the package's
+        // `exports` conditions.
+        external: (id: string) => {
+          if (nodeExternals.includes(id)) return true
+          if (/-wasm$/.test(id) || /^wasm-/.test(id)) return true
+          return false
+        },
         plugins: [
           importMetaResolvePlugin(), // Ensure import.meta.url is resolved correctly within each source file
+          // Fix inter-chunk imports on Windows: Vite/Rollup may generate absolute
+          // paths lacking the drive letter (e.g. /examples/demo/...) for code-split
+          // chunks. Since all chunks share the same outDir, rewrite to relative.
+          {
+            name: 'fix-windows-chunk-paths',
+            renderChunk(code: string) {
+              // Match import/export from paths and dynamic import() paths that
+              // start with "/" — these are broken on Windows (no drive letter).
+              const fixed = code.replace(
+                /((?:from|import)\s*\(\s*['"]|from\s+['"])(\/[^'"]+)(['"])/g,
+                (_match, prefix, absPath, suffix) => {
+                  const filename = absPath.substring(absPath.lastIndexOf('/') + 1)
+                  return prefix + './' + filename + suffix
+                }
+              )
+              return fixed !== code ? fixed : null
+            },
+          },
         ],
       },
     },
@@ -584,7 +1039,19 @@ export const bundleConfig = async (input, outFile, { node = false } = {}) => {
 
   const resolvedConfig = node ? withExternalBuiltins(config) : config
 
-  const results = (await _vite.build(resolvedConfig)) as any[] // RollupOutput[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Vite build() returns RollupOutput | RollupOutput[]
+  let results: any[]
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- cast needed for RollupOutput[]
+    results = (await _vite.build(resolvedConfig)) as any[]
+  } finally {
+    // Clean up the temp stripped-config entry file
+    try {
+      unlinkSync(strippedEntryPath)
+    } catch {
+      /* ignore cleanup errors */
+    }
+  }
 
   // Always return a flat list of the output file locations
   return results
