@@ -195,127 +195,134 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
       })
     )
 
-    sanitized.forEach(async ({ id, load }) => {
-      loaded[id] = undefined // Register that all supported plugins are technically loaded
+    // Await every load before resolving READY — async loads (e.g. the windows plugin's invoke)
+    // would otherwise still be undefined when consumers read them
+    await Promise.all(
+      sanitized.map(async ({ id, load }) => {
+        loaded[id] = undefined // Register that all supported plugins are technically loaded
 
-      const pluginListeners = (devSocketListeners['plugins'][id] = {})
+        const pluginListeners = (devSocketListeners['plugins'][id] = {})
 
-      try {
-        if (load) {
-          // Renderers that ship a custom preload (e.g. transparent
-          // overlay canvas using raw Electron IPC) won't have the
-          // commoners preload installed → TEMP_COMMONERS.{send,on,...}
-          // are undefined. Build the desktop ctx defensively: each
-          // method no-ops + warns if the underlying TEMP_COMMONERS
-          // call isn't available, instead of throwing TypeError at
-          // every plugin's renderer-side load(). Plugin consumer
-          // calls (e.g. `commoners.<plugin>.on(...)`) still surface
-          // the missing-method warning, but the plugin's own
-          // initialization completes — keeping the rest of the
-          // renderer running on its custom IPC.
-          const tempCall = (method: string, fallback: any) => {
-            const fn = TEMP_COMMONERS[method]
-            return typeof fn === 'function' ? fn.bind(TEMP_COMMONERS) : fallback
+        try {
+          if (load) {
+            // Renderers that ship a custom preload (e.g. transparent
+            // overlay canvas using raw Electron IPC) won't have the
+            // commoners preload installed → TEMP_COMMONERS.{send,on,...}
+            // are undefined. Build the desktop ctx defensively: each
+            // method no-ops + warns if the underlying TEMP_COMMONERS
+            // call isn't available, instead of throwing TypeError at
+            // every plugin's renderer-side load(). Plugin consumer
+            // calls (e.g. `commoners.<plugin>.on(...)`) still surface
+            // the missing-method warning, but the plugin's own
+            // initialization completes — keeping the rest of the
+            // renderer running on its custom IPC.
+            const tempCall = (method: string, fallback: any) => {
+              const fn = TEMP_COMMONERS[method]
+              return typeof fn === 'function' ? fn.bind(TEMP_COMMONERS) : fallback
+            }
+            const ctx = DESKTOP
+              ? {
+                  ...DESKTOP,
+                  send: (channel, ...args) =>
+                    tempCall('send', () => undefined)(`plugins:${id}:${channel}`, ...args),
+                  // Mirrors send() but accepts a transferList — required
+                  // when shipping transferable objects (MessagePort,
+                  // ArrayBuffer) through commoners IPC. Main-side
+                  // `this.on(channel, handler)` receives the
+                  // IpcMainEvent untouched; handlers read event.ports[]
+                  // when expecting transferables.
+                  //
+                  // MessagePort caveat: contextBridge cannot serialize
+                  // MessagePort across the V8 isolation boundary
+                  // (Electron raises "Invalid value for transfer" if
+                  // we try to pass one through the contextBridge-exposed
+                  // postMessage). Detect that case and route via
+                  // window.postMessage + the preload's
+                  // `__commoners_port_transfer` listener, which DOES
+                  // transfer MessagePort across the world boundary.
+                  // Non-port transfers (ArrayBuffer-only) take the direct
+                  // path since ArrayBuffer survives contextBridge.
+                  postMessage: (channel, message, transfer) => {
+                    const scoped = `plugins:${id}:${channel}`
+                    const hasPort =
+                      Array.isArray(transfer) &&
+                      transfer.some(
+                        t => typeof MessagePort !== 'undefined' && t instanceof MessagePort
+                      )
+                    if (hasPort) {
+                      window.postMessage(
+                        { __commoners_port_transfer: { channel: scoped } },
+                        '*',
+                        transfer as Transferable[]
+                      )
+                    } else {
+                      tempCall('postMessage', () => undefined)(scoped, message, transfer)
+                    }
+                  },
+                  invoke: (channel, ...args) =>
+                    tempCall('invoke', () => Promise.resolve(undefined))(
+                      `plugins:${id}:${channel}`,
+                      ...args
+                    ),
+                  on: (channel, listener) =>
+                    tempCall('on', () => undefined)(`plugins:${id}:${channel}`, listener),
+                  once: (channel, listener) =>
+                    tempCall('once', () => undefined)(`plugins:${id}:${channel}`, listener),
+                  removeAllListeners: channel =>
+                    tempCall('removeAllListeners', () => undefined)(`plugins:${id}:${channel}`),
+                  removeListener: (channel, listener) =>
+                    tempCall('removeListener', () => undefined)(
+                      `plugins:${id}:${channel}`,
+                      listener
+                    ),
+                }
+              : // NOTE: Hook up with a custom WebSocket implementation
+                {
+                  send: (channel, ...args) =>
+                    devSocketServer &&
+                    devSocketServer.send(JSON.stringify({ context: 'plugins', id, channel, args })),
+                  sendSync: false,
+                  on: (channel, listener) => {
+                    const channelListeners = (pluginListeners[channel] =
+                      pluginListeners[channel] ?? {})
+                    const symbol = Symbol()
+                    channelListeners[symbol] = listener
+                    return symbol
+                  },
+                  once: function (channel, listener) {
+                    const subscription = this.on(channel, (...args) => {
+                      delete pluginListeners[channel]?.[subscription]
+                      listener(...args)
+                    })
+                  },
+                  removeAllListeners: channel => {
+                    if (!channel) for (const key in pluginListeners) delete pluginListeners[key]
+                    else delete pluginListeners?.[channel]
+                  },
+                  removeListener: (channel, listener) => {
+                    const channelListeners = pluginListeners[channel]
+                    if (!channelListeners) return
+                    const symbol = Object.getOwnPropertySymbols(channelListeners).find(
+                      sym => channelListeners[sym] === listener
+                    )
+                    if (symbol) delete channelListeners[symbol]
+                  },
+                }
+
+            // Replace the slot with the resolved value so consumers reading
+            // ENV.PLUGINS.<id> get the manager/handle, not a Promise. Without
+            // this, e.g. PLUGINS.windows is the Promise itself, so
+            // PLUGINS.windows.participant is undefined and any consumer trying
+            // to use the per-window API blows up at runtime.
+            loaded[id] = await load.call(ctx, ENV)
           }
-          const ctx = DESKTOP
-            ? {
-                ...DESKTOP,
-                send: (channel, ...args) =>
-                  tempCall('send', () => undefined)(`plugins:${id}:${channel}`, ...args),
-                // Mirrors send() but accepts a transferList — required
-                // when shipping transferable objects (MessagePort,
-                // ArrayBuffer) through commoners IPC. Main-side
-                // `this.on(channel, handler)` receives the
-                // IpcMainEvent untouched; handlers read event.ports[]
-                // when expecting transferables.
-                //
-                // MessagePort caveat: contextBridge cannot serialize
-                // MessagePort across the V8 isolation boundary
-                // (Electron raises "Invalid value for transfer" if
-                // we try to pass one through the contextBridge-exposed
-                // postMessage). Detect that case and route via
-                // window.postMessage + the preload's
-                // `__commoners_port_transfer` listener, which DOES
-                // transfer MessagePort across the world boundary.
-                // Non-port transfers (ArrayBuffer-only) take the direct
-                // path since ArrayBuffer survives contextBridge.
-                postMessage: (channel, message, transfer) => {
-                  const scoped = `plugins:${id}:${channel}`
-                  const hasPort =
-                    Array.isArray(transfer) &&
-                    transfer.some(
-                      t => typeof MessagePort !== 'undefined' && t instanceof MessagePort
-                    )
-                  if (hasPort) {
-                    window.postMessage(
-                      { __commoners_port_transfer: { channel: scoped } },
-                      '*',
-                      transfer as Transferable[]
-                    )
-                  } else {
-                    tempCall('postMessage', () => undefined)(scoped, message, transfer)
-                  }
-                },
-                invoke: (channel, ...args) =>
-                  tempCall('invoke', () => Promise.resolve(undefined))(
-                    `plugins:${id}:${channel}`,
-                    ...args
-                  ),
-                on: (channel, listener) =>
-                  tempCall('on', () => undefined)(`plugins:${id}:${channel}`, listener),
-                once: (channel, listener) =>
-                  tempCall('once', () => undefined)(`plugins:${id}:${channel}`, listener),
-                removeAllListeners: channel =>
-                  tempCall('removeAllListeners', () => undefined)(`plugins:${id}:${channel}`),
-                removeListener: (channel, listener) =>
-                  tempCall('removeListener', () => undefined)(`plugins:${id}:${channel}`, listener),
-              }
-            : // NOTE: Hook up with a custom WebSocket implementation
-              {
-                send: (channel, ...args) =>
-                  devSocketServer &&
-                  devSocketServer.send(JSON.stringify({ context: 'plugins', id, channel, args })),
-                sendSync: false,
-                on: (channel, listener) => {
-                  const channelListeners = (pluginListeners[channel] =
-                    pluginListeners[channel] ?? {})
-                  const symbol = Symbol()
-                  channelListeners[symbol] = listener
-                  return symbol
-                },
-                once: function (channel, listener) {
-                  const subscription = this.on(channel, (...args) => {
-                    delete pluginListeners[channel]?.[subscription]
-                    listener(...args)
-                  })
-                },
-                removeAllListeners: channel => {
-                  if (!channel) for (const key in pluginListeners) delete pluginListeners[key]
-                  else delete pluginListeners?.[channel]
-                },
-                removeListener: (channel, listener) => {
-                  const channelListeners = pluginListeners[channel]
-                  if (!channelListeners) return
-                  const symbol = Object.getOwnPropertySymbols(channelListeners).find(
-                    sym => channelListeners[sym] === listener
-                  )
-                  if (symbol) delete channelListeners[symbol]
-                },
-              }
 
-          // Replace the slot with the resolved value so consumers reading
-          // ENV.PLUGINS.<id> get the manager/handle, not a Promise. Without
-          // this, e.g. PLUGINS.windows is the Promise itself, so
-          // PLUGINS.windows.participant is undefined and any consumer trying
-          // to use the per-window API blows up at runtime.
-          loaded[id] = await load.call(ctx, ENV)
+          registerPluginAsLoaded(id)
+        } catch (e) {
+          pluginErrorMessage(id, 'load', e)
         }
-
-        registerPluginAsLoaded(id)
-      } catch (e) {
-        pluginErrorMessage(id, 'load', e)
-      }
-    })
+      })
+    )
 
     ENV.PLUGINS = loaded
     __READY(loaded)
