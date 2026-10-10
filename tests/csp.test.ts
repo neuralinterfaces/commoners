@@ -89,6 +89,24 @@ describe('web/PWA builds', () => {
   })
 })
 
+// Packaged Electron loads pages from file://, where response headers never apply: the
+// policy has to be in the page itself, with local services allowed in connect-src
+describe('desktop (Electron) builds', () => {
+  const page = `<!doctype html><html><head><script>window.boot = 1</script></head><body></body></html>`
+
+  test('get the meta CSP with local services in connect-src', () => {
+    const { pages } = applyWebSecurity(
+      { 'index.html': page },
+      {},
+      { connect: ['http://localhost:*', 'ws://localhost:*'] }
+    )
+    const meta = pages['index.html'].match(/content="([^"]+)"/)![1]
+    expect(meta).toContain("connect-src 'self' http://localhost:* ws://localhost:*")
+    expect(meta).toContain(sha256('window.boot = 1'))
+    expect(meta).not.toContain('frame-ancestors')
+  })
+})
+
 // A previously installed PWA worker survives the PWA being turned off (a 404 does not
 // unregister it); web builds ship a worker that unregisters itself and reloads its pages
 describe('service worker kill switch', () => {

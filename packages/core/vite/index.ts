@@ -155,11 +155,17 @@ export const resolveViteConfig = async (
     plugins.push(...(Array.isArray(pwaPlugins) ? pwaPlugins : [pwaPlugins]))
   }
 
-  // Web/PWA builds: meta CSP with inline-script hashes + a _headers file (desktop targets
-  // apply the same shared policy through Electron and Tauri)
+  // Web/PWA builds: meta CSP with inline-script hashes + a _headers file. Packaged Electron
+  // apps load file:// pages, where the dev-time header CSP never applies, so they embed the
+  // same policy in each page. Tauri applies it through tauri.conf.json.
+  const security = (commonersConfig as any).security ?? {}
   if (build && (target === 'web' || target === 'pwa')) {
     const webSecurityPlugin = (await import('./plugins/web-security.js')).default
-    plugins.push(webSecurityPlugin((commonersConfig as any).security, { pwa: target === 'pwa' }))
+    plugins.push(webSecurityPlugin(security, { pwa: target === 'pwa' }))
+  } else if (build && isDesktopTarget && !isTauri(target)) {
+    const webSecurityPlugin = (await import('./plugins/web-security.js')).default
+    const csp = (electron as any)?.security?.csp ?? security.csp
+    plugins.push(webSecurityPlugin({ ...security, csp }, { target: 'electron' }))
   }
 
   // Every target: report code the shared CSP will block at runtime (eval, Function, string timers)

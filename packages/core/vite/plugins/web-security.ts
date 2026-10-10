@@ -61,7 +61,8 @@ const escapeAttribute = (value: string) => value.replace(/&/g, '&amp;').replace(
 /** Pure core: pages in, pages (with meta CSP) and `_headers` contents out. */
 export const applyWebSecurity = (
   pages: Record<string, string>,
-  options: WebSecurityOptions = {}
+  options: WebSecurityOptions = {},
+  { connect = [] }: { connect?: string[] } = {} // Extra connect-src sources (e.g. local services)
 ) => {
   const allHashes: string[] = []
   const out: Record<string, string> = {}
@@ -69,7 +70,7 @@ export const applyWebSecurity = (
   for (const [name, html] of Object.entries(pages)) {
     const hashes = inlineScriptHashes(html)
     allHashes.push(...hashes)
-    const meta = resolveCSP(buildCSP({ scriptHashes: hashes }), options.csp, 'meta')
+    const meta = resolveCSP(buildCSP({ scriptHashes: hashes, connect }), options.csp, 'meta')
     out[name] = meta
       ? html.replace(
           /<head[^>]*>/i,
@@ -83,7 +84,7 @@ export const applyWebSecurity = (
     ...DEFAULT_HEADERS,
     ...(options.crossOriginIsolation ? CROSS_ORIGIN_ISOLATION_HEADERS : {}),
   }
-  const csp = resolveCSP(buildCSP({ scriptHashes: allHashes }), options.csp, 'header')
+  const csp = resolveCSP(buildCSP({ scriptHashes: allHashes, connect }), options.csp, 'header')
   if (csp) headers['Content-Security-Policy'] = csp
   if (options.headers === false) for (const key of Object.keys(DEFAULT_HEADERS)) delete headers[key]
   else Object.assign(headers, options.headers ?? {})
@@ -107,10 +108,13 @@ export const parseHeadersFile = (text: string) =>
       })
   )
 
+// target 'electron': packaged apps load file:// pages, where response headers never apply,
+// so the policy is embedded in each page and no hosting files are emitted
 export default function webSecurityPlugin(
   options: WebSecurityOptions = {},
-  { pwa = false }: { pwa?: boolean } = {}
+  { pwa = false, target = 'web' }: { pwa?: boolean; target?: 'web' | 'electron' } = {}
 ): Plugin {
+  const electron = target === 'electron'
   return {
     name: 'commoners:web-security',
     apply: 'build',
@@ -123,11 +127,14 @@ export default function webSecurityPlugin(
       }
       if (!Object.keys(pages).length) return
 
-      const { pages: secured, headers } = applyWebSecurity(pages, options)
+      const { pages: secured, headers } = applyWebSecurity(pages, options, {
+        connect: electron ? ['http://localhost:*', 'ws://localhost:*', 'http://127.0.0.1:*'] : [],
+      })
       for (const [fileName, html] of Object.entries(secured)) {
         const chunk = bundle[fileName]
         if (chunk.type === 'asset') chunk.source = html
       }
+      if (electron) return
       this.emitFile({ type: 'asset', fileName: HEADERS_FILE, source: headers })
       // Plain web builds only: a PWA build ships its own worker at this path
       if (!pwa && options.killSwitch !== false && !bundle['sw.js'])
