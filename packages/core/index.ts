@@ -63,6 +63,7 @@ export {
 export type { BuildAdapter, ServiceBundler, AdapterConfig } from './adapters/types.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
+export { verifyHeaders, compareHeaders } from './utils/verify-headers.js'
 export { shareServices } from './share.js'
 export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'

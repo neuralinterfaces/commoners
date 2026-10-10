@@ -3,6 +3,7 @@ import {
   buildServices,
   launch,
   launchServices,
+  verifyHeaders,
   shareServices,
   resolveServiceConfiguration,
   start,
@@ -20,8 +21,6 @@ import {
   setGlobalLogLevel,
   setGlobalUI,
   LogLevel,
-  isDesktop
-
 } from '@commoners/solidarity'
 
 import pkg from './package.json' assert { type: 'json' }
@@ -44,7 +43,6 @@ const didYouMean = didYouMeanModule.default || didYouMeanModule // Handle both n
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
 
-
 class CLIError extends CommonersError {
   constructor(message: string, details?: string) {
     super(message, details)
@@ -64,11 +62,8 @@ const handleError = (error: Error) => {
 function preprocessTarget(target) {
   if (typeof target === 'string') {
     if (!valid.target.includes(target)) {
-
       // Suggest closest match for typos
       const suggestion = didYouMean(target, valid.target)
-
-
 
       if (suggestion) {
         const allTargetsWithoutSuggestion = valid.target.filter(t => t !== suggestion)
@@ -110,7 +105,7 @@ async function readStdin(): Promise<string> {
 
     let data = ''
     process.stdin.setEncoding('utf8')
-    process.stdin.on('data', chunk => data += chunk)
+    process.stdin.on('data', chunk => (data += chunk))
     process.stdin.on('end', () => resolve(data))
     process.stdin.on('error', reject)
   })
@@ -137,17 +132,56 @@ cli.option('--target <target>', 'Choose a target for the application')
 cli.option('--config <path>', 'Specify a configuration file')
 cli.option('--stdin', 'Read configuration from STDIN')
 cli.option('--no-color', 'Disable colored output')
-cli.option('-L, --log-level <level>', 'Set log level (debug, info, warn, error, silent)', { default: 'info' })
+cli.option('-L, --log-level <level>', 'Set log level (debug, info, warn, error, silent)', {
+  default: 'info',
+})
 
 // Add example usage
 cli.example('cat config.json | commoners build --stdin  # Use STDIN config')
-
 
 function renderCommaSeparatedList(list: string[]) {
   if (list.length === 0) return ''
   if (list.length === 1) return list[0]
   return list.slice(0, -1).join(', ') + ' and ' + list.slice(-1)
 }
+
+// Compare a deployment's response headers with the ones the build declared (_headers)
+cli
+  .command(
+    'verify-headers <url> [root]',
+    'Check that a deployment serves the headers the build declared'
+  )
+
+  .example('commoners verify-headers https://app.example.com')
+  .example('commoners verify-headers http://localhost:4173 --headers dist/_headers')
+
+  .option('--headers <file>', 'Path to the _headers file (default: the web or PWA build output)')
+
+  .action(async (url, root, options) => {
+    const { existsSync } = await import('node:fs')
+    const { join, resolve } = await import('node:path')
+    const base = resolve(root ?? '.')
+    const candidates = options.headers
+      ? [resolve(options.headers)]
+      : ['web', 'pwa'].map(target => join(base, '.commoners', target, '_headers'))
+    const headersFile = candidates.find(file => existsSync(file))
+    if (!headersFile) {
+      console.error(
+        `No _headers file found (looked in ${candidates.join(', ')}). Build for web or pwa first.`
+      )
+      process.exit(1)
+    }
+
+    const result = await verifyHeaders(url, headersFile)
+    if (result.ok) {
+      console.log(`✓ ${url} serves every header declared in ${headersFile}`)
+      return
+    }
+    for (const name of result.missing) console.error(`✗ missing: ${name}`)
+    for (const { name, expected, actual } of result.mismatched)
+      console.error(`✗ differs: ${name}\n    expected: ${expected}\n    served:   ${actual}`)
+    process.exit(1)
+  })
 
 // Initialize commoners in an existing project
 cli
@@ -156,7 +190,7 @@ cli
   .example('commoners init')
   .example('commoners init ./my-app')
 
-  .action(async (root) => {
+  .action(async root => {
     const { existsSync, writeFileSync, readFileSync } = await import('node:fs')
     const { resolve, join } = await import('node:path')
 
@@ -171,9 +205,10 @@ cli
       ui.warning('commoners.config.ts already exists', 'Skipping config generation')
     } else {
       // Detect existing project type
-      const hasViteConfig = existsSync(join(projectRoot, 'vite.config.ts')) || existsSync(join(projectRoot, 'vite.config.js'))
+      const hasViteConfig =
+        existsSync(join(projectRoot, 'vite.config.ts')) ||
+        existsSync(join(projectRoot, 'vite.config.js'))
       const hasIndexHtml = existsSync(join(projectRoot, 'index.html'))
-      const hasSrcDir = existsSync(join(projectRoot, 'src'))
 
       const configLines = [
         `import { defineConfig } from '@commoners/solidarity/config'`,
@@ -213,7 +248,9 @@ cli
       ui.success('Created commoners.config.ts')
 
       if (hasViteConfig) {
-        ui.info('Detected existing vite.config — Commoners extends Vite, so your config will be merged automatically')
+        ui.info(
+          'Detected existing vite.config — Commoners extends Vite, so your config will be merged automatically'
+        )
       }
     }
 
@@ -226,12 +263,12 @@ cli
         if (!pkg.scripts) pkg.scripts = {}
 
         const scripts = {
-          'dev': 'commoners',
+          dev: 'commoners',
           'dev:desktop': 'commoners --target desktop',
-          'build': 'commoners build',
+          build: 'commoners build',
           'build:desktop': 'commoners build --target desktop',
           'build:mobile': 'commoners build --target mobile',
-          'preview': 'commoners preview',
+          preview: 'commoners preview',
         }
 
         for (const [key, value] of Object.entries(scripts)) {
@@ -287,51 +324,64 @@ cli
       const reconciledConfig = reconcile(config, overrides) as UserConfig
       const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
 
-    const start = message =>  hooks.ui.header(message)
+      const start = message => hooks.ui.header(message)
 
+      if (isOnlyServices) {
+        start(`Launching Services Build`)
 
-    if (isOnlyServices) {
+        delete reconciledConfig.target
 
-      start(`Launching Services Build`)
+        // NOTE: If passed, this simply wouldn't take effect
+        if (options.outDir)
+          throw new CLIError(
+            `Cannot specify an output directory when launching services`,
+            `Services are built in a private directory`
+          )
 
-      delete reconciledConfig.target
+        const resolvedServices = typeof service === 'string' ? [service] : service
+        const nServices = Object.keys(resolvedServices).length
+        if (nServices > 1 && (port || isPublic))
+          throw new CLIError(
+            `Cannot specify port or public when launching multiple services`,
+            `Specify a single service to set port or public`
+          )
+        if (nServices === 1) {
+          const serviceName = resolvedServices[0]
+          if (serviceName in reconciledConfig.services) {
+            const service = resolveServiceConfiguration(reconciledConfig.services[serviceName])
+            Object.assign(service, { public: isPublic, port }) // Set host and port on single service
+            reconciledConfig.services[serviceName] = service
+          }
+        }
 
-      // NOTE: If passed, this simply wouldn't take effect
-      if (options.outDir) throw new CLIError(`Cannot specify an output directory when launching services`, `Services are built in a private directory`)
-
-      const resolvedServices = typeof service === 'string' ? [service] : service
-      const nServices = Object.keys(resolvedServices).length
-      if (nServices > 1 && (port || isPublic))
-        throw new CLIError(`Cannot specify port or public when launching multiple services`, `Specify a single service to set port or public`)
-      if (nServices === 1) {
-        const serviceName = resolvedServices[0]
-        if (serviceName in reconciledConfig.services) {
-          const service = resolveServiceConfiguration(reconciledConfig.services[serviceName])
-          Object.assign(service, { public: isPublic, port }) // Set host and port on single service
-          reconciledConfig.services[serviceName] = service
+        try {
+          await launchServices(reconciledConfig, { services: resolvedServices })
+          hooks.ui.success(
+            `${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))} successfully launched!`
+          )
+          return
+        } catch (error) {
+          return handleError(
+            new CLIError(
+              `Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))}`,
+              error.message
+            )
+          )
         }
       }
 
-      try {
-        await launchServices(reconciledConfig, { services: resolvedServices })
-        hooks.ui.success(`${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))} successfully launched!`)
-        return
-      } catch (error) {
-
-        return handleError(
-          new CLIError(`Failed to launch ${renderCommaSeparatedList(resolvedServices.map(s => `${hooks.ui.target(s, { plain: true })} Service`))}`, error.message)
-        )
-      }
-    }
-
       // Ensure services are not specified with a target
-      else if (service) throw new CLIError(`Cannot specify both services and a launch target`, `Specify either a target or services to launch`)
+      else if (service)
+        throw new CLIError(
+          `Cannot specify both services and a launch target`,
+          `Specify either a target or services to launch`
+        )
 
       // Enhanced launch feedback
       await launch({ ...reconciledConfig, hooks })
-
-    } catch (error) { handleError(error) }
-
+    } catch (error) {
+      handleError(error)
+    }
   })
 
 // Share services on the local network
@@ -356,11 +406,16 @@ cli
       const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
 
       const selectedServices = service
-        ? (typeof service === 'string' ? [service] : service)
+        ? typeof service === 'string'
+          ? [service]
+          : service
         : undefined
 
       if (selectedServices && selectedServices.length > 1 && port)
-        throw new CLIError('Cannot specify port when sharing multiple services', 'Specify a single service to set a port')
+        throw new CLIError(
+          'Cannot specify port when sharing multiple services',
+          'Specify a single service to set a port'
+        )
 
       // Parse --meta "key=value" into a record
       const parsedMeta: Record<string, string> = {}
@@ -374,15 +429,12 @@ cli
 
       hooks.ui.header('Sharing Services')
 
-      const result = await shareServices(
-        reconcile(config, overrides) as UserConfig,
-        {
-          services: selectedServices,
-          port: port ? parseInt(port, 10) : undefined,
-          hooks,
-          meta: Object.keys(parsedMeta).length > 0 ? parsedMeta : undefined,
-        }
-      )
+      const result = await shareServices(reconcile(config, overrides) as UserConfig, {
+        services: selectedServices,
+        port: port ? parseInt(port, 10) : undefined,
+        hooks,
+        meta: Object.keys(parsedMeta).length > 0 ? parsedMeta : undefined,
+      })
 
       const { active, localIP, cleanup } = result
 
@@ -443,8 +495,9 @@ cli
       }
       process.on('SIGINT', onExit)
       process.on('SIGTERM', onExit)
-
-    } catch (error) { handleError(error) }
+    } catch (error) {
+      handleError(error)
+    }
   })
 
 // Build the application using the specified settings
@@ -458,7 +511,6 @@ cli
   .example('commoners build --service api')
   .example('commoners build --services') // Force rebuild all services
 
-
   .option('--outDir <path>', 'Choose an output directory for your build files') // Will be directed to a private directory otherwise
   .option('--service <name>', 'Build service(s)')
   .option('--services', 'Force all services to rebuild')
@@ -467,7 +519,16 @@ cli
   .option('--headless', 'Skip opening native IDEs (for CI or scripting)')
   .action(async (root, options) => {
     try {
-      const { config: configPath, service, services, sign, publish, headless, stdin, ...overrides } = options
+      const {
+        config: configPath,
+        service,
+        services,
+        sign,
+        publish,
+        headless,
+        stdin,
+        ...overrides
+      } = options
       if (headless) process.env.COMMONERS_HEADLESS = 'true'
       const { target: manualTarget } = overrides
       overrides.build = { sign, publish }
@@ -484,8 +545,12 @@ cli
         hooks.ui.header(`Building Service${nServices > 1 ? 's' : ` (${servicesToBuild})`}`)
         try {
           await buildServices(config, { services: servicesToBuild, hooks })
-          hooks.ui.success(`Service${nServices > 1 ? 's' : ""} successfully built!`)
-        } catch (error) { handleError(new CLIError(`Failed to build service${nServices > 1 ? 's' : ''}`, error.message)) }
+          hooks.ui.success(`Service${nServices > 1 ? 's' : ''} successfully built!`)
+        } catch (error) {
+          handleError(
+            new CLIError(`Failed to build service${nServices > 1 ? 's' : ''}`, error.message)
+          )
+        }
         return
       }
 
@@ -493,7 +558,9 @@ cli
       const serviceBuildOptions: any = { hooks }
       if (servicesToBuild) serviceBuildOptions.rebuildServices = servicesToBuild
       await build(resolvedConfig, serviceBuildOptions)
-    } catch (error) { handleError(error) }
+    } catch (error) {
+      handleError(error)
+    }
   })
 
 // Start the application in development mode
@@ -520,7 +587,9 @@ cli
       const hooks = await resolveHooksForCLI(config.hooks, cliHooks)
       const resolvedConfig = reconcile(config, overrides)
       await start(resolvedConfig, { hooks })
-    } catch (error) { handleError(error) }
+    } catch (error) {
+      handleError(error)
+    }
   })
 
 cli.help()
