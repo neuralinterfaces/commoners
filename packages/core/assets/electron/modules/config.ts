@@ -119,6 +119,11 @@ export function parseOptions(config: ElectronConfig, isProduction: boolean = tru
     }
   }
 
+  // Top-level security.csp applies when electron.security sets no csp of its own
+  const sharedCsp = config.config?.security?.csp
+  if (securitySettings.csp === undefined && sharedCsp !== undefined)
+    securitySettings.csp = sharedCsp
+
   return {
     electronOptions: electron,
     protocolOptions,

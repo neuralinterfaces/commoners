@@ -523,6 +523,13 @@ export type BaseConfig = {
   // Backend-neutral desktop options
   desktop?: DesktopOptions
 
+  // Security policy shared by every target. electron.security.csp / tauri.security.csp
+  // take precedence for their target
+  security?: {
+    csp?: import('./assets/utils/csp.js').CSPOverride
+    headers?: Record<string, string | false> | false // Web/PWA response headers (_headers)
+  }
+
   // Tauri Options
   tauri?: TauriOptions
 

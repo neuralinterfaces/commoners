@@ -1,11 +1,10 @@
 // Built-In Modules
-import { extname, isAbsolute, join, relative } from 'node:path'
+import { extname, isAbsolute, join, relative, resolve } from 'node:path'
 
 // General Internal Imports
-import { isDesktop, isTauri, vite, chalk } from '../globals.js'
-import { ResolvedConfig, ServerOptions, ViteOptions } from '../types.js'
+import { isDesktop, isTauri, vite } from '../globals.js'
+import { ResolvedConfig, ViteOptions } from '../types.js'
 import { getPlugins } from '../utils/extensions.js'
-import { ScopedLogger } from './logger.js'
 
 // Internal Plugins
 import electronPlugin from './plugins/electron/index.js'
@@ -14,7 +13,7 @@ import commonersPlugin from './plugins/commoners.js'
 // Internal Imports
 import { getAssetBuildPath } from '../utils/assets.js'
 
-import { getAllIcons, getIcon } from '../assets/utils/icons.js'
+import { getAllIcons } from '../assets/utils/icons.js'
 import { safePath } from '../assets/utils/paths.js'
 import { existsSync } from 'node:fs'
 
@@ -56,7 +55,9 @@ const resolvePWAOptions = (
   else if (!Array.isArray(pwaOpts.includeAssets)) pwaOpts.includeAssets = [pwaOpts.includeAssets]
 
   // Only include preferred icons
-  const icons = getAllIcons(icon).map((src: string) => relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir)))
+  const icons = getAllIcons(icon).map((src: string) =>
+    relative(outDir, getAssetBuildPath(getAbsolutePath(root, src), outDir))
+  )
   const scopedIconPaths = icons.map(src => safePath(src))
   pwaOpts.includeAssets.push(...scopedIconPaths) // Include specified assets
 
@@ -86,7 +87,7 @@ const resolvePWAOptions = (
   if (!('workbox' in pwaOpts)) {
     pwaOpts.workbox = {
       globPatterns: ['**/*.{html,js,css,svg,png,webp,ico,woff2}'], // Cache common web assets
-      additionalManifestEntries: [ ...scopedIconPaths.map(src => ({ url: src, revision: null }))], // Ensures that icons are cached
+      additionalManifestEntries: [...scopedIconPaths.map(src => ({ url: src, revision: null }))], // Ensures that icons are cached
       cleanupOutdatedCaches: true, // Ensure outdated caches are cleaned up
       clientsClaim: true, // Force service worker to activate immediately
       skipWaiting: true,
@@ -102,7 +103,8 @@ export const resolveViteConfig = async (
   build = true
 ) => {
   const _vite = await vite
-  let { vite: viteUserConfig = {}, target, outDir, port, public: isPublic } = commonersConfig
+  const { target, outDir, port, public: isPublic } = commonersConfig
+  let { vite: viteUserConfig = {} } = commonersConfig
 
   const isDesktopTarget = isDesktop(target)
 
@@ -116,15 +118,7 @@ export const resolveViteConfig = async (
 
   const plugins: Plugin[] = []
 
-  const {
-    name,
-    appId,
-    root,
-    icon,
-    description,
-    pages = {},
-    electron,
-  } = commonersConfig
+  const { name, appId, root, icon, description, pages = {}, electron } = commonersConfig
 
   const commonersPlugins = getPlugins(commonersConfig.extensions)
 
@@ -161,10 +155,18 @@ export const resolveViteConfig = async (
     plugins.push(...(Array.isArray(pwaPlugins) ? pwaPlugins : [pwaPlugins]))
   }
 
+  // Web/PWA builds: meta CSP with inline-script hashes + a _headers file (desktop targets
+  // apply the same shared policy through Electron and Tauri)
+  if (build && (target === 'web' || target === 'pwa')) {
+    const webSecurityPlugin = (await import('./plugins/web-security.js')).default
+    plugins.push(webSecurityPlugin((commonersConfig as any).security))
+  }
+
   // Get html files from plugins
   const pluginPages = Object.values(commonersPlugins).reduce((acc, plugin) => {
     Object.values(plugin.assets ?? {}).forEach(assetSrc => {
-      if (extname(assetSrc) === '.html') acc[crypto.randomUUID()] = getAbsolutePath(absoluteRoot, assetSrc)
+      if (extname(assetSrc) === '.html')
+        acc[crypto.randomUUID()] = getAbsolutePath(absoluteRoot, assetSrc)
     })
     return acc
   }, {}) as Record<string, string>
@@ -183,7 +185,7 @@ export const resolveViteConfig = async (
     acc[crypto.randomUUID()] = filepath
     return acc
   }, {})
-  
+
   const nPages = allPages.length
   const hasAnyPages = nPages > 0
 

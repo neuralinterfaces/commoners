@@ -7,6 +7,7 @@
  */
 
 import { ResolvedOverlay, tauriOverlayWindowConfig } from '../../assets/utils/overlay.js'
+import { buildCSP, resolveCSP, type CSPOverride } from '../../assets/utils/csp.js'
 
 type UserPlugin = { crate: string; ident: string; path: string; permissions?: string[] }
 
@@ -336,6 +337,7 @@ export function generateTauriConf(opts: {
   externalBins: string[]
   overlay?: ResolvedOverlay | null
   backgroundThrottling?: boolean
+  csp?: CSPOverride // Top-level security.csp; tauri.security.csp takes precedence
 }): Record<string, any> {
   const {
     name,
@@ -392,22 +394,19 @@ export function generateTauriConf(opts: {
   if (opts.backgroundThrottling === false) conf.app.windows[0].backgroundThrottling = 'disabled'
 
   // CSP
-  const csp = tauriConfig.security?.csp
-  if (csp !== false) {
-    conf.app.security.csp =
-      csp ||
-      [
-        // Mirrors the Electron default (assets/electron/modules/security.ts) so the same app
-        // runs on both: workers, WASM, and here Tauri's IPC origins plus local sidecars
-        "default-src 'self'",
-        "script-src 'self' 'wasm-unsafe-eval'",
-        "worker-src 'self' blob:",
-        "style-src 'self' 'unsafe-inline'",
-        `connect-src 'self' ipc: http://ipc.localhost${externalBins.length ? ' http://localhost:*' : ''}`,
-        "img-src 'self' data:",
-        "font-src 'self'",
-      ].join('; ')
-  }
+  // The shared policy (assets/utils/csp.ts) plus Tauri's IPC origins and local sidecars.
+  // Tauri adds hashes for the inline scripts it serves itself.
+  const csp = resolveCSP(
+    buildCSP({
+      connect: [
+        'ipc:',
+        'http://ipc.localhost',
+        ...(externalBins.length ? ['http://localhost:*'] : []),
+      ],
+    }),
+    tauriConfig.security?.csp ?? opts.csp
+  )
+  if (csp) conf.app.security.csp = csp
 
   // Service sidecars
   if (externalBins.length > 0) {

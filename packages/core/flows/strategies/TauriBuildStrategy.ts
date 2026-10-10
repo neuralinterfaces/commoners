@@ -232,6 +232,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       externalBins,
       overlay,
       backgroundThrottling: (config as any).desktop?.backgroundThrottling,
+      csp: (config as any).security?.csp,
     })
     writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 

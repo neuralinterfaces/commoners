@@ -729,6 +729,7 @@ export const ELECTRON_CONFIG_KEYS = [
   'icon',
   'electron',
   'desktop',
+  'security',
   'plugins',
   'services',
   'hooks',

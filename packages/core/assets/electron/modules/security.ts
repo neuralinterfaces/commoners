@@ -10,6 +10,7 @@
  */
 
 import { ElectronSecuritySettings } from '../../../types'
+import { buildCSP, resolveCSP, type CSPDirectives } from '../../utils/csp.js'
 import { hasSignature, verifySignature, verifyAsarIntegrity } from '../security'
 import { getDefaultSecuritySettings } from './config'
 
@@ -90,41 +91,20 @@ export async function runVerification(
 }
 
 /**
- * Build the default CSP directive string.
- * Allows self, inline styles (required for Vite CSS injection), and WASM evaluation.
- * In production, replaces 'unsafe-inline' in script-src with a sha256 hash of the
- * inline script. In dev mode, keeps 'unsafe-inline' because HMR changes script content.
+ * Electron's directives: the shared policy (assets/utils/csp.ts) plus the dev server and
+ * services in connect-src. Inline scripts are allowed by hash in production; without a
+ * hash (dev) they fall back to 'unsafe-inline'.
  */
-function buildDefaultCSP(
+export function electronCSPDirectives(
   devServerUrl?: string,
-  serviceUrls?: string[],
+  serviceUrls: string[] = [],
   scriptHash?: string
-): string {
-  const connectSources = ["'self'"]
-  if (devServerUrl) connectSources.push(devServerUrl, 'ws:')
-  if (serviceUrls) connectSources.push(...serviceUrls)
-
-  // Use hash instead of 'unsafe-inline' in script-src when available (production)
-  const scriptInline = scriptHash || "'unsafe-inline'"
-
-  return [
-    "default-src 'self'",
-    `script-src 'self' ${scriptInline} 'wasm-unsafe-eval'`,
-    // Module workers via `new Worker(new URL('./worker.ts', import.meta.url),
-    // { type: 'module' })` — the canonical Vite-supported pattern — resolve to
-    // a `blob:` URL in dev (Vite wraps the module body as a blob to deliver
-    // it as a worker source). Without an explicit `worker-src`, browsers fall
-    // back to `script-src`, which does NOT allow `blob:` here → the
-    // `new Worker(...)` call throws silently and the worker never starts.
-    // 'self' covers production bundles where the worker file is served from
-    // the same origin. Same broad pattern as default-src — open enough that
-    // standard worker usage works; not a loosening of the script policy.
-    "worker-src 'self' blob:",
-    "style-src 'self' 'unsafe-inline'",
-    `connect-src ${connectSources.join(' ')}`,
-    "img-src 'self' data:",
-    "font-src 'self'",
-  ].join('; ')
+): CSPDirectives {
+  return buildCSP({
+    connect: [...(devServerUrl ? [devServerUrl, 'ws:'] : []), ...serviceUrls],
+    scriptHashes: scriptHash ? [scriptHash] : [],
+    allowInlineScripts: !scriptHash,
+  })
 }
 
 /**
@@ -143,32 +123,8 @@ export function setupContentSecurityPolicy(
   serviceUrls?: string[],
   scriptHash?: string
 ): void {
-  // User explicitly disabled CSP
-  if (cspSetting === false) return
-
-  let csp: string
-  if (typeof cspSetting === 'string') {
-    csp = cspSetting
-  } else {
-    // Build default CSP, then merge per-directive overrides if provided
-    csp = buildDefaultCSP(devServerUrl, serviceUrls, scriptHash)
-    if (typeof cspSetting === 'object' && cspSetting !== null) {
-      const directives = new Map(
-        csp.split('; ').map(d => {
-          const [key, ...vals] = d.split(' ')
-          return [key, vals]
-        })
-      )
-      for (const [key, values] of Object.entries(cspSetting)) {
-        directives.set(key, values)
-      }
-      csp = Array.from(directives.entries())
-        .map(([key, vals]) => `${key} ${vals.join(' ')}`)
-        .join('; ')
-    }
-  }
-
-  setupCSP(csp)
+  const csp = resolveCSP(electronCSPDirectives(devServerUrl, serviceUrls, scriptHash), cspSetting)
+  if (csp) setupCSP(csp) // null: the user disabled CSP
 }
 
 /**
