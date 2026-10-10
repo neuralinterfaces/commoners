@@ -61,7 +61,9 @@ describe('API: Configuration Resolution', () => {
     })
 
     test('should throw ConfigurationError for non-existent path', async () => {
-      await expect(loadConfigFromFile('/this/path/does/not/exist')).rejects.toThrow(ConfigurationError)
+      await expect(loadConfigFromFile('/this/path/does/not/exist')).rejects.toThrow(
+        ConfigurationError
+      )
     })
   })
 
@@ -161,39 +163,45 @@ describe('API: Service Resolution', () => {
     })
   })
 
+  // createServices() spawns real processes and resolves asynchronously — it must be
+  // awaited and closed, or the assertions run against a Promise and the services outlive the test
   describe('createServices', () => {
     test('should create services with proper structure', async () => {
       const config = await loadConfigFromFile(projectBase)
-      const services = createServices(
-        config.services,
-        { root: projectBase, target: 'web' },
-        { services: true }
-      )
+      const services = await createServices(config.services, { root: projectBase, target: 'web' })
 
-      expect(services).toBeTypeOf('object')
-      Object.values(services).forEach(service => {
-        expect(service).toHaveProperty('src')
-      })
+      try {
+        const resolved = Object.values(services.resolved)
+        expect(resolved.length).toBeGreaterThan(0)
+        // Every service is addressable: a URL (remote / local process) or a WASM src
+        resolved.forEach(service => expect('url' in service || 'src' in service).toBe(true))
+        // The web target never spawns local processes
+        expect(Object.keys(services.active)).toHaveLength(0)
+      } finally {
+        await services.close()
+      }
     })
 
     test('should filter services based on target', async () => {
       const config = await loadConfigFromFile(projectBase)
-      const webServices = createServices(
-        config.services,
-        { root: projectBase, target: 'web' },
-        { services: true }
-      )
 
-      const desktopServices = createServices(
-        config.services,
-        { root: projectBase, target: 'electron' },
-        { services: true }
-      )
+      const webServices = await createServices(config.services, {
+        root: projectBase,
+        target: 'web',
+      })
+      const webCount = Object.keys(webServices.resolved).length
+      await webServices.close()
 
+      const desktopServices = await createServices(config.services, {
+        root: projectBase,
+        target: 'electron',
+      })
+      const desktopCount = Object.keys(desktopServices.resolved).length
+      await desktopServices.close()
+
+      expect(webCount).toBeGreaterThan(0)
       // Desktop should have more/different services than web
-      expect(Object.keys(desktopServices).length).toBeGreaterThanOrEqual(
-        Object.keys(webServices).length
-      )
+      expect(desktopCount).toBeGreaterThanOrEqual(webCount)
     })
   })
 })
@@ -451,7 +459,7 @@ describe('API: Service Manifest', () => {
     const config = await loadConfigFromFile(projectBase)
     const resolved = await resolveConfig(config)
 
-    for (const [id, entry] of Object.entries(resolved.serviceManifest)) {
+    for (const entry of Object.values(resolved.serviceManifest)) {
       expect(entry).toHaveProperty('compile')
       expect(entry).toHaveProperty('autobuild')
       expect(entry).toHaveProperty('executable')
