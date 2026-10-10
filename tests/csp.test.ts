@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 
 import { buildCSP, resolveCSP, serializeCSP } from '../packages/core/assets/utils/csp'
-import { applyWebSecurity } from '../packages/core/vite/plugins/web-security'
+import { applyWebSecurity, KILL_SWITCH_SW } from '../packages/core/vite/plugins/web-security'
 import { createHash } from 'node:crypto'
 
 const sha256 = (text: string) => `'sha256-${createHash('sha256').update(text).digest('base64')}'`
@@ -75,5 +75,26 @@ describe('web/PWA builds', () => {
     expect(pages['index.html']).not.toContain('Content-Security-Policy')
     expect(headers).not.toContain('Content-Security-Policy')
     expect(headers).toContain('X-Content-Type-Options: nosniff')
+  })
+
+  // Opt-in: COEP breaks third-party embeds, fonts and OAuth popups
+  test('cross-origin isolation adds COOP/COEP/CORP only when enabled', () => {
+    const { headers } = applyWebSecurity({ 'index.html': page }, { crossOriginIsolation: true })
+    expect(headers).toContain('Cross-Origin-Opener-Policy: same-origin')
+    expect(headers).toContain('Cross-Origin-Embedder-Policy: require-corp')
+    expect(headers).toContain('Cross-Origin-Resource-Policy: same-origin')
+    expect(applyWebSecurity({ 'index.html': page }).headers).not.toContain(
+      'Cross-Origin-Opener-Policy'
+    )
+  })
+})
+
+// A previously installed PWA worker survives the PWA being turned off (a 404 does not
+// unregister it); web builds ship a worker that unregisters itself and reloads its pages
+describe('service worker kill switch', () => {
+  test('unregisters itself and reloads controlled pages', () => {
+    expect(KILL_SWITCH_SW).toContain('skipWaiting')
+    expect(KILL_SWITCH_SW).toContain('registration.unregister()')
+    expect(KILL_SWITCH_SW).toContain('navigate')
   })
 })

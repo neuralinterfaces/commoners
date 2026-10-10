@@ -17,7 +17,27 @@ import { buildCSP, resolveCSP, type CSPOverride } from '../../assets/utils/csp.j
 export type WebSecurityOptions = {
   csp?: CSPOverride
   headers?: Record<string, string | false> | false // Extra or disabled response headers
+  crossOriginIsolation?: boolean // COOP/COEP/CORP (SharedArrayBuffer, precise timers); breaks cross-origin embeds
+  killSwitch?: boolean // Emit a self-unregistering sw.js (web target; default true)
 }
+
+export const CROSS_ORIGIN_ISOLATION_HEADERS: Record<string, string> = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+}
+
+// Replaces a previously installed service worker at the same path: a PWA that is turned
+// off keeps running its old worker (a 404 does not unregister it). Inert where none was installed.
+export const KILL_SWITCH_SW = `self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    self.registration.unregister()
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(client => client.navigate(client.url)))
+  )
+})
+`
 
 export const HEADERS_FILE = '_headers'
 
@@ -59,7 +79,10 @@ export const applyWebSecurity = (
       : html
   }
 
-  const headers: Record<string, string | false> = { ...DEFAULT_HEADERS }
+  const headers: Record<string, string | false> = {
+    ...DEFAULT_HEADERS,
+    ...(options.crossOriginIsolation ? CROSS_ORIGIN_ISOLATION_HEADERS : {}),
+  }
   const csp = resolveCSP(buildCSP({ scriptHashes: allHashes }), options.csp, 'header')
   if (csp) headers['Content-Security-Policy'] = csp
   if (options.headers === false) for (const key of Object.keys(DEFAULT_HEADERS)) delete headers[key]
@@ -84,7 +107,10 @@ export const parseHeadersFile = (text: string) =>
       })
   )
 
-export default function webSecurityPlugin(options: WebSecurityOptions = {}): Plugin {
+export default function webSecurityPlugin(
+  options: WebSecurityOptions = {},
+  { pwa = false }: { pwa?: boolean } = {}
+): Plugin {
   return {
     name: 'commoners:web-security',
     apply: 'build',
@@ -103,6 +129,9 @@ export default function webSecurityPlugin(options: WebSecurityOptions = {}): Plu
         if (chunk.type === 'asset') chunk.source = html
       }
       this.emitFile({ type: 'asset', fileName: HEADERS_FILE, source: headers })
+      // Plain web builds only: a PWA build ships its own worker at this path
+      if (!pwa && options.killSwitch !== false && !bundle['sw.js'])
+        this.emitFile({ type: 'asset', fileName: 'sw.js', source: KILL_SWITCH_SW })
     },
   }
 }

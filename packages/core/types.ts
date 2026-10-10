@@ -530,6 +530,10 @@ export type BaseConfig = {
     headers?: Record<string, string | false> | false // Web/PWA response headers (_headers)
     // Build-time scan for eval-like code the CSP blocks at runtime: 'warn' (default), 'error', or false
     noEval?: import('./vite/plugins/no-eval.js').NoEvalMode
+    // COOP/COEP/CORP for SharedArrayBuffer and precise timers (web/PWA, dev server, Tauri). Opt-in:
+    // it blocks cross-origin embeds, fonts and OAuth popups that do not send CORP/CORS headers
+    crossOriginIsolation?: boolean
+    killSwitch?: boolean // Web builds ship a self-unregistering sw.js (default true)
   }
 
   // Tauri Options

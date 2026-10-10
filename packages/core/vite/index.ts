@@ -159,7 +159,7 @@ export const resolveViteConfig = async (
   // apply the same shared policy through Electron and Tauri)
   if (build && (target === 'web' || target === 'pwa')) {
     const webSecurityPlugin = (await import('./plugins/web-security.js')).default
-    plugins.push(webSecurityPlugin((commonersConfig as any).security))
+    plugins.push(webSecurityPlugin((commonersConfig as any).security, { pwa: target === 'pwa' }))
   }
 
   // Every target: report code the shared CSP will block at runtime (eval, Function, string timers)
@@ -202,6 +202,12 @@ export const resolveViteConfig = async (
   } as ViteServerOptions
 
   if (isPublic) serverConfig.host = '0.0.0.0'
+
+  // Same isolation headers in dev as in the built output, so dev matches hosting
+  if ((commonersConfig as any).security?.crossOriginIsolation) {
+    const { CROSS_ORIGIN_ISOLATION_HEADERS } = await import('./plugins/web-security.js')
+    serverConfig.headers = { ...serverConfig.headers, ...CROSS_ORIGIN_ISOLATION_HEADERS }
+  }
 
   // Define a default set of plugins and configuration options
   const viteConfig = _vite.defineConfig({

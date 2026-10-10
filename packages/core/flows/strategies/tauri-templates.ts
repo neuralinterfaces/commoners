@@ -338,6 +338,7 @@ export function generateTauriConf(opts: {
   overlay?: ResolvedOverlay | null
   backgroundThrottling?: boolean
   csp?: CSPOverride // Top-level security.csp; tauri.security.csp takes precedence
+  crossOriginIsolation?: boolean
 }): Record<string, any> {
   const {
     name,
@@ -407,6 +408,11 @@ export function generateTauriConf(opts: {
     tauriConfig.security?.csp ?? opts.csp
   )
   if (csp) conf.app.security.csp = csp
+  if (opts.crossOriginIsolation)
+    conf.app.security.headers = {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    }
 
   // Service sidecars
   if (externalBins.length > 0) {
