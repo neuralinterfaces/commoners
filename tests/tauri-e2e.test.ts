@@ -46,7 +46,11 @@ const hasTauriDriver = (() => {
   }
 })()
 
-const describeFn = enabled && hasRust && hasTauriDriver ? describe : describe.skip
+// tauri-driver exits with "not supported on this platform" on macOS (no WKWebView driver)
+const driverSupported = process.platform !== 'darwin'
+
+const describeFn =
+  enabled && hasRust && hasTauriDriver && driverSupported ? describe : describe.skip
 
 describeFn('Tauri E2E (demo app)', () => {
   const output: any = { cleanup: () => {} }
