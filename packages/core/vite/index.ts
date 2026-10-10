@@ -216,7 +216,16 @@ export const resolveViteConfig = async (
   }
 
   // Define a default set of plugins and configuration options
+  // Features: the same compile-time defines as the config bundles, so disabled code is
+  // removed from the app bundle by dead-code elimination
+  const { resolveFeatures, featureDefines } = await import('../utils/features.js')
+  const features = resolveFeatures((commonersConfig as any).features, {
+    target,
+    mode: dev ? 'development' : 'production',
+  })
+
   const viteConfig = _vite.defineConfig({
+    define: featureDefines(features),
     logLevel: dev ? 'silent' : 'info',
     base: './',
     root: absoluteRoot, // Resolve index.html from the root directory (must be absolute)

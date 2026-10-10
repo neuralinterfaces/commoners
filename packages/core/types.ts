@@ -523,6 +523,10 @@ export type BaseConfig = {
   // Backend-neutral desktop options
   desktop?: DesktopOptions
 
+  // Which features this build includes. Each becomes a compile-time define
+  // (__COMMONERS_FEATURE_<NAME>__) in every bundle, so disabled code is removed, not just skipped
+  features?: Record<string, import('./utils/features.js').FeatureDeclaration>
+
   // Security policy shared by every target. electron.security.csp / tauri.security.csp
   // take precedence for their target
   security?: {

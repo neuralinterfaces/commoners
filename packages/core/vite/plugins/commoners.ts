@@ -1,3 +1,4 @@
+import { resolveFeatures } from '../../utils/features.js'
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -210,6 +211,13 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
 
       const globalObject = {
         NAME: resolvedConfig.name,
+        // Read-only map of this build's features (code that must branch at runtime)
+        FEATURES: Object.freeze(
+          resolveFeatures((resolvedConfig as any).features, {
+            target,
+            mode: dev ? 'development' : 'production',
+          })
+        ),
         VERSION: resolvedConfig.version,
         ICON: iconPath,
         SERVICES: services,

@@ -278,6 +278,7 @@ export async function resolveConfig(
   // Merge Config and package.json (transformed name)
   const {
     hooks, // Do not copy
+    features, // Not cloneable (may hold functions); carried by reference
     electron = {},
     ...rest
   } = temp
@@ -296,6 +297,7 @@ export async function resolveConfig(
   }) as Partial<ResolvedConfig>
 
   o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
+  if (features) (o as any).features = features
 
   if (o.outDir && !isAbsolute(o.outDir))
     o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute

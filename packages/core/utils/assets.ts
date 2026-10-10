@@ -1,4 +1,5 @@
 // Built-In Modules
+import { resolveFeatures, featureDefines, type FeatureMap } from './features.js'
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import {
   dirname,
@@ -308,11 +309,16 @@ export const getAppAssets = async (
   const configExtensions = CONFIG_EXTENSION_TARGETS.filter(
     ext => ext !== '.cjs' || isElectron(target)
   )
+  // Resolved once here so every config bundle sees the same feature defines
+  const features = resolveFeatures((resolvedConfig as any).features, {
+    target,
+    mode: dev ? 'development' : 'production',
+  })
   assets.bundle.push(
     ...configExtensions.map(ext => {
       const output = `commoners.config${ext}`
       return configPath
-        ? { input: configPath, output }
+        ? { input: configPath, output, features }
         : { text: ext === '.cjs' ? 'module.exports = {default: {}}' : 'export default {}', output }
     })
   )
@@ -604,6 +610,7 @@ export const buildAssets = async (
       }
 
       const { input, output } = resolveAssetInfo(info, outDir, root)
+      const features = (info as any).features
 
       // Transform an input file in some way
       const inputExt = extname(input)
@@ -636,6 +643,7 @@ export const buildAssets = async (
             node: outputExtension === '.cjs',
             desktop: isDesktopTarget,
             target,
+            features,
           })
         else {
           // Externalize packages that cannot be bundled: Electron runtime,
@@ -822,7 +830,12 @@ function generateStrippedEntry(configImportPath: string, node: boolean): string 
 export const bundleConfig = async (
   input,
   outFile,
-  { node = false, desktop = false, target = '' } = {}
+  {
+    node = false,
+    desktop = false,
+    target = '',
+    features = {},
+  }: { node?: boolean; desktop?: boolean; target?: string; features?: FeatureMap } = {}
 ) => {
   const _vite = await vite
 
@@ -961,6 +974,7 @@ export const bundleConfig = async (
     // Rewrite import.meta.url to the *source* config file so getDirname() etc.
     // resolve paths relative to the project root, not the bundle output directory.
     define: {
+      ...featureDefines(features),
       'import.meta.url': JSON.stringify(pathToFileURL(input).href),
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
