@@ -12,6 +12,9 @@
  *
  * Frames sent before any listener attaches are buffered (newest kept, capped) and flushed
  * on attach, so a listener that starts late (an overlay window) still gets them.
+ *
+ * Trust boundary: BroadcastChannel is same-origin, so every page on the origin can join.
+ * Namespace the prefix per app when several apps share an origin.
  */
 
 type Listener = (port: MessagePort) => void
@@ -21,7 +24,9 @@ type Options = {
   maxBuffered?: number
 }
 
-const randomId = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
+// Session ids are unguessable where crypto.randomUUID exists (secure contexts, Node)
+const randomId = () =>
+  globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36)
 
 export const createPortChannels = ({
   prefix = 'commoners:port',

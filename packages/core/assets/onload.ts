@@ -1,4 +1,11 @@
 import { queryExtensions, validateRequirements } from './capabilities'
+import { createPortChannels } from './utils/port-channels'
+
+// One set of port channels per window, created on first use
+let __portChannels: ReturnType<typeof createPortChannels> | undefined
+// Namespaced by app so apps sharing an origin (e.g. hosted under /{app}/) stay separate
+const portChannels = () =>
+  (__portChannels ??= createPortChannels({ prefix: `commoners:port:${commoners.NAME ?? ''}` }))
 import {
   asyncFilter,
   isPluginLoadable,
@@ -314,6 +321,15 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
             // this, e.g. PLUGINS.windows is the Promise itself, so
             // PLUGINS.windows.participant is undefined and any consumer trying
             // to use the per-window API blows up at runtime.
+            // Port channels work in every window on every target (BroadcastChannel-backed),
+            // so they are added to both the desktop and the web context
+            Object.assign(ctx, {
+              sendPort: (channel: string, port: MessagePort) =>
+                portChannels().sendPort(`plugins:${id}:${channel}`, port),
+              onPort: (channel: string, listener: (port: MessagePort) => void) =>
+                portChannels().onPort(`plugins:${id}:${channel}`, listener),
+            })
+
             loaded[id] = await load.call(ctx, ENV)
           }
 

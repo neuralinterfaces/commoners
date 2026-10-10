@@ -229,6 +229,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       electronWindow: config.electron?.window,
       externalBins,
       overlay,
+      backgroundThrottling: (config as any).desktop?.backgroundThrottling,
     })
     writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 

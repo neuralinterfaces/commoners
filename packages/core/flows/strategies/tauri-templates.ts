@@ -322,6 +322,7 @@ export function generateTauriConf(opts: {
   electronWindow: any
   externalBins: string[]
   overlay?: ResolvedOverlay | null
+  backgroundThrottling?: boolean
 }): Record<string, any> {
   const {
     name,
@@ -375,6 +376,7 @@ export function generateTauriConf(opts: {
     Object.assign(conf.app.windows[0], tauriOverlayWindowConfig(overlay))
     conf.app.macOSPrivateApi = true
   }
+  if (opts.backgroundThrottling === false) conf.app.windows[0].backgroundThrottling = 'disabled'
 
   // CSP
   const csp = tauriConfig.security?.csp
@@ -446,6 +448,7 @@ export function generateDevTauriConf(opts: {
   devUrl: string
   window?: { title?: string; width?: number; height?: number }
   overlay?: ResolvedOverlay | null
+  backgroundThrottling?: boolean
 }): Record<string, any> {
   const { name, devUrl, window: windowConfig = {}, overlay } = opts
   const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
@@ -476,6 +479,7 @@ export function generateDevTauriConf(opts: {
     Object.assign(conf.app.windows[0], tauriOverlayWindowConfig(overlay))
     conf.app.macOSPrivateApi = true
   }
+  if (opts.backgroundThrottling === false) conf.app.windows[0].backgroundThrottling = 'disabled'
 
   return conf
 }

@@ -101,10 +101,12 @@ export function parseOptions(config: ElectronConfig, isProduction: boolean = tru
 
   // Parse window options — explicit electron.window settings win over overlay defaults
   const overlay = resolveOverlay(config.config?.desktop?.overlay)
-  const windowOptions = {
+  const windowOptions: Record<string, any> = {
     ...(overlay ? electronOverlayWindowOptions(overlay) : {}),
     ...(electron.window ?? {}),
   }
+  if (config.config?.desktop?.backgroundThrottling === false)
+    windowOptions.webPreferences = { ...windowOptions.webPreferences, backgroundThrottling: false }
 
   // Parse security settings
   const __userSecuritySetting = electron.security || true

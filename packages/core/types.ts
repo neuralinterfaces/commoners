@@ -326,7 +326,14 @@ type DesktopPluginOptions = {
   unload?: (this: DesktopPluginContext, win: BrowserWindow, id: string) => void
 }
 
-type PluginLoadCallback = (this: IpcRenderer, env: CommonersGlobalObject) => LoadedPlugin // General load behavior
+// Renderer-side plugin context: IPC plus port channels, which work in every window on every
+// target. A port sent on a channel reaches whichever windows listen on it (BroadcastChannel).
+export type PluginRendererContext = IpcRenderer & {
+  sendPort: (channel: string, port: MessagePort) => () => void
+  onPort: (channel: string, listener: (port: MessagePort) => void) => () => void
+}
+
+type PluginLoadCallback = (this: PluginRendererContext, env: CommonersGlobalObject) => LoadedPlugin // General load behavior
 
 type OptionalPluginBehaviors = {
   assets?: Record<string, string>
@@ -451,6 +458,9 @@ export type { OverlayOptions } from './assets/utils/overlay.js'
 export type DesktopOptions = {
   // Main window as a transparent, frameless overlay above other apps (Electron and Tauri)
   overlay?: boolean | import('./assets/utils/overlay.js').OverlayOptions
+  // false keeps hidden or occluded windows running at full rate (timers, workers). Needed for
+  // windows that host a data stream, e.g. a sense broker in a popover
+  backgroundThrottling?: boolean
 }
 
 // ------------------- Tauri -------------------

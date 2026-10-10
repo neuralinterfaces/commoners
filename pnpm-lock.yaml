@@ -181,6 +181,19 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
 
+  examples/port-channels:
+    dependencies:
+      '@commoners/solidarity':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@commoners/windows':
+        specifier: workspace:*
+        version: link:../../packages/plugins/windows
+    devDependencies:
+      '@tauri-apps/cli':
+        specifier: ^2.10.1
+        version: 2.10.1
+
   packages/cli:
     dependencies:
       '@commoners/solidarity':

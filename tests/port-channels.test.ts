@@ -138,6 +138,21 @@ describe('port channels', () => {
     port1.close()
   })
 
+  // Several apps can share one origin (e.g. hosted under /{app}/): they must not see each
+  // other's ports, since BroadcastChannel only isolates by origin
+  test('apps with different namespaces do not see each other', async () => {
+    const appA = createPortChannels({ prefix: 'commoners:port:app-a' })
+    const appB = createPortChannels({ prefix: 'commoners:port:app-b' })
+    opened.push(appA, appB)
+    const ports: MessagePort[] = []
+    appB.onPort('plugins:test:frames', port => ports.push(port))
+    const { port1, port2 } = new MessageChannel()
+    appA.sendPort('plugins:test:frames', port2)
+    await new Promise(r => setTimeout(r, 50))
+    expect(ports).toHaveLength(0)
+    port1.close()
+  })
+
   // Frames sent before anyone listens are buffered, but never without bound
   test('the pre-attach buffer is capped, keeping the newest frames', async () => {
     const sender = createPortChannels({ maxBuffered: 3 })
