@@ -210,6 +210,24 @@ describe('Generated tauri.conf.json', () => {
     expect(conf.app.security.csp).toContain("default-src 'self'")
   })
 
+  // Parity with Electron's default (assets/electron/modules/security.ts): without these,
+  // blob/module workers and WASM that run on Electron are blocked on Tauri
+  test('default CSP allows workers, WASM and Tauri IPC like the Electron default', () => {
+    const csp = generateTauriConf({
+      name: 'app',
+      appId: '',
+      version: '1.0.0',
+      icon: null,
+      tauriConfig: {},
+      electronWindow: {},
+      externalBins: [],
+    }).app.security.csp
+    expect(csp).toContain("worker-src 'self' blob:")
+    expect(csp).toContain("'wasm-unsafe-eval'")
+    expect(csp).toContain('connect-src')
+    expect(csp).toContain('ipc:')
+  })
+
   test('bundle is active', () => {
     expect(conf.bundle.active).toBe(true)
   })

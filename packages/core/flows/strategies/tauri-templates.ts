@@ -382,7 +382,18 @@ export function generateTauriConf(opts: {
   const csp = tauriConfig.security?.csp
   if (csp !== false) {
     conf.app.security.csp =
-      csp || "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      csp ||
+      [
+        // Mirrors the Electron default (assets/electron/modules/security.ts) so the same app
+        // runs on both: workers, WASM, and here Tauri's IPC origins plus local sidecars
+        "default-src 'self'",
+        "script-src 'self' 'wasm-unsafe-eval'",
+        "worker-src 'self' blob:",
+        "style-src 'self' 'unsafe-inline'",
+        `connect-src 'self' ipc: http://ipc.localhost${externalBins.length ? ' http://localhost:*' : ''}`,
+        "img-src 'self' data:",
+        "font-src 'self'",
+      ].join('; ')
   }
 
   // Service sidecars
