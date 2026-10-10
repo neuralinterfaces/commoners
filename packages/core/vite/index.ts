@@ -162,6 +162,13 @@ export const resolveViteConfig = async (
     plugins.push(webSecurityPlugin((commonersConfig as any).security))
   }
 
+  // Every target: report code the shared CSP will block at runtime (eval, Function, string timers)
+  if (build) {
+    const noEvalPlugin = (await import('./plugins/no-eval.js')).default
+    const plugin = noEvalPlugin((commonersConfig as any).security?.noEval ?? 'warn')
+    if (plugin) plugins.push(plugin)
+  }
+
   // Get html files from plugins
   const pluginPages = Object.values(commonersPlugins).reduce((acc, plugin) => {
     Object.values(plugin.assets ?? {}).forEach(assetSrc => {

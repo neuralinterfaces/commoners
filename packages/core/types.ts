@@ -528,6 +528,8 @@ export type BaseConfig = {
   security?: {
     csp?: import('./assets/utils/csp.js').CSPOverride
     headers?: Record<string, string | false> | false // Web/PWA response headers (_headers)
+    // Build-time scan for eval-like code the CSP blocks at runtime: 'warn' (default), 'error', or false
+    noEval?: import('./vite/plugins/no-eval.js').NoEvalMode
   }
 
   // Tauri Options
