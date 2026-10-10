@@ -27,6 +27,7 @@ const toFilePath = (urlOrPathname: string): string => {
   return urlOrPathname
 }
 import { resolveHooks } from '../utils/hooks'
+import { applyElectronOverlay } from '../utils/overlay'
 
 // Import all modules
 import * as Config from './modules/config'
@@ -60,7 +61,7 @@ const electronConfig = Config.loadConfig()
 const { config, electron: electronOptions, plugins } = electronConfig
 
 const options = Config.parseOptions(electronConfig, isProduction)
-const { protocolOptions, windowOptions, securitySettings } = options
+const { protocolOptions, windowOptions, overlay, securitySettings } = options
 
 // Generate capabilities-driven IPC allowlist from declared plugins and services
 const pluginIds = Object.keys(plugins)
@@ -439,7 +440,11 @@ Security.runVerification(isProduction, {
   }
 
   async function createMainWindow(): Promise<BrowserWindow | undefined> {
-    return Window.createMainWindow(createWindow, windowOptions, () => runtime.window.getAll())
+    const win = await Window.createMainWindow(createWindow, windowOptions, () =>
+      runtime.window.getAll()
+    )
+    if (win && overlay) applyElectronOverlay(win, overlay, runtime.native.screen)
+    return win
   }
 
   // ------------------------ IPC Handlers ------------------------

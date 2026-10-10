@@ -445,6 +445,14 @@ export type ElectronOptions = {
   hooks?: HooksInterface
 }
 
+// ------------------- Desktop (backend-neutral) -------------------
+export type { OverlayOptions } from './assets/utils/overlay.js'
+
+export type DesktopOptions = {
+  // Main window as a transparent, frameless overlay above other apps (Electron and Tauri)
+  overlay?: boolean | import('./assets/utils/overlay.js').OverlayOptions
+}
+
 // ------------------- Tauri -------------------
 export type TauriSecuritySettings = {
   csp?: string | false
@@ -495,6 +503,9 @@ export type BaseConfig = {
 
   // Electron Options
   electron: ElectronOptions
+
+  // Backend-neutral desktop options
+  desktop?: DesktopOptions
 
   // Tauri Options
   tauri?: TauriOptions

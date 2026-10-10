@@ -10,13 +10,21 @@
  * Full build packaging is handled by TauriBuildStrategy.
  */
 
+import { resolveOverlay } from '../../../assets/utils/overlay.js'
 import { join, dirname } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolveServerUrl } from '../electron/server.js'
 import type { HooksInterface, ResolvedConfig } from '../../../types.js'
 import { isTauriMobile } from '../../../globals.js'
-import { generateMainRs, generateDevCargoToml, generateDevTauriConf, generateBuildRs, generateLibRs, generateCapabilities } from '../../../flows/strategies/tauri-templates.js'
+import {
+  generateMainRs,
+  generateDevCargoToml,
+  generateDevTauriConf,
+  generateBuildRs,
+  generateLibRs,
+  generateCapabilities,
+} from '../../../flows/strategies/tauri-templates.js'
 
 type Plugin = import('vite').Plugin
 
@@ -30,7 +38,7 @@ function getTauriDevCommand(target: string): string[] {
 }
 
 export default async function tauriPlugin({
-  root,
+  root: _root, // Part of the plugin signature; the src-tauri location comes from outDir
   outDir,
   hooks,
   config,
@@ -52,6 +60,10 @@ export default async function tauriPlugin({
           const name = config?.name || 'commoners-app'
           const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
           const tauriConfig = (config as any)?.tauri || {}
+          // Overlays are a desktop window behaviour
+          const overlay = isTauriMobile(config?.target)
+            ? null
+            : resolveOverlay((config as any)?.desktop?.overlay)
 
           // Generate src-tauri/ in the parent of outDir (outDir is the dist/ subdir)
           const tauriRoot = dirname(outDir)
@@ -63,10 +75,13 @@ export default async function tauriPlugin({
           mkdirSync(capDir, { recursive: true })
 
           // Cargo.toml — devtools feature enabled for dev
-          writeFileSync(join(srcTauriDir, 'Cargo.toml'), generateDevCargoToml(sanitizedName))
+          writeFileSync(
+            join(srcTauriDir, 'Cargo.toml'),
+            generateDevCargoToml(sanitizedName, { overlay: !!overlay })
+          )
 
           // src/main.rs (no sidecars in dev — services are managed by Node.js)
-          writeFileSync(join(srcDir, 'main.rs'), generateMainRs())
+          writeFileSync(join(srcDir, 'main.rs'), generateMainRs([], { overlay }))
 
           // build.rs
           writeFileSync(join(srcTauriDir, 'build.rs'), generateBuildRs())
@@ -84,11 +99,9 @@ export default async function tauriPlugin({
             version: config?.version,
             devUrl,
             window: windowConfig,
+            overlay,
           })
-          writeFileSync(
-            join(srcTauriDir, 'tauri.conf.json'),
-            JSON.stringify(tauriConf, null, 2)
-          )
+          writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 
           // capabilities/default.json (no services in dev — no shell permissions needed)
           writeFileSync(

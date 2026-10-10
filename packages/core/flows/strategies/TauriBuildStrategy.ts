@@ -12,6 +12,7 @@ import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
 import { getIcon } from '../../assets/utils/icons.js'
+import { resolveOverlay } from '../../assets/utils/overlay.js'
 import { createSEA, isSEASupported } from '../../utils/sea.js'
 import {
   generateCargoToml,
@@ -107,6 +108,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const { config, outDir, stagingDir } = context
     const { name, appId, version } = config
     const tauriConfig = (config as any).tauri || {}
+    const overlay = resolveOverlay((config as any).desktop?.overlay)
 
     logger.info('Starting Tauri packaging', { name, appId })
     context.hooks.emit({ type: 'build:tauri:start' } as any)
@@ -127,7 +129,10 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
 
     // Generate Cargo.toml
-    writeFileSync(join(srcTauriDir, 'Cargo.toml'), generateCargoToml(sanitizedName))
+    writeFileSync(
+      join(srcTauriDir, 'Cargo.toml'),
+      generateCargoToml(sanitizedName, { overlay: !!overlay })
+    )
 
     // Generate build.rs
     writeFileSync(join(srcTauriDir, 'build.rs'), 'fn main() {\n  tauri_build::build()\n}\n')
@@ -183,7 +188,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     }
 
     // Generate src/main.rs (with sidecar lifecycle if services exist)
-    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries))
+    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries, { overlay }))
 
     // Generate icons using `tauri icon` (handles PNG→ICO/ICNS + all required sizes)
     const iconDir = join(srcTauriDir, 'icons')
@@ -223,6 +228,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       tauriConfig,
       electronWindow: config.electron?.window,
       externalBins,
+      overlay,
     })
     writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 

@@ -11,6 +11,11 @@
 
 import { join } from 'node:path'
 import { ElectronSecuritySettings } from '../../../types'
+import {
+  resolveOverlay,
+  electronOverlayWindowOptions,
+  ResolvedOverlay,
+} from '../../utils/overlay.js'
 
 export interface ElectronConfig {
   config: any
@@ -31,6 +36,7 @@ export interface ParsedOptions {
   electronOptions: any
   protocolOptions: any
   windowOptions: any
+  overlay: ResolvedOverlay | null
   securitySettings: ElectronSecuritySettings
 }
 
@@ -83,10 +89,7 @@ export function loadConfig(isProduction: boolean = true): ElectronConfig {
 /**
  * Parse configuration options for Electron, protocol, window, and security
  */
-export function parseOptions(
-  config: ElectronConfig,
-  isProduction: boolean = true
-): ParsedOptions {
+export function parseOptions(config: ElectronConfig, isProduction: boolean = true): ParsedOptions {
   const { electron } = config
 
   // Parse protocol options
@@ -96,8 +99,12 @@ export function parseOptions(
       : electron.protocol
     : {}
 
-  // Parse window options
-  const windowOptions = electron.window ?? {}
+  // Parse window options — explicit electron.window settings win over overlay defaults
+  const overlay = resolveOverlay(config.config?.desktop?.overlay)
+  const windowOptions = {
+    ...(overlay ? electronOverlayWindowOptions(overlay) : {}),
+    ...(electron.window ?? {}),
+  }
 
   // Parse security settings
   const __userSecuritySetting = electron.security || true
@@ -114,6 +121,7 @@ export function parseOptions(
     electronOptions: electron,
     protocolOptions,
     windowOptions,
+    overlay,
     securitySettings,
   }
 }

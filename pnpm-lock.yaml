@@ -175,6 +175,12 @@ importers:
 
   examples/demo/src/services/http: {}
 
+  examples/overlay:
+    devDependencies:
+      '@tauri-apps/cli':
+        specifier: ^2.10.1
+        version: 2.10.1
+
   packages/cli:
     dependencies:
       '@commoners/solidarity':

@@ -6,14 +6,18 @@
  * allow direct testing without triggering the build flow import chain.
  */
 
-export function generateCargoToml(name: string): string {
+import { ResolvedOverlay, tauriOverlayWindowConfig } from '../../assets/utils/overlay.js'
+
+// Transparent windows on macOS need Tauri's private-API feature (and app.macOSPrivateApi)
+export function generateCargoToml(name: string, opts: { overlay?: boolean } = {}): string {
+  const tauriFeatures = opts.overlay ? '["macos-private-api"]' : '[]'
   return `[package]
 name = "${name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ${tauriFeatures} }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
@@ -22,20 +26,95 @@ tokio = { version = "1", features = ["signal"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-`
+${opts.overlay ? MACOS_OVERLAY_DEPENDENCIES : ''}`
 }
+
+const MACOS_OVERLAY_DEPENDENCIES = `
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+`
 
 export type SidecarEntry = { id: string; bin: string; port?: number }
 
-export function generateMainRs(services: SidecarEntry[] = []): string {
+// Click-through, display bounds and the macOS window level have no tauri.conf.json
+// equivalent — set them at startup, then show the (initially hidden) window
+function overlaySetupRs(overlay?: ResolvedOverlay | null): string {
+  if (!overlay) return ''
+  const lines: string[] = []
+  if (overlay.clickThrough)
+    lines.push('                let _ = window.set_ignore_cursor_events(true);')
+  if (overlay.coverDisplay)
+    lines.push(
+      '                if let Ok(Some(monitor)) = window.primary_monitor() {',
+      '                    let _ = window.set_position(*monitor.position());',
+      '                    let _ = window.set_size(*monitor.size());',
+      '                }'
+    )
+  if (overlay.alwaysOnTop || overlay.allWorkspaces)
+    lines.push(
+      '                #[cfg(target_os = "macos")]',
+      '                float_overlay(&window);'
+    )
+  lines.push('                let _ = window.show();')
+  return `
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory); // Like Electron's visibleOnFullScreen
+
+            if let Some(window) = app.get_webview_window("main") {
+${lines.join('\n')}
+            }
+`
+}
+
+// Matches Electron's setAlwaysOnTop('screen-saver') + setVisibleOnAllWorkspaces. Tauri's own
+// alwaysOnTop is the floating level (5), which macOS keeps below the menu bar.
+function floatOverlayRs(overlay?: ResolvedOverlay | null): string {
+  if (!overlay || (!overlay.alwaysOnTop && !overlay.allWorkspaces)) return ''
+  const calls: string[] = []
+  if (overlay.alwaysOnTop)
+    calls.push(
+      '            let _: () = msg_send![ns_window, setLevel: 1000isize]; // NSScreenSaverWindowLevel'
+    )
+  if (overlay.allWorkspaces)
+    calls.push(
+      '            // CanJoinAllSpaces | Stationary | FullScreenAuxiliary',
+      '            let _: () = msg_send![ns_window, setCollectionBehavior: (1usize << 0) | (1usize << 4) | (1usize << 8)];'
+    )
+  return `
+#[cfg(target_os = "macos")]
+fn float_overlay(window: &tauri::WebviewWindow) {
+    use objc2::{msg_send, runtime::AnyObject};
+    if let Ok(ns_window) = window.ns_window() {
+        let ns_window = ns_window as *mut AnyObject;
+        unsafe {
+${calls.join('\n')}
+        }
+    }
+}
+`
+}
+
+export function generateMainRs(
+  services: SidecarEntry[] = [],
+  opts: { overlay?: ResolvedOverlay | null } = {}
+): string {
+  const overlaySetup = overlaySetupRs(opts.overlay)
+  const overlayFns = floatOverlayRs(opts.overlay)
+
   if (services.length === 0) {
     // No services — simple main.rs
+    const setup = overlaySetup
+      ? `
+        .setup(|app| {${overlaySetup}
+            Ok(())
+        })`
+      : ''
     return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
+${overlaySetup ? '\nuse tauri::Manager;\n' : ''}${overlayFns}
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init())${setup}
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -60,6 +139,7 @@ struct ServiceState {
     urls: Mutex<HashMap<String, String>>,
 }
 
+${overlayFns}
 fn get_free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0")
         .unwrap()
@@ -106,7 +186,7 @@ fn main() {
             commoners_get_services,
             commoners_service_close,
         ])
-        .setup(|app| {
+        .setup(|app| {${overlaySetup}
             let services: Vec<(&str, &str)> = vec![${serviceArray}];
 
             for (id, bin_name) in services {
@@ -224,8 +304,18 @@ export function generateTauriConf(opts: {
   tauriConfig: any
   electronWindow: any
   externalBins: string[]
+  overlay?: ResolvedOverlay | null
 }): Record<string, any> {
-  const { name, appId, version, icon, tauriConfig = {}, electronWindow, externalBins } = opts
+  const {
+    name,
+    appId,
+    version,
+    icon,
+    tauriConfig = {},
+    electronWindow,
+    externalBins,
+    overlay,
+  } = opts
   const windowConfig = tauriConfig.window || electronWindow || {}
 
   // Resolve icon paths
@@ -262,6 +352,11 @@ export function generateTauriConf(opts: {
       targets: 'all',
       icon: icons.length > 0 ? icons : ['icons/icon.png'],
     },
+  }
+
+  if (overlay) {
+    Object.assign(conf.app.windows[0], tauriOverlayWindowConfig(overlay))
+    conf.app.macOSPrivateApi = true
   }
 
   // CSP
@@ -304,14 +399,15 @@ export function generateCapabilities(serviceIds: string[]): Record<string, any> 
  * Generate a dev-mode Cargo.toml with devtools feature enabled.
  * Separate from the build Cargo.toml which omits devtools.
  */
-export function generateDevCargoToml(name: string): string {
+export function generateDevCargoToml(name: string, opts: { overlay?: boolean } = {}): string {
+  const tauriFeatures = opts.overlay ? '["devtools", "macos-private-api"]' : '["devtools"]'
   return `[package]
 name = "${name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = ${tauriFeatures} }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
@@ -319,7 +415,7 @@ serde_json = "1"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-`
+${opts.overlay ? MACOS_OVERLAY_DEPENDENCIES : ''}`
 }
 
 /**
@@ -332,11 +428,12 @@ export function generateDevTauriConf(opts: {
   version?: string
   devUrl: string
   window?: { title?: string; width?: number; height?: number }
+  overlay?: ResolvedOverlay | null
 }): Record<string, any> {
-  const { name, devUrl, window: windowConfig = {} } = opts
+  const { name, devUrl, window: windowConfig = {}, overlay } = opts
   const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
 
-  return {
+  const conf: Record<string, any> = {
     productName: name,
     identifier: opts.appId || `com.commoners.${sanitizedName.replace(/[^a-z0-9]/g, '')}`,
     version: opts.version || '0.1.0',
@@ -357,6 +454,13 @@ export function generateDevTauriConf(opts: {
       active: true,
     },
   }
+
+  if (overlay) {
+    Object.assign(conf.app.windows[0], tauriOverlayWindowConfig(overlay))
+    conf.app.macOSPrivateApi = true
+  }
+
+  return conf
 }
 
 /**

@@ -724,7 +724,15 @@ export const buildAssets = async (
 // Browser (.mjs): only plugins are read from the config import (onload.ts).
 // Electron (.cjs): main process reads name, icon, electron, plugins, services, hooks.
 export const BROWSER_CONFIG_KEYS = ['plugins']
-export const ELECTRON_CONFIG_KEYS = ['name', 'icon', 'electron', 'plugins', 'services', 'hooks']
+export const ELECTRON_CONFIG_KEYS = [
+  'name',
+  'icon',
+  'electron',
+  'desktop',
+  'plugins',
+  'services',
+  'hooks',
+]
 
 // Keys to strip from each runtime context.
 // Browser strips: Electron-specific hooks + service internals + build-time only props
