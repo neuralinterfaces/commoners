@@ -66,7 +66,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
 
     // Verify @tauri-apps/cli
     try {
-      execSync('npx tauri --version', { stdio: 'pipe', timeout: 30000 })
+      execSync('npx tauri --version', { stdio: 'pipe', timeout: 30000, cwd: context.config.root }) // Resolve the project's CLI, not the caller's cwd
     } catch {
       throw new DependencyError(
         '@tauri-apps/cli not found',
