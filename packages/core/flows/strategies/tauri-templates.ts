@@ -8,8 +8,20 @@
 
 import { ResolvedOverlay, tauriOverlayWindowConfig } from '../../assets/utils/overlay.js'
 
+type UserPlugin = { crate: string; ident: string; path: string; permissions?: string[] }
+
+// Path dependencies on the user's plugin crates (tauri.plugin)
+const userPluginDependencies = (plugins: UserPlugin[] = []) =>
+  plugins.map(p => `${p.crate} = { path = ${JSON.stringify(p.path)} }\n`).join('')
+
+const userPluginRegistrations = (plugins: UserPlugin[] = []) =>
+  plugins.map(p => `\n        .plugin(${p.ident}::init())`).join('')
+
 // Transparent windows on macOS need Tauri's private-API feature (and app.macOSPrivateApi)
-export function generateCargoToml(name: string, opts: { overlay?: boolean } = {}): string {
+export function generateCargoToml(
+  name: string,
+  opts: { overlay?: boolean; userPlugins?: UserPlugin[] } = {}
+): string {
   const tauriFeatures = opts.overlay ? '["macos-private-api"]' : '[]'
   return `[package]
 name = "${name}"
@@ -23,7 +35,7 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["signal"] }
-
+${userPluginDependencies(opts.userPlugins)}
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 ${opts.overlay ? MACOS_OVERLAY_DEPENDENCIES : ''}`
@@ -113,9 +125,10 @@ ${calls.join('\n')}
 
 export function generateMainRs(
   services: SidecarEntry[] = [],
-  opts: { overlay?: ResolvedOverlay | null } = {}
+  opts: { overlay?: ResolvedOverlay | null; userPlugins?: UserPlugin[] } = {}
 ): string {
   const overlaySetup = overlaySetupRs(opts.overlay)
+  const userPlugins = userPluginRegistrations(opts.userPlugins)
   const overlayFns = floatOverlayRs(opts.overlay)
 
   if (services.length === 0) {
@@ -131,7 +144,7 @@ ${overlaySetup ? '\nuse tauri::Manager;\n' : ''}${overlayFns}
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())${setup}
+        .plugin(tauri_plugin_opener::init())${userPlugins}${setup}
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -194,7 +207,7 @@ fn commoners_service_close(id: String, state: tauri::State<ServiceState>) -> boo
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init())${userPlugins}
         .manage(ServiceState {
             children: Mutex::new(HashMap::new()),
             urls: Mutex::new(HashMap::new()),
@@ -409,8 +422,11 @@ export function generateTauriConf(opts: {
   return conf
 }
 
-export function generateCapabilities(serviceIds: string[]): Record<string, any> {
-  const permissions = ['core:default', 'opener:default']
+export function generateCapabilities(
+  serviceIds: string[],
+  extraPermissions: string[] = [] // e.g. user plugin permissions (tauri.plugin)
+): Record<string, any> {
+  const permissions = ['core:default', 'opener:default', ...extraPermissions]
 
   if (serviceIds.length > 0) {
     permissions.push('shell:allow-spawn', 'shell:allow-kill')
@@ -429,7 +445,10 @@ export function generateCapabilities(serviceIds: string[]): Record<string, any> 
  * Generate a dev-mode Cargo.toml with devtools feature enabled.
  * Separate from the build Cargo.toml which omits devtools.
  */
-export function generateDevCargoToml(name: string, opts: { overlay?: boolean } = {}): string {
+export function generateDevCargoToml(
+  name: string,
+  opts: { overlay?: boolean; userPlugins?: UserPlugin[] } = {}
+): string {
   const tauriFeatures = opts.overlay ? '["devtools", "macos-private-api"]' : '["devtools"]'
   return `[package]
 name = "${name}"
@@ -442,7 +461,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
+${userPluginDependencies(opts.userPlugins)}
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 ${opts.overlay ? MACOS_OVERLAY_DEPENDENCIES : ''}`

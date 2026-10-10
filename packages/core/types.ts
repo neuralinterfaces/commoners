@@ -331,6 +331,8 @@ type DesktopPluginOptions = {
 export type PluginRendererContext = IpcRenderer & {
   sendPort: (channel: string, port: MessagePort) => () => void
   onPort: (channel: string, listener: (port: MessagePort) => void) => () => void
+  // Tauri only: forward each binary frame on the channel to a Rust command (raw invoke body)
+  tapPort: (channel: string, command: string) => () => void
 }
 
 type PluginLoadCallback = (this: PluginRendererContext, env: CommonersGlobalObject) => LoadedPlugin // General load behavior
@@ -478,6 +480,10 @@ export type TauriOptions = {
     decorations?: boolean
   }
   security?: TauriSecuritySettings
+  // User Rust plugin crate(s) exporting init() -> TauriPlugin, registered in the generated app
+  plugin?:
+    | import('./flows/strategies/tauri-user-plugins.js').TauriUserPluginConfig
+    | import('./flows/strategies/tauri-user-plugins.js').TauriUserPluginConfig[]
   config?: Record<string, any> // Raw tauri.conf.json overrides
 }
 

@@ -11,7 +11,9 @@ const { stream, windows } = await commoners.READY
 
 // One page, two roles: the main window gets the window manager and sends;
 // the popup it opens gets a link back to main and receives
-if (windows?.receiver) {
+// Tauri has no popup here: the main window sends and taps its own stream into Rust
+const isTauri = commoners.TARGET === 'tauri'
+if (windows?.receiver || isTauri) {
   document.title = 'Port Channels · sender'
   const { port1, port2 } = new MessageChannel()
   // The sender lives in a Worker, like a sense broker: 120-byte frames at 60 Hz
@@ -31,7 +33,8 @@ if (windows?.receiver) {
   worker.postMessage(null, [port1])
   worker.onmessage = e => (out.textContent = 'TX ' + e.data)
   stream.sendPort('frames', port2)
-  windows.receiver.create().open().catch(error => (status.textContent = error.message))
+  if (isTauri) stream.tapPort('frames', 'plugin:sense|frames')
+  else windows.receiver.create().open().catch(error => (status.textContent = error.message))
 } else {
   document.title = 'Port Channels · receiver'
   out.textContent = 'waiting for port'

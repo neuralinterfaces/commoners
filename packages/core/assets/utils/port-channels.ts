@@ -18,6 +18,7 @@
  */
 
 type Listener = (port: MessagePort) => void
+type ListenerOptions = { includeOwn?: boolean } // Also receive ports sent from this window
 
 type Options = {
   prefix?: string
@@ -33,7 +34,7 @@ export const createPortChannels = ({
   maxBuffered = 256,
 }: Options = {}) => {
   const controls = new Map<string, BroadcastChannel>()
-  const listeners = new Map<string, Set<Listener>>()
+  const listeners = new Map<string, Map<Listener, ListenerOptions>>()
   const ownSessions = new Map<string, Set<string>>() // channel → ids this window sends
   const bridged = new Set<string>() // `${channel}:${id}` sessions already delivered here
   const closers: Array<() => void> = []
@@ -50,11 +51,15 @@ export const createPortChannels = ({
     return bc
   }
 
-  // Listener side: expose a session as a local MessagePort
+  // Listener side: expose a session as a local MessagePort. Sessions this window sent reach
+  // only listeners that opted in (includeOwn), so a window never loops back to itself by default.
   const bridge = (channel: string, id: string) => {
-    const handlers = listeners.get(channel)
+    const own = !!ownSessions.get(channel)?.has(id)
+    const handlers = [...(listeners.get(channel) ?? [])]
+      .filter(([, options]) => !own || options.includeOwn)
+      .map(([handler]) => handler)
     const key = `${channel}:${id}`
-    if (!handlers?.size || bridged.has(key) || ownSessions.get(channel)?.has(id)) return
+    if (!handlers.length || bridged.has(key)) return
     bridged.add(key)
 
     const session = new BroadcastChannel(`${prefix}:${channel}:${id}`)
@@ -92,6 +97,7 @@ export const createPortChannels = ({
     if (!ownSessions.has(channel)) ownSessions.set(channel, new Set())
     ownSessions.get(channel)!.add(id)
     control(channel).postMessage({ open: id })
+    bridge(channel, id) // A channel never hears its own announcement; reach includeOwn listeners here
 
     const close = () => {
       ownSessions.get(channel)?.delete(id)
@@ -102,10 +108,11 @@ export const createPortChannels = ({
     return close
   }
 
-  const onPort = (channel: string, listener: Listener) => {
-    if (!listeners.has(channel)) listeners.set(channel, new Set())
-    listeners.get(channel)!.add(listener)
+  const onPort = (channel: string, listener: Listener, options: ListenerOptions = {}) => {
+    if (!listeners.has(channel)) listeners.set(channel, new Map())
+    listeners.get(channel)!.set(listener, options)
     control(channel).postMessage({ hello: true }) // Ask senders to re-announce open sessions
+    if (options.includeOwn) ownSessions.get(channel)?.forEach(id => bridge(channel, id))
     return () => listeners.get(channel)?.delete(listener)
   }
 

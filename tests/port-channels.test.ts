@@ -153,6 +153,24 @@ describe('port channels', () => {
     port1.close()
   })
 
+  // A tap runs in the window that owns the stream (e.g. forwarding frames to Rust)
+  test('a listener can opt in to ports sent from its own window', async () => {
+    const channels = windowChannels()
+    const own: MessagePort[] = []
+    const others: MessagePort[] = []
+    channels.onPort('plugins:test:tap', port => own.push(port), { includeOwn: true })
+    channels.onPort('plugins:test:tap', port => others.push(port))
+    const { port1, port2 } = new MessageChannel()
+    channels.sendPort('plugins:test:tap', port2)
+    await new Promise(r => setTimeout(r, 50))
+    expect(own).toHaveLength(1)
+    expect(others).toHaveLength(0)
+    const got = nextMessage(own[0])
+    port1.postMessage(new Uint8Array([42]))
+    expect(Array.from(await got)).toEqual([42])
+    port1.close()
+  })
+
   // Frames sent before anyone listens are buffered, but never without bound
   test('the pre-attach buffer is capped, keeping the newest frames', async () => {
     const sender = createPortChannels({ maxBuffered: 3 })

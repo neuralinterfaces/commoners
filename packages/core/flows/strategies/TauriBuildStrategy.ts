@@ -13,6 +13,7 @@ import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
 import { getIcon } from '../../assets/utils/icons.js'
 import { resolveOverlay } from '../../assets/utils/overlay.js'
+import { resolveTauriUserPlugins } from './tauri-user-plugins.js'
 import { createSEA, isSEASupported } from '../../utils/sea.js'
 import {
   generateCargoToml,
@@ -109,6 +110,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const { name, appId, version } = config
     const tauriConfig = (config as any).tauri || {}
     const overlay = resolveOverlay((config as any).desktop?.overlay)
+    const userPlugins = resolveTauriUserPlugins(config.root, tauriConfig.plugin)
 
     logger.info('Starting Tauri packaging', { name, appId })
     context.hooks.emit({ type: 'build:tauri:start' } as any)
@@ -131,7 +133,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     // Generate Cargo.toml
     writeFileSync(
       join(srcTauriDir, 'Cargo.toml'),
-      generateCargoToml(sanitizedName, { overlay: !!overlay })
+      generateCargoToml(sanitizedName, { overlay: !!overlay, userPlugins })
     )
 
     // Generate build.rs
@@ -188,7 +190,7 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     }
 
     // Generate src/main.rs (with sidecar lifecycle if services exist)
-    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries, { overlay }))
+    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries, { overlay, userPlugins }))
 
     // Generate icons using `tauri icon` (handles PNG→ICO/ICNS + all required sizes)
     const iconDir = join(srcTauriDir, 'icons')
@@ -234,7 +236,10 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 
     // Generate capabilities/default.json
-    const capabilities = generateCapabilities(serviceIds)
+    const capabilities = generateCapabilities(
+      serviceIds,
+      userPlugins.flatMap(p => p.permissions)
+    )
     writeFileSync(join(capDir, 'default.json'), JSON.stringify(capabilities, null, 2))
 
     // Invoke tauri build

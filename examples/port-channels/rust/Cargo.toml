@@ -1,0 +1,11 @@
+[package]
+name = "tauri-plugin-sense"
+version = "0.1.0"
+edition = "2021"
+links = "tauri-plugin-sense"
+
+[dependencies]
+tauri = "2"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

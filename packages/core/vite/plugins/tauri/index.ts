@@ -11,6 +11,7 @@
  */
 
 import { resolveOverlay } from '../../../assets/utils/overlay.js'
+import { resolveTauriUserPlugins } from '../../../flows/strategies/tauri-user-plugins.js'
 import { join, dirname } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -38,7 +39,7 @@ function getTauriDevCommand(target: string): string[] {
 }
 
 export default async function tauriPlugin({
-  root: _root, // Part of the plugin signature; the src-tauri location comes from outDir
+  root, // Project root: user plugin crates (tauri.plugin) resolve against it
   outDir,
   hooks,
   config,
@@ -64,6 +65,7 @@ export default async function tauriPlugin({
           const overlay = isTauriMobile(config?.target)
             ? null
             : resolveOverlay((config as any)?.desktop?.overlay)
+          const userPlugins = resolveTauriUserPlugins(root, tauriConfig.plugin)
 
           // Generate src-tauri/ in the parent of outDir (outDir is the dist/ subdir)
           const tauriRoot = dirname(outDir)
@@ -77,11 +79,11 @@ export default async function tauriPlugin({
           // Cargo.toml — devtools feature enabled for dev
           writeFileSync(
             join(srcTauriDir, 'Cargo.toml'),
-            generateDevCargoToml(sanitizedName, { overlay: !!overlay })
+            generateDevCargoToml(sanitizedName, { overlay: !!overlay, userPlugins })
           )
 
           // src/main.rs (no sidecars in dev — services are managed by Node.js)
-          writeFileSync(join(srcDir, 'main.rs'), generateMainRs([], { overlay }))
+          writeFileSync(join(srcDir, 'main.rs'), generateMainRs([], { overlay, userPlugins }))
 
           // build.rs
           writeFileSync(join(srcTauriDir, 'build.rs'), generateBuildRs())
@@ -107,7 +109,14 @@ export default async function tauriPlugin({
           // capabilities/default.json (no services in dev — no shell permissions needed)
           writeFileSync(
             join(capDir, 'default.json'),
-            JSON.stringify(generateCapabilities([]), null, 2)
+            JSON.stringify(
+              generateCapabilities(
+                [],
+                userPlugins.flatMap(p => p.permissions)
+              ),
+              null,
+              2
+            )
           )
 
           // Spawn tauri dev (or tauri ios dev / tauri android dev for mobile)
