@@ -1,7 +1,12 @@
 import { describe, test, expect } from 'vitest'
 
 // Import from @commoners/solidarity (built dist — no circular dependency)
-import { isDesktop, getSpecificTarget, ensureTargetConsistent } from '@commoners/solidarity'
+import {
+  isDesktop,
+  isMobile,
+  getSpecificTarget,
+  ensureTargetConsistent,
+} from '@commoners/solidarity'
 
 // Import pure template generators directly (no build flow chain dependency)
 import {
@@ -139,8 +144,6 @@ describe('Target Shorthand Resolution', () => {
 // ────────────────────────────────────────────────────────
 
 describe('isMobile with standardized targets', () => {
-  const { isMobile } = require('@commoners/solidarity')
-
   test('recognizes all mobile targets', () => {
     expect(isMobile('mobile')).toBe(true)
     expect(isMobile('ios')).toBe(true)
@@ -410,7 +413,9 @@ describe('main.rs template with sidecars', () => {
 
   test('has ServiceState struct', () => {
     expect(rs).toContain('struct ServiceState')
-    expect(rs).toContain('children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>')
+    expect(rs).toContain(
+      'children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>'
+    )
     expect(rs).toContain('urls: Mutex<HashMap<String, String>>')
   })
 
@@ -426,9 +431,21 @@ describe('main.rs template with sidecars', () => {
   })
 
   test('spawns sidecar for each service', () => {
-    expect(rs).toContain('("http", "binaries/http")')
-    expect(rs).toContain('("python-api", "binaries/python-api")')
     expect(rs).toContain('.sidecar(bin_name)')
+  })
+
+  // Tauri v2 resolves sidecar(name) to <exe dir>/<name>; passing the externalBin
+  // path ("binaries/http") looks for <exe dir>/binaries/http and fails with NotFound
+  test('passes bare sidecar names, not externalBin paths', () => {
+    expect(rs).toContain('("http", "http")')
+    expect(rs).toContain('("python-api", "python-api")')
+    expect(rs).not.toContain('"binaries/')
+  })
+
+  test('a sidecar that fails to start does not abort the app', () => {
+    expect(rs).not.toContain('failed to create sidecar')
+    expect(rs).not.toContain('failed to spawn sidecar')
+    expect(rs).toContain('commoners:services:{}:error')
   })
 
   test('assigns free port via TcpListener', () => {
@@ -657,8 +674,13 @@ describe('Dev mode vs build mode differences', () => {
   test('dev conf has devUrl, build conf has frontendDist', () => {
     const devConf = generateDevTauriConf({ name: 'app', devUrl: 'http://localhost:5173' })
     const buildConf = generateTauriConf({
-      name: 'app', appId: '', version: '', icon: null,
-      tauriConfig: {}, electronWindow: null, externalBins: [],
+      name: 'app',
+      appId: '',
+      version: '',
+      icon: null,
+      tauriConfig: {},
+      electronWindow: null,
+      externalBins: [],
     })
     expect(devConf.build.devUrl).toBeDefined()
     expect(devConf.build.frontendDist).toBeUndefined()

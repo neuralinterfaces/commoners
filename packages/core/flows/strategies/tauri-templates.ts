@@ -42,7 +42,8 @@ fn main() {
   }
 
   // Generate service spawn entries as Rust array literal
-  const serviceArray = services.map(s => `("${s.id}", "${s.bin}")`).join(', ')
+  // sidecar() takes the bare binary name; Tauri resolves it next to the app executable
+  const serviceArray = services.map(s => `("${s.id}", "${s.bin.split('/').pop()}")`).join(', ')
 
   return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -116,15 +117,24 @@ fn main() {
                     .urls.lock().unwrap()
                     .insert(id.to_string(), url);
 
-                // Spawn sidecar with PORT env var
-                let sidecar = app.shell()
+                // Spawn sidecar with PORT env var. A service that fails to start is
+                // reported and skipped — panicking in setup() aborts the whole app on macOS
+                let spawned = app.shell()
                     .sidecar(bin_name)
-                    .expect(&format!("failed to create sidecar for {}", id))
-                    .env("PORT", port.to_string());
+                    .map(|cmd| cmd.env("PORT", port.to_string()))
+                    .and_then(|cmd| cmd.spawn());
 
-                let (mut rx, child) = sidecar
-                    .spawn()
-                    .expect(&format!("failed to spawn sidecar {}", id));
+                let (mut rx, child) = match spawned {
+                    Ok(pair) => pair,
+                    Err(err) => {
+                        eprintln!("[commoners] service {} failed to start: {}", id, err);
+                        let _ = app.handle().emit(
+                            &format!("commoners:services:{}:error", id),
+                            err.to_string(),
+                        );
+                        continue;
+                    }
+                };
 
                 app.state::<ServiceState>()
                     .children.lock().unwrap()
