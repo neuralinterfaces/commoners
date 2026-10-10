@@ -12,50 +12,19 @@ import { createLogger } from '../utils/logger.js'
 import { verifySignature } from '../utils/sign-verify.js'
 import { globalServiceWorkspacePath, globalTempServiceWorkspacePath } from './paths.js'
 import { ServiceHealthMonitor, HealthMonitorConfig } from './health.js'
+import {
+  registerProcess,
+  unregisterProcess,
+  killRegisteredProcesses,
+} from '../utils/process-registry.js'
 
 const logger = createLogger('services')
 
 // --- Orphan process cleanup ---
-const PID_FILE = join(globalTempServiceWorkspacePath, '.service-pids.json')
-
-function readPidFile(): Record<string, number> {
-  try {
-    if (existsSync(PID_FILE)) return JSON.parse(readFileSync(PID_FILE, 'utf8'))
-  } catch {
-    /* corrupt file */
-  }
-  return {}
-}
-
-function writePidFile(pids: Record<string, number>) {
-  try {
-    writeFileSync(PID_FILE, JSON.stringify(pids), 'utf8')
-  } catch {
-    /* ignore */
-  }
-}
-
-function removePidFile() {
-  try {
-    if (existsSync(PID_FILE)) unlinkSync(PID_FILE)
-  } catch {
-    /* ignore */
-  }
-}
-
-function cleanupOrphanProcesses() {
-  const pids = readPidFile()
-  for (const [id, pid] of Object.entries(pids)) {
-    try {
-      process.kill(pid, 0) // Check if process exists
-      process.kill(pid, 'SIGTERM') // Kill orphan
-      console.log(`[commoners:service] Killed orphan process for "${id}" (PID ${pid})`)
-    } catch {
-      /* process doesn't exist — already cleaned up */
-    }
-  }
-  removePidFile()
-}
+// Service PIDs are recorded in the project's process registry so a later run can stop
+// them if this one dies without cleaning up. Set by createAll() for close().
+let registryRoot: string | undefined
+const serviceLabel = (id: string) => `service:${id}`
 
 const createNoOpHooks = (): HooksInterface => ({
   emit: () => {},
@@ -954,6 +923,7 @@ export async function close(id?: string) {
       if (proc.__healthMonitor) proc.__healthMonitor.stop()
       await killProcess(processes[id])
       delete processes[id]
+      if (registryRoot) unregisterProcess(registryRoot, serviceLabel(id))
     } else {
       console.warn(`No process exists with id ${id}`)
     }
@@ -965,11 +935,10 @@ export async function close(id?: string) {
       if ((p as any).__healthMonitor) (p as any).__healthMonitor.stop()
     }
     await Promise.all(Object.values(processes).map(killProcess))
+    if (registryRoot)
+      for (const id of Object.keys(processes)) unregisterProcess(registryRoot, serviceLabel(id))
     processes = {}
   }
-
-  // Remove PID file on clean shutdown
-  removePidFile()
 }
 
 export const sanitize = (
@@ -1030,7 +999,11 @@ export async function resolveAll(servicesToResolve = {}, opts) {
 
 export async function createAll(services = {}, opts) {
   // Kill orphan processes from previous crashed sessions
-  cleanupOrphanProcesses()
+  registryRoot = opts?.root
+  if (registryRoot) {
+    for (const label of killRegisteredProcesses(registryRoot, l => l.startsWith('service:')))
+      console.log(`[commoners:service] Killed orphan process for "${label}"`)
+  }
 
   const resolved = await resolveAll(services, opts)
 
@@ -1051,12 +1024,16 @@ export async function createAll(services = {}, opts) {
     })
   )
 
-  // Write PID file for orphan cleanup on crash
-  const pids: Record<string, number> = {}
-  for (const [id, svc] of Object.entries(activeServices)) {
-    if (svc.process?.pid) pids[id] = svc.process.pid
+  // Record PIDs for orphan cleanup on crash
+  if (registryRoot) {
+    for (const [id, svc] of Object.entries(activeServices)) {
+      const proc = svc.process
+      if (!proc?.pid) continue
+      // The script/executable inside the project identifies it better than a bare `node`
+      const command = proc.spawnargs.find(arg => arg.startsWith(registryRoot!)) ?? proc.spawnfile
+      registerProcess(registryRoot, serviceLabel(id), proc.pid, command)
+    }
   }
-  if (Object.keys(pids).length) writePidFile(pids)
 
   return {
     active: activeServices,
