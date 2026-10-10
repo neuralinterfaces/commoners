@@ -193,11 +193,12 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     let closed
 
     const startManager = {
-      close: async function () {
+      // References startManager, not `this`: callers destructure it (const { close } = await start())
+      close: async () => {
         filesystemManager.close()
         if (closed) return
         closed = true
-        const { frontend, services } = this
+        const { frontend, services } = startManager
         await frontend?.close()
         await services?.close()
       },
