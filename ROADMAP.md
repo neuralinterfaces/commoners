@@ -28,6 +28,8 @@ All four release gate items are complete:
 
 ### Medium-term
 
+- **Capabilities and compile-out** -- Declare per build which capabilities are enabled; disabled ones are absent from every artifact (bundles, services, Tauri binary) and the absence is verified on the built output. See [capabilities-and-compile-out.md](./docs/roadmap/capabilities-and-compile-out.md).
+
 - **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
 - **Tauri remaining work** -- SEA cross-compilation, dev mode testing, Tauri IPC bridge, code signing. See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).
 - **Showcase page** -- Add a docs page with screenshots and descriptions of production apps built with Commoners (e.g. brainsatplay). The BCI origin story is a strong differentiator but currently buried in a single paragraph.
