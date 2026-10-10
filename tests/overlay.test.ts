@@ -161,6 +161,20 @@ describe('Tauri overlay', () => {
     expect(rs).toContain('window.show()')
   })
 
+  // Verified on macOS: only a non-activating NSPanel appears over another app's fullscreen Space
+  test('a click-through overlay becomes a non-activating panel to float over fullscreen apps', () => {
+    const rs = generateMainRs([], { overlay: resolveOverlay(true) })
+    expect(rs).toContain('object_setClass(ns_window, class!(NSPanel))')
+    expect(rs).toContain('NSWindowStyleMaskNonactivatingPanel')
+  })
+
+  // A plain NSPanel cannot become key, so interactive overlays keep their window class
+  test('an interactive overlay is not converted to a panel', () => {
+    const rs = generateMainRs([], { overlay: resolveOverlay({ clickThrough: false }) })
+    expect(rs).toContain('setLevel: 1000isize')
+    expect(rs).not.toContain('NSPanel')
+  })
+
   test('main.rs has no overlay code without an overlay', () => {
     expect(generateMainRs([])).not.toContain('set_ignore_cursor_events')
     expect(

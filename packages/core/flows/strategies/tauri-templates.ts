@@ -71,6 +71,16 @@ ${lines.join('\n')}
 function floatOverlayRs(overlay?: ResolvedOverlay | null): string {
   if (!overlay || (!overlay.alwaysOnTop && !overlay.allWorkspaces)) return ''
   const calls: string[] = []
+  // Only a non-activating NSPanel appears over another app's fullscreen Space. The class
+  // swap drops Tauri's window subclass (a plain panel can't become key), so it is limited
+  // to click-through overlays, which never take focus anyway.
+  const asPanel = overlay.allWorkspaces && overlay.clickThrough
+  if (asPanel)
+    calls.push(
+      '            object_setClass(ns_window, class!(NSPanel));',
+      '            let mask: usize = msg_send![ns_window, styleMask];',
+      '            let _: () = msg_send![ns_window, setStyleMask: mask | (1usize << 7)]; // NSWindowStyleMaskNonactivatingPanel'
+    )
   if (overlay.alwaysOnTop)
     calls.push(
       '            let _: () = msg_send![ns_window, setLevel: 1000isize]; // NSScreenSaverWindowLevel'
@@ -83,7 +93,14 @@ function floatOverlayRs(overlay?: ResolvedOverlay | null): string {
   return `
 #[cfg(target_os = "macos")]
 fn float_overlay(window: &tauri::WebviewWindow) {
-    use objc2::{msg_send, runtime::AnyObject};
+${
+  asPanel
+    ? `    use objc2::{class, msg_send, runtime::{AnyClass, AnyObject}};
+    extern "C" {
+        fn object_setClass(obj: *mut AnyObject, cls: *const AnyClass) -> *const AnyClass;
+    }`
+    : '    use objc2::{msg_send, runtime::AnyObject};'
+}
     if let Ok(ns_window) = window.ns_window() {
         let ns_window = ns_window as *mut AnyObject;
         unsafe {
