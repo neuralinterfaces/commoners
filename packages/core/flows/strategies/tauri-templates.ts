@@ -18,6 +18,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tokio = { version = "1", features = ["signal"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -121,7 +122,7 @@ fn main() {
                 // reported and skipped — panicking in setup() aborts the whole app on macOS
                 let spawned = app.shell()
                     .sidecar(bin_name)
-                    .map(|cmd| cmd.env("PORT", port.to_string()))
+                    .map(|cmd| cmd.env("PORT", port.to_string()).env("HOST", "localhost"))
                     .and_then(|cmd| cmd.spawn());
 
                 let (mut rx, child) = match spawned {
@@ -174,10 +175,43 @@ fn main() {
                 });
             }
 
+            // Signals bypass RunEvent::Exit; turn them into a clean exit so sidecars are killed
+            let exit_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    exit_handle.exit(0);
+                }
+            });
+
+            #[cfg(unix)]
+            {
+                use tokio::signal::unix::{signal, SignalKind};
+                let exit_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Ok(mut term) = signal(SignalKind::terminate()) {
+                        term.recv().await;
+                        exit_handle.exit(0);
+                    }
+                });
+            }
+
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                kill_all_sidecars(app);
+            }
+        });
+}
+
+fn kill_all_sidecars(app: &tauri::AppHandle) {
+    let state = app.state::<ServiceState>();
+    let mut children = state.children.lock().unwrap();
+    for (_, child) in children.drain() {
+        let _ = child.kill();
+    }
 }
 `
 }

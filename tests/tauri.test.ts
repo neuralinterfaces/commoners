@@ -349,6 +349,10 @@ describe('Generated capabilities/default.json', () => {
 describe('Cargo.toml template', () => {
   const toml = generateCargoToml('my-app')
 
+  test('enables tokio signal handling for sidecar cleanup', () => {
+    expect(toml).toContain('tokio = { version = "1", features = ["signal"] }')
+  })
+
   test('contains package name', () => {
     expect(toml).toContain('name = "my-app"')
   })
@@ -446,6 +450,25 @@ describe('main.rs template with sidecars', () => {
     expect(rs).not.toContain('failed to create sidecar')
     expect(rs).not.toContain('failed to spawn sidecar')
     expect(rs).toContain('commoners:services:{}:error')
+  })
+
+  // Matches the Electron/Node path (assets/services/index.ts), which always sets both
+  test('passes HOST alongside PORT to each sidecar', () => {
+    expect(rs).toContain('.env("PORT", port.to_string())')
+    expect(rs).toContain('.env("HOST", "localhost")')
+  })
+
+  // Sidecars are separate processes — without this they outlive the app
+  test('kills all sidecars when the app exits', () => {
+    expect(rs).toContain('tauri::RunEvent::Exit')
+    expect(rs).toContain('kill_all_sidecars(app)')
+    expect(rs).not.toContain('.run(tauri::generate_context!())')
+  })
+
+  test('routes SIGTERM and Ctrl-C through a clean exit', () => {
+    expect(rs).toContain('SignalKind::terminate()')
+    expect(rs).toContain('tokio::signal::ctrl_c()')
+    expect(rs).toContain('.exit(0)')
   })
 
   test('assigns free port via TcpListener', () => {
