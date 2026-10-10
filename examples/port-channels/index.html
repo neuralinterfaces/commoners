@@ -16,7 +16,7 @@ const isTauri = commoners.TARGET === 'tauri'
 if (windows?.receiver || isTauri) {
   document.title = 'Port Channels · sender'
   const { port1, port2 } = new MessageChannel()
-  // The sender lives in a Worker, like a sense broker: 120-byte frames at 60 Hz
+  // The sender lives in a Worker, like a background data source: 120-byte frames at 60 Hz
   const worker = new Worker(URL.createObjectURL(new Blob([`
     let n = 0, port
     onmessage = e => {
@@ -33,7 +33,7 @@ if (windows?.receiver || isTauri) {
   worker.postMessage(null, [port1])
   worker.onmessage = e => (out.textContent = 'TX ' + e.data)
   stream.sendPort('frames', port2)
-  if (isTauri) stream.tapPort('frames', 'plugin:sense|frames')
+  if (isTauri) stream.tapPort('frames', 'plugin:stream|frames')
   else windows.receiver.create().open().catch(error => (status.textContent = error.message))
 } else {
   document.title = 'Port Channels · receiver'

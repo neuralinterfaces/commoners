@@ -115,7 +115,7 @@ const TEMP_COMMONERS = {
   // postMessage parallels send() but accepts a `transfer` array for
   // transferable objects (MessagePort, ArrayBuffer). Required for
   // plugins that establish renderer↔renderer channels routed through
-  // main (e.g. sense:// broker subscriber ports between BrowserWindows).
+  // main (e.g. stream ports handed between BrowserWindows).
   // The corresponding main-side ipcMain.on(channel, listener) receives
   // IpcMainEvent.ports[] populated by Electron — existing scoped-on
   // infrastructure forwards the event untouched, so handlers just read

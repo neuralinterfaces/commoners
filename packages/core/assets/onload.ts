@@ -175,7 +175,7 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
   const registerPluginAsLoaded = id => {
     if (!DESKTOP) return
     // Renderers that ship a custom preload (e.g. a transparent
-    // ambient-feedback overlay using only raw Electron IPC) won't
+    // overlay window using only raw Electron IPC) won't
     // have the commoners preload installed → TEMP_COMMONERS.send is
     // undefined. Skip the notify rather than throwing — the renderer
     // doesn't participate in the commoners IPC graph by design.
@@ -319,7 +319,7 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
             // Replace the slot with the resolved value so consumers reading
             // ENV.PLUGINS.<id> get the manager/handle, not a Promise. Without
             // this, e.g. PLUGINS.windows is the Promise itself, so
-            // PLUGINS.windows.participant is undefined and any consumer trying
+            // PLUGINS.windows.<type> is undefined and any consumer trying
             // to use the per-window API blows up at runtime.
             // Port channels work in every window on every target (BroadcastChannel-backed),
             // so they are added to both the desktop and the web context

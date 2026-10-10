@@ -1,4 +1,4 @@
-//! Receives the tapped frame stream in Rust (ctx.tapPort('frames', 'plugin:sense|frames'))
+//! Receives the tapped frame stream in Rust (ctx.tapPort('frames', 'plugin:stream|frames'))
 //! and reports rate, gaps and latency to stderr. Each frame: u32 sequence at byte 0,
 //! f64 send time (ms since epoch) at byte 8, little-endian.
 
@@ -42,7 +42,7 @@ fn frames(request: Request<'_>, stats: State<'_, Mutex<Stats>>) {
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let q = |p: f64| sorted[((p * sorted.len() as f64) as usize).min(sorted.len() - 1)];
         eprintln!(
-            "[sense-tap] received={} gaps={} bytes={} p50={:.2}ms p95={:.2}ms max={:.2}ms",
+            "[stream-tap] received={} gaps={} bytes={} p50={:.2}ms p95={:.2}ms max={:.2}ms",
             s.received,
             s.gaps,
             bytes.len(),
@@ -54,7 +54,7 @@ fn frames(request: Request<'_>, stats: State<'_, Mutex<Stats>>) {
 }
 
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("sense")
+    Builder::new("stream")
         .invoke_handler(tauri::generate_handler![frames])
         .setup(|app, _| {
             app.manage(Mutex::new(Stats::default()));

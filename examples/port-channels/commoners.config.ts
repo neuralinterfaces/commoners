@@ -12,7 +12,7 @@ export default {
   icon: './icon.png',
   desktop: { backgroundThrottling: false }, // Keep the stream at full rate when a window is hidden
   // Tauri: a Rust plugin receives the tapped stream (see rust/)
-  tauri: { plugin: { path: './rust', permissions: ['sense:allow-frames'] } },
+  tauri: { plugin: { path: './rust', permissions: ['stream:allow-frames'] } },
   plugins: {
     windows: windowsPlugin({
       receiver: { src: join(root, 'index.html'), window: { width: 640, height: 220 } },

@@ -10,7 +10,7 @@
 <tr>
 <td>
 
-`sense:allow-frames`
+`stream:allow-frames`
 
 </td>
 <td>
@@ -23,7 +23,7 @@ Enables the frames command without any pre-configured scope.
 <tr>
 <td>
 
-`sense:deny-frames`
+`stream:deny-frames`
 
 </td>
 <td>

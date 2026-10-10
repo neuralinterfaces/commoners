@@ -36,7 +36,7 @@ Commoners currently uses Electron for desktop, which bundles Chromium (~200 MB).
 ## Where Commoners Came From
 Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) for an impossible task: distributing a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux), and mobile (iOS/Android) -- with real-time brain-computer interface backends written in Python and C++. [It works.](https://github.com/neuralinterfaces/brainsatplay)
 
-Since then, Commoners has been used for commercial products at [Universal Brain](https://universal-brain.com/) and continues to evolve as a general-purpose cross-platform tool.
+Since then, Commoners has been used for commercial products and continues to evolve as a general-purpose cross-platform tool.
 
 ## When to Use Something Else
 

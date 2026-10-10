@@ -1,8 +1,8 @@
 [package]
-name = "tauri-plugin-sense"
+name = "tauri-plugin-stream"
 version = "0.1.0"
 edition = "2021"
-links = "tauri-plugin-sense"
+links = "tauri-plugin-stream"
 
 [dependencies]
 tauri = "2"

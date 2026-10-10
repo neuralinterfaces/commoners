@@ -461,7 +461,7 @@ export type DesktopOptions = {
   // Main window as a transparent, frameless overlay above other apps (Electron and Tauri)
   overlay?: boolean | import('./assets/utils/overlay.js').OverlayOptions
   // false keeps hidden or occluded windows running at full rate (timers, workers). Needed for
-  // windows that host a data stream, e.g. a sense broker in a popover
+  // windows that host a data stream that must keep running while hidden
   backgroundThrottling?: boolean
 }
 

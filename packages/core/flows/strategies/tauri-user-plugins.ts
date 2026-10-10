@@ -10,7 +10,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 
 export type TauriUserPluginConfig = {
   path: string // Crate directory, relative to the project root
-  permissions?: string[] // Granted to the main window, e.g. 'sense:allow-frames'
+  permissions?: string[] // Granted to the main window, e.g. 'myplugin:allow-frames'
 }
 
 export type ResolvedTauriUserPlugin = {

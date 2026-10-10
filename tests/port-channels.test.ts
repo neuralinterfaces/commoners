@@ -68,7 +68,7 @@ describe('port channels', () => {
     port1.close()
   })
 
-  // The overlay window may start listening after the broker has already sent its port
+  // The receiving window may start listening after the sender has already sent its port
   test('a receiver that registers late still gets the port and the frames sent before it', async () => {
     const sender = windowChannels()
     const { port1, port2 } = new MessageChannel()
