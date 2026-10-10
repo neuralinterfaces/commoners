@@ -63,6 +63,12 @@ const { config, electron: electronOptions, plugins } = electronConfig
 const options = Config.parseOptions(electronConfig, isProduction)
 const { protocolOptions, windowOptions, overlay, securitySettings } = options
 
+// Packaged pages from app://local instead of file:// (electron.origin: 'app'). Never in
+// development: the dev server already gives pages a real origin
+const useAppOrigin = electronOptions.origin === 'app' && !DEV_SERVER_URL
+const crossOriginIsolation = config.security?.crossOriginIsolation === true
+let appOriginCSP: string | null = null
+
 // Generate capabilities-driven IPC allowlist from declared plugins and services
 const pluginIds = Object.keys(plugins)
 const serviceIds = Object.keys(config.services || {})
@@ -211,7 +217,13 @@ Security.runVerification(isProduction, {
     // window.location. Without this, dev-mode in-window navigation between file://
     // pages loses ?id=... etc.
     const loadFile = (loc: string) =>
-      runtime.window.loadURL(win, pathToFileURL(loc).href + search + hash)
+      runtime.window.loadURL(
+        win,
+        ((useAppOrigin && Protocol.toAppOriginUrl(loc, ASSET_ROOT_DIR)) ||
+          pathToFileURL(loc).href) +
+          search +
+          hash
+      )
 
     const result = await loadFile(location)
       .then(() => location)
@@ -340,7 +352,10 @@ Security.runVerification(isProduction, {
       // URL pathname will be like: /path/to/app.asar/pages/windows/index.html
       // We need to extract just: pages/windows/index.html
       const asarIndex = pathname.indexOf('.asar/')
-      if (asarIndex !== -1) {
+      const appOriginPath = Protocol.fromAppOriginUrl(url)
+      if (appOriginPath) {
+        pathname = appOriginPath
+      } else if (asarIndex !== -1) {
         // Extract path after .asar/
         pathname = pathname.slice(asarIndex + 6) // '.asar/'.length = 6
         if (!pathname || pathname === '/') pathname = 'index.html'
@@ -504,8 +519,17 @@ Security.runVerification(isProduction, {
   // ------------------------ Protocol Registration ------------------------
   const hasCustomProtocol = !!protocolOptions.scheme
   if (hasCustomProtocol) {
+    if (useAppOrigin && protocolOptions.scheme === Protocol.APP_SCHEME)
+      throw new Error(
+        `electron.protocol "${Protocol.APP_SCHEME}" is reserved by electron.origin: 'app'`
+      )
     runtime.protocol.registerScheme(protocolOptions)
   }
+  if (useAppOrigin)
+    runtime.protocol.registerScheme({
+      scheme: Protocol.APP_SCHEME,
+      privileges: Protocol.APP_SCHEME_PRIVILEGES,
+    })
 
   if (config.name) runtime.app.setName(config.name)
 
@@ -558,7 +582,10 @@ Security.runVerification(isProduction, {
 
           // Setup Content Security Policy
           Security.setupContentSecurityPolicy(
-            csp => runtime.session.setupCSP(csp),
+            csp => {
+              appOriginCSP = csp
+              runtime.session.setupCSP(csp)
+            },
             securitySettings.csp,
             DEV_SERVER_URL,
             serviceUrls,
@@ -665,6 +692,28 @@ Security.runVerification(isProduction, {
             }
           }
 
+          // App origin: serve the packaged pages and assets with their response headers
+          if (useAppOrigin) {
+            runtime.protocol.handleRequest(Protocol.APP_SCHEME, async req => {
+              const relative = Protocol.fromAppOriginUrl(req.url)
+              const location = relative ? getPageLocation(relative) : null
+              const contained =
+                location &&
+                Protocol.toAppOriginUrl(location, ASSET_ROOT_DIR) !== null &&
+                existsSync(location)
+              if (!contained) return new Response('Not found', { status: 404 })
+
+              const file = await runtime.protocol.fetch(pathToFileURL(location).href)
+              return new Response(file.body, {
+                status: file.status,
+                headers: Protocol.appOriginHeaders(location, {
+                  csp: appOriginCSP,
+                  crossOriginIsolation,
+                }),
+              })
+            })
+          }
+
           // Custom protocol handler
           if (hasCustomProtocol) {
             const { scheme } = protocolOptions
@@ -680,7 +729,8 @@ Security.runVerification(isProduction, {
                 const isAppOrigin = source.startsWith(`${scheme}://`)
                 const isDevOrigin = DEV_SERVER_URL && source.startsWith(DEV_SERVER_URL)
                 const isFileOrigin = source.startsWith('file://')
-                if (!isAppOrigin && !isDevOrigin && !isFileOrigin) {
+                const isServedOrigin = Protocol.isAppOriginUrl(source)
+                if (!isAppOrigin && !isDevOrigin && !isFileOrigin && !isServedOrigin) {
                   hooks.emit({ type: 'security:protocol:blocked', origin: source, url: req.url })
                   return new Response('Forbidden', { status: 403 })
                 }

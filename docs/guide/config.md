@@ -215,6 +215,25 @@ export default {
 
 When `build.sign` or `build.publish` is enabled, ASAR integrity hashes are automatically embedded into the application binary and verified at runtime via Electron fuses. See [Desktop Targets](./targets/desktop) for platform-specific signing details.
 
+#### `electron.origin`
+Where packaged pages load from. The default, `'file'`, loads them from `file://`. `'app'` serves them from `app://local` through a protocol handler in the main process:
+
+```js
+export default {
+    electron: { origin: 'app' },
+    security: { crossOriginIsolation: true }, // Optional: SharedArrayBuffer on Electron too
+}
+```
+
+With `'app'`:
+
+- Pages have a real origin (`app://local`) instead of `file://`, so `'self'` in the CSP means the app's own files.
+- The CSP is sent as a response header, so header-only directives such as `frame-ancestors` apply.
+- `security.crossOriginIsolation` takes effect on Electron, as it does on the web and Tauri: responses carry COOP/COEP/CORP and `crossOriginIsolated` is `true`.
+- Only files inside the packaged app are served. A `file://` page can `fetch()` any file the user can read; an `app://local` page cannot. Paths that escape the app (`..`, encoded or not) return 404.
+
+Development is unchanged: the dev server already gives pages a real origin. The `app` scheme is reserved in this mode, so `electron.protocol` cannot also be `'app'`. Services see requests with `Origin: app://local` rather than `null`.
+
 ### Vite
 The `vite` property defines the Vite options of your application. This value is used to configure the Vite options of your application.
 

@@ -147,6 +147,8 @@ function spawnService(service) {
 
 **Current state (implemented):** CSP covers inline scripts via SHA-256 hash (no `unsafe-inline` in production). Service URLs added to `connect-src` dynamically. `script-hashes.json` generated at build time and consumed by Electron security module.
 
+Packaged pages loaded from `file://` ignore `onHeadersReceived`, so the build also writes the CSP as a `<meta>` tag. `file://` has two limits that a meta tag cannot fix: header-only directives (`frame-ancestors`) and COOP/COEP do not apply, and script in the page can `fetch()` any local file the user can read. `electron.origin: 'app'` (opt-in) serves packaged pages from `app://local` with the CSP and isolation headers on every response and serves nothing outside the app. Candidate for the default once it has run across the example apps.
+
 **Proposed controls:**
 - Audit CSP against actual content sources
 - Add `wasm-unsafe-eval` directive for WASM services

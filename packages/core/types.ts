@@ -443,6 +443,9 @@ export type ElectronOptions = {
   protocol?: string | CustomScheme
   build?: ElectronBuilderConfiguration
   security?: boolean | ElectronSecuritySettings // Whether to use secure builds (default: true)
+  // Where packaged pages load from. 'app' serves them from app://local with response headers
+  // (CSP, and COOP/COEP when security.crossOriginIsolation is on) instead of file:// (default)
+  origin?: 'file' | 'app'
   // When true (default), a second launch of the app focuses the existing
   // window instead of starting a new instance. Set to false to allow
   // concurrent instances — useful in dev for hot-reloading scenarios where

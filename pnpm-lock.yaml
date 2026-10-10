@@ -125,6 +125,8 @@ importers:
         specifier: ^9.0.0
         version: 9.26.1
 
+  examples/app-origin: {}
+
   examples/bench: {}
 
   examples/demo:

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>App Origin</title>
+  </head>
+  <body>
+    <h1>App Origin</h1>
+    <pre id="out"></pre>
+    <script type="module">
+      const out = document.getElementById('out')
+      const echo = commoners.SERVICES.echo
+      const service = echo?.url ? await fetch(echo.url).then(r => r.json()) : null
+      out.textContent = JSON.stringify(
+        {
+          origin: location.origin,
+          crossOriginIsolated: globalThis.crossOriginIsolated,
+          sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+          service,
+        },
+        null,
+        2
+      )
+    </script>
+  </body>
+</html>
