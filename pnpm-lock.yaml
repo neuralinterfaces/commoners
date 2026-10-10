@@ -35,25 +35,25 @@ importers:
         specifier: ^2.30.0
         version: 2.30.0(@types/node@24.12.0)
       '@commoners/bluetooth':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/plugins/devices/ble
       '@commoners/local-services':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/plugins/local-services
       '@commoners/serial':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/plugins/devices/serial
       '@commoners/solidarity':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/core
       '@commoners/splash-screen':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/plugins/splash-screen
       '@commoners/testing':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/testing
       '@commoners/windows':
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/plugins/windows
       '@eslint/js':
         specifier: ^9.36.0
@@ -74,7 +74,7 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(vitest@4.0.18(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1))
       commoners:
-        specifier: 1.0.0-alpha.3
+        specifier: workspace:*
         version: link:packages/cli
       eslint:
         specifier: ^9.36.0
@@ -334,6 +334,12 @@ importers:
         version: 7.3.1(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
 
   packages/plugins/devices/serial:
+    devDependencies:
+      vite:
+        specifier: ^7.3.1
+        version: 7.3.1(@types/node@24.12.0)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
+
+  packages/plugins/haptics:
     devDependencies:
       vite:
         specifier: ^7.3.1
@@ -5755,6 +5761,7 @@ packages:
   rcedit@4.0.1:
     resolution: {integrity: sha512-bZdaQi34krFWhrDn+O53ccBDw0MkAT2Vhu75SqhtvhQu4OPyFM4RoVheyYiVQYdjhUi6EJMVWQ0tR6bCIYVkUg==}
     engines: {node: '>= 14.0.0'}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   read-binary-file-arch@1.0.6:
     resolution: {integrity: sha512-BNg9EN3DD3GsDXX7Aa8O4p92sryjkmzYYgmgTAc6CA4uGLEDzFfxOxugu21akOxpcXHiEgsYkC6nPsQvLLLmEg==}
