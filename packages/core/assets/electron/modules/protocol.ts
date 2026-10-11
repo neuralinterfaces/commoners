@@ -129,6 +129,22 @@ export function isAllowedOrigin(source: string, scheme: string, devServerUrl?: s
 // previous registration rather than adding to it
 const privilegedSchemes: { scheme: string; privileges: Record<string, boolean> }[] = []
 
+// Protocols shell.openExternal may hand to the OS. Others (file:, smb:, custom app schemes) can
+// launch local programs, so they are refused unless the app allows them explicitly
+export const DEFAULT_EXTERNAL_PROTOCOLS = ['https:', 'http:', 'mailto:']
+
+export function isAllowedExternal(
+  url: string,
+  allowed: string[] = DEFAULT_EXTERNAL_PROTOCOLS
+): boolean {
+  try {
+    const { protocol } = new URL(url)
+    return allowed.map(p => (p.endsWith(':') ? p : `${p}:`).toLowerCase()).includes(protocol)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Register a custom protocol scheme
  */

@@ -25,7 +25,7 @@ features:
     details: Python, Rust, C++, WASM or Node, declared in config. Each is built for the target, bundled, started, health-checked and stopped with your app — local on desktop, remote for web and mobile, with the same frontend code.
   - icon: 🛡️
     title: Secure by Default
-    details: One Content Security Policy across web, Electron and Tauri. Isolation and sandboxing on. Signed service binaries checked at launch on Electron. commoners verify-headers checks a deployment.
+    details: One Content Security Policy across web, Electron and Tauri. Isolation and sandboxing on, and external links limited to web and mail protocols. Opt in to check signed service binaries against your publisher at launch. commoners verify-headers checks a deployment.
     link: /guide/security
   - icon: 📋
     title: Every Build Shows Its Work

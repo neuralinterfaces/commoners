@@ -425,6 +425,9 @@ export type ElectronSecuritySettings = {
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
   asarIntegrity?: boolean | { strict?: boolean } // Enable ASAR integrity checks (default: true)
   csp?: string | false | Record<string, string[]> // Content Security Policy override. String for full CSP, object for per-directive overrides, false to disable.
+  // Protocols that links and window.open may open in the OS (default: https, http, mailto).
+  // Others, such as file: or custom app schemes, are refused because they can launch programs
+  externalProtocols?: string[]
   /**
    * Expected publisher (substring of cert subject) for service binary verification.
    * When set on a signed build, each executable service is verified against the OS

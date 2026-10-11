@@ -11,6 +11,7 @@ import {
   toAppOriginUrl,
   fromAppOriginUrl,
   appOriginHeaders,
+  isAllowedExternal,
 } from '../packages/core/assets/electron/modules/protocol'
 
 describe('Protocol Utilities', () => {
@@ -188,5 +189,25 @@ describe('App origin', () => {
     expect(isolated['Cross-Origin-Opener-Policy']).toBe('same-origin')
     expect(isolated['Cross-Origin-Embedder-Policy']).toBe('require-corp')
     expect(isolated['Cross-Origin-Resource-Policy']).toBe('same-origin')
+  })
+})
+
+describe('External links', () => {
+  test('web and mail links may open in the OS by default', () => {
+    expect(isAllowedExternal('https://example.com')).toBe(true)
+    expect(isAllowedExternal('http://example.com')).toBe(true)
+    expect(isAllowedExternal('mailto:a@example.com')).toBe(true)
+  })
+
+  test('protocols that can launch local programs are refused by default', () => {
+    expect(isAllowedExternal('file:///Applications/Calculator.app')).toBe(false)
+    expect(isAllowedExternal('smb://host/share')).toBe(false)
+    expect(isAllowedExternal('someapp://run?x=1')).toBe(false)
+    expect(isAllowedExternal('not a url')).toBe(false)
+  })
+
+  test('an app can allow more protocols, with or without the colon', () => {
+    expect(isAllowedExternal('zoommtg://join', ['https', 'zoommtg'])).toBe(true)
+    expect(isAllowedExternal('mailto:a@example.com', ['https:'])).toBe(false)
   })
 })

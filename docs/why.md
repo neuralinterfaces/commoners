@@ -13,7 +13,7 @@ Commoners is an orchestration layer driven by a single `commoners.config.ts`:
 
 1. **Services in any language.** TypeScript, Python, C++, Rust or WASM. Each service is built for the target platform, bundled, started, health-checked and stopped with your app.
 2. **Services that adapt to the target.** On desktop, services run as local processes inside the app. On web and mobile, the same services deploy remotely. Your frontend code doesn't change.
-3. **Secure by default, on every target.** One Content Security Policy across web, Electron and Tauri, isolation and sandboxing on, and signed service binaries checked at launch on Electron. See [Security](./guide/security.md).
+3. **Secure by default, on every target.** One Content Security Policy across web, Electron and Tauri, isolation and sandboxing on, and (opt-in) signed service binaries checked against your publisher at launch on Electron. See [Security](./guide/security.md).
 4. **Every build shows its work.** Production builds write a CycloneDX software bill of materials and a manifest of settings, features and file hashes. See [Build Record](./guide/config.md#build-record).
 5. **Framework-agnostic.** Your frontend is HTML, CSS and JavaScript. Use React, Vue, Svelte, or nothing at all.
 
@@ -35,7 +35,7 @@ Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) 
 
 Apps like that carry hardware access and scientific backends, and the teams behind them have to show what is in each build. That shaped the defaults:
 - one security policy across targets;
-- signed service binaries checked at launch;
+- service binaries that can be checked against their publisher at launch;
 - build-time removal of what a build doesn't need;
 - a record of every production build.
 

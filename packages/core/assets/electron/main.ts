@@ -150,6 +150,16 @@ Security.runVerification(isProduction, {
     ...platformDependentWindowConfig,
   }
 
+  // Links and window.open leave the app only for allowed protocols (see externalProtocols)
+  const openExternal = (url: string) => {
+    if (Protocol.isAllowedExternal(url, securitySettings.externalProtocols))
+      return runtime.shell.openExternal(url)
+    console.warn(
+      `[commoners] Refused to open ${url}: protocol not in electron.security.externalProtocols`
+    )
+    hooks.emit({ type: 'security:external:blocked', url } as any)
+  }
+
   // ------------------------ Page Loading Helpers ------------------------
   function getPageLocation(pathname: string = 'index.html', alt = false): string | null {
     if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
@@ -336,7 +346,7 @@ Security.runVerification(isProduction, {
       if (!Protocol.isCommonersUrl(url, DEV_SERVER_URL)) {
         const type = await Protocol.checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url)
-        if (isMainWindow) return runtime.shell.openExternal(url)
+        if (isMainWindow) return openExternal(url)
         else return runtime.window.loadURL(win, url)
       }
 
@@ -396,7 +406,7 @@ Security.runVerification(isProduction, {
     runtime.ipc.once(Commands.quit.channel, (_, message) => globalThis.COMMONERS_QUIT?.(message))
 
     runtime.window.setWindowOpenHandler(win, ({ url }) => {
-      runtime.shell.openExternal(url)
+      openExternal(url)
       return { action: 'deny' }
     })
 
