@@ -57,18 +57,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron-toolkit/utils": "^4.0.0",
-    "@electron/asar": "^4.1.0",
-    "@electron/fuses": "^2.1.0",
-    "@electron/notarize": "^3.1.1",
     "bonjour-service": "^1.3.0",
     "boxen": "^8.0.1",
     "chalk": "^5.2.0",
     "dotenv": "^16.3.1",
-    "electron": "^40.8.0",
-    "electron-builder": "^26.8.1",
-    "electron-builder-squirrel-windows": "^26.0.0",
     "esbuild": "^0.27.3",
     "figures": "^6.1.0",
     "js-yaml": "^4.1.0",
@@ -76,16 +69,21 @@
     "ora": "^9.0.0",
     "path-browserify": "^1.0.1",
     "plist": "^3.1.0",
-    "process": "^0.11.10",
     "vite": "^7.3.1",
-    "vite-plugin-dts": "^4.5.4",
-    "vite-plugin-pwa": "^1.2.0",
     "ws": "^8.18.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@electron/fuses": "^2.1.0",
+    "@electron/notarize": "^3.1.1",
     "@types/node": "^20.19.15",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
+    "electron-builder-squirrel-windows": "^26.0.0",
     "typescript": "^5.0.0",
+    "vite-plugin-dts": "^4.5.4",
+    "vite-plugin-pwa": "^1.2.0",
     "vite-plugin-static-copy": "^3.2.0"
   },
   "optionalDependencies": {
@@ -95,7 +93,13 @@
     "@capacitor/android": "^8.2.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.2.0",
-    "@capacitor/ios": "^8.2.0"
+    "@capacitor/ios": "^8.2.0",
+    "@electron/fuses": "^2.1.0",
+    "@electron/notarize": "^3.1.1",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
+    "electron-builder-squirrel-windows": "^26.0.0",
+    "vite-plugin-pwa": "^1.2.0"
   },
   "peerDependenciesMeta": {
     "@capacitor/android": {
@@ -108,6 +112,24 @@
       "optional": true
     },
     "@capacitor/ios": {
+      "optional": true
+    },
+    "@electron/fuses": {
+      "optional": true
+    },
+    "@electron/notarize": {
+      "optional": true
+    },
+    "electron": {
+      "optional": true
+    },
+    "electron-builder": {
+      "optional": true
+    },
+    "electron-builder-squirrel-windows": {
+      "optional": true
+    },
+    "vite-plugin-pwa": {
       "optional": true
     }
   }

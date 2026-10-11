@@ -59,8 +59,14 @@ export const PLATFORM = getOS() // Declared Mobile OR Implicit Desktop Patform
 // Ensure __filename is available in ES Modules
 const __filename = getFilename(import.meta.url)
 const require = createRequire(import.meta.url)
-const { version: electronVersion } = require('electron/package.json')
-export { electronVersion }
+// Electron is an optional peer dependency (desktop builds only): undefined when not installed
+export const getElectronVersion = (): string | undefined => {
+  try {
+    return require('electron/package.json').version
+  } catch {
+    return undefined
+  }
+}
 
 export const globalTempDir = join(globalWorkspacePath, '.tmp')
 

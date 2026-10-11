@@ -15,10 +15,12 @@
     "@commoners/splash-screen": "^1.0.0-alpha.3"
   },
   "devDependencies": {
-    "commoners": "^1.0.0-alpha.3",
+    "@capacitor/android": "^8.2.0",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0",
-    "@capacitor/android": "^8.2.0"
+    "commoners": "^1.0.0-alpha.3",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1"
   }
 }

@@ -9,7 +9,8 @@ import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_ELECTRON, DIR_ELECTRON } from '../../constants.js'
 import { parseOptions } from '../../assets/electron/modules/config.js'
 
-import { globalTempDir, getBuildConfig, templateDir, electronVersion } from '../../globals.js'
+import { globalTempDir, getBuildConfig, templateDir, getElectronVersion } from '../../globals.js'
+import { importOptional } from '../../utils/optional.js'
 import { configureForDesktop } from '../../index.js'
 import merge from '../../utils/merge.js'
 import { lstatSync } from '../../utils/lstat.js'
@@ -98,7 +99,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     )
 
     // Package the app
-    const { build } = await import('electron-builder')
+    const { build } = await importOptional<typeof import('electron-builder')>(
+      'electron-builder',
+      'Desktop (Electron) builds',
+      ['electron', 'electron-builder']
+    )
     await build(electronBuilderConfig)
 
     logger.debug('Emitting build:electron:complete', { name, outDir })
@@ -191,6 +196,12 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
 
     // Set Electron version
     if (!('electronVersion' in buildConfig)) {
+      const electronVersion = getElectronVersion()
+      if (!electronVersion)
+        await importOptional('electron', 'Desktop (Electron) builds', [
+          'electron',
+          'electron-builder',
+        ])
       buildConfig.electronVersion = electronVersion
     }
 

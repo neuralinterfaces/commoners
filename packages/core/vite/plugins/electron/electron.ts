@@ -61,7 +61,11 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks(), o
   }
 
   const { spawn } = await import('node:child_process')
-  const electron = await import('electron')
+  const { importOptional } = await import('../../../utils/optional.js')
+  const electron = await importOptional('electron', 'Desktop (Electron) development', [
+    'electron',
+    'electron-builder',
+  ])
 
   const electronPath = <any>(electron.default ?? electron)
 

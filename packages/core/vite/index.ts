@@ -149,7 +149,11 @@ export const resolveViteConfig = async (
       outDir
     )
 
-    const VitePWAPlugin = await import('vite-plugin-pwa').then(m => m.VitePWA)
+    const { importOptional } = await import('../utils/optional.js')
+    const VitePWAPlugin = await importOptional<typeof import('vite-plugin-pwa')>(
+      'vite-plugin-pwa',
+      'PWA builds'
+    ).then(m => m.VitePWA)
 
     const pwaPlugins = VitePWAPlugin({ registerType: 'autoUpdate', ...opts })
     plugins.push(...(Array.isArray(pwaPlugins) ? pwaPlugins : [pwaPlugins]))

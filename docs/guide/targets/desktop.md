@@ -11,6 +11,14 @@ commoners --target desktop
 commoners build --target desktop
 ```
 
+**Install the desktop toolchain in your project.** Electron builds need `electron` and `electron-builder`; Commoners treats them as optional peer dependencies, so a web-only app never installs a desktop toolchain. Projects created with `create-commoners` already include them.
+
+```bash
+npm install --save-dev electron electron-builder
+```
+
+If they are missing, a desktop build stops and prints this command. Tauri builds use the Tauri CLI and a Rust toolchain instead.
+
 ## Choosing a Runtime: Electron vs Tauri
 
 Commoners supports two desktop runtimes. Use `--target desktop` (defaults to Electron) or specify explicitly:
