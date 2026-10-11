@@ -83,7 +83,7 @@ function createWebBackend() {
 
 // --- Desktop backend: IPC to main process ---
 
-function createDesktopBackend(invoke: Function) {
+function createDesktopBackend(invoke: (...args: any[]) => any) {
   return {
     async getInfo(): Promise<AppInfo> {
       return invoke('getInfo')
@@ -195,6 +195,7 @@ export default function context() {
     desktop: {
       start: function () {
         this.handle('getInfo', () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
           const { app } = require('electron')
           return {
             name: app.getName(),
@@ -202,11 +203,13 @@ export default function context() {
             platform: 'electron',
             runtime: 'electron',
             locale: app.getLocale(),
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
             online: require('electron').net?.online ?? true,
           }
         })
 
         this.handle('getPaths', () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
           const { app } = require('electron')
           return {
             data: app.getPath('userData'),

@@ -77,7 +77,10 @@ function createWebBus(namespace: string): MessagingBus {
 
 // --- Electron renderer backend: IPC relay ---
 
-function createElectronBus(send: Function, onIPC: Function): MessagingBus {
+function createElectronBus(
+  send: (...args: any[]) => any,
+  onIPC: (...args: any[]) => any
+): MessagingBus {
   const listeners = new Map<string, Set<(data: any) => void>>()
 
   const BUS_EMIT = 'commoners:events:emit'
@@ -152,6 +155,7 @@ export default function messaging(options: MessagingOptions = {}) {
           BUS_EMIT,
           (_event: any, topic: string, data: any) => {
             // Get all windows from Electron
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
             const { BrowserWindow } = require('electron')
             const allWindows = BrowserWindow.getAllWindows()
             for (const otherWin of allWindows) {

@@ -1,4 +1,3 @@
-
 import { spawn } from 'node:child_process'
 import { createNoOpHooks } from '../ui.js'
 import { createLogger } from '../assets/utils/logger.js'
@@ -7,7 +6,7 @@ const logger = createLogger('processes')
 
 const children = {}
 
-const kill = code => {
+const kill = _code => {
   for (const child in children) children[child].kill()
 }
 
@@ -26,9 +25,14 @@ export const runCommand = async (string, options, hooks = createNoOpHooks()) => 
   await spawnProcess(command, args, options, hooks)
 }
 
-export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } = {}, hooks = createNoOpHooks()) => {
+export const spawnProcess = (
+  command,
+  args,
+  { env = {}, opts = {}, cwd, label } = {},
+  hooks = createNoOpHooks()
+) => {
+  // eslint-disable-next-line no-async-promise-executor -- dropping async would change behaviour: a sync throw from spawn() would then reject this promise instead of leaving it pending
   return new Promise(async resolve => {
-
     label = label || command
 
     // NOTE: We don't need this in production builds...
@@ -46,7 +50,7 @@ export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } 
     children[proc.pid] = proc
 
     // Cleanup function to remove process and listeners
-    const cleanup = (res) => {
+    const cleanup = res => {
       delete children[proc.pid]
       // Remove all listeners to prevent memory leaks
       proc.removeAllListeners()
@@ -58,15 +62,15 @@ export const spawnProcess = (command, args, { env = {}, opts = {}, cwd, label } 
     // Process output is handled by the service management system
     // Individual process logs are no longer logged to console
     if (opts.log !== false) {
-      proc.stdout?.on('data', (data) => {
+      proc.stdout?.on('data', data => {
         logger.debug('Emitting service:stdout', { service: label })
         hooks.emit({ type: 'service:stdout', data, service: label })
       })
-      proc.stderr?.on('data', (data) => {
+      proc.stderr?.on('data', data => {
         logger.debug('Emitting service:stderr', { service: label })
         hooks.emit({ type: 'service:stderr', data, service: label })
       })
-      proc.on('error', (error) => {
+      proc.on('error', error => {
         logger.debug('Emitting service:error', { service: label, error: error.message })
         hooks.emit({ type: 'service:error', error, service: label })
       })

@@ -9,10 +9,10 @@ export const isSupported = {
 
 export function load() {
   return {
-    onAvailable: (callback) => {
+    onAvailable: callback => {
       this.on('available', callback)
     },
-    onDownloaded: (callback) => {
+    onDownloaded: callback => {
       this.on('downloaded', callback)
     },
     restart: () => {
@@ -23,6 +23,7 @@ export function load() {
 
 export const desktop = {
   load: function (win) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy runtime require in the Electron main process (optional dependency)
     const electronUpdater = require('electron-updater')
     const { autoUpdater } = electronUpdater
 
@@ -30,22 +31,22 @@ export const desktop = {
     autoUpdater.autoDownload = true
     autoUpdater.autoInstallOnAppQuit = true
 
-    autoUpdater.on('update-available', (info) => {
+    autoUpdater.on('update-available', info => {
       this.send('available', info)
     })
 
-    autoUpdater.on('update-downloaded', (info) => {
+    autoUpdater.on('update-downloaded', info => {
       this.send('downloaded', info)
     })
 
-    autoUpdater.on('error', (err) => {
+    autoUpdater.on('error', err => {
       console.error('[autoupdate] Error checking for updates:', err?.message || err)
     })
 
     this.on('restart', () => autoUpdater.quitAndInstall())
 
     win.once('ready-to-show', () => {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      autoUpdater.checkForUpdatesAndNotify().catch(err => {
         console.error('[autoupdate] Failed to check for updates:', err?.message || err)
       })
     })

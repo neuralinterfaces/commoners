@@ -8,7 +8,6 @@ import { createLogger } from './assets/utils/logger.js'
 import { createBuildFlow } from './flows/index.js'
 import { resolveConfig } from './index.js'
 import { getServiceAssets, buildAssets, getServicesToBuild } from './utils/assets.js'
-import { globalWorkspacePath } from './globals.js'
 
 import type { BuildHooks, ServiceBuildOptions, UserConfig } from './types.js'
 import type { Logger } from './assets/utils/logger.js'

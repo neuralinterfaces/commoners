@@ -62,7 +62,9 @@ export function pidTree(tree: PidTree): PidTree {
       ?.map(id => +id)
 
     if (childs) tree.children = childs.map(cid => pidTree({ pid: cid, ppid: tree.pid }))
-  } catch {} // Assume no children if command fails
+  } catch {
+    // Assume no children if command fails
+  }
 
   return tree
 }
@@ -86,6 +88,8 @@ export async function killTreeGracefully(tree: PidTree): Promise<void> {
   if (!died) {
     try {
       process.kill(tree.pid, 'SIGKILL')
-    } catch {} // Already dead
+    } catch {
+      // Already dead
+    }
   }
 }

@@ -10,14 +10,6 @@ import { DependencyError } from '../packages/core/errors'
 
 const projectBase = join(__dirname, '..', 'examples', 'demo')
 
-const baseConfig = {
-  name: 'test-app',
-  appId: 'com.test.app',
-  root: projectBase,
-  plugins: {},
-  target: 'mobile' as const,
-}
-
 describe('Capacitor config generation', () => {
   test('openConfig produces valid config with correct fields', async () => {
     const outDir = resolve(projectBase, '.commoners')
@@ -151,13 +143,17 @@ describe('Native config injection (unit)', () => {
     const coreRequire = createRequire(corePkgPath)
     plist = coreRequire('plist')
     plistAvailable = true
-  } catch {}
+  } catch {
+    // plist not resolvable: dependent tests are skipped
+  }
 
   try {
     const coreRequire = createRequire(corePkgPath)
     xml2js = coreRequire('xml2js')
     xml2jsAvailable = true
-  } catch {}
+  } catch {
+    // xml2js not resolvable: dependent tests are skipped
+  }
 
   test.skipIf(!plistAvailable)(
     'iOS plist permissions are structured correctly for injection',

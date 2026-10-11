@@ -31,7 +31,9 @@ export const removeDirectory = directory => {
       // Attempt a second time if failed. This will usually be sufficient for Windows.
       try {
         rmSync(directory, { recursive: true, force: true })
-      } catch {}
+      } catch {
+        // best effort: give up after the second attempt
+      }
     }
   }
 }

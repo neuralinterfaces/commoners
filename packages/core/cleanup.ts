@@ -62,7 +62,7 @@ const __exit = (code, force = true) => {
   return undefined
 }
 
-let __EXITING = {
+const __EXITING = {
   called: false,
   output: null,
 }

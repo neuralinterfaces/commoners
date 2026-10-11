@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- script-style service file (no imports/exports); a static import would make it an ES module
 const http = require('node:http')
 
 const host = process.env.HOST

@@ -3,7 +3,7 @@
  * Verifies that ASAR integrity protection is properly configured
  */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -39,6 +39,7 @@ function sha256(data: Buffer): string {
  * Returns just the JSON bytes (at offset 12, length jsonLen), or null on failure.
  */
 function readJsonHeaderBytes(asarPath: string): Buffer | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- function-local require kept as authored (lint-only change)
   const fs = require('fs')
   let fd = -1
   try {
@@ -57,13 +58,15 @@ function readJsonHeaderBytes(asarPath: string): Buffer | null {
     if (fs.readSync(fd, json, 0, jsonLen, 12) !== jsonLen) return null
 
     return json
-  } catch (e) {
+  } catch {
     return null
   } finally {
     if (fd >= 0) {
       try {
         fs.closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -73,6 +76,7 @@ function readJsonHeaderBytes(asarPath: string): Buffer | null {
  * Returns the complete header buffer, or null on failure.
  */
 function readFullHeaderBytes(asarPath: string): Buffer | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- function-local require kept as authored (lint-only change)
   const fs = require('fs')
   let fd = -1
   try {
@@ -88,13 +92,15 @@ function readFullHeaderBytes(asarPath: string): Buffer | null {
     if (fs.readSync(fd, full, 12, jsonLen, 12) !== jsonLen) return null
 
     return full
-  } catch (e) {
+  } catch {
     return null
   } finally {
     if (fd >= 0) {
       try {
         fs.closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -195,7 +201,7 @@ function verifyMacOS(appPath: string): VerificationResult {
         } else {
           result.warnings.push('Fuse sentinel not detected in executable')
         }
-      } catch (e) {
+      } catch {
         result.warnings.push('Could not check for fuse sentinel')
       }
     }
@@ -213,7 +219,7 @@ function verifyMacOS(appPath: string): VerificationResult {
 /**
  * Verify ASAR integrity for Windows .exe
  */
-function verifyWindows(exePath: string): VerificationResult {
+function verifyWindows(_exePath: string): VerificationResult {
   const result: VerificationResult = {
     success: false,
     errors: [],

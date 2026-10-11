@@ -3,7 +3,7 @@
  * Uses ffi-napi and ref-napi to write integrity data into executable resources
  */
 
-import { basename, dirname } from 'node:path'
+import { basename } from 'node:path'
 import { existsSync, statSync } from 'node:fs'
 import { createLogger } from '../../assets/utils/logger.js'
 
@@ -18,8 +18,10 @@ let ffiAvailable = false
 // Try to load FFI on Windows
 if (process.platform === 'win32') {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency, loaded only on win32
     const ffi = require('ffi-napi')
-    const ref = require('ref-napi')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency; loaded so a missing ref-napi disables FFI
+    require('ref-napi')
 
     K = ffi.Library('Kernel32', {
       GetLastError: ['uint32', []],
@@ -35,7 +37,7 @@ if (process.platform === 'win32') {
     })
 
     ffiAvailable = true
-  } catch (e: any) {
+  } catch {
     ffiAvailable = false
     // Error will be handled by dependency validation
   }
@@ -142,6 +144,7 @@ export function readIntegrityResource(exePath: string): Array<{
       return []
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency, loaded only on win32
     const ref = require('ref-napi')
 
     // More robust load flags - try them in order of preference
@@ -154,7 +157,6 @@ export function readIntegrityResource(exePath: string): Array<{
 
     let mod = null
     let lastError = 0
-    let successfulFlag = null
 
     for (const attempt of loadAttempts) {
       try {
@@ -162,7 +164,6 @@ export function readIntegrityResource(exePath: string): Array<{
         lastError = lastErr()
 
         if (mod && !(mod.isNull && mod.isNull())) {
-          successfulFlag = attempt.name
           logger.info(`LoadLibraryExW succeeded with ${attempt.name}`)
           break
         }
@@ -243,6 +244,7 @@ export async function writeIntegrityResourceRcedit(
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency, loaded only on win32
     const rcedit = require('rcedit')
 
     // Use file version info as a more reliable storage method
@@ -287,7 +289,9 @@ export function checkWindowsDependencies(): WindowsDependencyStatus {
 
   // Check FFI dependencies
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
     require('ffi-napi')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
     require('ref-napi')
     status.ffiAvailable = ffiAvailable
   } catch (e: any) {
@@ -296,6 +300,7 @@ export function checkWindowsDependencies(): WindowsDependencyStatus {
 
   // Check rcedit
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
     require('rcedit')
     status.rceditAvailable = true
   } catch (e: any) {

@@ -4,7 +4,7 @@ export const isValidURL = s => {
   try {
     new URL(s)
     return true
-  } catch (err) {
+  } catch {
     return false
   }
 }

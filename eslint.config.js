@@ -5,6 +5,21 @@ import tsparser from '@typescript-eslint/parser'
 import prettier from 'eslint-plugin-prettier'
 import prettierConfig from 'eslint-config-prettier'
 
+// Paths the source-lint entries below skip (shared so the TS-only entry matches the same set)
+const sourceIgnores = [
+  'dist/**',
+  'node_modules/**',
+  'coverage/**',
+  'build/**',
+  '.commoners/**',
+  'docs/.vitepress/dist/**',
+  'docs/.vitepress/cache/**',
+  '**/assets/**',
+  'docs/.vitepress/**',
+  'packages/plugins/integrity/**',
+  'packages/plugins/secure-services/**',
+]
+
 export default [
   // Build output and generated files, everywhere: a global ignore (an object with only
   // `ignores`) applies to every entry below, including js.configs.recommended
@@ -22,19 +37,7 @@ export default [
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx,js,jsx}'],
-    ignores: [
-      'dist/**',
-      'node_modules/**',
-      'coverage/**',
-      'build/**',
-      '.commoners/**',
-      'docs/.vitepress/dist/**',
-      'docs/.vitepress/cache/**',
-      '**/assets/**',
-      'docs/.vitepress/**',
-      'packages/plugins/integrity/**',
-      'packages/plugins/secure-services/**',
-    ],
+    ignores: sourceIgnores,
     languageOptions: {
       globals: {
         ...globals.node,
@@ -46,7 +49,8 @@ export default [
       parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
-        project: true,
+        // No type-aware rules are enabled, so no tsconfig project: files outside every
+        // tsconfig (configs, examples, scripts) parse instead of failing
       },
     },
     plugins: {
@@ -70,6 +74,21 @@ export default [
 
       // Prettier integration
       'prettier/prettier': 'error',
+    },
+  },
+  // TypeScript-only ambient types (lib.dom / @types/node) that no-undef cannot see,
+  // declared like `Electron` above rather than turning no-undef off for TS
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: sourceIgnores,
+    languageOptions: {
+      globals: {
+        NodeJS: 'readonly',
+        BufferEncoding: 'readonly',
+        NodeListOf: 'readonly',
+        IDBTransactionMode: 'readonly',
+        WindowProxy: 'readonly',
+      },
     },
   },
 ]

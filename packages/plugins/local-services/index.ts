@@ -31,8 +31,6 @@ export default ({ type = DEFAULT_TYPE, register = [] }: LocalServicePluginOption
     isSupported: ({ DESKTOP, DEV }) => DESKTOP || DEV,
 
     load() {
-      const discovered: Record<string, any> = {}
-
       return {
         getServices: async () => {
           return new Promise(resolve => {

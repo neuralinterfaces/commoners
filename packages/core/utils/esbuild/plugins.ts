@@ -1,5 +1,3 @@
-import { pathToFileURL } from 'node:url'
-
 export const importMetaResolvePlugin = () => {
   // Rolldown (Vite 8+) handles import.meta.url natively for Node targets.
   // This plugin is retained as a no-op for backward compatibility with Vite 7.

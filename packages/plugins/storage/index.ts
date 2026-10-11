@@ -52,7 +52,7 @@ function createWebBackend() {
     async write(
       path: string,
       data: string | ArrayBuffer,
-      encoding: FilesystemEncoding = 'utf8'
+      _encoding: FilesystemEncoding = 'utf8'
     ): Promise<void> {
       if ('showSaveFilePicker' in window) {
         const handle = await (window as any).showSaveFilePicker({
@@ -94,7 +94,7 @@ function createWebBackend() {
 
 // --- Desktop backend: IPC to Electron main process ---
 
-function createDesktopBackend(invoke: Function) {
+function createDesktopBackend(invoke: (...args: any[]) => any) {
   return {
     read: (path: string, encoding: FilesystemEncoding = 'utf8') => invoke('read', path, encoding),
     write: (path: string, data: string | ArrayBuffer, encoding: FilesystemEncoding = 'utf8') =>
@@ -206,13 +206,16 @@ export default function filesystem(options: FilesystemOptions = {}) {
           mkdirSync,
           readdirSync,
           statSync,
-        } = require('node:fs')
+        } = require('node:fs') // eslint-disable-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy so renderer bundles never load node:fs
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy
         const { join, dirname } = require('node:path')
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
         const { app } = require('electron')
 
         const basePath = app.getPath(baseDir)
 
         function resolvePath(path: string): string {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy
           if (require('node:path').isAbsolute(path)) return path
           return join(basePath, path)
         }

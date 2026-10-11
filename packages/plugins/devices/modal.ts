@@ -1,9 +1,9 @@
 type ModalProps = {
   headerText: string
-  mapDeviceToInfo: Function
-  onClose: Function
-  added?: Function
-  removed?: Function
+  mapDeviceToInfo: (...args: any[]) => any
+  onClose: (...args: any[]) => any
+  added?: (...args: any[]) => any
+  removed?: (...args: any[]) => any
 }
 
 const name = 'commoners-device-modal'

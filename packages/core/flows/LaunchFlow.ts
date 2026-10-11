@@ -7,8 +7,6 @@ import { createLogger } from '../assets/utils/logger.js'
 import type { UserConfig, HooksInterface, ResolvedConfig, LaunchOutput } from '../types.js'
 import { resolveConfig, resolveHooks } from '../index.js'
 
-const logger = createLogger('launch-flow')
-
 /**
  * Platform-specific launch strategy interface
  */
@@ -183,7 +181,7 @@ export abstract class BaseLaunchStrategy implements LaunchStrategy {
 
   abstract launch(context: LaunchContext): Promise<LaunchOutput>
 
-  async cleanup(context: LaunchContext): Promise<void> {
+  async cleanup(_context: LaunchContext): Promise<void> {
     // Default: no cleanup
     this.logger.debug(`No cleanup needed for ${this.platform}`)
   }

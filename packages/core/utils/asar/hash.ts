@@ -19,6 +19,7 @@ export function sha256(buf: Buffer | Uint8Array): string {
  * Returns the JSON header bytes (without prelude), or null on failure.
  */
 export function readJsonHeaderBytes(asarPath: string): Buffer | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- function-local require kept as authored (lint-only change)
   const fs = require('node:fs')
   let fd = -1
   try {
@@ -43,7 +44,9 @@ export function readJsonHeaderBytes(asarPath: string): Buffer | null {
     if (fd >= 0) {
       try {
         fs.closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -53,6 +56,7 @@ export function readJsonHeaderBytes(asarPath: string): Buffer | null {
  * Returns the complete header buffer, or null on failure.
  */
 export function readFullHeaderBytes(asarPath: string): Buffer | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- function-local require kept as authored (lint-only change)
   const fs = require('node:fs')
   let fd = -1
   try {
@@ -74,7 +78,9 @@ export function readFullHeaderBytes(asarPath: string): Buffer | null {
     if (fd >= 0) {
       try {
         fs.closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }

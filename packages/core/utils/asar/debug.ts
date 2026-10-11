@@ -81,13 +81,15 @@ function readJsonHeaderBytes(asarPath: string): Buffer | null {
     if (readSync(fd, json, 0, jsonLen, 12) !== jsonLen) return null
 
     return json
-  } catch (e) {
+  } catch {
     return null
   } finally {
     if (fd >= 0) {
       try {
         closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -108,13 +110,15 @@ function readFullHeaderBytes(asarPath: string): Buffer | null {
     if (readSync(fd, full, 12, jsonLen, 12) !== jsonLen) return null
 
     return full
-  } catch (e) {
+  } catch {
     return null
   } finally {
     if (fd >= 0) {
       try {
         closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -174,7 +178,9 @@ function validateAsarStructure(asarPath: string): { isValid: boolean; error?: st
     if (fd >= 0) {
       try {
         closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }

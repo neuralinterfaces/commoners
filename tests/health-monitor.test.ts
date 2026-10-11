@@ -87,8 +87,7 @@ describe('ServiceHealthMonitor', () => {
 
   test('resets failure count on success', async () => {
     const hooks = createMockHooks()
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
+    vi.spyOn(globalThis, 'fetch')
       .mockRejectedValueOnce(new Error('fail'))
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce(new Response(null, { status: 200 }))

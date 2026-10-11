@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 let src: string | null = null
 try {
   src = resolve(fileURLToPath(import.meta.url))
-} catch {}
+} catch {
+  // import.meta.url unavailable in this bundle format: leave src as null
+}
 
 export function load({ DESKTOP, ENV }) {
   const originalEnv = structuredClone(ENV)

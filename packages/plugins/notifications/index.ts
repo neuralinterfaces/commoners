@@ -81,7 +81,7 @@ function createWebBackend() {
 
 // --- Desktop backend: IPC to Electron main process ---
 
-function createDesktopBackend(invoke: Function) {
+function createDesktopBackend(invoke: (...args: any[]) => any) {
   return {
     async notify(options: NotificationOptions): Promise<boolean> {
       return invoke('notify', options)
@@ -185,6 +185,7 @@ export default function notifications(options: NotificationsPluginOptions = {}) 
       start: function () {
         this.handle('notify', (_: any, options: NotificationOptions) => {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
             const { Notification } = require('electron')
             if (!Notification.isSupported()) return false
 

@@ -29,26 +29,40 @@ export function checkDependencies(targetArch?: string): DependencyStatus {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe; must not fail at import time
     require('@electron/fuses')
     status.fuses = true
-  } catch {}
+  } catch {
+    // not installed: status.fuses stays false
+  }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
     require('ffi-napi')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
     require('ref-napi')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
     require('ref-struct-napi')
     status.ffi = true
-  } catch {}
+  } catch {
+    // not installed: status.ffi stays false
+  }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
     require('rcedit')
     status.rcedit = true
-  } catch {}
+  } catch {
+    // not installed: status.rcedit stays false
+  }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
     require('plist')
     status.plist = true
-  } catch {}
+  } catch {
+    // not installed: status.plist stays false
+  }
 
   const archWarning = detectArchitectureMismatch(targetArch)
   if (archWarning) {

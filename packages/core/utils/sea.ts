@@ -48,7 +48,7 @@ export type SEABuildResult = {
  * @returns Build result with executable path
  */
 export async function createSEA(options: SEABuildOptions): Promise<SEABuildResult> {
-  const { src, out, platform = process.platform, force = false, sign = true } = options
+  const { src, out, platform = process.platform, sign = true } = options
 
   try {
     // Setup paths

@@ -24,7 +24,7 @@ class Hooks implements HooksInterface {
     typeHandlers.forEach(handler => {
       try {
         handler(event)
-      } catch (error) {
+      } catch {
         // Silently continue if handler throws
       }
     })
@@ -32,7 +32,7 @@ class Hooks implements HooksInterface {
     allHandlers.forEach(handler => {
       try {
         handler(event)
-      } catch (error) {
+      } catch {
         // Silently continue if handler throws
       }
     })
