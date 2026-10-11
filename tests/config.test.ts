@@ -1,9 +1,6 @@
 import { expect, test, describe } from 'vitest'
 
-import {
-  loadConfigFromFile,
-  resolveConfigPath,
-} from '@commoners/solidarity'
+import { loadConfigFromFile, resolveConfigPath } from '@commoners/solidarity'
 
 import { resolve, isAbsolute } from 'node:path'
 

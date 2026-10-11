@@ -56,7 +56,8 @@ export function createViteAdapter(): BuildAdapter {
       await server.listen()
 
       const address = server.httpServer?.address()
-      const url = typeof address === 'string' ? address : `http://localhost:${address?.port ?? 5173}`
+      const url =
+        typeof address === 'string' ? address : `http://localhost:${address?.port ?? 5173}`
 
       return {
         url,
@@ -74,7 +75,9 @@ export function createViteAdapter(): BuildAdapter {
       const port = srv.config.preview.port
       return {
         url: `http://localhost:${port}`,
-        close: async () => { srv.httpServer?.close() },
+        close: async () => {
+          srv.httpServer?.close()
+        },
       }
     },
 

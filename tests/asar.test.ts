@@ -235,14 +235,16 @@ describe.skipIf(process.platform !== 'darwin' || !plistAvailable)(
   'macOS ad-hoc signing preserves plist integrity',
   () => {
     test('codesign --sign - does not modify Info.plist hash', async () => {
-      const { mkdirSync, writeFileSync: writeFS, readFileSync: readFS, chmodSync } = await import(
-        'node:fs'
-      )
-      const { execSync } = await import('node:child_process')
       const {
-        writePlistIntegrity,
-        readPlistIntegrity,
-      } = await import('../packages/core/utils/asar/macos-plist')
+        mkdirSync,
+        writeFileSync: writeFS,
+        readFileSync: readFS,
+        chmodSync,
+      } = await import('node:fs')
+      const { execSync } = await import('node:child_process')
+      const { writePlistIntegrity, readPlistIntegrity } = await import(
+        '../packages/core/utils/asar/macos-plist'
+      )
 
       // 1. Create a synthetic .app bundle structure
       const appDir = join(tmpDir, 'Test.app')

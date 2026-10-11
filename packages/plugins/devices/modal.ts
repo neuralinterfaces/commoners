@@ -203,7 +203,10 @@ export default (props: ModalProps) => {
         }
         syncTheme()
         const themeObserver = new MutationObserver(syncTheme)
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+        themeObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['data-theme'],
+        })
 
         const dialog = this.getDialog()
         dialog.addEventListener('click', () => dialog.close())

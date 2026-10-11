@@ -28,39 +28,31 @@ describe.skipIf(!isSEASupported())('SEA (Single Executable Application)', () => 
     expect(estimateSEASize(bundleSize)).toBe(nodeBinarySize + bundleSize)
   })
 
-  test(
-    'createSEA() produces a working standalone executable',
-    { timeout: 120_000 },
-    async () => {
-      // Write a trivial entry point
-      const srcPath = join(tmpDir, 'hello.js')
-      writeFileSync(srcPath, 'console.log("SEA_OK")')
+  test('createSEA() produces a working standalone executable', { timeout: 120_000 }, async () => {
+    // Write a trivial entry point
+    const srcPath = join(tmpDir, 'hello.js')
+    writeFileSync(srcPath, 'console.log("SEA_OK")')
 
-      const outPath = join(tmpDir, 'test-sea')
+    const outPath = join(tmpDir, 'test-sea')
 
-      const result = await createSEA({ src: srcPath, out: outPath, sign: true })
+    const result = await createSEA({ src: srcPath, out: outPath, sign: true })
 
-      expect(result.success).toBe(true)
-      expect(result.size).toBeGreaterThan(0)
-      expect(result.error).toBeUndefined()
+    expect(result.success).toBe(true)
+    expect(result.size).toBeGreaterThan(0)
+    expect(result.error).toBeUndefined()
 
-      // Execute the produced binary and verify output
-      const stdout = execSync(`"${result.executablePath}"`, { encoding: 'utf8', timeout: 10_000 })
-      expect(stdout.trim()).toBe('SEA_OK')
-    }
-  )
+    // Execute the produced binary and verify output
+    const stdout = execSync(`"${result.executablePath}"`, { encoding: 'utf8', timeout: 10_000 })
+    expect(stdout.trim()).toBe('SEA_OK')
+  })
 
-  test(
-    'createSEA() returns failure for non-existent source',
-    { timeout: 30_000 },
-    async () => {
-      const result = await createSEA({
-        src: join(tmpDir, 'does-not-exist.js'),
-        out: join(tmpDir, 'bad-sea'),
-      })
+  test('createSEA() returns failure for non-existent source', { timeout: 30_000 }, async () => {
+    const result = await createSEA({
+      src: join(tmpDir, 'does-not-exist.js'),
+      out: join(tmpDir, 'bad-sea'),
+    })
 
-      expect(result.success).toBe(false)
-      expect(result.error).toBeDefined()
-    }
-  )
+    expect(result.success).toBe(false)
+    expect(result.error).toBeDefined()
+  })
 })

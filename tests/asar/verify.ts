@@ -61,7 +61,9 @@ function readJsonHeaderBytes(asarPath: string): Buffer | null {
     return null
   } finally {
     if (fd >= 0) {
-      try { fs.closeSync(fd) } catch {}
+      try {
+        fs.closeSync(fd)
+      } catch {}
     }
   }
 }
@@ -90,7 +92,9 @@ function readFullHeaderBytes(asarPath: string): Buffer | null {
     return null
   } finally {
     if (fd >= 0) {
-      try { fs.closeSync(fd) } catch {}
+      try {
+        fs.closeSync(fd)
+      } catch {}
     }
   }
 }
@@ -201,9 +205,7 @@ function verifyMacOS(appPath: string): VerificationResult {
 
   // Overall success check
   result.success =
-    result.checks.asarExists &&
-    result.checks.metadataExists &&
-    result.checks.hashMatches
+    result.checks.asarExists && result.checks.metadataExists && result.checks.hashMatches
 
   return result
 }

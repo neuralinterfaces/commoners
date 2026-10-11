@@ -10,14 +10,13 @@ import { resolveConfig } from './index.js'
 import { getServiceAssets, buildAssets, getServicesToBuild } from './utils/assets.js'
 import { globalWorkspacePath } from './globals.js'
 
-import type {
-  BuildHooks,
-  ServiceBuildOptions,
-  UserConfig,
-} from './types.js'
+import type { BuildHooks, ServiceBuildOptions, UserConfig } from './types.js'
 import type { Logger } from './assets/utils/logger.js'
 import { BuiltAppMetadata } from './flows/BuildFlow.js'
-import { globalServiceWorkspacePath, globalTempServiceWorkspacePath } from './assets/services/paths.js'
+import {
+  globalServiceWorkspacePath,
+  globalTempServiceWorkspacePath,
+} from './assets/services/paths.js'
 
 // Lazy logger instance (created on first use)
 let logger: Logger
@@ -65,20 +64,25 @@ export const buildServices = async (
     return []
   }
 
-  getLogger().debug('Emitting build:assets:start', { phase: 'services', serviceCount: servicesToBuild.length })
+  getLogger().debug('Emitting build:assets:start', {
+    phase: 'services',
+    serviceCount: servicesToBuild.length,
+  })
   hooks.emit({
     type: 'build:assets:start',
     phase: 'services',
     services: servicesToBuild,
   })
 
-
   const assets = await getServiceAssets(resolvedConfig, dev, rebuild, hooks)
   const defaultServiceDir = dev ? globalTempServiceWorkspacePath : globalServiceWorkspacePath
   const resolvedOutDir = outDir ?? resolve(join(root, defaultServiceDir))
   const results = await buildAssets(assets, { root, outDir: resolvedOutDir, target, dev })
 
-  getLogger().debug('Emitting build:assets:complete', { phase: 'services', resultCount: results.length })
+  getLogger().debug('Emitting build:assets:complete', {
+    phase: 'services',
+    resultCount: results.length,
+  })
   hooks.emit({ type: 'build:assets:complete', phase: 'services' })
 
   getLogger().info('Services built successfully', { count: results.length })

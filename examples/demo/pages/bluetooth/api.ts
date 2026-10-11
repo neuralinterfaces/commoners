@@ -33,7 +33,7 @@ export async function connect() {
           // Optional service filter
           // services: ['battery_service']
         },
-        (result) => {
+        result => {
           console.log('Device found:', result)
           devices.push(result)
 
@@ -49,7 +49,7 @@ export async function connect() {
         try {
           console.log('Connecting to device:', deviceId)
 
-          await BleClient.connect(deviceId, (disconnected) => {
+          await BleClient.connect(deviceId, disconnected => {
             console.log('Device disconnected:', disconnected)
           })
 

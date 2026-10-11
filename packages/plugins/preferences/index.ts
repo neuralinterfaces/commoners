@@ -57,7 +57,9 @@ function createIndexedDBBackend(namespace: string) {
       const { store, done } = await tx('readonly')
       return new Promise((resolve, reject) => {
         const request = store.get(key)
-        request.onsuccess = () => { done.then(() => resolve(request.result)) }
+        request.onsuccess = () => {
+          done.then(() => resolve(request.result))
+        }
         request.onerror = () => reject(request.error)
       })
     },
@@ -78,7 +80,9 @@ function createIndexedDBBackend(namespace: string) {
       const { store, done } = await tx('readonly')
       return new Promise((resolve, reject) => {
         const request = store.getAllKeys()
-        request.onsuccess = () => { done.then(() => resolve(request.result as string[])) }
+        request.onsuccess = () => {
+          done.then(() => resolve(request.result as string[]))
+        }
         request.onerror = () => reject(request.error)
       })
     },
@@ -207,7 +211,9 @@ export default function storage(options: StorageOptions = {}) {
           try {
             const raw = JSON.parse(readFileSync(storagePath, 'utf8'))
             for (const [k, v] of Object.entries(raw)) data.set(k, v)
-          } catch { /* corrupt file, start fresh */ }
+          } catch {
+            /* corrupt file, start fresh */
+          }
         }
 
         function persist() {
@@ -218,10 +224,19 @@ export default function storage(options: StorageOptions = {}) {
 
         // Register IPC handlers
         this.handle('get', (_: any, key: string) => data.get(key))
-        this.handle('set', (_: any, key: string, value: unknown) => { data.set(key, value); persist() })
-        this.handle('remove', (_: any, key: string) => { data.delete(key); persist() })
+        this.handle('set', (_: any, key: string, value: unknown) => {
+          data.set(key, value)
+          persist()
+        })
+        this.handle('remove', (_: any, key: string) => {
+          data.delete(key)
+          persist()
+        })
         this.handle('keys', () => [...data.keys()])
-        this.handle('clear', () => { data.clear(); persist() })
+        this.handle('clear', () => {
+          data.clear()
+          persist()
+        })
       },
     },
   }

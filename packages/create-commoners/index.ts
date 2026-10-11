@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  copyFileSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+} from 'node:fs'
 import { join, basename, dirname, resolve, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline'
@@ -15,8 +24,8 @@ const renameFiles: Record<string, string> = {
 
 function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
+  return new Promise(resolve => {
+    rl.question(question, answer => {
       rl.close()
       resolve(answer.trim())
     })
@@ -80,7 +89,9 @@ async function main() {
   const projectName = toValidPackageName(basename(root))
 
   if (!isEmpty(root)) {
-    const answer = await prompt(`Directory "${relative(process.cwd(), root) || '.'}" is not empty. Remove existing files and continue? (y/N) `)
+    const answer = await prompt(
+      `Directory "${relative(process.cwd(), root) || '.'}" is not empty. Remove existing files and continue? (y/N) `
+    )
     if (answer.toLowerCase() !== 'y') {
       console.log('Cancelled.')
       process.exit(0)
@@ -114,7 +125,7 @@ async function main() {
   console.log()
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error(err)
   process.exit(1)
 })

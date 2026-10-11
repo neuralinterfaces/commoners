@@ -19,7 +19,7 @@ const server = http.createServer((req, res) => {
   // Echo Request
   if (req.method === 'POST') {
     let body = ''
-    req.on('data', (chunk) => (body += chunk.toString()))
+    req.on('data', chunk => (body += chunk.toString()))
     req.on('end', () => {
       res.writeHead(200, { 'Content-Type': req.headers['content-type'] })
       res.end(body)

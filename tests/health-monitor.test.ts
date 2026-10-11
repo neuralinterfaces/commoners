@@ -6,7 +6,9 @@ function createMockHooks(): HooksInterface & { events: any[] } {
   const events: any[] = []
   return {
     events,
-    emit: (event: any) => { events.push(event) },
+    emit: (event: any) => {
+      events.push(event)
+    },
     on: () => () => {},
   }
 }
@@ -31,14 +33,21 @@ describe('ServiceHealthMonitor', () => {
     const hooks = createMockHooks()
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', { interval: 1000 }, hooks)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      { interval: 1000 },
+      hooks
+    )
     monitor.start()
 
     // Wait for initial check to complete
     await vi.advanceTimersByTimeAsync(0)
 
     expect(monitor.getStatus()).toBe('healthy')
-    expect(hooks.events).toContainEqual(expect.objectContaining({ type: 'service:ready', service: 'test' }))
+    expect(hooks.events).toContainEqual(
+      expect.objectContaining({ type: 'service:ready', service: 'test' })
+    )
 
     monitor.stop()
   })
@@ -47,10 +56,15 @@ describe('ServiceHealthMonitor', () => {
     const hooks = createMockHooks()
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('ECONNREFUSED'))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', {
-      interval: 100,
-      retries: 3,
-    }, hooks)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      {
+        interval: 100,
+        retries: 3,
+      },
+      hooks
+    )
     monitor.start()
 
     // Initial check (failure 1)
@@ -64,22 +78,30 @@ describe('ServiceHealthMonitor', () => {
     // Failure 3 — should become unhealthy
     await vi.advanceTimersByTimeAsync(100)
     expect(monitor.getStatus()).toBe('unhealthy')
-    expect(hooks.events).toContainEqual(expect.objectContaining({ type: 'service:error', service: 'test' }))
+    expect(hooks.events).toContainEqual(
+      expect.objectContaining({ type: 'service:error', service: 'test' })
+    )
 
     monitor.stop()
   })
 
   test('resets failure count on success', async () => {
     const hooks = createMockHooks()
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockRejectedValueOnce(new Error('fail'))
       .mockRejectedValueOnce(new Error('fail'))
       .mockResolvedValueOnce(new Response(null, { status: 200 }))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', {
-      interval: 100,
-      retries: 3,
-    }, hooks)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      {
+        interval: 100,
+        retries: 3,
+      },
+      hooks
+    )
     monitor.start()
 
     // Two failures
@@ -99,11 +121,17 @@ describe('ServiceHealthMonitor', () => {
     const onRestart = vi.fn()
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', {
-      interval: 100,
-      retries: 2,
-      autoRestart: true,
-    }, hooks, onRestart)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      {
+        interval: 100,
+        retries: 2,
+        autoRestart: true,
+      },
+      hooks,
+      onRestart
+    )
     monitor.start()
 
     // Failure 1
@@ -113,7 +141,9 @@ describe('ServiceHealthMonitor', () => {
 
     expect(monitor.getStatus()).toBe('restarting')
     expect(onRestart).toHaveBeenCalledOnce()
-    expect(hooks.events).toContainEqual(expect.objectContaining({ type: 'service:restart', service: 'test' }))
+    expect(hooks.events).toContainEqual(
+      expect.objectContaining({ type: 'service:restart', service: 'test' })
+    )
 
     monitor.stop()
   })
@@ -123,11 +153,17 @@ describe('ServiceHealthMonitor', () => {
     const onRestart = vi.fn()
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', {
-      interval: 100,
-      retries: 2,
-      autoRestart: false,
-    }, hooks, onRestart)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      {
+        interval: 100,
+        retries: 2,
+        autoRestart: false,
+      },
+      hooks,
+      onRestart
+    )
     monitor.start()
 
     await vi.advanceTimersByTimeAsync(0)
@@ -156,7 +192,12 @@ describe('ServiceHealthMonitor', () => {
     const hooks = createMockHooks()
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', { interval: 1000 }, hooks)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      { interval: 1000 },
+      hooks
+    )
     monitor.start()
     await vi.advanceTimersByTimeAsync(0)
 
@@ -168,10 +209,15 @@ describe('ServiceHealthMonitor', () => {
     const hooks = createMockHooks()
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 500 }))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', {
-      interval: 100,
-      retries: 1,
-    }, hooks)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      {
+        interval: 100,
+        retries: 1,
+      },
+      hooks
+    )
     monitor.start()
 
     await vi.advanceTimersByTimeAsync(0)
@@ -194,7 +240,12 @@ describe('ServiceHealthMonitor', () => {
     const hooks = createMockHooks()
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 200 }))
 
-    const monitor = new ServiceHealthMonitor('test', 'http://localhost:3000', { interval: 1000 }, hooks)
+    const monitor = new ServiceHealthMonitor(
+      'test',
+      'http://localhost:3000',
+      { interval: 1000 },
+      hooks
+    )
     monitor.start()
     monitor.start() // second call should be no-op
 

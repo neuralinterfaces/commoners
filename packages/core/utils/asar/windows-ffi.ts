@@ -91,18 +91,14 @@ export function writeIntegrityResourceFFI(exePath: string, payloadJson: string):
     const r = K.UpdateResourceW(h, typeW, nameW, lang, data, data.length)
     if (!r) {
       const currentErr = lastErr()
-      logger.warn(
-        `UpdateResourceW failed (lang=${lang}, err=${currentErr})`
-      )
+      logger.warn(`UpdateResourceW failed (lang=${lang}, err=${currentErr})`)
       if (ok) {
         // Only set error on first failure
         ok = false
         err = currentErr
       }
     } else {
-      logger.info(
-        `UpdateResourceW OK (lang=${lang}, ${data.length} bytes)`
-      )
+      logger.info(`UpdateResourceW OK (lang=${lang}, ${data.length} bytes)`)
       ok = true // At least one succeeded
       break // Exit on first success
     }
@@ -136,9 +132,7 @@ export function readIntegrityResource(exePath: string): Array<{
   try {
     // Validate the executable exists and is actually an executable
     if (!existsSync(exePath)) {
-      logger.warn(
-        `Executable not found for integrity verification: ${exePath}`
-      )
+      logger.warn(`Executable not found for integrity verification: ${exePath}`)
       return []
     }
 
@@ -173,15 +167,10 @@ export function readIntegrityResource(exePath: string): Array<{
           break
         }
 
-        logger.info(
-          `LoadLibraryExW failed with ${attempt.name} (err=${lastError})`
-        )
+        logger.info(`LoadLibraryExW failed with ${attempt.name} (err=${lastError})`)
         mod = null
       } catch (e: any) {
-        logger.warn(
-          `Exception during LoadLibraryExW with ${attempt.name}:`,
-          e.message
-        )
+        logger.warn(`Exception during LoadLibraryExW with ${attempt.name}:`, e.message)
         mod = null
       }
     }
@@ -202,8 +191,7 @@ export function readIntegrityResource(exePath: string): Array<{
     const nameW = wstr('ElectronAsar')
     const langs = [1033, 0, 1024]
 
-    const out: Array<{ lang: number; found: boolean; json?: string; size?: number }> =
-      []
+    const out: Array<{ lang: number; found: boolean; json?: string; size?: number }> = []
 
     for (const lang of langs) {
       try {
@@ -224,10 +212,7 @@ export function readIntegrityResource(exePath: string): Array<{
 
         out.push({ lang, found: true, json, size })
       } catch (e: any) {
-        logger.warn(
-          `Error reading resource for language ${lang}:`,
-          e.message
-        )
+        logger.warn(`Error reading resource for language ${lang}:`, e.message)
         out.push({ lang, found: false })
       }
     }
@@ -324,10 +309,7 @@ export function checkWindowsDependencies(): WindowsDependencyStatus {
  * Main resource writing function with fallbacks and retry logic
  * @throws Error if all methods fail
  */
-export async function writeIntegrityResource(
-  exePath: string,
-  payloadJson: string
-): Promise<void> {
+export async function writeIntegrityResource(exePath: string, payloadJson: string): Promise<void> {
   if (process.platform !== 'win32') {
     return
   }
@@ -347,7 +329,7 @@ export async function writeIntegrityResource(
   }
 
   // Wait a bit to ensure the file is fully written and not locked
-  await new Promise((resolve) => setTimeout(resolve, 100))
+  await new Promise(resolve => setTimeout(resolve, 100))
 
   let lastError: Error | null = null
   let rceditAttempted = false
@@ -360,20 +342,15 @@ export async function writeIntegrityResource(
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await new Promise((resolve) => setTimeout(resolve, attempt * 100)) // Progressive delay
+        await new Promise(resolve => setTimeout(resolve, attempt * 100)) // Progressive delay
         await writeIntegrityResourceRcedit(exePath, payloadJson)
-        logger.info(
-          `rcedit resource writing succeeded on attempt ${attempt + 1}`
-        )
+        logger.info(`rcedit resource writing succeeded on attempt ${attempt + 1}`)
         return
       } catch (e: any) {
         lastError = e
-        logger.warn(
-          `rcedit attempt ${attempt + 1} failed:`,
-          e.message
-        )
+        logger.warn(`rcedit attempt ${attempt + 1} failed:`, e.message)
         if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 200)) // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 200)) // Wait before retry
         }
       }
     }
@@ -387,20 +364,15 @@ export async function writeIntegrityResource(
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await new Promise((resolve) => setTimeout(resolve, attempt * 100)) // Progressive delay
+        await new Promise(resolve => setTimeout(resolve, attempt * 100)) // Progressive delay
         writeIntegrityResourceFFI(exePath, payloadJson)
-        logger.info(
-          `FFI resource writing succeeded on attempt ${attempt + 1}`
-        )
+        logger.info(`FFI resource writing succeeded on attempt ${attempt + 1}`)
         return
       } catch (e: any) {
         lastError = e
-        logger.warn(
-          `FFI resource writing attempt ${attempt + 1} failed:`,
-          e.message
-        )
+        logger.warn(`FFI resource writing attempt ${attempt + 1} failed:`, e.message)
         if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 200)) // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 200)) // Wait before retry
         }
       }
     }

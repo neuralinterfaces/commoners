@@ -123,11 +123,13 @@ function createCapacitorBackend() {
       }
 
       await plugin.schedule({
-        notifications: [{
-          title: options.title,
-          body: options.body || '',
-          id: Date.now(),
-        }],
+        notifications: [
+          {
+            title: options.title,
+            body: options.body || '',
+            id: Date.now(),
+          },
+        ],
       })
       return true
     },

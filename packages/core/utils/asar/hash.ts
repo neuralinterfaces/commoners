@@ -41,7 +41,9 @@ export function readJsonHeaderBytes(asarPath: string): Buffer | null {
     return null
   } finally {
     if (fd >= 0) {
-      try { fs.closeSync(fd) } catch {}
+      try {
+        fs.closeSync(fd)
+      } catch {}
     }
   }
 }
@@ -70,7 +72,9 @@ export function readFullHeaderBytes(asarPath: string): Buffer | null {
     return null
   } finally {
     if (fd >= 0) {
-      try { fs.closeSync(fd) } catch {}
+      try {
+        fs.closeSync(fd)
+      } catch {}
     }
   }
 }

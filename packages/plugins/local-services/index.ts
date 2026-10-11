@@ -40,8 +40,8 @@ export default ({ type = DEFAULT_TYPE, register = [] }: LocalServicePluginOption
             this.send('get-services')
           })
         },
-        onServiceUp: (callback) => this.on('up', (_, svc) => callback(svc)),
-        onServiceDown: (callback) => this.on('down', (_, svc) => callback(svc)),
+        onServiceUp: callback => this.on('up', (_, svc) => callback(svc)),
+        onServiceDown: callback => this.on('down', (_, svc) => callback(svc)),
       }
     },
 
@@ -51,23 +51,59 @@ export default ({ type = DEFAULT_TYPE, register = [] }: LocalServicePluginOption
         const { Bonjour } = await import('bonjour-service')
         const bonjour = new Bonjour()
         mdns = {
-          publish: (svc) => bonjour.publish({ name: svc.name, type, port: svc.port, txt: { id: svc.id, url: svc.url } }),
+          publish: svc =>
+            bonjour.publish({
+              name: svc.name,
+              type,
+              port: svc.port,
+              txt: { id: svc.id, url: svc.url },
+            }),
           browse: (t, onUp, onDown) => {
-            const browser = bonjour.find({ type: t }, (s) => onUp({ name: s.name, host: s.host, ip: s.referer?.address ?? s.host, port: s.port, url: `http://${s.host}:${s.port}`, metadata: s.txt ?? {} }))
-            browser.on('down', (s) => onDown({ name: s.name, host: s.host, ip: s.referer?.address ?? s.host, port: s.port, url: `http://${s.host}:${s.port}`, metadata: s.txt ?? {} }))
+            const browser = bonjour.find({ type: t }, s =>
+              onUp({
+                name: s.name,
+                host: s.host,
+                ip: s.referer?.address ?? s.host,
+                port: s.port,
+                url: `http://${s.host}:${s.port}`,
+                metadata: s.txt ?? {},
+              })
+            )
+            browser.on('down', s =>
+              onDown({
+                name: s.name,
+                host: s.host,
+                ip: s.referer?.address ?? s.host,
+                port: s.port,
+                url: `http://${s.host}:${s.port}`,
+                metadata: s.txt ?? {},
+              })
+            )
             browser.start()
           },
           unpublishAll: () => bonjour.unpublishAll(),
-          destroy: () => { bonjour.unpublishAll(); bonjour.destroy() },
+          destroy: () => {
+            bonjour.unpublishAll()
+            bonjour.destroy()
+          },
         }
-      } catch { return }
+      } catch {
+        return
+      }
       if (!mdns) return
 
       // Browse for services
       const active: Record<string, any> = {}
-      mdns.browse(type,
-        (svc) => { active[svc.url] = svc; this.send('up', svc) },
-        (svc) => { delete active[svc.url]; this.send('down', svc) }
+      mdns.browse(
+        type,
+        svc => {
+          active[svc.url] = svc
+          this.send('up', svc)
+        },
+        svc => {
+          delete active[svc.url]
+          this.send('down', svc)
+        }
       )
 
       // Respond to service queries

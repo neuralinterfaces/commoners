@@ -4,15 +4,17 @@ export const onCleanup = callback => callbacks.push(callback)
 const willBeAsync = () => callbacks.some(cb => cb.constructor.name === 'AsyncFunction')
 
 const __runCleanupCallback = (cb, code) => {
-   if (!cb.called) {
-      cb.called = true // Prevent double-calling
-      try { return cb(code) } 
-      catch (error) { console.error(`Cleanup Error: ${error.message}`) }
+  if (!cb.called) {
+    cb.called = true // Prevent double-calling
+    try {
+      return cb(code)
+    } catch (error) {
+      console.error(`Cleanup Error: ${error.message}`)
     }
+  }
 }
 
 export const cleanup = (code = 0) => {
-
   if (willBeAsync()) {
     // Use an async IIFE instead of new Promise(async ...) to avoid swallowing rejections
     return (async () => {
@@ -32,22 +34,22 @@ export const cleanup = (code = 0) => {
 }
 
 const originalExit = process.exit.bind(process)
-const runOriginalExit = (code) => {
+const runOriginalExit = code => {
   originalExit(code)
 }
 
 const __exit = (code, force = true) => {
   const isAsync = willBeAsync()
   const willExit = force || !globalThis.process.env.__COMMONERS_TESTING
-  const normalized = typeof code === 'number' ? code : (code === 'SIGINT' ? 0 : 1);
+  const normalized = typeof code === 'number' ? code : code === 'SIGINT' ? 0 : 1
 
   if (isAsync) {
     const promise = cleanup(code) as Promise<unknown>
     return promise
-    .catch(error => console.error(`Async Cleanup Error: ${error.message}`))
-    .finally(() => {
-      if (willExit) runOriginalExit(normalized) // Do not force exit on SIGINT
-    })
+      .catch(error => console.error(`Async Cleanup Error: ${error.message}`))
+      .finally(() => {
+        if (willExit) runOriginalExit(normalized) // Do not force exit on SIGINT
+      })
   }
 
   try {
@@ -62,13 +64,13 @@ const __exit = (code, force = true) => {
 
 let __EXITING = {
   called: false,
-  output: null
+  output: null,
 }
 
 export const exit = (code, force = true) => {
   if (__EXITING.called) return __EXITING.output
   __EXITING.called = true
-  return __EXITING.output = __exit(code, force)
+  return (__EXITING.output = __exit(code, force))
 }
 
 // Register exit event handlers for cleanup.
@@ -77,9 +79,11 @@ export const exit = (code, force = true) => {
 // runner's afterAll handler is responsible for cleanup — these handlers must not interfere
 // with vitest's worker lifecycle (e.g., preventing process.exit from actually exiting).
 const exitEvents = ['beforeExit', 'exit', 'SIGINT', 'SIGTERM']
-exitEvents.forEach(event => process.on(event, (code) => {
-  if (!globalThis.process?.env?.__COMMONERS_TESTING) exit(code, false)
-}))
+exitEvents.forEach(event =>
+  process.on(event, code => {
+    if (!globalThis.process?.env?.__COMMONERS_TESTING) exit(code, false)
+  })
+)
 
 // Override process.exit to run cleanup before exiting.
 // In testing mode, defer to the original exit to avoid interfering with vitest's worker lifecycle.

@@ -120,10 +120,11 @@ describe.skipIf(!hasCapCli)('Platform directory structure', () => {
     )
 
     try {
-      execSync(
-        'npx cap init mobile-scaffold-test com.test.scaffold --web-dir www',
-        { cwd: tmpRoot, stdio: 'pipe', timeout: 30000 }
-      )
+      execSync('npx cap init mobile-scaffold-test com.test.scaffold --web-dir www', {
+        cwd: tmpRoot,
+        stdio: 'pipe',
+        timeout: 30000,
+      })
 
       // Verify capacitor.config.json was created
       expect(existsSync(join(tmpRoot, 'capacitor.config.json'))).toBe(true)
@@ -158,47 +159,53 @@ describe('Native config injection (unit)', () => {
     xml2jsAvailable = true
   } catch {}
 
-  test.skipIf(!plistAvailable)('iOS plist permissions are structured correctly for injection', () => {
-    const mockPlistXml: Record<string, string> = {
-      CFBundleIdentifier: 'com.test.ble',
-      CFBundleName: 'TestBLE',
+  test.skipIf(!plistAvailable)(
+    'iOS plist permissions are structured correctly for injection',
+    () => {
+      const mockPlistXml: Record<string, string> = {
+        CFBundleIdentifier: 'com.test.ble',
+        CFBundleName: 'TestBLE',
+      }
+
+      // Simulate permission injection
+      const blePermissions = {
+        NSBluetoothAlwaysUsageDescription: 'This app uses Bluetooth for device communication',
+        NSBluetoothPeripheralUsageDescription: 'Bluetooth peripheral access required',
+      }
+
+      Object.assign(mockPlistXml, blePermissions)
+      const built = plist.build(mockPlistXml)
+
+      expect(built).toContain('NSBluetoothAlwaysUsageDescription')
+      expect(built).toContain('NSBluetoothPeripheralUsageDescription')
+      expect(built).toContain('This app uses Bluetooth for device communication')
     }
+  )
 
-    // Simulate permission injection
-    const blePermissions = {
-      NSBluetoothAlwaysUsageDescription: 'This app uses Bluetooth for device communication',
-      NSBluetoothPeripheralUsageDescription: 'Bluetooth peripheral access required',
-    }
-
-    Object.assign(mockPlistXml, blePermissions)
-    const built = plist.build(mockPlistXml)
-
-    expect(built).toContain('NSBluetoothAlwaysUsageDescription')
-    expect(built).toContain('NSBluetoothPeripheralUsageDescription')
-    expect(built).toContain('This app uses Bluetooth for device communication')
-  })
-
-  test.skipIf(!xml2jsAvailable)('Android manifest permissions are structured for xml2js injection', async () => {
-    const baseManifest = `<?xml version="1.0" encoding="utf-8"?>
+  test.skipIf(!xml2jsAvailable)(
+    'Android manifest permissions are structured for xml2js injection',
+    async () => {
+      const baseManifest = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.test.ble">
   <application android:label="TestBLE"/>
 </manifest>`
 
-    const result = await xml2js.parseStringPromise(baseManifest)
-    const manifest = result.manifest
+      const result = await xml2js.parseStringPromise(baseManifest)
+      const manifest = result.manifest
 
-    // Inject BLE permissions
-    if (!manifest['uses-permission']) manifest['uses-permission'] = []
-    manifest['uses-permission'].push(
-      { $: { 'android:name': 'android.permission.BLUETOOTH_SCAN' } },
-      { $: { 'android:name': 'android.permission.BLUETOOTH_CONNECT' } }
-    )
+      // Inject BLE permissions
+      if (!manifest['uses-permission']) manifest['uses-permission'] = []
+      manifest['uses-permission'].push(
+        { $: { 'android:name': 'android.permission.BLUETOOTH_SCAN' } },
+        { $: { 'android:name': 'android.permission.BLUETOOTH_CONNECT' } }
+      )
 
-    const rebuilt = new xml2js.Builder().buildObject(result)
-    expect(rebuilt).toContain('BLUETOOTH_SCAN')
-    expect(rebuilt).toContain('BLUETOOTH_CONNECT')
-    expect(rebuilt).toContain('uses-permission')
-  })
+      const rebuilt = new xml2js.Builder().buildObject(result)
+      expect(rebuilt).toContain('BLUETOOTH_SCAN')
+      expect(rebuilt).toContain('BLUETOOTH_CONNECT')
+      expect(rebuilt).toContain('uses-permission')
+    }
+  )
 
   test.skipIf(!xml2jsAvailable)('Android manifest features inject correctly', async () => {
     const baseManifest = `<?xml version="1.0" encoding="utf-8"?>
@@ -255,11 +262,19 @@ describe('Extension capabilities (config level)', () => {
       },
       http: {
         type: 'service' as const,
-        capabilities: { provides: ['api'], runtime: 'node', platforms: { web: true, desktop: true } },
+        capabilities: {
+          provides: ['api'],
+          runtime: 'node',
+          platforms: { web: true, desktop: true },
+        },
       },
       hybrid: {
         type: 'hybrid' as const,
-        capabilities: { provides: ['bluetooth', 'api'], runtime: 'browser', platforms: { mobile: true, web: true } },
+        capabilities: {
+          provides: ['bluetooth', 'api'],
+          runtime: 'browser',
+          platforms: { mobile: true, web: true },
+        },
       },
     } as any
 

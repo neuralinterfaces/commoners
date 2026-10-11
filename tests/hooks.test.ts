@@ -52,7 +52,7 @@ describe('API: Hooks System', () => {
     test('should register and emit event handlers', () => {
       const events: HookEvent[] = []
 
-      hooks.on('build:start', (event) => {
+      hooks.on('build:start', event => {
         events.push(event)
       })
 
@@ -70,8 +70,12 @@ describe('API: Hooks System', () => {
     test('should support multiple handlers for same event', () => {
       let count = 0
 
-      hooks.on('build:start', () => { count++ })
-      hooks.on('build:start', () => { count++ })
+      hooks.on('build:start', () => {
+        count++
+      })
+      hooks.on('build:start', () => {
+        count++
+      })
 
       hooks.emit({ type: 'build:start', config: {} as any, dev: true })
       expect(count).toBe(2)
@@ -80,7 +84,7 @@ describe('API: Hooks System', () => {
     test('should support "all" event listener', () => {
       const events: HookEvent[] = []
 
-      hooks.on('all', (event) => {
+      hooks.on('all', event => {
         events.push(event)
       })
 
@@ -126,7 +130,7 @@ describe('API: Hooks System', () => {
     test('should support service events', () => {
       const serviceEvents: HookEvent[] = []
 
-      hooks.on('service:start', (event) => {
+      hooks.on('service:start', event => {
         serviceEvents.push(event)
       })
 
@@ -139,7 +143,7 @@ describe('API: Hooks System', () => {
     test('should support launch events', () => {
       const launchEvents: HookEvent[] = []
 
-      hooks.on('launch:start', (event) => {
+      hooks.on('launch:start', event => {
         launchEvents.push(event)
       })
 
@@ -152,7 +156,7 @@ describe('API: Hooks System', () => {
     test('should support dev server events', () => {
       const devEvents: HookEvent[] = []
 
-      hooks.on('dev:server:ready', (event) => {
+      hooks.on('dev:server:ready', event => {
         devEvents.push(event)
       })
 
@@ -165,7 +169,7 @@ describe('API: Hooks System', () => {
     test('should support security events', () => {
       const securityEvents: HookEvent[] = []
 
-      hooks.on('security:warning', (event) => {
+      hooks.on('security:warning', event => {
         securityEvents.push(event)
       })
 
@@ -184,7 +188,7 @@ describe('API: Hooks System', () => {
     test('should handle error events', () => {
       const errors: Error[] = []
 
-      hooks.on('build:error', (event) => {
+      hooks.on('build:error', event => {
         if (event.type === 'build:error') {
           errors.push(event.error)
         }
@@ -208,7 +212,7 @@ describe('API: Hooks System', () => {
       const hooks = new DefaultHooks()
       const events: HookEvent[] = []
 
-      hooks.on('all', (event) => {
+      hooks.on('all', event => {
         events.push(event)
       })
 
@@ -227,7 +231,7 @@ describe('API: Hooks System', () => {
     test('should handle build asset events', () => {
       const events: HookEvent[] = []
 
-      hooks.on('build:assets:start', (event) => {
+      hooks.on('build:assets:start', event => {
         events.push(event)
       })
 
@@ -240,7 +244,7 @@ describe('API: Hooks System', () => {
     test('should handle service build events', () => {
       const events: HookEvent[] = []
 
-      hooks.on('service:build:start', (event) => {
+      hooks.on('service:build:start', event => {
         events.push(event)
       })
 
@@ -248,7 +252,7 @@ describe('API: Hooks System', () => {
         type: 'service:build:start',
         service: 'http',
         src: '/src/http.ts',
-        out: '/out/http.js'
+        out: '/out/http.js',
       })
 
       expect(events).toHaveLength(1)
@@ -257,7 +261,7 @@ describe('API: Hooks System', () => {
     test('should handle service build completion', () => {
       const events: HookEvent[] = []
 
-      hooks.on('service:build:end', (event) => {
+      hooks.on('service:build:end', event => {
         events.push(event)
       })
 
@@ -266,7 +270,7 @@ describe('API: Hooks System', () => {
         service: 'http',
         src: '/src/http.ts',
         out: '/out/http.js',
-        duration: 1500
+        duration: 1500,
       })
 
       expect(events).toHaveLength(1)
@@ -278,7 +282,7 @@ describe('API: Hooks System', () => {
     test('should handle service launch events', () => {
       const events: HookEvent[] = []
 
-      hooks.on('service:launch:complete', (event) => {
+      hooks.on('service:launch:complete', event => {
         events.push(event)
       })
 
@@ -286,7 +290,7 @@ describe('API: Hooks System', () => {
         type: 'service:launch:complete',
         service: 'http',
         filepath: '/out/http.js',
-        url: 'http://localhost:3000'
+        url: 'http://localhost:3000',
       })
 
       expect(events).toHaveLength(1)
@@ -295,7 +299,7 @@ describe('API: Hooks System', () => {
     test('should handle service stdout/stderr', () => {
       const outputs: string[] = []
 
-      hooks.on('service:stdout', (event) => {
+      hooks.on('service:stdout', event => {
         if (event.type === 'service:stdout') {
           outputs.push(event.data)
         }
@@ -310,7 +314,7 @@ describe('API: Hooks System', () => {
     test('should handle electron dev events', () => {
       const events: HookEvent[] = []
 
-      hooks.on('dev:electron:ready', (event) => {
+      hooks.on('dev:electron:ready', event => {
         events.push(event)
       })
 
@@ -325,7 +329,7 @@ describe('API: Hooks System', () => {
       const hooks = new Hooks()
       const flow: string[] = []
 
-      hooks.on('all', (event) => {
+      hooks.on('all', event => {
         flow.push(event.type)
       })
 
@@ -343,7 +347,7 @@ describe('API: Hooks System', () => {
         'build:assets:complete',
         'build:assets:start',
         'build:assets:complete',
-        'build:complete'
+        'build:complete',
       ])
     })
 
@@ -351,7 +355,7 @@ describe('API: Hooks System', () => {
       const hooks = new Hooks()
       const lifecycle: string[] = []
 
-      hooks.on('all', (event) => {
+      hooks.on('all', event => {
         if (event.type.startsWith('service:')) {
           lifecycle.push(event.type)
         }
@@ -361,7 +365,12 @@ describe('API: Hooks System', () => {
       hooks.emit({ type: 'service:build:start', service: 'http', src: '/src', out: '/out' })
       hooks.emit({ type: 'service:build:end', service: 'http', src: '/src', out: '/out' })
       hooks.emit({ type: 'service:launch:start', service: 'http', filepath: '/out/http.js' })
-      hooks.emit({ type: 'service:launch:complete', service: 'http', filepath: '/out/http.js', url: 'http://localhost:3000' })
+      hooks.emit({
+        type: 'service:launch:complete',
+        service: 'http',
+        filepath: '/out/http.js',
+        url: 'http://localhost:3000',
+      })
       hooks.emit({ type: 'service:ready', service: 'http', port: 3000 })
 
       expect(lifecycle).toEqual([
@@ -369,7 +378,7 @@ describe('API: Hooks System', () => {
         'service:build:end',
         'service:launch:start',
         'service:launch:complete',
-        'service:ready'
+        'service:ready',
       ])
     })
   })

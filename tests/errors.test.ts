@@ -123,10 +123,7 @@ describe('API: Error Classes', () => {
     })
 
     test('should provide installation details', () => {
-      const error = new DependencyError(
-        'Package not found',
-        'Install with: pnpm add package-name'
-      )
+      const error = new DependencyError('Package not found', 'Install with: pnpm add package-name')
 
       expect(error.details).toBe('Install with: pnpm add package-name')
     })
@@ -336,10 +333,7 @@ describe('API: Error Classes', () => {
     test('should handle missing dependencies', () => {
       const checkDependency = (dep: string, installed: string[]) => {
         if (!installed.includes(dep)) {
-          throw new DependencyError(
-            `Missing dependency: ${dep}`,
-            `Install with: pnpm add ${dep}`
-          )
+          throw new DependencyError(`Missing dependency: ${dep}`, `Install with: pnpm add ${dep}`)
         }
       }
 

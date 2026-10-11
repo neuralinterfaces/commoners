@@ -202,7 +202,15 @@ describe('WASM Services', () => {
   })()
 
   describe.skipIf(!hasWasmPack)('WASM Compilation E2E', () => {
-    const projectDir = path.resolve(__dirname, '..', 'examples', 'demo', 'src', 'services', 'rust-wasm')
+    const projectDir = path.resolve(
+      __dirname,
+      '..',
+      'examples',
+      'demo',
+      'src',
+      'services',
+      'rust-wasm'
+    )
     const outDir = path.join(projectDir, 'pkg-test-output')
 
     afterAll(() => {
@@ -210,7 +218,10 @@ describe('WASM Services', () => {
     })
 
     test('wasm-pack builds the demo WASM service', { timeout: 120_000 }, async () => {
-      const svc = new WasmCargoService({ name: 'rust-wasm', src: path.join(projectDir, 'src', 'lib.rs') })
+      const svc = new WasmCargoService({
+        name: 'rust-wasm',
+        src: path.join(projectDir, 'src', 'lib.rs'),
+      })
       const cmd = await svc.build({ src: path.join(projectDir, 'src', 'lib.rs'), out: outDir })
 
       execSync(cmd, { cwd: projectDir, stdio: 'pipe', timeout: 90_000 })
@@ -218,8 +229,14 @@ describe('WASM Services', () => {
       expect(existsSync(outDir)).toBe(true)
 
       const files = readdirSync(outDir)
-      expect(files.some(f => f.endsWith('.wasm')), 'Should produce a .wasm file').toBe(true)
-      expect(files.some(f => f.endsWith('.js')), 'Should produce JS bindings').toBe(true)
+      expect(
+        files.some(f => f.endsWith('.wasm')),
+        'Should produce a .wasm file'
+      ).toBe(true)
+      expect(
+        files.some(f => f.endsWith('.js')),
+        'Should produce JS bindings'
+      ).toBe(true)
       expect(files.includes('package.json'), 'Should produce package.json').toBe(true)
     })
 

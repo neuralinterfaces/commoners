@@ -40,7 +40,7 @@ function createWebBus(namespace: string): MessagingBus {
   let bc: BroadcastChannel | null = null
   if (typeof BroadcastChannel !== 'undefined') {
     bc = new BroadcastChannel(channelName)
-    bc.onmessage = (ev) => {
+    bc.onmessage = ev => {
       const { topic, data } = ev.data
       const cbs = listeners.get(topic)
       if (cbs) cbs.forEach(cb => cb(data))
@@ -148,16 +148,20 @@ export default function messaging(options: MessagingOptions = {}) {
         const BUS_RECEIVE = 'commoners:events:receive'
 
         // When a window emits a bus message, relay to all other windows
-        this.on(BUS_EMIT, (_event: any, topic: string, data: any) => {
-          // Get all windows from Electron
-          const { BrowserWindow } = require('electron')
-          const allWindows = BrowserWindow.getAllWindows()
-          for (const otherWin of allWindows) {
-            if (otherWin.id !== win.id && !otherWin.isDestroyed()) {
-              otherWin.webContents.send(BUS_RECEIVE, topic, data)
+        this.on(
+          BUS_EMIT,
+          (_event: any, topic: string, data: any) => {
+            // Get all windows from Electron
+            const { BrowserWindow } = require('electron')
+            const allWindows = BrowserWindow.getAllWindows()
+            for (const otherWin of allWindows) {
+              if (otherWin.id !== win.id && !otherWin.isDestroyed()) {
+                otherWin.webContents.send(BUS_RECEIVE, topic, data)
+              }
             }
-          }
-        }, win)
+          },
+          win
+        )
       },
     },
   }

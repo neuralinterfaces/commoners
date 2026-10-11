@@ -1,9 +1,6 @@
 import { expect, test, describe, beforeAll, afterAll } from 'vitest'
 
-import {
-  loadConfigFromFile,
-  resolveServiceBuildInfo
-} from '@commoners/solidarity'
+import { loadConfigFromFile, resolveServiceBuildInfo } from '@commoners/solidarity'
 
 import { existsSync } from 'node:fs'
 import { execSync } from 'node:child_process'
@@ -13,8 +10,12 @@ import { buildServices } from '@commoners/testing'
 
 // PyInstaller must be directly on PATH (e.g. via `conda activate commoners-demo`)
 const hasPyInstaller = (() => {
-  try { execSync('pyinstaller --version', { stdio: 'ignore' }); return true }
-  catch { return false }
+  try {
+    execSync('pyinstaller --version', { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
 })()
 
 const pythonServices = ['basic-python', 'numpy']

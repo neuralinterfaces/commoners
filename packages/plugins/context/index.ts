@@ -22,19 +22,19 @@ export const capabilities = {
 }
 
 export type AppPaths = {
-  data: string | null     // User data directory
-  cache: string | null    // Cache directory
-  config: string | null   // Config directory
-  temp: string | null     // Temporary directory
+  data: string | null // User data directory
+  cache: string | null // Cache directory
+  config: string | null // Config directory
+  temp: string | null // Temporary directory
   documents: string | null // User documents
-  home: string | null     // User home directory
+  home: string | null // User home directory
 }
 
 export type AppInfo = {
   name: string
   version: string
-  platform: string    // 'web' | 'electron' | 'tauri' | 'ios' | 'android'
-  runtime: string     // 'browser' | 'electron' | 'tauri' | 'capacitor'
+  platform: string // 'web' | 'electron' | 'tauri' | 'ios' | 'android'
+  runtime: string // 'browser' | 'electron' | 'tauri' | 'capacitor'
   locale: string
   online: boolean
 }
@@ -119,14 +119,18 @@ function createCapacitorBackend() {
         const { App } = await import('@capacitor/app')
         const info = await App.getInfo()
         appInfo = { name: info.name, version: info.version }
-      } catch { /* use commoners globals */ }
+      } catch {
+        /* use commoners globals */
+      }
 
       let devicePlatform = commoners.MOBILE || 'unknown'
       try {
         const { Device } = await import('@capacitor/device')
         const info = await Device.getInfo()
         devicePlatform = info.platform // 'ios' | 'android' | 'web'
-      } catch { /* use commoners globals */ }
+      } catch {
+        /* use commoners globals */
+      }
 
       return {
         ...appInfo,

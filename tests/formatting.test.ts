@@ -64,8 +64,19 @@ describe('API: Formatting Utilities', () => {
     })
 
     test('should handle all valid targets', () => {
-      const targets = ['web', 'pwa', 'electron', 'mobile', 'ios', 'android', 'tauri',
-        'ios-capacitor', 'android-capacitor', 'ios-tauri', 'android-tauri']
+      const targets = [
+        'web',
+        'pwa',
+        'electron',
+        'mobile',
+        'ios',
+        'android',
+        'tauri',
+        'ios-capacitor',
+        'android-capacitor',
+        'ios-tauri',
+        'android-tauri',
+      ]
 
       targets.forEach(target => {
         const displayName = format.getTargetDisplayName(target as any)

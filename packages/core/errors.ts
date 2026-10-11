@@ -4,7 +4,10 @@
  */
 
 export class CommonersError extends Error {
-  constructor(message: string, public details?: string) {
+  constructor(
+    message: string,
+    public details?: string
+  ) {
     super(message)
     this.name = 'CommonersError'
     Error.captureStackTrace(this, this.constructor)

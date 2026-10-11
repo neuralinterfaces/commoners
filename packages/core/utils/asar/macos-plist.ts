@@ -78,10 +78,7 @@ export function readPlistIntegrity(infoPlistPath: string): string | null {
  * @param infoPlistPath - Absolute path to Info.plist
  * @returns true if valid, false otherwise
  */
-export function validatePlistIntegrity(
-  infoPlistPath: string,
-  expectedHash?: string
-): boolean {
+export function validatePlistIntegrity(infoPlistPath: string, expectedHash?: string): boolean {
   try {
     const hash = readPlistIntegrity(infoPlistPath)
 
@@ -91,9 +88,7 @@ export function validatePlistIntegrity(
     }
 
     if (expectedHash && hash !== expectedHash) {
-      logger.warn(
-        `[asar-integrity] Integrity hash mismatch: expected ${expectedHash}, got ${hash}`
-      )
+      logger.warn(`[asar-integrity] Integrity hash mismatch: expected ${expectedHash}, got ${hash}`)
       return false
     }
 

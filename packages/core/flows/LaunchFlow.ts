@@ -161,7 +161,7 @@ export class LaunchFlow {
       return result
     } catch (error) {
       // Cleanup on error
-      await strategy.cleanup(context).catch((cleanupError) => {
+      await strategy.cleanup(context).catch(cleanupError => {
         this.logger.error('Cleanup failed', {}, cleanupError as Error)
       })
       throw error

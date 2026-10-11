@@ -58,9 +58,10 @@ export class MobileLaunchStrategy extends BaseLaunchStrategy {
     const { outDir, target, config } = context
     const { root } = config
 
-    const isHeadless = process.env.__COMMONERS_TESTING
-      || process.env.CI === 'true'
-      || process.env.COMMONERS_HEADLESS === 'true'
+    const isHeadless =
+      process.env.__COMMONERS_TESTING ||
+      process.env.CI === 'true' ||
+      process.env.COMMONERS_HEADLESS === 'true'
 
     if (isHeadless) {
       // Serve web assets for testing/CI via Vite preview
