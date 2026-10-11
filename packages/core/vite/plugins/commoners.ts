@@ -288,10 +288,16 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
                 if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, close, ...args } // Ensure desktop is configured properly at the start
 
-                GLOBAL.READY = new Promise(res => {
+                GLOBAL.READY = new Promise((res, rej) => {
+                    // A configuration or loader that fails to load rejects READY instead of leaving it pending forever
+                    GLOBAL.__READY_FAIL = (error) => {
+                        delete GLOBAL.__READY_FAIL
+                        rej(error)
+                    }
                     GLOBAL.__READY = (value) => {
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
+                        delete GLOBAL.__READY_FAIL
 
                         if (on) on("commoners:window:ready:main:ping", () => send("commoners:window:ready:main:pong", __id)) // Respond to the main process ping
                         if (send) send("commoners:window:ready:renderer:pong", __id) // Notify the main process that the window is ready
@@ -316,8 +322,12 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                 import("${updatedConfigURL}").then(o => {
                     const { plugins } = o.default
                     if (plugins) GLOBAL.__PLUGINS = plugins
-                    import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
+                    return import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
+                 }).catch(error => {
+                    console.error('[commoners] The app failed to load:', error)
+                    if (GLOBAL.__READY_FAIL) GLOBAL.__READY_FAIL(error)
                  })
+                GLOBAL.READY.catch(() => {}) // Reported above; consumers awaiting READY still see the rejection
 
 
             </script>\n

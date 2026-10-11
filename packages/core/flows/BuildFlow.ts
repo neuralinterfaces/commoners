@@ -14,7 +14,7 @@ import type {
   ResolvedConfig,
   ServiceRebuildOption,
 } from '../types.js'
-import { resolveConfig, resolveHooks } from '../index.js'
+import { resolveConfig, resolveHooks, resolveConfigPath } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
 import { removeDirectory } from '../utils/files.js'
 import {
@@ -220,7 +220,11 @@ export class BuildFlow {
 
     // Step 2: Build frontend assets
     BuildRecord.resetInventory(resolve(context.root))
-    resetEncodedPaths()
+    // Build salt for output names: the config source and the Commoners version (see encode.ts)
+    const configPath = resolveConfigPath(resolve(context.root))
+    const configSource =
+      configPath && existsSync(configPath) ? readFileSync(configPath, 'utf8') : ''
+    resetEncodedPaths(BuildRecord.sha256(`${commonersVersion}\0${configSource}`))
     BuildRecord.resetEvalFindings(resolve(context.root))
     await this.buildFrontendAssets(context)
 

@@ -48,4 +48,15 @@ describe('encodePath', () => {
     const missing = join(outDir, '..', '..', 'src', 'later.js')
     expect(encodePath(missing, outDir)).toMatch(/^later-[A-Za-z0-9]{16}\.js$/)
   })
+
+  test('a file not written yet is renamed when the build salt changes, stable when it does not', () => {
+    const { outDir } = project()
+    const missing = join(outDir, 'commoners.config.mjs')
+    resetEncodedPaths('config-v1')
+    const first = encodePath(missing, outDir)
+    resetEncodedPaths('config-v1')
+    expect(encodePath(missing, outDir)).toBe(first)
+    resetEncodedPaths('config-v2')
+    expect(encodePath(missing, outDir)).not.toBe(first)
+  })
 })

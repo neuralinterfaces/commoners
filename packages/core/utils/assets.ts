@@ -1013,6 +1013,10 @@ export const bundleConfig = async (
               .map(([k, v]) => [`process.env.${k}`, JSON.stringify(v ?? '')])
           )
         : {}),
+      // Any other process.env.* reads as undefined in the page instead of throwing: there is no
+      // `process` in a browser or a sandboxed Electron renderer, and a config that reads
+      // process.env at top level would otherwise fail to load there (READY would never resolve)
+      ...(!node ? { 'process.env': '{}' } : {}),
     },
 
     resolve: {
