@@ -4,6 +4,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import * as fs from 'node:fs'
 
 /**
  * Compute SHA256 hash of a buffer
@@ -19,8 +20,6 @@ export function sha256(buf: Buffer | Uint8Array): string {
  * Returns the JSON header bytes (without prelude), or null on failure.
  */
 export function readJsonHeaderBytes(asarPath: string): Buffer | null {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- function-local require kept as authored (lint-only change)
-  const fs = require('node:fs')
   let fd = -1
   try {
     fd = fs.openSync(asarPath, 'r')
@@ -56,8 +55,6 @@ export function readJsonHeaderBytes(asarPath: string): Buffer | null {
  * Returns the complete header buffer, or null on failure.
  */
 export function readFullHeaderBytes(asarPath: string): Buffer | null {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- function-local require kept as authored (lint-only change)
-  const fs = require('node:fs')
   let fd = -1
   try {
     fd = fs.openSync(asarPath, 'r')

@@ -6,6 +6,11 @@
 import { basename } from 'node:path'
 import { existsSync, statSync } from 'node:fs'
 import { createLogger } from '../../assets/utils/logger.js'
+import { createRequire } from 'node:module'
+
+// require() for optional and runtime-resolved modules that works in both the ESM and CJS
+// builds (a bare require is undefined in ESM, so these checks would silently fail there)
+const requireOptional = createRequire(import.meta.url)
 
 const logger = createLogger('asar-integrity')
 
@@ -18,10 +23,8 @@ let ffiAvailable = false
 // Try to load FFI on Windows
 if (process.platform === 'win32') {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency, loaded only on win32
-    const ffi = require('ffi-napi')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency; loaded so a missing ref-napi disables FFI
-    require('ref-napi')
+    const ffi = requireOptional('ffi-napi')
+    requireOptional('ref-napi')
 
     K = ffi.Library('Kernel32', {
       GetLastError: ['uint32', []],
@@ -144,8 +147,7 @@ export function readIntegrityResource(exePath: string): Array<{
       return []
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency, loaded only on win32
-    const ref = require('ref-napi')
+    const ref = requireOptional('ref-napi')
 
     // More robust load flags - try them in order of preference
     const loadAttempts = [
@@ -244,8 +246,7 @@ export async function writeIntegrityResourceRcedit(
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency, loaded only on win32
-    const rcedit = require('rcedit')
+    const rcedit = requireOptional('rcedit')
 
     // Use file version info as a more reliable storage method
     const existingVersionInfo = await rcedit(exePath, {}).catch(() => ({}))
@@ -289,10 +290,8 @@ export function checkWindowsDependencies(): WindowsDependencyStatus {
 
   // Check FFI dependencies
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
-    require('ffi-napi')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
-    require('ref-napi')
+    requireOptional('ffi-napi')
+    requireOptional('ref-napi')
     status.ffiAvailable = ffiAvailable
   } catch (e: any) {
     status.ffiError = e.message
@@ -300,8 +299,7 @@ export function checkWindowsDependencies(): WindowsDependencyStatus {
 
   // Check rcedit
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
-    require('rcedit')
+    requireOptional('rcedit')
     status.rceditAvailable = true
   } catch (e: any) {
     status.rceditError = e.message

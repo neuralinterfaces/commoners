@@ -5,6 +5,11 @@
 
 import { createLogger } from '../../assets/utils/logger.js'
 import { detectArchitectureMismatch } from './windows-ffi.js'
+import { createRequire } from 'node:module'
+
+// require() for optional and runtime-resolved modules that works in both the ESM and CJS
+// builds (a bare require is undefined in ESM, so these checks would silently fail there)
+const requireOptional = createRequire(import.meta.url)
 
 const logger = createLogger('asar-integrity')
 
@@ -29,36 +34,30 @@ export function checkDependencies(targetArch?: string): DependencyStatus {
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe; must not fail at import time
-    require('@electron/fuses')
+    requireOptional('@electron/fuses')
     status.fuses = true
   } catch {
     // not installed: status.fuses stays false
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
-    require('ffi-napi')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
-    require('ref-napi')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional native dependency probe
-    require('ref-struct-napi')
+    requireOptional('ffi-napi')
+    requireOptional('ref-napi')
+    requireOptional('ref-struct-napi')
     status.ffi = true
   } catch {
     // not installed: status.ffi stays false
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
-    require('rcedit')
+    requireOptional('rcedit')
     status.rcedit = true
   } catch {
     // not installed: status.rcedit stays false
   }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- optional dependency probe
-    require('plist')
+    requireOptional('plist')
     status.plist = true
   } catch {
     // not installed: status.plist stays false
