@@ -119,7 +119,7 @@ async function main() {
   console.log(`  ${pkgManager} run dev`)
   console.log()
   console.log('Build targets:')
-  console.log(`  ${pkgManager} run build           # PWA`)
+  console.log(`  ${pkgManager} run build           # Web`)
   console.log(`  ${pkgManager} run build:desktop    # Desktop (Electron)`)
   console.log(`  ${pkgManager} run build:mobile     # Mobile (Capacitor)`)
   console.log()
