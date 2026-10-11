@@ -6,6 +6,7 @@ const joinPath = (...paths) => {
   })
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- orphaned module (no exports, no importers); deletion left to owner
 const updateConfigBase = config => {
   const copy = { ...config }
 

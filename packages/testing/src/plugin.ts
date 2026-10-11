@@ -15,10 +15,16 @@ export default (options: TestOptions) => {
     // Store options for future reference
     options,
 
+    // NOTE: Remote debugging port is configured via spawn CLI args in electron.ts startup(),
+    // which runs BEFORE the Electron main process. commandLine.appendSwitch here runs too
+    // late — Chromium reads --remote-debugging-port during native init, before JS executes.
+    // This plugin's primary role is to provide the remoteDebuggingPort option for the
+    // testing package to read (see index.ts:open()).
     start: function () {
       const { process } = globalThis // Required for process resolution
       const { __COMMONERS_TESTING } = process.env
       if (!__COMMONERS_TESTING) return
+      // appendSwitch is a best-effort fallback — the real CDP config happens in electron.ts spawn args
       if (remoteDebuggingPort)
         this.electron.app.commandLine.appendSwitch(
           'remote-debugging-port',

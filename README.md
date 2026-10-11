@@ -3,7 +3,11 @@
 [![Npm package monthly downloads](https://badgen.net/npm/dm/commoners)](https://npmjs.ccom/package/commoners)
 ![GitHub repo size](https://img.shields.io/github/repo-size/neuralinterfaces/commoners)
 
- The `commoners` CLI allows anyone to build their application as a Progressive Web App (PWA); Mac, Windows, and Linux desktop application; and iOS and Android mobile application—all using only HTML, CSS, and JavaScript.
+**From prototype to product, for everyone.**
+
+Commoners turns web prototypes into products, often regulated ones. It is an orchestration layer over Tauri, Electron and Capacitor. One `commoners.config.ts` builds your app for the web (PWA), desktop (Mac, Windows, Linux) and mobile (iOS, Android), and builds, bundles and supervises its services, whether they are written in Python, Rust, C++, WASM or Node.
+
+Product-grade engineering shouldn't need a big team. Builds are secure by default, and every production build records what it contains: a [CycloneDX](https://cyclonedx.org) software bill of materials and a manifest of settings and file hashes. Commoners makes no claims for your product; it hands you the evidence.
 
 Read the [documentation](https://commoners.dev) to learn more.
 
@@ -11,11 +15,7 @@ Read the [documentation](https://commoners.dev) to learn more.
 - [Neurosys](https://github.com/neuralinterfaces/neurosys) — A desktop application for system-level neurofeedback.
 
 ## Build Solidarity
-At the heart of Commoners is our belief that everyone should be able to write an application using HTML, CSS, and JavaScript for distribution on all platforms.
-
-We use the term **build solidarity** to indicate the alignment of the world's web developers on a consistent architecture to achieve this goal.
-
-Let's build solidarity together!
+The name is the idea: product-grade tools held in common, so anyone can ship what used to take a large team.
 
 ## Packages
 
@@ -50,9 +50,10 @@ pnpm build
 ```
 
 ### Testing
+
 #### Initial Setup
 ```bash
-conda env create -f tests/demo/src/services/python/environment.yml
+conda env create -f examples/demo/src/services/python/environment.yml
 ```
 
 #### Running Tests

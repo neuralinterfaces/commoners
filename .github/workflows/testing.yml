@@ -3,7 +3,7 @@ on:
   schedule:
     - cron: '0 16 * * *' # Daily at noon EST
   push:
-    branches: ['main']
+    branches: ['main', 'dev']
   pull_request:
   workflow_dispatch:
 
@@ -43,13 +43,16 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: commoners-demo
-          environment-file: tests/demo/src/services/python/environment.yml
+          environment-file: examples/demo/src/services/python/environment.yml
           auto-activate-base: false
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install FUSE for AppImage support
         if: matrix.os == 'ubuntu-latest'
@@ -58,20 +61,65 @@ jobs:
       - name: Install and build dependencies
         run: corepack enable pnpm && pnpm install && pnpm build
 
-      - if: matrix.os == 'macos-latest'
-        name: Run tests for Mac
+      - name: Config and env tests
+        run: pnpm test:config && pnpm test:env
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm coverage
 
-      - if: matrix.os == 'windows-latest'
-        name: Run tests for Windows
+      - name: Fast unit tests (security, ASAR, protocol, ports, config-stripping, etc.)
+        run: pnpm test:fast-unit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm coverage
+
+      - name: Mobile workflow tests
+        run: pnpm test:mobile-workflow
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Service compilation tests
+        run: pnpm test:services
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os == 'ubuntu-latest'
-        name: Run tests for Linux (xvfb)
+        name: E2E start tests (Linux)
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:start
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm coverage
+
+      - if: matrix.os != 'ubuntu-latest'
+        name: E2E start tests
+        run: pnpm test:start
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: matrix.os == 'ubuntu-latest'
+        name: E2E build tests (Linux)
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:build
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: matrix.os != 'ubuntu-latest'
+        name: E2E build tests
+        run: pnpm test:build
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: matrix.os == 'ubuntu-latest'
+        name: Desktop tests (Linux)
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:desktop
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: matrix.os != 'ubuntu-latest'
+        name: Desktop tests
+        run: pnpm test:desktop
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

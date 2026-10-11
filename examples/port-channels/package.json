@@ -1,0 +1,13 @@
+{
+  "name": "port-channels",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@commoners/solidarity": "workspace:*",
+    "@commoners/windows": "workspace:*"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.2"
+  }
+}

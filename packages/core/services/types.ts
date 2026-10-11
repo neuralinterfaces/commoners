@@ -5,4 +5,5 @@ export type Service = {
   public?: boolean
   port?: number
   publish?: any
+  capabilities?: import('../types.js').ExtensionCapabilities
 }

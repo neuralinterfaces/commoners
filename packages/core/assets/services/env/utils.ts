@@ -11,7 +11,8 @@ export function tryStatSync(file: string): Stats | undefined {
     // The "throwIfNoEntry" is a performance optimization for cases where the file does not exist
     return statSync(file, { throwIfNoEntry: false })
   } catch {
-    // Ignore errors
+    // File doesn't exist or cannot be accessed
+    return undefined
   }
 }
 

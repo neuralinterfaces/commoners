@@ -6,6 +6,25 @@ Commoners relies on [Capacitor](https://capacitorjs.com) to generate the necessa
 
 One peculiar aspect of Capacitor is that mobile builds **require Capacitor plugins to be explicitly listed in your `package.json` file**, even if installed in `node_modules`.
 
+## CI / Headless Builds
+
+When `CI=true` (set automatically by GitHub Actions and most CI providers), commoners skips `npx cap open` and completes without launching a native IDE. This allows mobile builds to run headlessly in CI pipelines.
+
+You can also force headless mode locally:
+```bash
+# Using the CLI flag
+commoners build --target ios --headless
+
+# Using the environment variable
+CI=true commoners build --target android
+```
+
+After a headless build, the native project files are ready at:
+- **iOS**: `ios/` (open with Xcode or compile with `xcodebuild`)
+- **Android**: `android/` (open with Android Studio or compile with `./gradlew assembleDebug`)
+
+For CI workflow templates, see the [Build Automation](/guide/build-automation#mobile) documentation.
+
 ## iOS
 If you are building for iOS, you will need [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12) installed on your Mac. 
 
@@ -54,9 +73,45 @@ Before we begin, you'll need to collect a range of different environment variabl
 14. `MATCH_PASSWORD` - The password for your Fastlane Match
 
 #### Manual Publishing
-Coming soon...
 
-<!-- NOTE: Removing documentation on Fastlane because of inability to solve https://github.com/fastlane/fastlane/issues/20670 -->
+After a headless build (`commoners build --target ios --headless`), you can publish manually via Xcode:
+
+1. Open the Xcode project: `open ios/App/App.xcworkspace`
+2. Select your signing team in **Signing & Capabilities**
+3. Set the version and build number
+4. **Product → Archive** to create an archive
+5. **Distribute App → App Store Connect** to upload to TestFlight
+6. In [App Store Connect](https://appstoreconnect.apple.com), submit the build for review
+
+For automated publishing, the Fastlane integration is blocked by an [upstream issue](https://github.com/fastlane/fastlane/issues/20670). The CI workflow templates below use `xcodebuild` directly as a workaround.
+
+#### CI Publishing (without Fastlane)
+
+```bash
+# Build the archive
+xcodebuild -workspace ios/App/App.xcworkspace \
+  -scheme App -configuration Release \
+  -archivePath build/App.xcarchive archive
+
+# Export the IPA
+xcodebuild -exportArchive \
+  -archivePath build/App.xcarchive \
+  -exportPath build/ \
+  -exportOptionsPlist ExportOptions.plist
+
+# Upload to App Store Connect (use altool or Transporter)
+xcrun altool --upload-app -f build/App.ipa \
+  -t ios \
+  --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+  --apiIssuer "$APP_STORE_CONNECT_API_KEY_ISSUER_ID"
+
+# Note: altool is deprecated in newer Xcode versions.
+# Alternative: use Apple's Transporter app or the App Store Connect API directly.
+```
+
+You'll need an `ExportOptions.plist` specifying your team ID, provisioning profile, and export method (`app-store`).
+
+<!-- NOTE: Removing Fastlane docs because of https://github.com/fastlane/fastlane/issues/20670 -->
 <!-- ###### Workflow Configuration
 Configuring a Github Actions workflow will allow you to automate the build and upload process.
 
@@ -95,6 +150,126 @@ Then run the following command to publish your app:
 bundle exec fastlane closed_beta
 ``` -->
 
+## Testing
+
+Commoners supports two modes for mobile testing:
+
+### Web Preview Testing (Default)
+
+In testing and CI environments, mobile builds are served via a Vite preview server instead of opening a native IDE. Playwright connects to the preview URL and runs the same E2E tests used for web/PWA targets. This covers all JavaScript, services, pages, plugins, and DOM behavior without requiring Xcode, Android Studio, or any native tooling.
+
+This mode activates automatically when any of these conditions are true:
+- `__COMMONERS_TESTING` is set (via `@commoners/testing`)
+- `CI=true` (GitHub Actions, etc.)
+- `COMMONERS_HEADLESS=true`
+
+What this tests:
+- `commoners.MOBILE === true` flag
+- `commoners.PAGES` navigation
+- `commoners.PLUGINS` messaging
+- `commoners.SERVICES` HTTP integration
+- `commoners.ENV` environment variables
+- All web DOM/JavaScript behavior
+
+### Native Emulator Testing (Future)
+
+For full native coverage including Capacitor plugins, native UI, and device APIs, emulator-based testing is planned:
+
+**Android:**
+- Use [`ReactiveCircus/android-emulator-runner`](https://github.com/ReactiveCircus/android-emulator-runner) GitHub Action
+- Appium or WebDriverIO for WebView automation
+- `./gradlew connectedAndroidTest` for instrumented tests
+
+**iOS:**
+- Use `macos-latest` runner with iOS Simulator
+- XCUITest or Appium for native UI testing
+- [`@onslip/automation`](https://github.com/niclas-niclas/niclas-niclas) for WebView testing in native containers
+
+**Cost considerations:**
+- macOS runners: ~$0.08/min
+- Typical run: 5-15 minutes
+- Recommend manual trigger (`workflow_dispatch`) for native tests to control costs
+
+What native testing adds beyond web preview:
+- Native Capacitor plugin behavior (camera, filesystem, etc.)
+- Native UI rendering (status bar, gestures)
+- App lifecycle events (suspend/resume)
+- Actual emulator/device behavior
+
 ## Android
-If you are building for Android, you will need to install the following dependencies:
-- [Android Studio](https://developer.android.com/studio)
+
+### Prerequisites
+- [Android Studio](https://developer.android.com/studio) with SDK Platform 33+ and Build Tools
+- Java 17+ (`JAVA_HOME` set)
+
+### Building
+
+```bash
+# Build the Capacitor project
+commoners build --target android
+
+# Headless (CI)
+commoners build --target android --headless
+```
+
+After a headless build, compile the APK/AAB manually:
+
+```bash
+cd android
+./gradlew assembleDebug          # Debug APK
+./gradlew bundleRelease          # Signed AAB for Play Store
+```
+
+### Signing for Play Store
+
+1. **Generate a keystore** (once):
+   ```bash
+   keytool -genkey -v -keystore release.keystore \
+     -alias my-app -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+2. **Configure signing** in `android/app/build.gradle`:
+   ```groovy
+   android {
+       signingConfigs {
+           release {
+               storeFile file('release.keystore')
+               storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+               keyAlias 'my-app'
+               keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+           }
+       }
+       buildTypes {
+           release {
+               signingConfig signingConfigs.release
+           }
+       }
+   }
+   ```
+
+3. **Build a signed AAB**:
+   ```bash
+   export ANDROID_KEYSTORE_PASSWORD="your-password"
+   export ANDROID_KEY_PASSWORD="your-password"
+   cd android && ./gradlew bundleRelease
+   ```
+
+### Publishing to Google Play
+
+#### Manual
+1. Go to [Google Play Console](https://play.google.com/console)
+2. Create your app entry
+3. Upload the AAB from `android/app/build/outputs/bundle/release/`
+4. Submit for review on the internal testing track first
+
+#### CI (GitHub Actions)
+```yaml
+- uses: r0adkll/upload-google-play@v1
+  with:
+    serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+    packageName: com.example.myapp
+    releaseFiles: android/app/build/outputs/bundle/release/*.aab
+    track: internal
+```
+
+Required secret: a Google Play service account JSON key with "Release manager" permissions.

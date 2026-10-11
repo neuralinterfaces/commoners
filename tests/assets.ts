@@ -2,10 +2,15 @@ import { expect } from 'vitest'
 import { globalTempDir } from '@commoners/solidarity'
 
 import { join } from 'node:path'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 
-export const checkAssets = (projectBase, baseDir = '', { build = false, target = 'web' } = {}) => {
-  if (!baseDir) baseDir = join(projectBase, globalTempDir)
+export const checkAssets = (projectBase, baseDir = '', { target = 'web' } = {}) => {
+  if (!baseDir) {
+    baseDir = join(projectBase, globalTempDir)
+    if (target === 'mobile' || target === 'ios' || target === 'android') {
+      baseDir = join(baseDir, 'mobile')
+    }
+  }
 
   const assetDir = join(baseDir, 'assets')
 
@@ -20,11 +25,11 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   expect(regexFindFile(assetDir, /onload-(.*).mjs/)).toBeTruthy()
   expect(regexFindFile(assetDir, /icon-(.*).png/)).toBeTruthy()
 
-  // Absolute paths
-  expect(existsSync(join(assetDir, 'commoners.config.cjs'))).toBe(true)
+  // Absolute paths — .cjs config only exists in Electron builds
+  const isElectron = target === 'electron' || target === 'desktop'
+  expect(existsSync(join(assetDir, 'commoners.config.cjs'))).toBe(isElectron)
 
   // ---------------------- Electron ----------------------
-  const isElectron = target === 'electron'
   expect(existsSync(join(baseDir, 'main.cjs'))).toBe(isElectron)
   expect(existsSync(join(baseDir, 'preload.cjs'))).toBe(isElectron)
 
@@ -32,5 +37,9 @@ export const checkAssets = (projectBase, baseDir = '', { build = false, target =
   const isPWA = target === 'pwa'
   expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
   expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
-  expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
+  // Web builds ship a self-unregistering kill-switch sw.js (never registered: no registerSW.js),
+  // replacing any worker a previous PWA build installed at this path
+  if (isPWA) expect(existsSync(join(baseDir, 'sw.js'))).toBe(true)
+  else if (existsSync(join(baseDir, 'sw.js')))
+    expect(readFileSync(join(baseDir, 'sw.js'), 'utf8')).toContain('registration.unregister()')
 }

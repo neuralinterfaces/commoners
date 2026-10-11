@@ -7,7 +7,7 @@ module.exports = async (context) => {
   const envVariables = ['APPLE_TEAM_ID', 'APPLE_ID', 'APPLE_ID_PASSWORD']
 
   if (!envVariables.every((key) => !!process.env[key])) {
-    console.warn(`\nSkipping notarization: ${envVariables.join(' + ')} env variables must be set.\n`)
+    // console.warn(`\nSkipping notarization: ${envVariables.join(' + ')} env variables must be set.\n`)
     return
   }
 

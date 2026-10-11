@@ -1,10 +1,33 @@
-/* eslint-disable no-console */
 import { existsSync, openSync, readSync, closeSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { createLogger } from '../../assets/utils/logger.js'
 
-const log = (...a: any[]) => console.log('[asar-debug]', ...a)
-const warn = (...a: any[]) => console.warn('[asar-debug]', ...a)
-const error = (...a: any[]) => console.error('[asar-debug]', ...a)
+const logger = createLogger('asar-debug')
+
+// Helper functions that support both string messages and context objects
+const log = (message: string, context?: any) => {
+  if (typeof context === 'object' && context !== null) {
+    logger.debug(message, context)
+  } else {
+    logger.debug(message)
+  }
+}
+
+const warn = (message: string, context?: any) => {
+  if (typeof context === 'object' && context !== null) {
+    logger.warn(message, context)
+  } else {
+    logger.warn(message)
+  }
+}
+
+const error = (message: string, context?: any) => {
+  if (typeof context === 'object' && context !== null) {
+    logger.error(message, context)
+  } else {
+    logger.error(message)
+  }
+}
 
 interface AsarState {
   exists: boolean
@@ -58,13 +81,15 @@ function readJsonHeaderBytes(asarPath: string): Buffer | null {
     if (readSync(fd, json, 0, jsonLen, 12) !== jsonLen) return null
 
     return json
-  } catch (e) {
+  } catch {
     return null
   } finally {
     if (fd >= 0) {
       try {
         closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -85,13 +110,15 @@ function readFullHeaderBytes(asarPath: string): Buffer | null {
     if (readSync(fd, full, 12, jsonLen, 12) !== jsonLen) return null
 
     return full
-  } catch (e) {
+  } catch {
     return null
   } finally {
     if (fd >= 0) {
       try {
         closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -151,7 +178,9 @@ function validateAsarStructure(asarPath: string): { isValid: boolean; error?: st
     if (fd >= 0) {
       try {
         closeSync(fd)
-      } catch {}
+      } catch {
+        // best effort: ignore close failure
+      }
     }
   }
 }
@@ -282,7 +311,7 @@ function verifyHashConsistency(state: AsarState, context: AsarDebugContext): voi
     issues.forEach(issue => error(`  - ${issue}`))
     error('This may indicate ASAR file corruption or build process issues!')
   } else if (context.jsonHash || context.fullHash || context.verifiedHash) {
-    log('✅ Hash consistency verified')
+    log('Hash consistency verified')
   }
 }
 
@@ -319,9 +348,7 @@ export function logAsarState(
   log(`Modified: ${state.mtime}`)
   log(`Valid: ${state.isValid}`)
 
-  if (state.error) {
-    error(`Error: ${state.error}`)
-  }
+  if (state.error) error(state.error)
 
   if (state.isValid) {
     log(`JSON Header: ${state.jsonHeaderSize} bytes, SHA256: ${state.jsonHeaderHash}`)
@@ -329,9 +356,7 @@ export function logAsarState(
   }
 
   // Log context information
-  if (Object.keys(context).length > 0) {
-    log('Context:', context)
-  }
+  if (Object.keys(context).length > 0) log('Context:', context)
 
   // Compare with previous state if available
   const previousState = stateHistory.get(asarPath)
@@ -391,9 +416,9 @@ function validateFinalIntegrity(state: AsarState, context: AsarDebugContext): vo
     criticalIssues.forEach(issue => error(`  - ${issue}`))
     error('The application may fail to start with integrity validation enabled!')
   } else {
-    log('✅ Final integrity validation passed')
-    log(`✅ Stable JSON hash: ${state.jsonHeaderHash}`)
-    log(`✅ Stable full hash: ${state.fullHeaderHash}`)
+    log('Final integrity validation passed')
+    log(`Stable JSON hash: ${state.jsonHeaderHash}`)
+    log(`Stable full hash: ${state.fullHeaderHash}`)
   }
 }
 
@@ -418,7 +443,7 @@ export function manualAsarIntegrityCheck(asarPath: string): boolean {
     return false
   }
 
-  log('✅ ASAR file is valid and hashes computed successfully')
+  log('ASAR file is valid and hashes computed successfully')
   log(`JSON Header Hash: ${state.jsonHeaderHash}`)
   log(`Full Header Hash: ${state.fullHeaderHash}`)
 

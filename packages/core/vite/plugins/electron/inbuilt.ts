@@ -2,7 +2,7 @@ import { builtinModules } from 'node:module'
 
 type InlineConfig = import('vite').InlineConfig
 
-export function withExternalBuiltins(config: InlineConfig) {
+export function withExternalBuiltins(config: InlineConfig): InlineConfig {
   const copy = { ...config }
 
   const builtins = builtinModules.filter(e => !e.startsWith('_'))

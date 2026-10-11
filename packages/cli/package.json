@@ -1,9 +1,27 @@
 {
   "name": "commoners",
-  "description": "Cross-Platform Development for the Rest of Us",
-  "version": "1.0.0-alpha.2",
+  "description": "From prototype to product, for everyone: build web apps with backend services for web, desktop and mobile, on Tauri, Electron and Capacitor",
+  "keywords": [
+    "tauri",
+    "electron",
+    "capacitor",
+    "pwa",
+    "cross-platform",
+    "sidecar",
+    "services",
+    "sbom",
+    "csp",
+    "security"
+  ],
+  "version": "1.0.0-alpha.4",
   "type": "module",
+  "author": "Neural Interfaces",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neuralinterfaces/commoners.git",
+    "directory": "packages/cli"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
@@ -16,20 +34,26 @@
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@commoners/solidarity": "1.0.0-alpha.2",
+    "@commoners/solidarity": ">=1.0.0-alpha.0",
     "boxen": "^8.0.1",
     "cac": "^6.7.14",
     "chalk": "^5.2.0",
+    "didyoumean2": "^7.0.4",
     "figures": "^6.1.0",
-    "ora": "^9.0.0"
+    "ora": "^9.0.0",
+    "qrcode-terminal": "^0.12.0"
   },
   "devDependencies": {
-    "@types/node": "^20.19.15",
-    "typescript": "^5.0.0",
-    "vite": "^7.1.7",
-    "vite-plugin-static-copy": "^3.1.2"
+    "@types/node": "^20.19.43",
+    "execa": "^9.6.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vite-plugin-static-copy": "^3.4.0",
+    "vitest": "^4.1.11"
   }
 }

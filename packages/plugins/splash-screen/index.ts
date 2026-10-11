@@ -14,10 +14,21 @@ type SplashScreenOption = {
 
 export default (page: string, options: SplashScreenOption = {}) => {
   return {
+    capabilities: {
+      provides: ['splash-screen', 'loading-screen'],
+      platforms: { desktop: true },
+      runtime: 'browser' as const,
+    },
+
     assets: { page },
     desktop: {
       load: async function (loadingWindow, pluginId) {
         if (!loadingWindow.__main || !loadingWindow.__show) return // Only run when the main window has been spawned and will show soon
+
+        // Skip splash screen in testing mode — the splash window creates a CDP target
+        // that doesn't respond to page commands (especially if the HTML file is missing
+        // from the build), which causes Playwright's connectOverCDP to hang forever.
+        if (process.env.__COMMONERS_TESTING) return
 
         const {
           minimumDisplayTime, // This defines a minimum wait time

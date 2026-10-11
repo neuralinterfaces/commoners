@@ -1,6 +1,27 @@
+# Python Services
 
-# Example Python Service
-This is an example HTTP server written in Python.
+Commoners bundles Python services into standalone executables using [PyInstaller](https://pyinstaller.org/), so end users don't need Python installed.
+
+## Requirements
+
+PyInstaller must be available on PATH. You can install it with any of these approaches:
+
+```bash
+# Option 1: pip (simplest)
+pip install pyinstaller
+
+# Option 2: conda (if you use conda environments)
+conda install pyinstaller
+
+# Option 3: pipx (isolated install)
+pipx install pyinstaller
+```
+
+If your service has dependencies (e.g., NumPy, Flask), ensure they are installed in the same environment where PyInstaller runs. Conda is convenient for services with compiled dependencies, but is not required.
+
+## Example
+
+An HTTP server written in Python:
 
 ```python
 import os

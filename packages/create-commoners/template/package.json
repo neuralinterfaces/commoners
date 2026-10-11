@@ -1,0 +1,26 @@
+{
+  "name": "my-commoners-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "commoners",
+    "build": "commoners build",
+    "build:desktop": "commoners build --target desktop",
+    "build:mobile": "commoners build --target mobile",
+    "preview": "commoners preview"
+  },
+  "dependencies": {
+    "@commoners/solidarity": "^1.0.0-alpha.3",
+    "@commoners/splash-screen": "^1.0.0-alpha.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0",
+    "commoners": "^1.0.0-alpha.3",
+    "electron": "^41.10.6",
+    "electron-builder": "^26.8.1"
+  }
+}

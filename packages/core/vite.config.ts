@@ -10,7 +10,14 @@ const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
 const toCopy = [join('assets')]
 
 const additionalPlugins = [
-  dts(),
+  // Declarations go to dist/types: the raw assets/**/*.ts copied into dist/assets (below) would
+  // otherwise sit beside them, and TypeScript resolves a .ts file ahead of its .d.ts sibling.
+  // `include` covers every module the entry points reach, not just tsconfig's entry list.
+  dts({
+    outDir: 'dist/types',
+    include: ['**/*.ts'],
+    exclude: ['node_modules/**', 'dist/**', 'vite.config.ts'],
+  }),
   viteStaticCopy({
     targets: [
       {
@@ -30,6 +37,7 @@ export default createPackageConfig({
   entryPoint: {
     main: 'index.ts',
     services: 'services/index.ts',
+    ui: 'ui.ts',
     config: 'config.ts',
   },
   packageName: '@commoners/solidarity',

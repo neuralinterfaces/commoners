@@ -1,5 +1,19 @@
-# Example Compiled Service
-This is an example HTTP server written in C++.
+# C++ Services
+
+Commoners supports C++ services via custom build commands. You provide the compilation command in your config, and Commoners runs it during the build step and manages the resulting binary.
+
+::: info
+Unlike JS/TS, Python, and Rust services, C++ services are not compiled by Commoners directly. You supply your own build command (e.g., `g++`, `cmake`, `make`), and Commoners executes it and manages the output binary. This gives you full control over compiler flags, headers, and toolchain, but means cross-compilation is your responsibility.
+:::
+
+## Requirements
+
+- **macOS/Linux**: `g++` (install via `xcode-select --install` on macOS or `sudo apt-get install build-essential` on Linux)
+- **Windows**: MSVC (install via Visual Studio Build Tools)
+
+## Example
+
+An HTTP server written in C++:
 
 ```cpp
 #ifdef _WIN32

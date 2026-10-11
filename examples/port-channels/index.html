@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Port Channels · sender</title>
+<style>body{margin:0;font:700 36px -apple-system,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh}</style>
+</head>
+<body><div><div id="out">starting</div><div id="status" style="font-size:16px;font-weight:400"></div></div>
+<script type="module">
+const out = document.getElementById('out')
+const status = document.getElementById('status')
+const { stream, windows } = await commoners.READY
+
+// One page, two roles: the main window gets the window manager and sends;
+// the popup it opens gets a link back to main and receives
+// Tauri has no popup here: the main window sends and taps its own stream into Rust
+const isTauri = commoners.TARGET === 'tauri'
+if (windows?.receiver || isTauri) {
+  document.title = 'Port Channels · sender'
+  const { port1, port2 } = new MessageChannel()
+  // The sender lives in a Worker, like a background data source: 120-byte frames at 60 Hz
+  const worker = new Worker(URL.createObjectURL(new Blob([`
+    let n = 0, port
+    onmessage = e => {
+      port = e.ports[0]
+      setInterval(() => {
+        const frame = new Uint8Array(120), view = new DataView(frame.buffer)
+        view.setUint32(0, ++n, true)
+        view.setFloat64(8, performance.timeOrigin + performance.now(), true)
+        port.postMessage(frame)
+        postMessage(n)
+      }, 1000 / 60)
+    }
+  `])))
+  worker.postMessage(null, [port1])
+  worker.onmessage = e => (out.textContent = 'TX ' + e.data)
+  stream.sendPort('frames', port2)
+  if (isTauri) stream.tapPort('frames', 'plugin:stream|frames')
+  else windows.receiver.create().open().catch(error => (status.textContent = error.message))
+} else {
+  document.title = 'Port Channels · receiver'
+  out.textContent = 'waiting for port'
+
+  
+  stream.onPort('frames', port => {
+    const latencies = []
+    let received = 0, last = 0, gaps = 0
+    port.onmessage = ({ data }) => {
+      const view = new DataView(data.buffer)
+      const n = view.getUint32(0, true)
+      if (last && n !== last + 1) gaps++
+      last = n
+      received++
+      // Skip warm-up: frames buffered before this window attached carry their wait time
+    if (received > 120) latencies.push(performance.timeOrigin + performance.now() - view.getFloat64(8, true))
+      if (received % 30 || !latencies.length) return
+      const sorted = [...latencies].sort((a, b) => a - b)
+      const q = p => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))].toFixed(2)
+      out.innerHTML = `RX ${received} · gaps ${gaps} · ${data.byteLength} B<br>p50 ${q(0.5)} · p95 ${q(0.95)} · max ${q(1)} ms`
+    }
+  })
+  
+}
+</script>
+</body>
+</html>

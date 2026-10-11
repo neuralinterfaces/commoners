@@ -17,6 +17,7 @@ export default defineConfig({
       entry: {
         main: 'src/index',
         plugin: 'src/plugin',
+        tauri: 'src/tauri',
       },
       name: 'testing',
       formats: ['es', 'cjs'],
@@ -26,7 +27,12 @@ export default defineConfig({
     },
     rollupOptions: {
       external: Array.from(
-        new Set(['electron-builder', ...Object.keys(pkg.dependencies), ...nodeBuiltIns])
+        new Set([
+          'electron-builder',
+          'webdriverio',
+          ...Object.keys(pkg.dependencies),
+          ...nodeBuiltIns,
+        ])
       ),
     },
   },
