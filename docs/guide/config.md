@@ -255,7 +255,12 @@ Each feature becomes a build-time constant, `__COMMONERS_FEATURE_<NAME>__` (for 
 ### Build Record
 Every production build writes three files describing what it contains, in `.commoners/records/<target>/`:
 
-- `commoners.sbom.cdx.json`: a software bill of materials (SBOM) in [CycloneDX 1.5](https://cyclonedx.org) format. It lists the npm packages the bundler actually included (not everything in `package.json`), the desktop runtime (Electron, or Tauri's crates from its `Cargo.lock`), Rust crates and pinned Python requirements of your services, and each built service with its file hashes.
+- `commoners.sbom.cdx.json`: a software bill of materials (SBOM) in [CycloneDX 1.5](https://cyclonedx.org) format. It lists the npm packages the bundler actually included (not everything in `package.json`), the desktop runtime (Electron, or Tauri's crates from its `Cargo.lock`), Rust crates and pinned Python requirements of your services, and each built service with its file hashes. It covers the [NTIA minimum elements](https://www.ntia.gov/report/2021/minimum-elements-software-bill-materials-sbom):
+  - supplier, component name, version and a unique identifier (package URL) for each component;
+  - the dependency relationships between components, as a CycloneDX dependency graph;
+  - the SBOM's author and timestamp.
+
+  Suppliers come from each npm package's `author` and each crate's `authors`. The app's own supplier and the SBOM author come from `author` in your `package.json`. Anything missing is listed in the manifest's `notCovered`, never guessed.
 - `commoners.scan.sarif`: the build's scan results (feature canary violations and `eval`-like code the CSP would block) in [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format code-scanning tools read. A failed build writes only this file.
 - `commoners.manifest.json`: the build's target, enabled `features` and their canary checks, security settings, the SHA-256 of every frontend, service and installer file, the source commit (with a flag if the working tree had uncommitted changes), and a `notCovered` list of anything the SBOM could not itemize, such as unpinned Python requirements.
 

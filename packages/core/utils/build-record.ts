@@ -36,6 +36,14 @@ export type Component = {
   purl?: string
   license?: string
   hashes?: FileHash[]
+  supplier?: string // NTIA minimum element: who supplies the component
+  dependsOn?: string[] // Names of the packages this one declares as dependencies
+}
+
+/** Supplier name from a package author field: "Name <email> (url)" or { name } */
+export const supplierOf = (author: unknown): string | undefined => {
+  const name = typeof author === 'string' ? author.replace(/\s*[<(].*$/, '') : (author as any)?.name
+  return typeof name === 'string' && name.trim() ? name.trim() : undefined
 }
 
 // ------------------------ Bundle inventory ------------------------
@@ -67,12 +75,16 @@ const readPackage = (dir: string): Component | null => {
     const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
     if (!pkg.name || !pkg.version) return null
     const license = typeof pkg.license === 'string' ? pkg.license : pkg.license?.type
+    const supplier = supplierOf(pkg.author)
+    const dependsOn = Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies })
     return {
       type: 'library',
       name: pkg.name,
       version: pkg.version,
       purl: npmPurl(pkg.name, pkg.version),
       ...(license ? { license } : {}),
+      ...(supplier ? { supplier } : {}),
+      ...(dependsOn.length ? { dependsOn } : {}),
     }
   } catch {
     return null
@@ -101,9 +113,44 @@ export const bundleInventoryPlugin = (root: string): Plugin => ({
 
 // ------------------------ Lockfiles ------------------------
 
+// Cargo's unpacked registry sources: each crate's Cargo.toml carries its `authors` (the supplier)
+const cargoRegistrySources = (env = process.env) => {
+  const base = join(
+    env.CARGO_HOME ?? join(env.HOME ?? env.USERPROFILE ?? '', '.cargo'),
+    'registry',
+    'src'
+  )
+  try {
+    return readdirSync(base).map(index => join(base, index))
+  } catch {
+    return []
+  }
+}
+
+/** First author of a crate, from the registry copy of its Cargo.toml, if cargo has it locally */
+export const cargoSupplier = (name: string, version: string, sources = cargoRegistrySources()) => {
+  for (const source of sources) {
+    const manifest = join(source, `${name}-${version}`, 'Cargo.toml')
+    if (!existsSync(manifest)) continue
+    const authors = readFileSync(manifest, 'utf8').match(/^authors\s*=\s*\[([\s\S]*?)\]/m)?.[1]
+    const first = authors?.match(/"([^"]+)"/)?.[1]
+    return supplierOf(first)
+  }
+  return undefined
+}
+
 /** Crates from a Cargo.lock. Path dependencies (no source) are local code, listed without a purl */
-export const cargoLockComponents = (lockfile: string): Component[] => {
+export const cargoLockComponents = (
+  lockfile: string,
+  sources = cargoRegistrySources()
+): Component[] => {
   if (!existsSync(lockfile)) return []
+  const found = new Map<string, string | undefined>()
+  const supplier = (name: string, version: string) => {
+    const key = `${name}@${version}`
+    if (!found.has(key)) found.set(key, cargoSupplier(name, version, sources))
+    return found.get(key)
+  }
   return readFileSync(lockfile, 'utf8')
     .split('[[package]]')
     .slice(1)
@@ -113,11 +160,16 @@ export const cargoLockComponents = (lockfile: string): Component[] => {
       const version = field('version')
       if (!name || !version) return null
       const fromRegistry = field('source')?.startsWith('registry+')
+      // dependencies = [ "a", "b 1.2.3", "c 1.0.0 (registry+…)" ]: the first word is the crate
+      const list = block.match(/^dependencies = \[([\s\S]*?)\]/m)?.[1] ?? ''
+      const dependsOn = [...list.matchAll(/"([^"\s]+)[^"]*"/g)].map(m => m[1])
       return {
         type: 'library' as const,
         name,
         version,
         ...(fromRegistry ? { purl: `pkg:cargo/${name}@${version}` } : {}),
+        ...(fromRegistry && supplier(name, version) ? { supplier: supplier(name, version) } : {}),
+        ...(dependsOn.length ? { dependsOn } : {}),
       }
     })
     .filter(Boolean) as Component[]
@@ -202,9 +254,12 @@ const contentUuid = (content: string) => {
   return `urn:uuid:${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`
 }
 
+const refOf = (c: Component) => c.purl ?? `${c.name}@${c.version}`
+
 const toCycloneDX = (c: Component) => ({
   type: c.type,
-  'bom-ref': c.purl ?? `${c.name}@${c.version}`,
+  'bom-ref': refOf(c),
+  ...(c.supplier ? { supplier: { name: c.supplier } } : {}),
   name: c.name,
   version: c.version,
   ...(c.purl ? { purl: c.purl } : {}),
@@ -220,20 +275,52 @@ const toCycloneDX = (c: Component) => ({
     : {}),
 })
 
+/**
+ * The dependency graph (NTIA minimum element "dependency relationship"): each component points at
+ * the included components it declares as dependencies; the app points at those nothing else
+ * depends on (the direct dependencies, as far as the inventory can tell)
+ */
+export const dependencyGraph = (appRef: string, components: Component[]) => {
+  const byName = new Map<string, string[]>()
+  for (const c of components) byName.set(c.name, [...(byName.get(c.name) ?? []), refOf(c)])
+  const edges = components.map(c => ({
+    ref: refOf(c),
+    dependsOn: [...new Set((c.dependsOn ?? []).flatMap(name => byName.get(name) ?? []))].sort(),
+  }))
+  const dependedOn = new Set(edges.flatMap(e => e.dependsOn))
+  const direct = components
+    .map(refOf)
+    .filter(ref => !dependedOn.has(ref))
+    .sort()
+  return [{ ref: appRef, dependsOn: direct }, ...edges]
+}
+
 export const createSBOM = (
-  app: { name: string; version: string },
+  app: { name: string; version: string; supplier?: string },
   components: Component[],
   { tool, timestamp }: { tool: { name: string; version: string }; timestamp: string }
 ) => {
-  const unique = [...new Map(components.map(c => [c.purl ?? `${c.name}@${c.version}`, c])).values()]
-  unique.sort((a, b) => (a.purl ?? a.name).localeCompare(b.purl ?? b.name))
+  const unique = [...new Map(components.map(c => [refOf(c), c])).values()]
+  unique.sort((a, b) => refOf(a).localeCompare(refOf(b)))
+  const appRef = `app:${app.name}@${app.version}`
   const body = {
     metadata: {
       timestamp,
       tools: { components: [{ type: 'application', name: tool.name, version: tool.version }] },
-      component: { type: 'application', name: app.name, version: app.version },
+      // NTIA "author of SBOM data": the app's supplier, when declared, assembled the record
+      ...(app.supplier
+        ? { authors: [{ name: app.supplier }], supplier: { name: app.supplier } }
+        : {}),
+      component: {
+        type: 'application',
+        'bom-ref': appRef,
+        name: app.name,
+        version: app.version,
+        ...(app.supplier ? { supplier: { name: app.supplier } } : {}),
+      },
     },
     components: unique.map(toCycloneDX),
+    dependencies: dependencyGraph(appRef, unique),
   }
   return {
     bomFormat: 'CycloneDX',

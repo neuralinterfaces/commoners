@@ -18,6 +18,9 @@ import {
   writeRecord,
   parseJUnit,
   attachTestResults,
+  supplierOf,
+  dependencyGraph,
+  cargoSupplier,
 } from '../packages/core/utils/build-record'
 import { readFileSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -71,7 +74,7 @@ name = "my-plugin"
 version = "0.1.0"
 `
     )
-    expect(cargoLockComponents(lock)).toEqual([
+    expect(cargoLockComponents(lock, [])).toEqual([
       { type: 'library', name: 'serde', version: '1.0.210', purl: 'pkg:cargo/serde@1.0.210' },
       { type: 'library', name: 'my-plugin', version: '0.1.0' },
     ])
@@ -108,7 +111,12 @@ describe('SBOM', () => {
     const sbom = createSBOM(app, [b, a, a], { tool, timestamp: '2026-01-01T00:00:00.000Z' })
     expect(sbom.bomFormat).toBe('CycloneDX')
     expect(sbom.specVersion).toBe('1.5')
-    expect(sbom.metadata.component).toEqual({ type: 'application', name: 'demo', version: '1.2.3' })
+    expect(sbom.metadata.component).toEqual({
+      type: 'application',
+      'bom-ref': 'app:demo@1.2.3',
+      name: 'demo',
+      version: '1.2.3',
+    })
     expect(sbom.components.map((c: any) => c.purl)).toEqual(['pkg:npm/a@1.0.0', 'pkg:npm/b@2.0.0'])
     expect(sbom.components[0].licenses).toEqual([{ expression: 'MIT' }])
   })
@@ -304,5 +312,90 @@ describe('test results', () => {
     expect(() => attachTestResults(dir, [report])).toThrow(/No build record/)
     writeRecord(dir, null, { app: 'x' })
     expect(() => attachTestResults(dir, [report])).toThrow(/no JUnit/)
+  })
+})
+
+describe('NTIA minimum elements', () => {
+  test('supplier comes from the package author, in either form', () => {
+    expect(supplierOf('Jane Doe <jane@example.com> (https://example.com)')).toBe('Jane Doe')
+    expect(supplierOf({ name: 'Example Org', email: 'x@example.com' })).toBe('Example Org')
+    expect(supplierOf(undefined)).toBeUndefined()
+    expect(supplierOf('   ')).toBeUndefined()
+  })
+
+  test('dependency graph links included components; the app points at the direct ones', () => {
+    const a = {
+      type: 'library' as const,
+      name: 'a',
+      version: '1.0.0',
+      purl: 'pkg:npm/a@1.0.0',
+      dependsOn: ['b', 'not-bundled'],
+    }
+    const b = { type: 'library' as const, name: 'b', version: '2.0.0', purl: 'pkg:npm/b@2.0.0' }
+    expect(dependencyGraph('app:x@1', [a, b])).toEqual([
+      { ref: 'app:x@1', dependsOn: ['pkg:npm/a@1.0.0'] },
+      { ref: 'pkg:npm/a@1.0.0', dependsOn: ['pkg:npm/b@2.0.0'] },
+      { ref: 'pkg:npm/b@2.0.0', dependsOn: [] },
+    ])
+  })
+
+  test('Cargo.lock dependency lists become edges', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'commoners-cargo-'))
+    const lock = join(dir, 'Cargo.lock')
+    writeFileSync(
+      lock,
+      `[[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "syn 2.0.1",
+]
+
+[[package]]
+name = "serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+`
+    )
+    expect(cargoLockComponents(lock, [])[0].dependsOn).toEqual(['serde', 'syn'])
+  })
+
+  test('SBOM carries suppliers, authors, a root ref and the graph', () => {
+    const a = {
+      type: 'library' as const,
+      name: 'a',
+      version: '1.0.0',
+      purl: 'pkg:npm/a@1.0.0',
+      supplier: 'A Corp',
+    }
+    const sbom = createSBOM({ name: 'demo', version: '1.0.0', supplier: 'Demo Inc' }, [a], {
+      tool,
+      timestamp: 't',
+    }) as any
+    expect(sbom.metadata.authors).toEqual([{ name: 'Demo Inc' }])
+    expect(sbom.metadata.supplier).toEqual({ name: 'Demo Inc' })
+    expect(sbom.metadata.component['bom-ref']).toBe('app:demo@1.0.0')
+    expect(sbom.components[0].supplier).toEqual({ name: 'A Corp' })
+    expect(sbom.dependencies[0]).toEqual({ ref: 'app:demo@1.0.0', dependsOn: ['pkg:npm/a@1.0.0'] })
+  })
+
+  test('without a declared app supplier, no author is invented', () => {
+    const sbom = createSBOM({ name: 'demo', version: '1.0.0' }, [], { tool, timestamp: 't' }) as any
+    expect(sbom.metadata.authors).toBeUndefined()
+    expect(sbom.metadata.supplier).toBeUndefined()
+  })
+})
+
+describe('crate suppliers', () => {
+  test("read from the registry copy of the crate's Cargo.toml", () => {
+    const registry = mkdtempSync(join(tmpdir(), 'commoners-registry-'))
+    mkdirSync(join(registry, 'serde-1.0.0'))
+    writeFileSync(
+      join(registry, 'serde-1.0.0', 'Cargo.toml'),
+      '[package]\nname = "serde"\nauthors = [\n  "Erich Gamma <e@example.com>",\n  "Other",\n]\n'
+    )
+    expect(cargoSupplier('serde', '1.0.0', [registry])).toBe('Erich Gamma')
+    expect(cargoSupplier('missing', '1.0.0', [registry])).toBeUndefined()
   })
 })

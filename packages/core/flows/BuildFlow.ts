@@ -4,7 +4,7 @@
  */
 
 import { join, resolve, isAbsolute, dirname } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { createLogger } from '../assets/utils/logger.js'
 import type {
@@ -32,7 +32,8 @@ import { resetEncodedPaths } from '../utils/encode.js'
 
 const ownRequire = createRequire(import.meta.url)
 const commonersPackagePath = ownRequire.resolve('../package.json')
-const commonersVersion: string = ownRequire('../package.json').version
+const commonersPackage = ownRequire('../package.json')
+const commonersVersion: string = commonersPackage.version
 
 const resolveOutDir = (context: BuildContext): string => context.stagingDir || context.outDir
 
@@ -378,13 +379,36 @@ export class BuildFlow {
     const installers = isTauri ? [] : BuildRecord.hashInstallers(outDir, frontendPaths)
 
     const timestamp = BuildRecord.buildTimestamp()
-    const app = { name: config.name ?? 'commoners-app', version: config.version ?? '0.0.0' }
+    let projectAuthor: unknown
+    try {
+      projectAuthor = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).author
+    } catch {
+      // No package.json: the app has no declared supplier
+    }
+    const supplier = BuildRecord.supplierOf(projectAuthor)
+    const app = {
+      name: config.name ?? 'commoners-app',
+      version: config.version ?? '0.0.0',
+      ...(supplier ? { supplier } : {}),
+    }
     components.push({
       type: 'framework',
       name: '@commoners/solidarity',
+      supplier: BuildRecord.supplierOf(commonersPackage.author),
       version: commonersVersion,
       purl: BuildRecord.npmPurl('@commoners/solidarity', commonersVersion),
     })
+
+    // NTIA minimum elements the inventory could not fill are listed, not invented
+    if (!supplier) notCovered.push('App supplier / SBOM author: set "author" in package.json')
+    const withoutSupplier = components.filter(c => c.type !== 'application' && !c.supplier)
+    if (withoutSupplier.length)
+      notCovered.push(
+        `${withoutSupplier.length} component(s) declare no supplier (package author): ${withoutSupplier
+          .slice(0, 10)
+          .map(c => c.name)
+          .join(', ')}${withoutSupplier.length > 10 ? ', …' : ''}`
+      )
 
     const sbom = BuildRecord.createSBOM(app, components, {
       tool: { name: '@commoners/solidarity', version: commonersVersion },
