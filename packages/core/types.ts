@@ -543,6 +543,10 @@ export type BaseConfig = {
     killSwitch?: boolean // Web builds ship a self-unregistering sw.js (default true)
   }
 
+  // Production builds write an SBOM (CycloneDX) and a manifest of settings and file hashes to
+  // .commoners/records/<target>/ (or outDir). false turns it off
+  buildRecord?: false | { outDir?: string }
+
   // Tauri Options
   tauri?: TauriOptions
 

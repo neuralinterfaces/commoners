@@ -8,12 +8,13 @@
  * - Rust dependencies (Cargo.lock)
  * - C++ dependencies (if declared in config)
  *
- * Designed for regulatory compliance (FDA, medical devices).
+ * Production builds already write a CycloneDX SBOM from what the bundle actually contains
+ * (see `buildRecord`); this plugin adds dependency auditing.
  */
 
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { join } from 'node:path'
 
 export const capabilities = {
   provides: ['audit', 'sbom', 'compliance'],
@@ -223,7 +224,7 @@ export default function audit(options: AuditOptions = {}) {
       }
 
       // Also scan service directories for their own dependencies
-      for (const [id, svc] of Object.entries(services)) {
+      for (const svc of Object.values(services)) {
         if (!svc?.filepath) continue
         const svcDir = join(root, svc.filepath, '..')
 
@@ -250,7 +251,9 @@ export default function audit(options: AuditOptions = {}) {
           const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
           appName = pkg.name || appName
           appVersion = pkg.version || appVersion
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
 
       // Generate SBOM
@@ -269,7 +272,9 @@ export default function audit(options: AuditOptions = {}) {
       if (opts.failOnVulnerabilities) {
         const { vulnerabilities } = runNpmAudit(root)
         if (vulnerabilities > 0) {
-          throw new Error(`[commoners:audit] ${vulnerabilities} known vulnerabilities found. Run 'npm audit' for details.`)
+          throw new Error(
+            `[commoners:audit] ${vulnerabilities} known vulnerabilities found. Run 'npm audit' for details.`
+          )
         }
       }
     },

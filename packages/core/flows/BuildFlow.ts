@@ -3,7 +3,9 @@
  * Implements the Template Method pattern for build operations
  */
 
-import { join, resolve, isAbsolute } from 'node:path'
+import { join, resolve, isAbsolute, dirname } from 'node:path'
+import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { createLogger } from '../assets/utils/logger.js'
 import type {
   UserConfig,
@@ -23,6 +25,13 @@ import {
 } from '../globals.js'
 import { getBuildAdapter } from '../adapters/index.js'
 import { globalServiceWorkspacePath } from '../assets/services/paths.js'
+import * as BuildRecord from '../utils/build-record.js'
+import { resolveFeatures } from '../utils/features.js'
+import { getServices } from '../utils/extensions.js'
+
+const ownRequire = createRequire(import.meta.url)
+const commonersPackagePath = ownRequire.resolve('../package.json')
+const commonersVersion: string = ownRequire('../package.json').version
 
 const resolveOutDir = (context: BuildContext): string => context.stagingDir || context.outDir
 
@@ -202,15 +211,18 @@ export class BuildFlow {
    */
   private async executeBuildFlow(context: BuildContext, strategy: BuildStrategy): Promise<void> {
     const { dev } = context
+    const recording = !dev && context.config.buildRecord !== false
 
     // Step 1: Prepare build environment
     await strategy.prepare(context)
 
     // Step 2: Build frontend assets
+    BuildRecord.resetInventory(resolve(context.root))
     await this.buildFrontendAssets(context)
 
     // Step 3: Build app-specific assets
     await this.buildAppAssets(context)
+    const frontendFiles = recording ? BuildRecord.hashTree(resolveOutDir(context)) : []
 
     // Step 4: Build services (if applicable)
     if (context.rebuildServices) await this.buildServices(context)
@@ -230,6 +242,129 @@ export class BuildFlow {
 
     // Step 7: Finalize build
     await strategy.finalize(context)
+
+    // Step 8: Build record (SBOM + manifest) for production builds
+    if (recording) this.writeBuildRecord(context, frontendFiles)
+  }
+
+  /**
+   * Write the SBOM and manifest describing what this build contains (see utils/build-record.ts)
+   */
+  private writeBuildRecord(context: BuildContext, frontendFiles: BuildRecord.FileHash[]): void {
+    const { config, target, outDir } = context
+    const root = resolve(context.root)
+    const recordOptions = typeof config.buildRecord === 'object' ? config.buildRecord : {}
+    const recordDir = recordOptions.outDir
+      ? resolve(root, recordOptions.outDir)
+      : join(root, globalWorkspacePath, 'records', target)
+
+    const components: BuildRecord.Component[] = [...BuildRecord.getInventory(root)]
+    const notCovered: string[] = []
+
+    // Desktop runtime
+    const isTauri = target === 'tauri'
+    if (isTauri) {
+      const lockfile = join(dirname(context.stagingDir), 'src-tauri', 'Cargo.lock')
+      const crates = BuildRecord.cargoLockComponents(lockfile)
+      if (crates.length) components.push(...crates)
+      else notCovered.push('Tauri runtime crates (no Cargo.lock found)')
+    } else if (isDesktop(target)) {
+      // The app's own electron if it pins one, else the one Commoners packages with
+      const electron =
+        BuildRecord.installedPackage(root, 'electron') ??
+        BuildRecord.installedPackage(dirname(commonersPackagePath), 'electron')
+      if (electron) components.push({ ...electron, type: 'framework' })
+      else notCovered.push('Electron runtime version')
+    }
+
+    // Services: built files with hashes, plus their dependencies where a lockfile pins them
+    const services = Object.entries(getServices(config.extensions) ?? {}).map(
+      ([id, service]: [string, any]) => {
+        const builtDir = join(root, globalServiceWorkspacePath, id)
+        const files = BuildRecord.hashTree(builtDir)
+        const srcDir = typeof service?.src === 'string' ? dirname(resolve(root, service.src)) : null
+
+        if (srcDir) {
+          components.push(...BuildRecord.cargoLockComponents(join(srcDir, 'Cargo.lock')))
+          const python = BuildRecord.pythonRequirements(join(srcDir, 'requirements.txt'))
+          components.push(...python.components)
+          if (python.unresolved.length)
+            notCovered.push(`${id}: unpinned Python requirements (${python.unresolved.join(', ')})`)
+          if (/\.(c|cc|cpp)$/.test(service.src)) notCovered.push(`${id}: C/C++ dependencies`)
+          if (/\.[cm]?[jt]s$/.test(service.src) && !existsSync(join(srcDir, 'package-lock.json')))
+            notCovered.push(
+              `${id}: JavaScript dependencies bundled into the service are not itemized`
+            )
+        }
+
+        if (files.length)
+          components.push({
+            type: 'application',
+            name: id,
+            version: config.version ?? '0.0.0',
+            hashes: files,
+          })
+
+        return {
+          id,
+          location: files.length ? 'bundled' : service?.url ? 'remote' : 'not-packaged',
+          ...(service?.url && !files.length ? { url: service.url } : {}),
+          files,
+        }
+      }
+    )
+
+    const frontendPaths = new Set(frontendFiles.map(f => f.path))
+    const installers = isTauri ? [] : BuildRecord.hashInstallers(outDir, frontendPaths)
+
+    const timestamp = BuildRecord.buildTimestamp()
+    const app = { name: config.name ?? 'commoners-app', version: config.version ?? '0.0.0' }
+    components.push({
+      type: 'framework',
+      name: '@commoners/solidarity',
+      version: commonersVersion,
+      purl: BuildRecord.npmPurl('@commoners/solidarity', commonersVersion),
+    })
+
+    const sbom = BuildRecord.createSBOM(app, components, {
+      tool: { name: '@commoners/solidarity', version: commonersVersion },
+      timestamp,
+    })
+
+    const security = (config as any).security ?? {}
+    const manifest = {
+      manifestVersion: 1,
+      app: { ...app, ...(config.appId ? { appId: config.appId } : {}) },
+      build: {
+        target,
+        mode: 'production',
+        commoners: commonersVersion,
+        node: process.version,
+        host: `${process.platform}-${process.arch}`,
+        timestamp,
+        source: BuildRecord.sourceState(root),
+      },
+      features: resolveFeatures((config as any).features, { target, mode: 'production' }),
+      security: {
+        csp: security.csp === undefined ? 'default' : security.csp,
+        noEval: security.noEval ?? 'warn',
+        crossOriginIsolation: security.crossOriginIsolation === true,
+        killSwitch: security.killSwitch !== false,
+        ...(isDesktop(target) && !isTauri
+          ? {
+              electronOrigin: (config as any).electron?.origin ?? 'file',
+              electron: (config as any).electron?.security ?? true,
+            }
+          : {}),
+      },
+      frontend: { files: frontendFiles },
+      services,
+      installers,
+      notCovered,
+    }
+
+    const written = BuildRecord.writeRecord(recordDir, sbom, manifest)
+    this.logger.info('Build record written', written)
   }
 
   /**

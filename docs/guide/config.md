@@ -234,6 +234,20 @@ With `'app'`:
 
 Development is unchanged: the dev server already gives pages a real origin. The `app` scheme is reserved in this mode, so `electron.protocol` cannot also be `'app'`. Services see requests with `Origin: app://local` rather than `null`.
 
+### Build Record
+Every production build writes two files describing what it contains, in `.commoners/records/<target>/`:
+
+- `commoners.sbom.cdx.json`: a software bill of materials (SBOM) in [CycloneDX 1.5](https://cyclonedx.org) format. It lists the npm packages the bundler actually included (not everything in `package.json`), the desktop runtime (Electron, or Tauri's crates from its `Cargo.lock`), Rust crates and pinned Python requirements of your services, and each built service with its file hashes.
+- `commoners.manifest.json`: the build's target, enabled `features`, security settings, the SHA-256 of every frontend, service and installer file, the source commit (with a flag if the working tree had uncommitted changes), and a `notCovered` list of anything the SBOM could not itemize, such as unpinned Python requirements.
+
+The records sit outside the build output, so a web deployment does not publish its own SBOM. Set `SOURCE_DATE_EPOCH` to fix the timestamp, so identical inputs produce identical records.
+
+```js
+export default {
+    buildRecord: { outDir: 'records' }, // Or false to turn it off
+}
+```
+
 ### Vite
 The `vite` property defines the Vite options of your application. This value is used to configure the Vite options of your application.
 

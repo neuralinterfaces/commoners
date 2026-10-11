@@ -173,6 +173,10 @@ export const resolveViteConfig = async (
     const noEvalPlugin = (await import('./plugins/no-eval.js')).default
     const plugin = noEvalPlugin((commonersConfig as any).security?.noEval ?? 'warn')
     if (plugin) plugins.push(plugin)
+
+    // Every target: record which packages the bundle includes, for the build record's SBOM
+    const { bundleInventoryPlugin } = await import('../utils/build-record.js')
+    plugins.push(bundleInventoryPlugin(absoluteRoot))
   }
 
   // Get html files from plugins
