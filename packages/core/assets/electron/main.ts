@@ -40,6 +40,7 @@ import * as Plugins from './modules/plugins'
 import { Commands } from './modules/commands'
 import { generateIPCAllowlist, validateChannel, serializeAllowlist } from './modules/ipc-allowlist'
 import type { IPCAllowlist } from './modules/ipc-allowlist'
+import { createSenderPolicy } from './modules/ipc-sender'
 
 // Runtime abstraction
 import { createElectronRuntime } from '../runtime/electron'
@@ -68,6 +69,17 @@ const { protocolOptions, windowOptions, overlay, securitySettings } = options
 const useAppOrigin = electronOptions.origin !== 'file' && !DEV_SERVER_URL
 const crossOriginIsolation = config.security?.crossOriginIsolation === true
 let appOriginCSP: string | null = null
+
+// IPC is accepted only from app pages: app://local, the dev server, or (when pages load from
+// file://) files inside the app, plus any origins listed in electron.security.ipcOrigins
+IPC.setSenderPolicy(
+  createSenderPolicy({
+    appOrigin: useAppOrigin ? Protocol.APP_ORIGIN : null,
+    devServerUrl: DEV_SERVER_URL,
+    fileRoot: useAppOrigin || DEV_SERVER_URL ? null : ASSET_ROOT_DIR,
+    extraOrigins: securitySettings.ipcOrigins,
+  })
+)
 
 // Generate capabilities-driven IPC allowlist from declared plugins and services
 const pluginIds = Object.keys(plugins)

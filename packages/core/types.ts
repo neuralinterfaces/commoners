@@ -435,6 +435,10 @@ export type ElectronSecuritySettings = {
   // Packaged apps cannot be run as plain Node.js: ELECTRON_RUN_AS_NODE, NODE_OPTIONS and --inspect
   // arguments are turned off with Electron fuses. Set one to true to keep it enabled
   fuses?: { runAsNode?: boolean; nodeOptions?: boolean; inspect?: boolean }
+  // IPC is accepted only from the app's own pages (app://local, the dev server, or the app's
+  // files when pages load from file://). List other origins, such as 'https://example.com',
+  // only for remote pages you trust with your plugins' and services' IPC
+  ipcOrigins?: string[]
   /**
    * Expected publisher (substring of cert subject) for service binary verification.
    * When set on a signed build, each executable service is verified against the OS

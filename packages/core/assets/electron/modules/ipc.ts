@@ -12,6 +12,8 @@
 import { validateIPCMessage } from './ipc-channels'
 import { validateChannel } from './ipc-allowlist'
 import type { IPCAllowlist } from './ipc-allowlist'
+import { senderRejection } from './ipc-sender'
+import type { SenderPolicy } from './ipc-sender'
 
 /**
  * Module-level hooks reference for emitting security events.
@@ -37,6 +39,74 @@ let _allowlist: IPCAllowlist | null = null
  */
 export function setIPCAllowlist(allowlist: IPCAllowlist): void {
   _allowlist = allowlist
+}
+
+/**
+ * Which frames may send IPC (see ipc-sender.ts). Until it is set, every message is rejected.
+ */
+let _senderPolicy: SenderPolicy | null = null
+
+/**
+ * Set the sender policy. Call once from main.ts before any listener can receive a message.
+ */
+export function setSenderPolicy(policy: SenderPolicy | null): void {
+  _senderPolicy = policy
+}
+
+/**
+ * Whether an IPC event comes from an allowed frame. A rejected synchronous message gets a null
+ * return value so the sending renderer does not block.
+ */
+export function isTrustedSender(channel: string, event: any): boolean {
+  const failure = senderRejection(event, _senderPolicy)
+  if (!failure) return true
+  logValidationFailure(channel, failure)
+  try {
+    if (event && typeof event === 'object') event.returnValue = null
+  } catch {}
+  return false
+}
+
+// Each listener's sender-checked wrapper, so removeListener() accepts the original listener
+const _guarded = new WeakMap<Function, Map<string, (...args: any[]) => void>>()
+
+function guardListener(channel: string, listener: (...args: any[]) => void) {
+  let byChannel = _guarded.get(listener)
+  if (!byChannel) _guarded.set(listener, (byChannel = new Map()))
+  let wrapped = byChannel.get(channel)
+  if (!wrapped) {
+    wrapped = (event: any, ...args: any[]) => {
+      if (isTrustedSender(channel, event)) return listener(event, ...args)
+    }
+    byChannel.set(channel, wrapped)
+  }
+  return wrapped
+}
+
+/** ipcMain.on, accepting messages only from allowed frames */
+export function on(channel: string, listener: (...args: any[]) => void): void {
+  getIpcMain().on(channel, guardListener(channel, listener))
+}
+
+/** ipcMain.once, accepting messages only from allowed frames (a rejected one does not use it up) */
+export function once(channel: string, listener: (...args: any[]) => void): void {
+  const ipcMain = getIpcMain()
+  const wrapped = (event: any, ...args: any[]) => {
+    if (!isTrustedSender(channel, event)) return
+    ipcMain.removeListener(channel, wrapped)
+    listener(event, ...args)
+  }
+  ipcMain.on(channel, wrapped)
+}
+
+export function removeListener(channel: string, listener: (...args: any[]) => void): void {
+  const wrapped = _guarded.get(listener)?.get(channel)
+  getIpcMain().removeListener(channel, wrapped ?? listener)
+  _guarded.get(listener)?.delete(channel)
+}
+
+export function removeAllListeners(channel: string): void {
+  getIpcMain().removeAllListeners(channel)
 }
 
 /**
@@ -106,7 +176,10 @@ export function send(win: any, channel: string, ...args: any[]): void {
     win.webContents.send(channel, ...args)
   } catch (e) {
     // Window may have been closed - this is expected and safe to ignore
-    console.debug(`Failed to send message to channel ${channel}:`, e instanceof Error ? e.message : e)
+    console.debug(
+      `Failed to send message to channel ${channel}:`,
+      e instanceof Error ? e.message : e
+    )
   }
 }
 
@@ -143,6 +216,7 @@ export function scopedOn(
   const event = getScopedIdentifier(type, id, channel)
   if (!checkAllowlist(event)) return { remove: () => {} }
   const wrappedCallback = (...args: any[]) => {
+    if (!isTrustedSender(event, args[0])) return
     // args[0] is IpcMainEvent — validate the rest
     const failure = validateIPCMessage(event, args.slice(1))
     if (failure) logValidationFailure(event, failure)
@@ -167,15 +241,23 @@ export function scopedHandle(
 ): ListenerHandle {
   const event = getScopedIdentifier(type, id, channel)
   if (!checkAllowlist(event)) return { remove: () => {} }
-  try { getIpcMain().removeHandler(event) } catch {}
+  try {
+    getIpcMain().removeHandler(event)
+  } catch {}
   const wrappedCallback = (...args: any[]) => {
+    if (!isTrustedSender(event, args[0]))
+      throw new Error(`[IPC validation] Rejected ${event}: sender is not an app page`)
     // args[0] is IpcMainInvokeEvent — validate the rest
     const failure = validateIPCMessage(event, args.slice(1))
     if (failure) logValidationFailure(event, failure)
     return callback(...args)
   }
   getIpcMain().handle(event, wrappedCallback)
-  const remove = () => { try { getIpcMain().removeHandler(event) } catch {} }
+  const remove = () => {
+    try {
+      getIpcMain().removeHandler(event)
+    } catch {}
+  }
   return { remove }
 }
 

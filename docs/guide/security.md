@@ -12,7 +12,7 @@ Commoners aims to be **secure by default**: in CISA's [Secure by Design](https:/
 | Renderer isolation | n/a | `contextIsolation`, `sandbox`, no Node.js in pages; DevTools off in production | Capabilities, deny by default |
 | Running the app as Node.js | n/a | Off: `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect` are disabled with Electron fuses on every packaged build | n/a |
 | Navigation | n/a | In-app navigation stays in the app; other links open in the system browser only for `https:`, `http:` and `mailto:` (`electron.security.externalProtocols` to change); new windows are denied | Tauri defaults |
-| IPC | n/a | Channels limited to an allowlist generated from your plugins and services | Plugin permissions you declare |
+| IPC | n/a | Channels limited to an allowlist generated from your plugins and services; messages accepted only from the app's own pages (see [IPC senders](#ipc-senders)) | Plugin permissions you declare |
 | App bundle integrity | n/a | ASAR integrity, when builds are signed | Not yet (sidecars are ad-hoc signed on macOS; production signing is on the roadmap) |
 | Service binaries | n/a | Opt-in: set `electron.security.expectedPublisher` on a signed build, and each executable service's code signature is checked against it before the service starts | Not yet |
 | Service worker kill switch | A self-unregistering `sw.js` ships by default | n/a | n/a |
@@ -38,7 +38,7 @@ Electron publishes a [20-item security checklist](https://www.electronjs.org/doc
 | 14 | Limit new windows | Yes: `window.open` is denied |
 | 15 | No `shell.openExternal` with untrusted content | Yes: only allowed protocols open (`https:`, `http:`, `mailto:` by default) |
 | 16 | Current Electron | Yours: Commoners depends on Electron `^40.8.0`; check it against current releases |
-| 17 | Validate the IPC `sender` | Partial: channels are checked against an allowlist; the sending frame is not |
+| 17 | Validate the IPC `sender` | Yes: every handler checks `event.senderFrame`, and the frames above it, against the app's own origins; channels are also checked against an allowlist |
 | 18 | Prefer a custom protocol over `file://` | Yes: packaged pages load from `app://local` (`electron.origin: 'file'` opts out) |
 | 19 | Check which fuses to change | Yes: every packaged build turns off `RunAsNode`, `EnableNodeOptionsEnvironmentVariable` and `EnableNodeCliInspectArguments` (`electron.security.fuses` re-enables one); signed builds also set `EnableEmbeddedAsarIntegrityValidation` and `OnlyLoadAppFromAsar` |
 | 20 | Do not expose Electron APIs to untrusted content | Yes: the preload exposes a scoped Commoners API via `contextBridge`, not `ipcRenderer` |
@@ -47,6 +47,16 @@ Electron publishes a [20-item security checklist](https://www.electronjs.org/doc
 
 - `commoners verify-headers <url>` compares a deployment's response headers with what your config declares.
 - Every production build writes a [build record](./config.md#build-record): a CycloneDX SBOM of what shipped and a manifest that records these security settings, the enabled features, and file hashes.
+
+## IPC senders
+
+A window that navigates to a remote page keeps the Commoners preload, so the main process checks where every IPC message comes from. A message is handled only when the sending frame, and each frame above it, is one of the app's own pages:
+
+- `app://local`, for packaged pages (the default);
+- the dev server's origin, in development;
+- a `file://` page inside the app's own files, when pages load from `file://` (`electron.origin: 'file'`, or development without a dev server).
+
+Other messages are dropped and reported as a `security:ipc:validation-fail` hook event; an `invoke()` from another origin rejects. To give a remote page you trust access to your plugins' and services' IPC, list its origin in `electron.security.ipcOrigins`, for example `['https://example.com']`. This applies to the handlers Commoners registers, including those of plugins and services; a plugin that uses Electron's `ipcMain` directly must check `event.senderFrame` itself.
 
 ## Packaged Electron: `file://` vs `app://`
 
