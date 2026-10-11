@@ -16,6 +16,8 @@ import {
   featureCanaries,
   createSARIF,
   writeRecord,
+  parseJUnit,
+  attachTestResults,
 } from '../packages/core/utils/build-record'
 import { readFileSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -268,5 +270,39 @@ describe('SARIF and record files', () => {
     expect(existsSync(join(dir, 'commoners.scan.sarif'))).toBe(true)
     expect(existsSync(join(dir, 'commoners.manifest.json'))).toBe(false)
     expect(existsSync(join(dir, 'commoners.sbom.cdx.json'))).toBe(false)
+  })
+})
+
+describe('test results', () => {
+  const junit = `<?xml version="1.0"?>
+<testsuites name="vitest" tests="5" failures="1" errors="0" time="1.2">
+  <testsuite name="a.test.ts" tests="3" failures="1" errors="0" skipped="1" time="0.5"></testsuite>
+  <testsuite name="b.test.ts" tests="2" failures="0" errors="0" skipped="0" time="0.7"></testsuite>
+</testsuites>`
+
+  test('JUnit totals are summed over testsuites', () => {
+    expect(parseJUnit(junit)).toEqual({ tests: 5, failures: 1, errors: 0, skipped: 1 })
+  })
+
+  test('results are tied to the manifest they exercised, by hash', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'commoners-tests-'))
+    writeRecord(dir, { bomFormat: 'CycloneDX' }, { app: 'x' })
+    const report = join(dir, 'e2e.xml')
+    writeFileSync(report, junit)
+    const record = attachTestResults(dir, [report], { SOURCE_DATE_EPOCH: '1700000000' })
+    const manifestText = readFileSync(join(dir, 'commoners.manifest.json'))
+    expect(record.manifest.sha256).toBe(createHash('sha256').update(manifestText).digest('hex'))
+    expect(record.passed).toBe(false)
+    expect(record.results[0]).toMatchObject({ tests: 5, failures: 1 })
+    expect(existsSync(join(dir, 'commoners.tests.json'))).toBe(true)
+  })
+
+  test('refuses without a build record or with an empty report', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'commoners-tests-'))
+    const report = join(dir, 'e2e.xml')
+    writeFileSync(report, '<testsuites></testsuites>')
+    expect(() => attachTestResults(dir, [report])).toThrow(/No build record/)
+    writeRecord(dir, null, { app: 'x' })
+    expect(() => attachTestResults(dir, [report])).toThrow(/no JUnit/)
   })
 })

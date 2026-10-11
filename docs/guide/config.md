@@ -259,6 +259,14 @@ Every production build writes three files describing what it contains, in `.comm
 - `commoners.scan.sarif`: the build's scan results (feature canary violations and `eval`-like code the CSP would block) in [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format code-scanning tools read. A failed build writes only this file.
 - `commoners.manifest.json`: the build's target, enabled `features` and their canary checks, security settings, the SHA-256 of every frontend, service and installer file, the source commit (with a flag if the working tree had uncommitted changes), and a `notCovered` list of anything the SBOM could not itemize, such as unpinned Python requirements.
 
+**Test results.** Tests that exercise the built app usually run after the build, so their results are attached afterwards. Export them as JUnit XML (for example `vitest run --reporter=junit --outputFile=reports/e2e.xml`), then run:
+
+```bash
+commoners record-tests reports/e2e.xml --target electron
+```
+
+This writes `commoners.tests.json` next to the record: each report's SHA-256 and totals (tests, failures, errors, skipped), plus the hash of the manifest the tests ran against, so the results stay tied to that exact build. The command exits non-zero if any test failed.
+
 The records sit outside the build output, so a web deployment does not publish its own SBOM. Set `SOURCE_DATE_EPOCH` to fix the timestamp, so identical inputs produce identical records.
 
 ```js

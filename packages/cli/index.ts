@@ -4,6 +4,7 @@ import {
   launch,
   launchServices,
   verifyHeaders,
+  attachTestResults,
   shareServices,
   resolveServiceConfiguration,
   start,
@@ -181,6 +182,52 @@ cli
     for (const { name, expected, actual } of result.mismatched)
       console.error(`✗ differs: ${name}\n    expected: ${expected}\n    served:   ${actual}`)
     process.exit(1)
+  })
+
+// Attach test results (JUnit XML) to the build record of the build they exercised
+cli
+  .command('record-tests <...files>', "Attach JUnit XML test results to a build's record")
+
+  .example('commoners record-tests reports/e2e.xml --target electron')
+
+  .option('--target <target>', 'Which build record (default: the only one present)')
+  .option('--record <dir>', 'Build record directory (default: .commoners/records/<target>)')
+  .option('--root <dir>', 'Project root (default: current directory)')
+
+  .action(async (files, options) => {
+    const { existsSync, readdirSync } = await import('node:fs')
+    const { resolve } = await import('node:path')
+    const root = resolve(options.root ?? '.')
+    let recordDir = options.record ? resolve(options.record) : null
+    if (!recordDir) {
+      const base = join(root, '.commoners', 'records')
+      const targets = options.target ? [options.target] : existsSync(base) ? readdirSync(base) : []
+      if (targets.length !== 1) {
+        console.error(
+          targets.length
+            ? `Several build records (${targets.join(', ')}): pass --target`
+            : `No build record in ${base}: build first`
+        )
+        process.exit(1)
+      }
+      recordDir = join(base, targets[0])
+    }
+
+    try {
+      const record = attachTestResults(
+        recordDir,
+        files.map((f: string) => resolve(f))
+      )
+      for (const r of record.results)
+        console.log(
+          `${r.failures || r.errors ? '✗' : '✓'} ${r.path}: ${r.tests} tests, ${r.failures} failed, ${r.errors} errors, ${r.skipped} skipped`
+        )
+      console.log(`Recorded in ${join(recordDir, 'commoners.tests.json')}`)
+      if (!record.passed) process.exit(1)
+    } catch (error) {
+      console.error((error as Error).message)
+      process.exit(1)
+    }
   })
 
 // Initialize commoners in an existing project

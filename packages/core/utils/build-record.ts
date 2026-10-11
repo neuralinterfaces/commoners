@@ -386,3 +386,50 @@ export const resetEvalFindings = (root: string) => evalFindings.set(root, [])
 export const addEvalFinding = (root: string, finding: ScanFinding) =>
   (evalFindings.get(root) ?? evalFindings.set(root, []).get(root)!).push(finding)
 export const getEvalFindings = (root: string) => evalFindings.get(root) ?? []
+
+// ------------------------ Test results ------------------------
+// End-to-end tests usually run after the build, so their results are attached afterwards in
+// commoners.tests.json, which names the exact manifest (by hash) the tests exercised. The
+// manifest itself never changes after the build.
+
+export type TestSummary = { tests: number; failures: number; errors: number; skipped: number }
+
+const attr = (tag: string, name: string) =>
+  Number(tag.match(new RegExp(`\\b${name}="(\\d+)"`))?.[1] ?? 0)
+
+/** Totals from a JUnit XML report, summed over its <testsuite> elements */
+export const parseJUnit = (xml: string): TestSummary => {
+  const suites: string[] = [...(xml.match(/<testsuite\b[^>]*>/g) ?? [])]
+  return suites.reduce(
+    (sum, tag) => ({
+      tests: sum.tests + attr(tag, 'tests'),
+      failures: sum.failures + attr(tag, 'failures'),
+      errors: sum.errors + attr(tag, 'errors'),
+      skipped: sum.skipped + attr(tag, 'skipped'),
+    }),
+    { tests: 0, failures: 0, errors: 0, skipped: 0 } as TestSummary
+  )
+}
+
+export const attachTestResults = (recordDir: string, files: string[], env = process.env) => {
+  const manifestPath = join(recordDir, 'commoners.manifest.json')
+  if (!existsSync(manifestPath))
+    throw new Error(`No build record at ${recordDir}: build first (production builds write one)`)
+
+  const results = files.map(file => {
+    if (!existsSync(file)) throw new Error(`Test results not found: ${file}`)
+    const text = readFileSync(file, 'utf8')
+    const summary = parseJUnit(text)
+    if (!summary.tests) throw new Error(`${file} contains no JUnit <testsuite> results`)
+    return { path: file, sha256: sha256(text), ...summary }
+  })
+
+  const record = {
+    manifest: { path: 'commoners.manifest.json', sha256: sha256(readFileSync(manifestPath)) },
+    recordedAt: buildTimestamp(env),
+    passed: results.every(r => r.failures === 0 && r.errors === 0),
+    results,
+  }
+  writeFileSync(join(recordDir, 'commoners.tests.json'), JSON.stringify(record, null, 2) + '\n')
+  return record
+}
