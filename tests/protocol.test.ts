@@ -4,6 +4,7 @@ import {
   decodePath,
   normalizeAndCompare,
   isValidUrl,
+  isWindowsPath,
   isCommonersUrl,
   isCommonersAsset,
   isAllowedOrigin,
@@ -94,6 +95,40 @@ describe('Protocol Utilities', () => {
 
     test('invalid URL - random string', () => {
       expect(isValidUrl('not-a-url')).toBe(false)
+    })
+  })
+
+  // The URL parser accepts "C:\x" as a URL with the scheme "c:". Treating it as one made packaged
+  // Windows apps load file:// instead of the app origin
+  describe('Windows paths are filesystem paths, not URLs', () => {
+    const paths = ['C:\\x\\index.html', 'c:/x/index.html', '\\\\server\\share\\x', 'C:x']
+    const urls = ['file:///C:/x', 'https://example.com/x', 'app://local/index.html']
+
+    test('the URL parser alone accepts a drive-letter path', () => {
+      expect(new URL('C:\\x\\index.html').protocol).toBe('c:')
+    })
+
+    test.each(paths)('%s is a Windows path and not a URL', path => {
+      expect(isWindowsPath(path)).toBe(true)
+      expect(isValidUrl(path)).toBe(false)
+      expect(isAppOriginUrl(path)).toBe(false)
+      expect(isCommonersUrl(path)).toBe(false)
+    })
+
+    test.each(urls)('%s is a URL and not a Windows path', url => {
+      expect(isWindowsPath(url)).toBe(false)
+      expect(isValidUrl(url)).toBe(true)
+    })
+
+    test('only app://local/ URLs are app-origin URLs', () => {
+      expect(isAppOriginUrl('app://local/index.html')).toBe(true)
+      expect(isAppOriginUrl('file:///C:/x')).toBe(false)
+      expect(isAppOriginUrl('https://example.com/x')).toBe(false)
+    })
+
+    test('posix paths are neither', () => {
+      expect(isWindowsPath('/x/index.html')).toBe(false)
+      expect(isValidUrl('/x/index.html')).toBe(false)
     })
   })
 

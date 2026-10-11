@@ -6,12 +6,13 @@ const { platform } = process
 
 const platforms = {
   mac: platform === 'darwin',
+  windows: platform === 'win32',
 }
 
 describe('Desktop Build', () => {
   registerBuildTest(
     'Desktop',
     { target: 'electron', launch: false },
-    platforms.mac // Skip on non-Mac platforms
+    platforms.mac || platforms.windows // Packaged on macOS and Windows
   )
 })

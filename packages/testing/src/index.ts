@@ -176,7 +176,7 @@ export const open = async (
   // Set remote debugging port env var before spawning Electron
   // This is read by electron.ts startup() and passed as a CLI arg to the Electron process
   if (isElectron) {
-    const testingPlugin = Object.values(config.plugins).find(
+    const testingPlugin = Object.values(updatedConfig.plugins ?? {}).find(
       p => p.options && 'remoteDebuggingPort' in p.options
     )
     if (!testingPlugin)

@@ -216,11 +216,12 @@ Security.runVerification(isProduction, {
       return ''
     }
 
-    try {
-      new URL(location)
+    // A URL loads as given. A filesystem path, including C:\... and \\server\... on Windows
+    // (which the URL parser accepts as a "c:" or similar URL), goes through the app origin below
+    if (Protocol.isValidUrl(location)) {
       runtime.window.loadURL(win, location + search + hash)
       return location
-    } catch {}
+    }
 
     // file:// URLs accept query strings and fragments — append the captured search/hash
     // from the originating navigate() call so the destination page sees them on

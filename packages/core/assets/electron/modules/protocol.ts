@@ -47,9 +47,19 @@ export function normalizeAndCompare(
 }
 
 /**
- * Check if a string is a valid URL
+ * Check if a string is a Windows filesystem path: a drive-letter path (C:\x, c:/x) or a UNC path
+ * (\\server\share, \\?\C:\x). The URL parser reads "C:\x" as a URL with the scheme "c:", so these
+ * are ruled out before any URL check. No URL scheme is a single letter
+ */
+export function isWindowsPath(value: string): boolean {
+  return /^[A-Za-z]:/.test(value) || value.startsWith('\\\\')
+}
+
+/**
+ * Check if a string is a valid URL. Windows filesystem paths are not URLs
  */
 export function isValidUrl(url: string): boolean {
+  if (isWindowsPath(url)) return false
   try {
     new URL(url)
     return true
