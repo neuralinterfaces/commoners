@@ -218,11 +218,25 @@ export class BuildFlow {
 
     // Step 2: Build frontend assets
     BuildRecord.resetInventory(resolve(context.root))
+    BuildRecord.resetEvalFindings(resolve(context.root))
     await this.buildFrontendAssets(context)
 
     // Step 3: Build app-specific assets
     await this.buildAppAssets(context)
     const frontendFiles = recording ? BuildRecord.hashTree(resolveOutDir(context)) : []
+
+    // Feature canaries: checked on the frontend output before packaging (Tauri compresses what it
+    // embeds, so this is the only point where the scan can see it)
+    const featureCheck = dev ? null : this.checkFeatures(context)
+    if (featureCheck?.violations.length) {
+      if (recording) this.writeScanOnly(context, featureCheck)
+      const lines = featureCheck.violations.map(v =>
+        v.kind === 'absence'
+          ? `  ${v.feature} is disabled but its canary "${v.canary}" is in ${v.file}`
+          : `  ${v.feature} is enabled but its canary "${v.canary}" is not in the build output`
+      )
+      throw new Error(`Feature check failed:\n${lines.join('\n')}`)
+    }
 
     // Step 4: Build services (if applicable)
     if (context.rebuildServices) await this.buildServices(context)
@@ -244,19 +258,63 @@ export class BuildFlow {
     await strategy.finalize(context)
 
     // Step 8: Build record (SBOM + manifest) for production builds
-    if (recording) this.writeBuildRecord(context, frontendFiles)
+    if (recording) this.writeBuildRecord(context, frontendFiles, featureCheck)
+  }
+
+  private checkFeatures(context: BuildContext): BuildRecord.FeatureCheck {
+    const declared = (context.config as any).features
+    const features = resolveFeatures(declared, { target: context.target, mode: 'production' })
+    return BuildRecord.checkFeatureCanaries(
+      resolveOutDir(context),
+      features,
+      BuildRecord.featureCanaries(declared)
+    )
+  }
+
+  private scanFindings(
+    root: string,
+    check: BuildRecord.FeatureCheck | null
+  ): BuildRecord.ScanFinding[] {
+    const featureFindings = (check?.violations ?? []).map(v => ({
+      ruleId: `feature-${v.kind}`,
+      level: 'error' as const,
+      message:
+        v.kind === 'absence'
+          ? `Feature "${v.feature}" is disabled but its canary "${v.canary}" is present`
+          : `Feature "${v.feature}" is enabled but its canary "${v.canary}" is missing`,
+      ...(v.file ? { file: v.file } : {}),
+    }))
+    return [...featureFindings, ...BuildRecord.getEvalFindings(root)]
+  }
+
+  private recordDir(context: BuildContext): string {
+    const root = resolve(context.root)
+    const options = typeof context.config.buildRecord === 'object' ? context.config.buildRecord : {}
+    return options.outDir
+      ? resolve(root, options.outDir)
+      : join(root, globalWorkspacePath, 'records', context.target)
+  }
+
+  private writeScanOnly(context: BuildContext, check: BuildRecord.FeatureCheck): void {
+    const root = resolve(context.root)
+    const sarif = BuildRecord.createSARIF(
+      { name: '@commoners/solidarity', version: commonersVersion },
+      this.scanFindings(root, check)
+    )
+    BuildRecord.writeRecord(this.recordDir(context), null, null, sarif)
   }
 
   /**
    * Write the SBOM and manifest describing what this build contains (see utils/build-record.ts)
    */
-  private writeBuildRecord(context: BuildContext, frontendFiles: BuildRecord.FileHash[]): void {
+  private writeBuildRecord(
+    context: BuildContext,
+    frontendFiles: BuildRecord.FileHash[],
+    featureCheck: BuildRecord.FeatureCheck | null
+  ): void {
     const { config, target, outDir } = context
     const root = resolve(context.root)
-    const recordOptions = typeof config.buildRecord === 'object' ? config.buildRecord : {}
-    const recordDir = recordOptions.outDir
-      ? resolve(root, recordOptions.outDir)
-      : join(root, globalWorkspacePath, 'records', target)
+    const recordDir = this.recordDir(context)
 
     const components: BuildRecord.Component[] = [...BuildRecord.getInventory(root)]
     const notCovered: string[] = []
@@ -345,6 +403,13 @@ export class BuildFlow {
         source: BuildRecord.sourceState(root),
       },
       features: resolveFeatures((config as any).features, { target, mode: 'production' }),
+      featureChecks: featureCheck
+        ? {
+            absence: featureCheck.absence,
+            presence: featureCheck.presence,
+            unchecked: featureCheck.unchecked,
+          }
+        : null,
       security: {
         csp: security.csp === undefined ? 'default' : security.csp,
         noEval: security.noEval ?? 'warn',
@@ -363,7 +428,11 @@ export class BuildFlow {
       notCovered,
     }
 
-    const written = BuildRecord.writeRecord(recordDir, sbom, manifest)
+    const sarif = BuildRecord.createSARIF(
+      { name: '@commoners/solidarity', version: commonersVersion },
+      this.scanFindings(root, featureCheck)
+    )
+    const written = BuildRecord.writeRecord(recordDir, sbom, manifest, sarif)
     this.logger.info('Build record written', written)
   }
 

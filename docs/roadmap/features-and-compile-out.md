@@ -1,6 +1,6 @@
 # Features and Compile-Out
 
-**Status:** P1 (declaration, defines, runtime map) implemented; P2–P4 designed.
+**Status:** P1 (declaration, defines, runtime map) and P4 (manifest, canary gate for absence and presence, SARIF) implemented; P2–P3 designed. The P4 gate scans the frontend output before packaging, so it covers web, Electron and Tauri; the manifest is the build record (`commoners.manifest.json`, see the config guide), which records each check as `verified`, `violated` or `unchecked`.
 
 > Naming: build toggles are **features**. Extension `capabilities` (what a plugin provides, used by `commoners.query()`) are a separate, existing concept.
 

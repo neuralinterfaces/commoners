@@ -234,11 +234,28 @@ With `'app'`:
 
 Development is unchanged: the dev server already gives pages a real origin. The `app` scheme is reserved in this mode, so `electron.protocol` cannot also be `'app'`. Services see requests with `Origin: app://local` rather than `null`.
 
+### Features
+Declare which parts of your app each build includes. A feature is `true`/`false`, a function of `{ target, mode }`, or an object with `enabled` and optional `canaries`:
+
+```js
+export default {
+    features: {
+        export: { enabled: ({ target }) => target !== 'web', canaries: ['ExportPanel'] },
+        diagnostics: false,
+    },
+}
+```
+
+Each feature becomes a build-time constant, `__COMMONERS_FEATURE_<NAME>__` (for example `__COMMONERS_FEATURE_EXPORT__`), so code behind `if (__COMMONERS_FEATURE_EXPORT__)` is removed from builds where the feature is off rather than skipped at runtime. `commoners.FEATURES` holds the resolved map.
+
+**Canaries** are strings that only that feature's code contains. Production builds scan the frontend output, before any packaging: a disabled feature's canaries must be absent and an enabled feature's must be present (which proves the scan can see that code). Any violation fails the build and is reported in the [build record](#build-record). Source maps are scanned too, because a shipped map carries the original source.
+
 ### Build Record
-Every production build writes two files describing what it contains, in `.commoners/records/<target>/`:
+Every production build writes three files describing what it contains, in `.commoners/records/<target>/`:
 
 - `commoners.sbom.cdx.json`: a software bill of materials (SBOM) in [CycloneDX 1.5](https://cyclonedx.org) format. It lists the npm packages the bundler actually included (not everything in `package.json`), the desktop runtime (Electron, or Tauri's crates from its `Cargo.lock`), Rust crates and pinned Python requirements of your services, and each built service with its file hashes.
-- `commoners.manifest.json`: the build's target, enabled `features`, security settings, the SHA-256 of every frontend, service and installer file, the source commit (with a flag if the working tree had uncommitted changes), and a `notCovered` list of anything the SBOM could not itemize, such as unpinned Python requirements.
+- `commoners.scan.sarif`: the build's scan results (feature canary violations and `eval`-like code the CSP would block) in [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format code-scanning tools read. A failed build writes only this file.
+- `commoners.manifest.json`: the build's target, enabled `features` and their canary checks, security settings, the SHA-256 of every frontend, service and installer file, the source commit (with a flag if the working tree had uncommitted changes), and a `notCovered` list of anything the SBOM could not itemize, such as unpinned Python requirements.
 
 The records sit outside the build output, so a web deployment does not publish its own SBOM. Set `SOURCE_DATE_EPOCH` to fix the timestamp, so identical inputs produce identical records.
 

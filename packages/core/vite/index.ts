@@ -171,7 +171,7 @@ export const resolveViteConfig = async (
   // Every target: report code the shared CSP will block at runtime (eval, Function, string timers)
   if (build) {
     const noEvalPlugin = (await import('./plugins/no-eval.js')).default
-    const plugin = noEvalPlugin((commonersConfig as any).security?.noEval ?? 'warn')
+    const plugin = noEvalPlugin((commonersConfig as any).security?.noEval ?? 'warn', absoluteRoot)
     if (plugin) plugins.push(plugin)
 
     // Every target: record which packages the bundle includes, for the build record's SBOM

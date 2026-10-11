@@ -14,7 +14,15 @@
 
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, sep } from 'node:path'
 import type { Plugin } from 'vite'
@@ -247,17 +255,134 @@ export const installedPackage = (root: string, name: string): Component | null =
   }
 }
 
-export const writeRecord = (outDir: string, sbom: object, manifest: Record<string, any>) => {
+export const writeRecord = (
+  outDir: string,
+  sbom: object | null,
+  manifest: Record<string, any> | null,
+  sarif?: object
+) => {
   mkdirSync(outDir, { recursive: true })
-  const sbomText = JSON.stringify(sbom, null, 2) + '\n'
-  writeFileSync(join(outDir, 'commoners.sbom.cdx.json'), sbomText)
-  const withSbom = {
-    ...manifest,
-    sbom: { path: 'commoners.sbom.cdx.json', sha256: sha256(sbomText) },
+  const written: Record<string, string> = {}
+  const extra: Record<string, { path: string; sha256: string }> = {}
+  const put = (name: string, value: object) => {
+    const text = JSON.stringify(value, null, 2) + '\n'
+    writeFileSync(join(outDir, name), text)
+    written[name] = join(outDir, name)
+    return { path: name, sha256: sha256(text) }
   }
-  writeFileSync(join(outDir, 'commoners.manifest.json'), JSON.stringify(withSbom, null, 2) + '\n')
-  return {
-    sbom: join(outDir, 'commoners.sbom.cdx.json'),
-    manifest: join(outDir, 'commoners.manifest.json'),
-  }
+  if (sarif) extra.scan = put('commoners.scan.sarif', sarif)
+  if (sbom) extra.sbom = put('commoners.sbom.cdx.json', sbom)
+  if (manifest) put('commoners.manifest.json', { ...manifest, ...extra })
+  // A failed build writes its scan alone: drop a previous build's records so they can't pass for it
+  else
+    for (const name of ['commoners.manifest.json', 'commoners.sbom.cdx.json'])
+      rmSync(join(outDir, name), { force: true })
+  return written
 }
+
+// ------------------------ Feature absence / presence ------------------------
+// A feature's canaries are strings that exist only in its code. In the built output a disabled
+// feature's canaries must be absent, and an enabled feature's must be present: the positive
+// control that proves the scan can see that code at all. Source maps are scanned too: a shipped
+// map carries the original source, including branches the bundler removed.
+
+const TEXT_FILE = /\.(m?js|cjs|html?|css|json|map|svg|txt|webmanifest)$/i
+
+export type CanaryHit = { feature: string; canary: string; file: string }
+export type FeatureCheck = {
+  absence: Record<string, 'verified' | 'violated'>
+  presence: Record<string, 'verified' | 'violated'>
+  unchecked: string[]
+  violations: (CanaryHit & { kind: 'absence' | 'presence' })[]
+}
+
+export const checkFeatureCanaries = (
+  dir: string,
+  features: Record<string, boolean>,
+  canaries: Record<string, string[]>
+): FeatureCheck => {
+  const texts = hashTree(dir)
+    .filter(f => TEXT_FILE.test(f.path))
+    .map(f => ({ path: f.path, text: readFileSync(join(dir, f.path), 'utf8') }))
+
+  const result: FeatureCheck = { absence: {}, presence: {}, unchecked: [], violations: [] }
+  for (const [feature, enabled] of Object.entries(features)) {
+    const list = canaries[feature] ?? []
+    if (!list.length) {
+      result.unchecked.push(feature)
+      continue
+    }
+    const hits = list.flatMap(canary =>
+      texts.filter(t => t.text.includes(canary)).map(t => ({ feature, canary, file: t.path }))
+    )
+    if (enabled) {
+      // Every canary of an enabled feature must be found somewhere
+      const missing = list.filter(canary => !hits.some(h => h.canary === canary))
+      result.presence[feature] = missing.length ? 'violated' : 'verified'
+      for (const canary of missing)
+        result.violations.push({ kind: 'presence', feature, canary, file: '' })
+    } else {
+      result.absence[feature] = hits.length ? 'violated' : 'verified'
+      for (const hit of hits) result.violations.push({ kind: 'absence', ...hit })
+    }
+  }
+  return result
+}
+
+export const featureCanaries = (declared: Record<string, any> | undefined) =>
+  Object.fromEntries(
+    Object.entries(declared ?? {}).map(([name, d]) => [
+      name,
+      d && typeof d === 'object' && Array.isArray(d.canaries) ? d.canaries.map(String) : [],
+    ])
+  )
+
+// ------------------------ SARIF ------------------------
+// Scan results in SARIF 2.1.0 (OASIS), the format code-scanning tools read
+
+export type ScanFinding = {
+  ruleId: string
+  level: 'error' | 'warning' | 'note'
+  message: string
+  file?: string
+}
+
+const SARIF_RULES: Record<string, string> = {
+  'feature-absence': "A disabled feature's canary appears in the build output",
+  'feature-presence': "An enabled feature's canary is missing from the build output",
+  'no-eval': 'eval-like code that the Content Security Policy blocks at runtime',
+}
+
+export const createSARIF = (tool: { name: string; version: string }, findings: ScanFinding[]) => ({
+  $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+  version: '2.1.0',
+  runs: [
+    {
+      tool: {
+        driver: {
+          name: tool.name,
+          version: tool.version,
+          rules: Object.entries(SARIF_RULES).map(([id, text]) => ({
+            id,
+            shortDescription: { text },
+          })),
+        },
+      },
+      results: findings.map(f => ({
+        ruleId: f.ruleId,
+        level: f.level,
+        message: { text: f.message },
+        ...(f.file
+          ? { locations: [{ physicalLocation: { artifactLocation: { uri: f.file } } }] }
+          : {}),
+      })),
+    },
+  ],
+})
+
+// no-eval hits from the bundler, per project root, collected for the SARIF report
+const evalFindings = new Map<string, ScanFinding[]>()
+export const resetEvalFindings = (root: string) => evalFindings.set(root, [])
+export const addEvalFinding = (root: string, finding: ScanFinding) =>
+  (evalFindings.get(root) ?? evalFindings.set(root, []).get(root)!).push(finding)
+export const getEvalFindings = (root: string) => evalFindings.get(root) ?? []

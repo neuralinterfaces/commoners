@@ -7,6 +7,7 @@
  */
 
 import type { Plugin } from 'vite'
+import { addEvalFinding } from '../../utils/build-record.js'
 
 export type NoEvalMode = 'error' | 'warn' | false
 
@@ -38,7 +39,8 @@ export const findEvalUses = (code: string): EvalUse[] => {
     .filter((use, i, all) => i === 0 || use.index - all[i - 1].index > 8)
 }
 
-export default function noEvalPlugin(mode: NoEvalMode = 'warn'): Plugin | null {
+// root: also report each hit to the build record's SARIF file for that project
+export default function noEvalPlugin(mode: NoEvalMode = 'warn', root?: string): Plugin | null {
   if (!mode) return null
   return {
     name: 'commoners:no-eval',
@@ -48,8 +50,16 @@ export default function noEvalPlugin(mode: NoEvalMode = 'warn'): Plugin | null {
       const hits: string[] = []
       for (const [fileName, chunk] of Object.entries(bundle)) {
         if (chunk.type !== 'chunk') continue
-        for (const use of findEvalUses(chunk.code))
+        for (const use of findEvalUses(chunk.code)) {
           hits.push(`  ${fileName}: ${use.pattern} … ${use.excerpt}`)
+          if (root)
+            addEvalFinding(root, {
+              ruleId: 'no-eval',
+              level: mode === 'error' ? 'error' : 'warning',
+              message: `${use.pattern}: ${use.excerpt}`,
+              file: fileName,
+            })
+        }
       }
       if (!hits.length) return
       const message =

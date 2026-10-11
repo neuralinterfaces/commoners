@@ -12,7 +12,13 @@ import {
   buildTimestamp,
   hashTree,
   hashInstallers,
+  checkFeatureCanaries,
+  featureCanaries,
+  createSARIF,
+  writeRecord,
 } from '../packages/core/utils/build-record'
+import { readFileSync, existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 
 const p = (...parts: string[]) => parts.join(sep)
 const tool = { name: '@commoners/solidarity', version: '1.0.0' }
@@ -155,5 +161,112 @@ describe('hashing and time', () => {
     writeFileSync(join(dir, 'index.html'), 'y')
     writeFileSync(join(dir, 'bundle.zip'), 'z')
     expect(hashInstallers(dir, new Set(['bundle.zip'])).map(f => f.path)).toEqual(['App-1.0.0.dmg'])
+  })
+})
+
+describe('feature canaries', () => {
+  const build = (files: Record<string, string>) => {
+    const dir = mkdtempSync(join(tmpdir(), 'commoners-canary-'))
+    for (const [name, text] of Object.entries(files)) {
+      mkdirSync(join(dir, name, '..'), { recursive: true })
+      writeFileSync(join(dir, name), text)
+    }
+    return dir
+  }
+
+  test('verifies absence of disabled and presence of enabled features', () => {
+    const dir = build({ 'assets/app.js': 'render("export-canary")', 'index.html': '<p>' })
+    const check = checkFeatureCanaries(
+      dir,
+      { export: true, telemetry: false, other: false },
+      { export: ['export-canary'], telemetry: ['telemetry-canary'] }
+    )
+    expect(check.presence).toEqual({ export: 'verified' })
+    expect(check.absence).toEqual({ telemetry: 'verified' })
+    expect(check.unchecked).toEqual(['other'])
+    expect(check.violations).toEqual([])
+  })
+
+  // The gate must fail when a disabled feature's code ships anyway (mutation: flag ignored)
+  test('a disabled feature whose canary ships is a violation, with the file', () => {
+    const dir = build({ 'assets/app.js': 'send("telemetry-canary")' })
+    const check = checkFeatureCanaries(
+      dir,
+      { telemetry: false },
+      { telemetry: ['telemetry-canary'] }
+    )
+    expect(check.absence).toEqual({ telemetry: 'violated' })
+    expect(check.violations).toEqual([
+      { kind: 'absence', feature: 'telemetry', canary: 'telemetry-canary', file: 'assets/app.js' },
+    ])
+  })
+
+  test('an enabled feature whose canary is missing is a violation (positive control)', () => {
+    const dir = build({ 'assets/app.js': '' })
+    const check = checkFeatureCanaries(dir, { export: true }, { export: ['export-canary'] })
+    expect(check.presence).toEqual({ export: 'violated' })
+    expect(check.violations[0]).toMatchObject({ kind: 'presence', canary: 'export-canary' })
+  })
+
+  test('a shipped source map counts: it carries the removed source', () => {
+    const dir = build({
+      'assets/app.js.map': '{"sourcesContent":["if (false) send(\\"telemetry-canary\\")"]}',
+    })
+    const check = checkFeatureCanaries(
+      dir,
+      { telemetry: false },
+      { telemetry: ['telemetry-canary'] }
+    )
+    expect(check.absence).toEqual({ telemetry: 'violated' })
+  })
+
+  test('canaries come only from object declarations', () => {
+    expect(
+      featureCanaries({ a: true, b: { enabled: false, canaries: ['x'] }, c: () => true })
+    ).toEqual({
+      a: [],
+      b: ['x'],
+      c: [],
+    })
+  })
+})
+
+describe('SARIF and record files', () => {
+  test('SARIF 2.1.0 with rules and located results', () => {
+    const sarif = createSARIF(tool, [
+      { ruleId: 'feature-absence', level: 'error', message: 'm', file: 'assets/app.js' },
+      { ruleId: 'feature-presence', level: 'error', message: 'n' },
+    ]) as any
+    expect(sarif.version).toBe('2.1.0')
+    expect(sarif.runs[0].tool.driver.rules.map((r: any) => r.id)).toEqual([
+      'feature-absence',
+      'feature-presence',
+      'no-eval',
+    ])
+    expect(sarif.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri).toBe(
+      'assets/app.js'
+    )
+    expect(sarif.runs[0].results[1].locations).toBeUndefined()
+  })
+
+  test('the manifest records the hash of the SBOM and scan files it sits beside', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'commoners-write-'))
+    writeRecord(dir, { bomFormat: 'CycloneDX' }, { app: 'x' }, createSARIF(tool, []))
+    const manifest = JSON.parse(readFileSync(join(dir, 'commoners.manifest.json'), 'utf8'))
+    const sbomText = readFileSync(join(dir, 'commoners.sbom.cdx.json'), 'utf8')
+    expect(manifest.sbom).toEqual({
+      path: 'commoners.sbom.cdx.json',
+      sha256: createHash('sha256').update(sbomText).digest('hex'),
+    })
+    expect(manifest.scan.path).toBe('commoners.scan.sarif')
+  })
+
+  test('a failed build writes the scan alone and removes the previous records', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'commoners-scan-'))
+    writeRecord(dir, { bomFormat: 'CycloneDX' }, { app: 'previous' }) // An earlier, successful build
+    writeRecord(dir, null, null, createSARIF(tool, []))
+    expect(existsSync(join(dir, 'commoners.scan.sarif'))).toBe(true)
+    expect(existsSync(join(dir, 'commoners.manifest.json'))).toBe(false)
+    expect(existsSync(join(dir, 'commoners.sbom.cdx.json'))).toBe(false)
   })
 })
