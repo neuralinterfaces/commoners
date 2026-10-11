@@ -9,10 +9,7 @@ import {
   resolveServiceConfiguration,
   start,
   loadConfigFromFile,
-
-  // Types
   resolveHooks,
-  UserConfig,
   valid,
 
   // Errors
@@ -23,8 +20,9 @@ import {
   setGlobalUI,
   LogLevel,
 } from '@commoners/solidarity'
+import type { LaunchConfig, UserConfig } from '@commoners/solidarity'
 
-import pkg from './package.json' assert { type: 'json' }
+import pkg from './package.json' with { type: 'json' }
 
 import { DefaultHooks, CommonersUI } from '@commoners/solidarity/ui'
 
@@ -36,10 +34,14 @@ setGlobalUI(ui) // Ensure loggers use the same system for formatting
 const cliHooks = new DefaultHooks(ui)
 
 // Utilities
-import cac from 'cac'
+import { cac } from 'cac'
 import { join } from 'path'
 import didYouMeanModule from 'didyoumean2'
-const didYouMean = didYouMeanModule.default || didYouMeanModule // Handle both named and default exports
+// Cast: the CJS build (what our CJS bundle requires) sets `exports.default`; the typings only
+// describe the ESM default export, so `.default` is invisible to TypeScript.
+const didYouMean =
+  (didYouMeanModule as typeof didYouMeanModule & { default?: typeof didYouMeanModule }).default ||
+  didYouMeanModule // Handle both named and default exports
 
 const reconcile = (userOpts = {}, cliOpts = {}, envOpts = {}) =>
   Object.assign({}, envOpts, userOpts, cliOpts) // CLI —> User —> Environment
@@ -83,7 +85,8 @@ function preprocessTarget(target) {
 }
 
 function resolveHooksForCLI(...args) {
-  const hooks = resolveHooks(...args)
+  // NOTE: resolveHooks is async, so `ui` is set on the Promise, not on the resolved hooks
+  const hooks: ReturnType<typeof resolveHooks> & { ui?: unknown } = resolveHooks(...args)
   if (!hooks.ui) hooks.ui = ui // Ensure UI is always available
   return hooks
 }
@@ -368,7 +371,8 @@ cli
       preprocessTarget(overrides.target)
       const config = await getConfig({ root, config: configPath, stdin })
       if (!config) throw new CLIError('Configuration not found')
-      const reconciledConfig = reconcile(config, overrides) as UserConfig
+      // Cast: LaunchConfig requires root/target, but launch/launchServices run resolveConfig first
+      const reconciledConfig = reconcile(config, overrides) as UserConfig & LaunchConfig
       const hooks = await resolveHooks(reconciledConfig.hooks, cliHooks) // Default hooks
 
       const start = message => hooks.ui.header(message)
