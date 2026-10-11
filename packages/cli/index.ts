@@ -84,9 +84,10 @@ function preprocessTarget(target) {
   }
 }
 
-function resolveHooksForCLI(...args) {
-  // NOTE: resolveHooks is async, so `ui` is set on the Promise, not on the resolved hooks
-  const hooks: ReturnType<typeof resolveHooks> & { ui?: unknown } = resolveHooks(...args)
+async function resolveHooksForCLI(...args: Parameters<typeof resolveHooks>) {
+  const hooks: Awaited<ReturnType<typeof resolveHooks>> & { ui?: unknown } = await resolveHooks(
+    ...args
+  )
   if (!hooks.ui) hooks.ui = ui // Ensure UI is always available
   return hooks
 }
