@@ -7,8 +7,7 @@ declare module 'commoners:env' {
   export const PLUGINS: Record<string, any>
   export const EXTENSIONS: Record<string, { type: string; capabilities?: any }>
   export const DESKTOP:
-    | false
-    | { quit: () => void; close: () => void; __id: number; __main: boolean }
+    false | { quit: () => void; close: () => void; __id: number; __main: boolean }
   export const MOBILE: boolean
   export const WEB: boolean
   export const DEV: false | string

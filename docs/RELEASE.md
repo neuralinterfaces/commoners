@@ -1,6 +1,6 @@
 # Release Process
 
-How to cut a new commoners release and publish it to npm. For the contributor PR flow (adding changesets to a feature branch), see [CONTRIBUTING.md](../CONTRIBUTING.md).
+How to cut a new commoners release and publish it to npm. For the contributor PR flow (adding changesets to a feature branch), see [CONTRIBUTING.md](https://github.com/neuralinterfaces/commoners/blob/main/CONTRIBUTING.md).
 
 ## When to cut a release
 

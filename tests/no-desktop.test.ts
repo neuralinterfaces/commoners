@@ -16,7 +16,9 @@ const run = (args: string[]) =>
     cwd: repo,
     encoding: 'utf8',
     timeout: 120000,
-    env: { ...process.env, FORCE_COLOR: '0' },
+    // No NODE_PATH: vitest's launcher points it at pnpm's hoisted store, which would resolve
+    // packages the CLI does not declare
+    env: { ...process.env, NODE_PATH: '', FORCE_COLOR: '0' },
   })
 
 describe('without desktop tooling installed', () => {

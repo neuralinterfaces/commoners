@@ -237,9 +237,8 @@ describe.skipIf(process.platform !== 'darwin' || !plistAvailable)(
     test('codesign --sign - does not modify Info.plist hash', async () => {
       const { mkdirSync, writeFileSync: writeFS, chmodSync } = await import('node:fs')
       const { execSync } = await import('node:child_process')
-      const { writePlistIntegrity, readPlistIntegrity } = await import(
-        '../packages/core/utils/asar/macos-plist'
-      )
+      const { writePlistIntegrity, readPlistIntegrity } =
+        await import('../packages/core/utils/asar/macos-plist')
 
       // 1. Create a synthetic .app bundle structure
       const appDir = join(tmpDir, 'Test.app')
@@ -306,9 +305,8 @@ describe.skipIf(process.platform !== 'darwin' || !plistAvailable)(
 
 describe.skipIf(!plistAvailable)('Plist round-trip', () => {
   test('writePlistIntegrity + readPlistIntegrity round-trips correctly', async () => {
-    const { writePlistIntegrity, readPlistIntegrity } = await import(
-      '../packages/core/utils/asar/macos-plist'
-    )
+    const { writePlistIntegrity, readPlistIntegrity } =
+      await import('../packages/core/utils/asar/macos-plist')
 
     const minimalPlist = buildPlist({
       CFBundleIdentifier: 'com.test.app',
@@ -335,9 +333,8 @@ describe.skipIf(!plistAvailable)('Plist round-trip', () => {
   })
 
   test('validatePlistIntegrity rejects mismatched hash', async () => {
-    const { writePlistIntegrity, validatePlistIntegrity } = await import(
-      '../packages/core/utils/asar/macos-plist'
-    )
+    const { writePlistIntegrity, validatePlistIntegrity } =
+      await import('../packages/core/utils/asar/macos-plist')
 
     const plistContent = buildPlist({ CFBundleName: 'Mismatch' })
     const plistPath = join(tmpDir, 'Mismatch.plist')
@@ -348,9 +345,8 @@ describe.skipIf(!plistAvailable)('Plist round-trip', () => {
   })
 
   test('validatePlistIntegrity accepts matching hash', async () => {
-    const { writePlistIntegrity, validatePlistIntegrity } = await import(
-      '../packages/core/utils/asar/macos-plist'
-    )
+    const { writePlistIntegrity, validatePlistIntegrity } =
+      await import('../packages/core/utils/asar/macos-plist')
 
     const plistContent = buildPlist({ CFBundleName: 'Match' })
     const plistPath = join(tmpDir, 'Match.plist')

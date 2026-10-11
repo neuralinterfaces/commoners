@@ -736,9 +736,8 @@ export const open = async (
     }
 
     const { connectTauri } = await import('./tauri.js')
-    const { findTauriExecutable } = await import(
-      '../../core/flows/strategies/TauriLaunchStrategy.js'
-    )
+    const { findTauriExecutable } =
+      await import('../../core/flows/strategies/TauriLaunchStrategy.js')
 
     // Same default as TauriLaunchStrategy.prepare() — config.outDir is usually unset
     const tauriOutDir = outDir ?? join(root, globalWorkspacePath, target)

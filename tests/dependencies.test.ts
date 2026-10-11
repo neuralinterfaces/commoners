@@ -74,3 +74,16 @@ describe('target tooling is optional', () => {
     expect(seen.size).toBeLessThanOrEqual(FOOTPRINT_BUDGET)
   }, 60000)
 })
+
+describe('accepted advisories', () => {
+  // Every advisory the audit ignores is documented, with its reason, in SECURITY.md (and vice versa)
+  test('pnpm.auditConfig.ignoreGhsas matches the SECURITY.md table', () => {
+    const ignored = [...(read('package.json').pnpm?.auditConfig?.ignoreGhsas ?? [])].sort()
+    const security = readFileSync(join(repo, 'SECURITY.md'), 'utf8')
+    const table = security.split('## Dependency advisories')[1]?.split('\n## ')[0] ?? ''
+    const documented = [
+      ...new Set(table.match(/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/g) ?? []),
+    ].sort()
+    expect(ignored).toEqual(documented)
+  })
+})

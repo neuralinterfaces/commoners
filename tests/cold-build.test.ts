@@ -37,7 +37,9 @@ describe('Cold Build (no prior state)', () => {
       encoding: 'utf-8',
       timeout: 30000,
       cwd: repoRoot,
-      env: { ...process.env },
+      // No NODE_PATH: vitest's launcher points it at pnpm's hoisted store, which would resolve
+      // packages the CLI does not declare
+      env: { ...process.env, NODE_PATH: '' },
     })
 
     // Verify output was created

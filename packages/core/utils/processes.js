@@ -10,11 +10,13 @@ const kill = _code => {
   for (const child in children) children[child].kill()
 }
 
-// Ensure all processes are killed
+// Ensure all processes are killed. Registering this listener replaces Node's default handling
+// (print the error, exit 1), so it must do both itself: otherwise every crash would end silently
+// with exit code 0. The in-process test harness (__COMMONERS_TESTING) leaves exiting to its runner
 process.on('uncaughtException', e => {
-  // Log critical errors but let the process handle it
-  if (process.env.NODE_ENV === 'development') console.error(e)
   kill()
+  console.error(e)
+  if (!process.env.__COMMONERS_TESTING) process.exit(1)
 })
 
 process.on('beforeExit', kill)

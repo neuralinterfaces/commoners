@@ -18,6 +18,7 @@ Target-specific tooling is **not** a dependency. Electron, electron-builder and 
 - `ora`: CLI progress spinners
 - `path-browserify`: browser polyfill for `path` in config bundles that run in the page
 - `plist`: reads and writes macOS Info.plist (ASAR integrity, iOS config)
+- `process`: browser polyfill for `process` (`process/browser`) in config bundles that run in the page
 - `vite`: the build tool and dev server for every target
 - `ws`: the dev server's WebSocket channel to running apps
 - `xml2js`: edits Android manifests for mobile builds
@@ -28,9 +29,15 @@ Optional peer dependencies (install for the targets you build): `electron`, `ele
 
 ## commoners (CLI)
 
+The CLI bundles core's terminal UI, which loads `boxen`, `chalk`, `figures` and `ora` at runtime from the CLI's own location, so the CLI declares them itself. The source never imports them directly.
+
 - `@commoners/solidarity`: the framework the CLI drives
+- `boxen`: framed CLI output
 - `cac`: command-line argument parsing
+- `chalk`: terminal colours
 - `didyoumean2`: "did you mean …" suggestions for mistyped targets
+- `figures`: terminal symbols
+- `ora`: progress spinners
 - `qrcode-terminal`: prints a QR code for `commoners share` URLs
 
 ## @commoners/testing

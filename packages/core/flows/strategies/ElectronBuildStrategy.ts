@@ -353,9 +353,8 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
   ): Promise<void> {
     const { securitySettings } = parseOptions(config, true)
     const keep = (securitySettings as any).fuses ?? {}
-    const { makeAfterPackHardenFuses, chainAfterPack } = await import(
-      '../../utils/asar/security.js'
-    )
+    const { makeAfterPackHardenFuses, chainAfterPack } =
+      await import('../../utils/asar/security.js')
     const harden = makeAfterPackHardenFuses(keep, { resetAdHocSignature: !this.willSign(config) })
     buildConfig.afterPack = chainAfterPack(buildConfig.afterPack as any, harden) as any
   }

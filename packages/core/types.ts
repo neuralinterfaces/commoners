@@ -97,12 +97,7 @@ export type LaunchEvent =
   | { type: 'launch:error'; error: Error; target?: string }
 
 export type HookEvent =
-  | GenericEvent
-  | BuildEvent
-  | LaunchEvent
-  | ServiceEvent
-  | SecurityEvent
-  | DevServerEvent
+  GenericEvent | BuildEvent | LaunchEvent | ServiceEvent | SecurityEvent | DevServerEvent
 
 // Hook function type
 export type HookFunction = (event: HookEvent) => void | Promise<void>
@@ -745,8 +740,7 @@ type BaseElectronWindowOptions = Electron.BrowserWindowConstructorOptions & {
   onInitialized?: ElectronWindowCreationCallback
 }
 export type ElectronWindowOptions =
-  | BaseElectronWindowOptions
-  | ((this: typeof Electron | void) => BaseElectronWindowOptions)
+  BaseElectronWindowOptions | ((this: typeof Electron | void) => BaseElectronWindowOptions)
 
 type ElectronTransferableBrowserWindowFlags = {
   __id: number
