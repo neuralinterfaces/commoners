@@ -119,7 +119,7 @@ export default {
 }
 ```
 
-If not specified, the `appId` is generated from the `name` property.
+If not specified, the `appId` is `com.` followed by the `name` in lowercase letters and digits (`My App` becomes `com.myapp`). Set it explicitly before you ship: it is the macOS bundle id, the Windows app id, the Tauri identifier and the mobile application id, so changing it later changes where the app's data and settings are stored.
 
 ### Port
 The `port` property defines the port of your application when using the `start` or `launch` command for the `web` target.

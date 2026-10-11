@@ -28,6 +28,7 @@ import { ConfigurationError, ValidationError } from './errors.js'
 
 // Security utilities
 import { validatePath } from './utils/security.js'
+import { defaultAppId } from './utils/app-id.js'
 
 // Logging
 import { createLogger } from './assets/utils/logger.js'
@@ -323,7 +324,7 @@ export async function resolveConfig(
 
   if (!o.version) o.version = '0.0.0'
 
-  if (!o.appId) o.appId = `com.${o.name.replace(/\s/g, '').toLowerCase()}.app`
+  if (!o.appId) o.appId = defaultAppId(o.name)
 
   // Always have a build options object
   if (!o.build) o.build = {}
