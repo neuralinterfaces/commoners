@@ -428,6 +428,9 @@ export type ElectronSecuritySettings = {
   // Protocols that links and window.open may open in the OS (default: https, http, mailto).
   // Others, such as file: or custom app schemes, are refused because they can launch programs
   externalProtocols?: string[]
+  // Packaged apps cannot be run as plain Node.js: ELECTRON_RUN_AS_NODE, NODE_OPTIONS and --inspect
+  // arguments are turned off with Electron fuses. Set one to true to keep it enabled
+  fuses?: { runAsNode?: boolean; nodeOptions?: boolean; inspect?: boolean }
   /**
    * Expected publisher (substring of cert subject) for service binary verification.
    * When set on a signed build, each executable service is verified against the OS

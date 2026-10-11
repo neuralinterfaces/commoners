@@ -186,6 +186,9 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Configure ASAR integrity
     await this.configureAsarIntegrity(buildConfig, config)
 
+    // Turn off Node.js entry points into the packaged app, signed or not
+    await this.configureNodeEntryFuses(buildConfig, config)
+
     // Set Electron version
     if (!('electronVersion' in buildConfig)) {
       buildConfig.electronVersion = electronVersion
@@ -331,6 +334,19 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       electronTemplateDir,
       buildConfig.mac.entitlementsInherit
     )
+  }
+
+  private async configureNodeEntryFuses(
+    buildConfig: WritableElectronBuilderConfig,
+    config: any
+  ): Promise<void> {
+    const { securitySettings } = parseOptions(config, true)
+    const keep = (securitySettings as any).fuses ?? {}
+    const { makeAfterPackHardenFuses, chainAfterPack } = await import(
+      '../../utils/asar/security.js'
+    )
+    const harden = makeAfterPackHardenFuses(keep, { resetAdHocSignature: !this.willSign(config) })
+    buildConfig.afterPack = chainAfterPack(buildConfig.afterPack as any, harden) as any
   }
 
   private willSign(config: any): boolean {

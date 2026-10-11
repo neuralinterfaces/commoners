@@ -10,6 +10,7 @@ Commoners aims to be **secure by default**: in CISA's [Secure by Design](https:/
 | Build-time scan for `eval`-like code the CSP would block | Yes | Yes | Yes |
 | Cross-origin isolation (opt-in: `security.crossOriginIsolation`) | Yes | Yes (not with `electron.origin: 'file'`) | Yes |
 | Renderer isolation | n/a | `contextIsolation`, `sandbox`, no Node.js in pages; DevTools off in production | Capabilities, deny by default |
+| Running the app as Node.js | n/a | Off: `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect` are disabled with Electron fuses on every packaged build | n/a |
 | Navigation | n/a | In-app navigation stays in the app; other links open in the system browser only for `https:`, `http:` and `mailto:` (`electron.security.externalProtocols` to change); new windows are denied | Tauri defaults |
 | IPC | n/a | Channels limited to an allowlist generated from your plugins and services | Plugin permissions you declare |
 | App bundle integrity | n/a | ASAR integrity, when builds are signed | Not yet (sidecars are ad-hoc signed on macOS; production signing is on the roadmap) |
@@ -39,7 +40,7 @@ Electron publishes a [20-item security checklist](https://www.electronjs.org/doc
 | 16 | Current Electron | Yours: Commoners depends on Electron `^40.8.0`; check it against current releases |
 | 17 | Validate the IPC `sender` | Partial: channels are checked against an allowlist; the sending frame is not |
 | 18 | Prefer a custom protocol over `file://` | Yes: packaged pages load from `app://local` (`electron.origin: 'file'` opts out) |
-| 19 | Check which fuses to change | Partial: with ASAR integrity, `EnableEmbeddedAsarIntegrityValidation` and `OnlyLoadAppFromAsar` are set; `RunAsNode`, `NODE_OPTIONS` and inspector fuses are not yet |
+| 19 | Check which fuses to change | Yes: every packaged build turns off `RunAsNode`, `EnableNodeOptionsEnvironmentVariable` and `EnableNodeCliInspectArguments` (`electron.security.fuses` re-enables one); signed builds also set `EnableEmbeddedAsarIntegrityValidation` and `OnlyLoadAppFromAsar` |
 | 20 | Do not expose Electron APIs to untrusted content | Yes: the preload exposes a scoped Commoners API via `contextBridge`, not `ipcRenderer` |
 
 ## Checking it

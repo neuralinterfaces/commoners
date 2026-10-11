@@ -1,5 +1,5 @@
-import { join, basename, dirname, extname, normalize, sep } from 'node:path'
-import { existsSync, readdirSync, lstatSync, statSync } from 'node:fs'
+import { join, basename, dirname, extname, normalize } from 'node:path'
+import { existsSync, lstatSync } from 'node:fs'
 import { flipFuses, FuseVersion, FuseV1Options } from '@electron/fuses'
 import { logAsarState } from './debug.js'
 import { createLogger } from '../../assets/utils/logger.js'
@@ -214,7 +214,9 @@ export function makeAfterPackEmbedAsarIntegrity(options?: {
       const hasValidDeps = validateDependenciesForIntegrity()
       if (!hasValidDeps) {
         if (strict) {
-          throw new Error('ASAR integrity embedding failed: required dependencies are missing. Install ffi-napi ref-napi or rcedit, or set asarIntegrity: { strict: false } to skip.')
+          throw new Error(
+            'ASAR integrity embedding failed: required dependencies are missing. Install ffi-napi ref-napi or rcedit, or set asarIntegrity: { strict: false } to skip.'
+          )
         }
         warn('Skipping ASAR integrity embedding due to missing dependencies')
         return
@@ -323,7 +325,7 @@ export function makeAfterPackEmbedAsarIntegrity(options?: {
       log(`Target executable: ${exeForWin || 'N/A (macOS)'}`)
 
       // Track initial state
-      const initialState = logAsarState('INITIAL_STATE', asarPath, {
+      logAsarState('INITIAL_STATE', asarPath, {
         hookType: isAfterPack ? 'afterPack' : 'artifactBuildCompleted',
         product,
         exeForWin,
@@ -488,7 +490,9 @@ export function makeAfterPackEmbedAsarIntegrity(options?: {
                       x && /resources\\app\.asar|app\.asar/i.test(x.file) && x.alg === 'sha256'
                   )
                 embedded2 = rec2 && String(rec2.value || '').toLowerCase()
-              } catch {}
+              } catch {
+                // Unreadable: embedded2 keeps its previous value
+              }
 
               if (embedded2 !== fullHash) {
                 warn(
@@ -555,6 +559,40 @@ export function makeAfterPackEmbedAsarIntegrity(options?: {
       warn('Build will continue without ASAR integrity validation')
       warn('To fix this issue, install dependencies: npm install ffi-napi ref-napi rcedit')
     }
+  }
+}
+
+export type NodeEntryFuses = { runAsNode?: boolean; nodeOptions?: boolean; inspect?: boolean }
+
+/**
+ * Turn off the ways to run the packaged app as plain Node.js (Electron security checklist #19):
+ * ELECTRON_RUN_AS_NODE, the NODE_OPTIONS variable and --inspect arguments. `keep` re-enables any
+ * an app needs. Runs on every packaged build, signed or not; an unsigned macOS app gets its
+ * ad-hoc signature reset so it still launches. A failure fails the build.
+ */
+export function makeAfterPackHardenFuses(
+  keep: NodeEntryFuses = {},
+  { resetAdHocSignature = false }: { resetAdHocSignature?: boolean } = {}
+) {
+  return async function afterPackHardenFuses(context: any) {
+    const { appOutDir, packager } = context
+    const product = packager?.appInfo?.productFilename || packager?.appInfo?.productName
+    if (!product) throw new Error('No product name found for fuse hardening')
+
+    const targetPath = isWin()
+      ? findExe(appOutDir, product)
+      : isMac()
+        ? join(appOutDir, `${product}.app`)
+        : appOutDir
+
+    await flipFuses(targetPath, {
+      version: FuseVersion.V1,
+      resetAdHocDarwinSignature: resetAdHocSignature && isMac(),
+      [FuseV1Options.RunAsNode]: keep.runAsNode === true,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: keep.nodeOptions === true,
+      [FuseV1Options.EnableNodeCliInspectArguments]: keep.inspect === true,
+    })
+    log('Node.js entry fuses set on', targetPath)
   }
 }
 
@@ -638,7 +676,9 @@ export async function afterSignVerifyAsarIntegrity(context: any) {
     }
 
     if (currentHash !== embeddedHash) {
-      warn(`ASAR hash mismatch after code signing (expected ${embeddedHash.slice(0, 12)}..., got ${currentHash.slice(0, 12)}...)`)
+      warn(
+        `ASAR hash mismatch after code signing (expected ${embeddedHash.slice(0, 12)}..., got ${currentHash.slice(0, 12)}...)`
+      )
       writePlistIntegrity(plistPath, currentHash)
       log('Re-embedded corrected ASAR integrity hash after signing')
     } else {
