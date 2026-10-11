@@ -104,7 +104,7 @@ export const getAssetBuildPath = (
     isSharedWithElectron = sharedWithElectron.includes(inputToCompare)
   if (isSharedWithElectron) return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
   const buildDir = getBuildDir(outDir)
-  const encoded = encodePath(assetPath)
+  const encoded = encodePath(assetPath, outDir)
   return join(buildDir, encoded)
 }
 

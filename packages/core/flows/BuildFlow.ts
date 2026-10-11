@@ -28,6 +28,7 @@ import { globalServiceWorkspacePath } from '../assets/services/paths.js'
 import * as BuildRecord from '../utils/build-record.js'
 import { resolveFeatures } from '../utils/features.js'
 import { getServices } from '../utils/extensions.js'
+import { resetEncodedPaths } from '../utils/encode.js'
 
 const ownRequire = createRequire(import.meta.url)
 const commonersPackagePath = ownRequire.resolve('../package.json')
@@ -218,6 +219,7 @@ export class BuildFlow {
 
     // Step 2: Build frontend assets
     BuildRecord.resetInventory(resolve(context.root))
+    resetEncodedPaths()
     BuildRecord.resetEvalFindings(resolve(context.root))
     await this.buildFrontendAssets(context)
 

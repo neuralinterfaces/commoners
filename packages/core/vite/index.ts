@@ -180,10 +180,10 @@ export const resolveViteConfig = async (
   }
 
   // Get html files from plugins
-  const pluginPages = Object.values(commonersPlugins).reduce((acc, plugin) => {
-    Object.values(plugin.assets ?? {}).forEach(assetSrc => {
+  const pluginPages = Object.entries(commonersPlugins).reduce((acc, [id, plugin]) => {
+    Object.entries(plugin.assets ?? {}).forEach(([key, assetSrc]) => {
       if (extname(assetSrc) === '.html')
-        acc[crypto.randomUUID()] = getAbsolutePath(absoluteRoot, assetSrc)
+        acc[`plugin:${id}:${key}`] = getAbsolutePath(absoluteRoot, assetSrc)
     })
     return acc
   }, {}) as Record<string, string>
@@ -198,10 +198,21 @@ export const resolveViteConfig = async (
   const allPages = Object.values(collectedPages)
   if (rootHTMLExists && !allPages.includes(rootHTML)) allPages.push(rootHTML)
   const allUniquePages = Array.from(new Set(allPages))
-  rollupOptions.input = allUniquePages.reduce((acc, filepath) => {
-    acc[crypto.randomUUID()] = filepath
-    return acc
-  }, {})
+  // Entry names come from each page's path, so the same project builds to the same file names
+  rollupOptions.input = allUniquePages.reduce(
+    (acc, filepath) => {
+      const base =
+        relative(absoluteRoot, filepath)
+          .replace(/\.html?$/, '')
+          .replace(/[^a-zA-Z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'page'
+      let name = base
+      for (let n = 2; name in acc; n++) name = `${base}-${n}`
+      acc[name] = filepath
+      return acc
+    },
+    {} as Record<string, string>
+  )
 
   const nPages = allPages.length
   const hasAnyPages = nPages > 0
