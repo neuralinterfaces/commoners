@@ -7,25 +7,30 @@
  */
 
 import { describe, test, expect, afterAll } from 'vitest'
-import { existsSync, rmSync, readFileSync } from 'node:fs'
+import { existsSync, rmSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 
 const repoRoot = process.cwd()
-const commoners = join(repoRoot, 'node_modules', '.bin', 'commoners')
+// The built CLI, run with node: node_modules/.bin/commoners is only linked if the CLI was built
+// before install, which is not the case on a fresh checkout or in CI
+const commoners = `node ${JSON.stringify(join(repoRoot, 'packages', 'cli', 'dist', 'index.cjs'))}`
 const benchDir = join(repoRoot, 'examples', 'bench')
 const benchOutDir = join(benchDir, '.commoners', 'web')
 
 describe('Cold Build (no prior state)', () => {
   afterAll(() => {
-    if (existsSync(join(benchDir, '.commoners'))) rmSync(join(benchDir, '.commoners'), { recursive: true })
+    if (existsSync(join(benchDir, '.commoners')))
+      rmSync(join(benchDir, '.commoners'), { recursive: true })
     // Also clean up the root .commoners/ that script-hashes writes to
-    if (existsSync(join(repoRoot, '.commoners'))) rmSync(join(repoRoot, '.commoners'), { recursive: true })
+    if (existsSync(join(repoRoot, '.commoners')))
+      rmSync(join(repoRoot, '.commoners'), { recursive: true })
   })
 
   test('web build succeeds from bench example with no prior .commoners/', () => {
     // Ensure clean state
-    if (existsSync(join(benchDir, '.commoners'))) rmSync(join(benchDir, '.commoners'), { recursive: true })
+    if (existsSync(join(benchDir, '.commoners')))
+      rmSync(join(benchDir, '.commoners'), { recursive: true })
 
     // Build from scratch — must not throw ENOENT for script-hashes.json
     execSync(`${commoners} build ${benchDir} --target web`, {
@@ -45,7 +50,7 @@ describe('Cold Build (no prior state)', () => {
     expect(existsSync(assetsDir)).toBe(true)
 
     // Should have onload.mjs, config files, and icon
-    const files = require('node:fs').readdirSync(assetsDir)
+    const files = readdirSync(assetsDir)
     expect(files.some((f: string) => f.startsWith('onload-'))).toBe(true)
     expect(files.some((f: string) => f.startsWith('commoners.config'))).toBe(true)
   })
