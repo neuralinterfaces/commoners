@@ -1,6 +1,18 @@
 {
   "name": "commoners",
-  "description": "Cross-Platform Development for the Rest of Us",
+  "description": "From prototype to product, for everyone: build web apps with backend services for web, desktop and mobile, on Tauri, Electron and Capacitor",
+  "keywords": [
+    "tauri",
+    "electron",
+    "capacitor",
+    "pwa",
+    "cross-platform",
+    "sidecar",
+    "services",
+    "sbom",
+    "csp",
+    "security"
+  ],
   "version": "1.0.0-alpha.4",
   "type": "module",
   "author": "Neural Interfaces",

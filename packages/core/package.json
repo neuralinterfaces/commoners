@@ -1,6 +1,18 @@
 {
   "name": "@commoners/solidarity",
-  "description": "Build solidarity across platform",
+  "description": "Config resolution, build orchestration, service supervision and build records for Commoners",
+  "keywords": [
+    "tauri",
+    "electron",
+    "capacitor",
+    "pwa",
+    "cross-platform",
+    "sidecar",
+    "services",
+    "sbom",
+    "csp",
+    "security"
+  ],
   "version": "1.0.0-alpha.4",
   "type": "module",
   "author": "Neural Interfaces",

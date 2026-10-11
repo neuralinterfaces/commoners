@@ -1,6 +1,6 @@
 # Architecture
 
-Commoners is an orchestration layer. It reads a single `commoners.config.ts` and delegates to specialized tools — Vite for bundling, Electron for desktop, Capacitor for mobile — while managing services, plugins, and platform differences.
+Commoners is an orchestration layer. It reads a single `commoners.config.ts` and delegates to specialized tools — Vite for bundling, Tauri or Electron for desktop, Capacitor for mobile — while managing services, plugins, and platform differences, and recording what each production build contains.
 
 ## How a Command Flows
 

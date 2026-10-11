@@ -28,7 +28,7 @@ All four release gate items are complete:
 
 ### Medium-term
 
-- **Features and compile-out** -- Declare per build which features are enabled; disabled ones are absent from every artifact (bundles, services, Tauri binary) and the absence is verified on the built output. See [features-and-compile-out.md](./docs/roadmap/features-and-compile-out.md).
+- **Features and compile-out** -- P1 shipped: per-target `features` become build-time defines, disabled code is removed, and the build record's manifest lists each build's features. Open: verify absence on the built output (bundles, services, Tauri binary). See [features-and-compile-out.md](./docs/roadmap/features-and-compile-out.md).
 
 - **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
 - **Tauri remaining work** -- SEA cross-compilation, dev mode testing, Tauri IPC bridge, code signing. See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).

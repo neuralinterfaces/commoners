@@ -1,59 +1,59 @@
 # Why Commoners?
 
 ## The Problem
-You have a web app. You want it on desktop, mobile, and the web — ideally from one codebase. Maybe you also have backend services in Python, Rust, or Node that need to ship alongside it.
+You have a web prototype that works. Turning it into a product means shipping it to the web, desktop and mobile, often with backend services in Python, Rust or Node, and being able to show what each release contains. That last part used to take a large team.
 
-Existing tools solve parts of this:
-- **Electron / Tauri** handle desktop (and Tauri 2.0 adds mobile), but don't manage your backend services.
-- **Capacitor** handles mobile, but can't bundle local backends or manage desktop.
-- **Framework-specific SDKs** (React Native, Quasar) lock you into a single frontend framework.
+Existing tools each solve part of this, and Commoners sits on top of them rather than replacing them:
+- **Tauri / Electron** run your app on desktop (Tauri 2 adds mobile), but leave building and supervising your backend services to you.
+- **Capacitor** runs your app on mobile, but can't bundle local backends or cover desktop.
+- **Framework-specific SDKs** (React Native, Quasar) tie you to a single frontend framework.
 
-No single tool handles the full picture: **your app on every platform**, with backend services that compile, bundle, and deploy automatically.
+## What Commoners Adds
+Commoners is an orchestration layer driven by a single `commoners.config.ts`:
 
-## What Commoners Does Differently
-Commoners is a CLI tool that reads a single `commoners.config.ts` and handles the rest:
+1. **Services in any language.** TypeScript, Python, C++, Rust or WASM. Each service is built for the target platform, bundled, started, health-checked and stopped with your app.
+2. **Services that adapt to the target.** On desktop, services run as local processes inside the app. On web and mobile, the same services deploy remotely. Your frontend code doesn't change.
+3. **Secure by default, on every target.** One Content Security Policy across web, Electron and Tauri, isolation and sandboxing on, and signed service binaries checked at launch on Electron. See [Security](./guide/security.md).
+4. **Every build shows its work.** Production builds write a CycloneDX software bill of materials and a manifest of settings, features and file hashes. See [Build Record](./guide/config.md#build-record).
+5. **Framework-agnostic.** Your frontend is HTML, CSS and JavaScript. Use React, Vue, Svelte, or nothing at all.
 
-1. **Declares services in any language** -- TypeScript, Python, C++, Rust. Each service gets auto-compiled and bundled for your target platform.
-2. **Adapts services to the target** -- On desktop, services run as local processes bundled inside the app. On web and mobile, the same services deploy remotely. Your frontend code doesn't change.
-3. **Stays framework-agnostic** -- Your frontend is HTML, CSS, and JavaScript. Use React, Vue, Svelte, or nothing at all.
-4. **Manages platform-specific code** -- Plugins handle Bluetooth, Serial, window management, and other platform APIs without polluting your core logic.
+## What Commoners Adds to Each Runtime
 
-## How It Compares
+| Runtime | What it gives you | What Commoners adds |
+|---|---|---|
+| Tauri | Small desktop apps on the system webview; Rust core | Builds and supervises your services as sidecars; shared CSP; build record; the same config as your other targets |
+| Electron | Bundled Chromium + Node; mature ecosystem | Service build, supervision and launch-time verification; secure defaults; optional `app://` origin; build record |
+| Capacitor | iOS and Android from web code | The same frontend and remote services as your web and desktop builds |
+| Browser (PWA) | No install | Security headers and a meta CSP generated for your host; build record |
 
-| Feature | Commoners | Tauri | Capacitor | Quasar | Expo |
-|---|---|---|---|---|---|
-| Web | Yes | No | Yes | Yes | Yes (limited) |
-| Desktop | Electron (Tauri planned) | Webview | No | Electron | No |
-| Mobile | Capacitor | iOS / Android | Native | Cordova | React Native |
-| Backend services | **Any language, auto-bundled** | Rust + sidecars | None | None | None |
+### Choosing a desktop runtime
 
-Commoners is the tool that gets your app — frontend and backend — onto every platform from one config.
+Choose per build: Tauri (system webview, around 10 MB) or Electron (bundled Chromium, around 200 MB). Services work with both. Most plugins are Electron-only today; see the plugin table for each one's status.
 
-### A note on desktop app size
+## From Prototype to Product
+Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) for a hard task: distributing one Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux) and mobile (iOS/Android), with real-time brain-computer interface backends written in Python and C++. [It works.](https://github.com/neuralinterfaces/brainsatplay)
 
-Commoners currently uses Electron for desktop, which bundles Chromium (~200 MB). This is the same trade-off Slack, VS Code, and Discord make. If binary size is critical and you don't need multi-language backend services, [Tauri](https://tauri.app) produces ~10 MB desktop apps using the system webview. Commoners plans to support Tauri as an alternative desktop runtime — your services and plugins will work with either.
+Apps like that carry hardware access and scientific backends, and the teams behind them have to show what is in each build. That shaped the defaults:
+- one security policy across targets;
+- signed service binaries checked at launch;
+- build-time removal of what a build doesn't need;
+- a record of every production build.
 
-## Where Commoners Came From
-Commoners was built at [Neural Interfaces](https://github.com/neuralinterfaces) for an impossible task: distributing a single Bluetooth-enabled application across web (Chrome), desktop (Mac/Windows/Linux), and mobile (iOS/Android) -- with real-time brain-computer interface backends written in Python and C++. [It works.](https://github.com/neuralinterfaces/brainsatplay)
-
-Since then, Commoners has been used for commercial products and continues to evolve as a general-purpose cross-platform tool.
+**What Commoners is not:** it is a framework. It isn't certified or validated, and it doesn't make a product compliant. The team shipping the product owns its documentation. Commoners makes the evidence that comes from your build (the SBOM, the configuration and the file hashes) cheap to produce and easy to check.
 
 ## When to Use Something Else
 
-For a detailed comparison with Tauri, Electron, and Capacitor, see [Choosing the Right Tool](./guide/comparisons.md).
+For a detailed comparison, see [Choosing the Right Tool](./guide/comparisons.md).
 
-Commoners is not always the right choice:
+- **You need native performance everywhere.** Flutter or fully native development (Swift/Kotlin/C++) will outperform WebView-based apps.
+- **You only need a desktop app with no extra services.** Plain Tauri or Electron is simpler.
+- **You only need mobile.** Capacitor or React Native may be simpler if you don't need desktop or multi-language backends.
+- **You're committed to one framework.** Quasar (Vue) and Expo (React) integrate more deeply with their ecosystems.
 
-- **You need native performance everywhere** -- Flutter or fully native development (Swift/Kotlin/C++) will outperform WebView-based apps.
-- **You only need desktop with Rust** -- Tauri produces smaller binaries and has a mature Rust integration. Commoners plans to support Tauri as an alternative desktop runtime.
-- **You only need mobile** -- Capacitor or React Native may be simpler if you don't need desktop or multi-language backends.
-- **You're locked into a framework** -- Quasar (Vue) and Expo (React) offer deeper integration with their respective ecosystems.
+## Tools We Build On
+Commoners adds the orchestration layer that connects these tools with your backend services and manages the differences between platforms:
 
-## Platform-Specific Tools We Build On
-Commoners composes existing tools rather than replacing them:
-
-- [Vite](https://vitejs.dev) -- Build tooling and dev server for all platforms.
-- [Electron](https://www.electronjs.org) -- Desktop runtime (Chromium + Node.js).
-- [Capacitor](https://capacitorjs.com) -- Mobile runtime (native WebViews).
-
-Commoners adds the orchestration layer that connects these tools with your backend services and manages the differences between platforms.
+- [Vite](https://vitejs.dev): build tooling and dev server for all platforms.
+- [Tauri](https://tauri.app): desktop runtime on the system webview.
+- [Electron](https://www.electronjs.org): desktop runtime (Chromium + Node.js).
+- [Capacitor](https://capacitorjs.com): mobile runtime (native WebViews).

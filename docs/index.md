@@ -4,7 +4,8 @@ layout: home
 
 hero:
   name: Commoners
-  tagline: Your App, Every Platform
+  tagline: From prototype to product, for everyone
+  text: An orchestration layer that keeps every platform simple. One config for web, Tauri, Electron and Capacitor. Secure by default, and every build shows its work.
   image:
     src: /logo-min.png
     alt: Commoners
@@ -17,21 +18,23 @@ hero:
       link: /why
 features:
   - icon: 🌐
-    title: Web, Desktop, and Mobile
-    details: One commoners.config.ts deploys to the browser, Electron or Tauri on desktop, and iOS/Android via Capacitor.
+    title: Simple on Every Platform
+    details: One commoners.config.ts for the browser, Tauri or Electron on desktop, and Capacitor on iOS and Android. Commoners adds the layer, not another runtime.
   - icon: 🧩
-    title: Backend Services in Any Language
-    details: Python, Rust, C++, or Node services declared in config. Auto-compiled, bundled, and deployed with your app.
-  - icon: 💻
-    title: Framework-Agnostic
-    details: HTML, CSS, and JavaScript. Use React, Vue, Svelte, or nothing at all.
-  - icon: 🔀
-    title: Local + Remote Services
-    details: Services run locally on desktop, deploy remotely for web and mobile. Your frontend code doesn't change.
+    title: Services in Any Language
+    details: Python, Rust, C++, WASM or Node, declared in config. Each is built for the target, bundled, started, health-checked and stopped with your app — local on desktop, remote for web and mobile, with the same frontend code.
+  - icon: 🛡️
+    title: Secure by Default
+    details: One Content Security Policy across web, Electron and Tauri. Isolation and sandboxing on. Signed service binaries checked at launch on Electron. commoners verify-headers checks a deployment.
+    link: /guide/security
+  - icon: 📋
+    title: Every Build Shows Its Work
+    details: Production builds write a CycloneDX SBOM of what actually shipped, and a manifest of settings, features and file hashes tied to the source commit.
+    link: /guide/config#build-record
+  - icon: ✂️
+    title: Ship Only What a Build Needs
+    details: Declare features per target. Disabled code is removed at build time, and the manifest records which features each build has.
   - icon: 🔩
-    title: Plugin System
-    details: Bluetooth, Serial, multi-window, auto-update. Platform-specific code stays out of your app logic.
-  - icon: ⚡️
-    title: Built on Vite
-    details: Hot reloading, fast builds, and modern tooling out of the box.
+    title: Plugins
+    details: Bluetooth, Serial, multi-window and auto-update, kept out of your app logic. Most plugins are Electron-only today.
 ---

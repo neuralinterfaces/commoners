@@ -5,7 +5,8 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'Commoners',
-    description: 'Cross-platform apps with backend services in any language',
+    description:
+      'From prototype to product, for everyone: an orchestration layer over Tauri, Electron and Capacitor',
 
     head: [['link', { rel: 'icon', href: '/logo-min.png' }]],
 
@@ -52,6 +53,7 @@ export default withMermaid(
             { text: 'Plugins', link: '/guide/plugins' },
             { text: 'Platform Enhancement', link: '/guide/platform-enhancement' },
             { text: 'Testing', link: '/guide/testing' },
+            { text: 'Security', link: '/guide/security' },
             { text: 'Architecture', link: '/guide/architecture' },
             { text: 'Build Automation', link: '/guide/build-automation' },
             { text: 'Troubleshooting', link: '/guide/troubleshooting' },
