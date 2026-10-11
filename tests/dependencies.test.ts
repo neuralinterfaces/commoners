@@ -17,7 +17,8 @@ const PACKAGES = {
 
 // Names listed under one "## <package>" section of DEPENDENCIES.md as "- `name`: reason"
 const ledger = (pkg: string) => {
-  const text = readFileSync(join(repo, 'DEPENDENCIES.md'), 'utf8')
+  // CRLF on Windows checkouts: normalize before splitting into sections
+  const text = readFileSync(join(repo, 'DEPENDENCIES.md'), 'utf8').replace(/\r\n/g, '\n')
   const section = text.split(/^## /m).find(s => s.startsWith(pkg + ' ') || s.startsWith(pkg + '\n'))
   return [...(section ?? '').matchAll(/^- `([^`]+)`:\s*\S/gm)].map(m => m[1]).sort()
 }
@@ -79,7 +80,7 @@ describe('accepted advisories', () => {
   // Every advisory the audit ignores is documented, with its reason, in SECURITY.md (and vice versa)
   test('pnpm.auditConfig.ignoreGhsas matches the SECURITY.md table', () => {
     const ignored = [...(read('package.json').pnpm?.auditConfig?.ignoreGhsas ?? [])].sort()
-    const security = readFileSync(join(repo, 'SECURITY.md'), 'utf8')
+    const security = readFileSync(join(repo, 'SECURITY.md'), 'utf8').replace(/\r\n/g, '\n')
     const table = security.split('## Dependency advisories')[1]?.split('\n## ')[0] ?? ''
     const documented = [
       ...new Set(table.match(/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/g) ?? []),
