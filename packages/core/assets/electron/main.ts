@@ -63,9 +63,9 @@ const { config, electron: electronOptions, plugins } = electronConfig
 const options = Config.parseOptions(electronConfig, isProduction)
 const { protocolOptions, windowOptions, overlay, securitySettings } = options
 
-// Packaged pages from app://local instead of file:// (electron.origin: 'app'). Never in
-// development: the dev server already gives pages a real origin
-const useAppOrigin = electronOptions.origin === 'app' && !DEV_SERVER_URL
+// Packaged pages load from app://local (default) instead of file:// (electron.origin: 'file').
+// Never in development: the dev server already gives pages a real origin
+const useAppOrigin = electronOptions.origin !== 'file' && !DEV_SERVER_URL
 const crossOriginIsolation = config.security?.crossOriginIsolation === true
 let appOriginCSP: string | null = null
 

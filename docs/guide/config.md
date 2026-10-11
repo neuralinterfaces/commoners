@@ -216,12 +216,12 @@ export default {
 When `build.sign` or `build.publish` is enabled, ASAR integrity hashes are automatically embedded into the application binary and verified at runtime via Electron fuses. See [Desktop Targets](./targets/desktop) for platform-specific signing details.
 
 #### `electron.origin`
-Where packaged pages load from. The default, `'file'`, loads them from `file://`. `'app'` serves them from `app://local` through a protocol handler in the main process:
+Where packaged pages load from. The default, `'app'`, serves them from `app://local` through a protocol handler in the main process. `'file'` loads them from `file://` instead:
 
 ```js
 export default {
-    electron: { origin: 'app' },
-    security: { crossOriginIsolation: true }, // Optional: SharedArrayBuffer on Electron too
+    electron: { origin: 'file' }, // Opt out of app://local
+    security: { crossOriginIsolation: true }, // Optional: SharedArrayBuffer on Electron too (needs 'app')
 }
 ```
 
@@ -232,7 +232,9 @@ With `'app'`:
 - `security.crossOriginIsolation` takes effect on Electron, as it does on the web and Tauri: responses carry COOP/COEP/CORP and `crossOriginIsolated` is `true`.
 - Only files inside the packaged app are served. A `file://` page can `fetch()` any file the user can read; an `app://local` page cannot. Paths that escape the app (`..`, encoded or not) return 404.
 
-Development is unchanged: the dev server already gives pages a real origin. The `app` scheme is reserved in this mode, so `electron.protocol` cannot also be `'app'`. Services see requests with `Origin: app://local` rather than `null`.
+With `'file'`, the CSP can only be delivered as a `<meta>` tag, cross-origin isolation is unavailable, and page script can read local files.
+
+Development is unchanged: the dev server already gives pages a real origin. The `app` scheme is reserved in `'app'` mode, so `electron.protocol` cannot also be `'app'`. Services see requests with `Origin: app://local` rather than `null`.
 
 ### Features
 Declare which parts of your app each build includes. A feature is `true`/`false`, a function of `{ target, mode }`, or an object with `enabled` and optional `canaries`:

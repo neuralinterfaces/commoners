@@ -417,7 +417,7 @@ export class BuildFlow {
         killSwitch: security.killSwitch !== false,
         ...(isDesktop(target) && !isTauri
           ? {
-              electronOrigin: (config as any).electron?.origin ?? 'file',
+              electronOrigin: (config as any).electron?.origin ?? 'app',
               electron: (config as any).electron?.security ?? true,
             }
           : {}),
