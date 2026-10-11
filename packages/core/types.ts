@@ -37,7 +37,13 @@ export type BuildEvent =
   | { type: 'build:electron:start' }
   | { type: 'build:electron:complete'; duration?: number }
   | { type: 'build:mobile:start'; mobileTarget: 'ios' | 'android' }
-  | { type: 'build:complete'; config: ResolvedConfig; outDir: string; duration?: number }
+  | {
+      type: 'build:complete'
+      config: ResolvedConfig
+      outDir: string
+      duration?: number
+      dev?: boolean
+    }
   | { type: 'build:error'; error: Error; phase?: string }
 
 export type ServiceEvent =
@@ -48,6 +54,7 @@ export type ServiceEvent =
   | { type: 'service:error'; error: Error; service: string }
   | { type: 'service:exit'; service: string; code: number | null }
   | { type: 'service:restart'; service: string }
+  | { type: 'service:build'; service: string; src: string; out: string; method: 'compile' }
   | { type: 'service:build:start'; service: string; src: string; out: string }
   | { type: 'service:build:end'; service: string; src: string; out: string; duration?: number }
   | { type: 'service:build:error'; service: string; src: string; out: string; error: Error }
@@ -86,6 +93,7 @@ export type DevServerEvent =
 export type LaunchEvent =
   | { type: 'launch:start'; outDir: string; target: string }
   | { type: 'launch:ready'; url?: string; server?: any }
+  | { type: 'launch:complete' }
   | { type: 'launch:error'; error: Error; target?: string }
 
 export type HookEvent =
@@ -247,6 +255,7 @@ export type ResolvedService = {
 
   // For Client
   url: string // What URL to use for service requests
+  port?: PortType // Set by shareServices() to override the port of a single shared service
   status: ServiceStatus
 
   capabilities?: ExtensionCapabilities
@@ -293,7 +302,7 @@ export type CapacitorConfig = {
 
 type DesktopPluginContext = {
   id: string
-  runtime: import('./assets/runtime/types').DesktopRuntime
+  runtime: import('./assets/runtime/types.js').DesktopRuntime
   electron: typeof electron // Legacy — prefer runtime abstraction for Tauri compatibility
   utils: typeof utils // Legacy — prefer runtime abstraction for Tauri compatibility
   createWindow: (page: string, opts: BrowserWindowConstructorOptions) => BrowserWindow
@@ -629,7 +638,7 @@ export type ServiceManifestEntry = {
 
 export type ServiceManifest = Record<string, ServiceManifestEntry>
 
-export type ResolvedConfig = Omit<BaseConfig, 'hooks' | 'plugins' | 'services'> & {
+export type ResolvedConfig = Omit<BaseConfig, 'hooks' | 'plugins' | 'services' | 'extensions'> & {
   build?: BuildOptions
   hooks: HooksInterface // Resolved hooks interface
 

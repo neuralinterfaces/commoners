@@ -190,7 +190,7 @@ export const resolveViteConfig = async (
 
   const collectedPages = { ...pages, ...pluginPages }
 
-  const rollupOptions = {}
+  const rollupOptions: { input?: Record<string, string> } = {}
 
   // Always resolve pages with the root HTML file
   const rootHTML = getAbsolutePath(absoluteRoot, 'index.html')

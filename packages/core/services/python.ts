@@ -3,7 +3,7 @@ import type { ExtensionCapabilities } from '../types.js'
 
 const defaultBuildArgs = '--hiddenimport pkg_resources.extern'
 
-type BuildConfiguration = { buildSpec?: string } | { buildArgs?: string }
+type BuildConfiguration = { buildSpec?: string; buildArgs?: string }
 export type PyInstallerServiceProperties = Service & BuildConfiguration
 
 export class PyInstallerService {
@@ -48,7 +48,7 @@ export class PyInstallerService {
 }
 
 export const createPyInstallerServices = (services: Service[], outDir?: string) => {
-  return services.reduce((acc, service, i) => {
+  return services.reduce((acc, service) => {
     acc[service.name] = new PyInstallerService(service, outDir)
     return acc
   }, {})

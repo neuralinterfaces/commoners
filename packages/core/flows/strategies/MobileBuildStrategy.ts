@@ -15,7 +15,7 @@ const logger = createLogger('MobileBuildStrategy')
  * Mobile build strategy for iOS and Android targets
  */
 export class MobileBuildStrategy extends BaseBuildStrategy {
-  readonly platform: string
+  readonly platform: 'ios' | 'android'
 
   constructor(platform: 'ios' | 'android') {
     super()
@@ -26,11 +26,11 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     return target === (this.platform === 'ios' ? TARGET_IOS_CAPACITOR : TARGET_ANDROID_CAPACITOR)
   }
 
-  protected shouldUseTempDir(target: string): boolean {
+  protected shouldUseTempDir(_target: string): boolean {
     return true // Mobile builds use temporary directories
   }
 
-  protected getTempDir(root: string, target: string): string {
+  protected getTempDir(root: string, _target: string): string {
     return join(root, globalTempDir, DIR_MOBILE)
   }
 
@@ -60,7 +60,7 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     const mobileOpts = { target: this.platform as 'ios' | 'android', outDir: stagingDir }
     const isHeadless = process.env.CI === 'true' || process.env.COMMONERS_HEADLESS === 'true'
 
-    await mobile.runInRoot(async (config) => {
+    await mobile.runInRoot(async config => {
       await mobile.init(mobileOpts, config) // Initialize Capacitor
       await mobile.open(mobileOpts, config, { headless: isHeadless }) // Open in native IDE (skipped in CI)
     }, config)
@@ -68,11 +68,13 @@ export class MobileBuildStrategy extends BaseBuildStrategy {
     if (isHeadless) {
       logger.info(`${this.platform} project synced (headless). Use native tooling to compile.`)
     } else {
-      logger.info(`${this.platform} project ready`, { message: `Open in Xcode/Android Studio to build` })
+      logger.info(`${this.platform} project ready`, {
+        message: `Open in Xcode/Android Studio to build`,
+      })
     }
   }
 
-  async finalize(context: BuildContext): Promise<void> {
+  async finalize(_context: BuildContext): Promise<void> {
     logger.debug(`${this.platform} build finalized`)
   }
 }

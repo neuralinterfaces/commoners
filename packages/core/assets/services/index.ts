@@ -512,7 +512,8 @@ export async function start(config, id, opts) {
       // On retry, allocate a new port (only if port was auto-allocated)
       if (attempt > 0) {
         if (!config.__portAutoAllocated) break
-        const [newPort] = await getFreePorts(1)
+        // getFreePorts resolves number[] but is typed Promise<unknown>; typing it breaks start.ts
+        const [newPort] = (await getFreePorts(1)) as number[]
         const newUrl = new URL(config.url)
         newUrl.port = newPort.toString()
         config.url = newUrl.href

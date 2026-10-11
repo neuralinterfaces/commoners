@@ -32,6 +32,7 @@ import {
   ServiceRebuildOption,
 } from '../types.js'
 import { getPlugins, getServices } from './extensions.js'
+import type { InlineConfig } from 'vite'
 import { withExternalBuiltins } from '../vite/plugins/electron/inbuilt.js'
 import { getAllIcons } from '../assets/utils/icons.js'
 
@@ -369,7 +370,10 @@ export const getAppAssets = async (
 
         // Skip HTML files for bundling or copying
         // Handle in the main Vite build process instead
-        if (extname(assetSrc) === '.html') return (pluginAssets[key] = assetSrc)
+        if (extname(assetSrc) === '.html') {
+          pluginAssets[key] = assetSrc
+          return
+        }
 
         const absPath = getAbsolutePath(root, assetSrc)
 
@@ -524,7 +528,8 @@ export const getServiceAssets = (
           hooks
         )
 
-        const toCopy = output === null ? null : (output ?? base ?? filepath)
+        const toCopy =
+          output === null ? null : typeof output === 'string' ? output : (base ?? filepath)
 
         if (!existsSync(toCopy)) {
           logger.debug('Emitting service:build:error', {
@@ -574,8 +579,9 @@ export const buildAssets = async (
 
   const outputs: AssetOutput[] = []
 
-  const toCompile = assets.bundle.filter(o => o.compile)
-  const toBundle = assets.bundle.filter(o => !o.compile)
+  const hasCompile = (o: AssetInfo) => typeof o === 'object' && 'compile' in o && !!o.compile
+  const toCompile = assets.bundle.filter(o => hasCompile(o))
+  const toBundle = assets.bundle.filter(o => !hasCompile(o))
 
   // Serially resolve services
   for (const info of toCompile) {
@@ -943,7 +949,8 @@ export const bundleConfig = async (
         'node:dgram',
       ]
 
-  const config = _vite.defineConfig({
+  // Plain InlineConfig: defineConfig() is an identity fn whose UserConfig type lacks configFile
+  const config: InlineConfig = {
     configFile: false, // Block loading any user-defined vite.config.ts file
 
     logLevel,
@@ -1058,7 +1065,7 @@ export const bundleConfig = async (
         ],
       },
     },
-  })
+  }
 
   const resolvedConfig = node ? withExternalBuiltins(config) : config
 

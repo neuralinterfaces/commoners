@@ -430,7 +430,7 @@ export async function resolveConfig(
       capabilities: svc.capabilities,
     }
   }
-  o.serviceManifest = serviceManifest
+  Object.assign(o, { serviceManifest }) // Typed as UserConfig until returned as ResolvedConfig
 
   Object.defineProperty(o, '__resolved', { value: true, writable: false }) // Resolution flag
   return o as ResolvedConfig

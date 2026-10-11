@@ -10,7 +10,7 @@
  */
 
 import { join } from 'node:path'
-import { ElectronSecuritySettings } from '../../../types'
+import { ElectronSecuritySettings } from '../../../types.js'
 import {
   resolveOverlay,
   electronOverlayWindowOptions,

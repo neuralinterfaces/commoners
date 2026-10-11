@@ -73,6 +73,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId
       if (id === wasmVirtualModuleId) return resolvedWasmVirtualModuleId
+      return null
     },
     load(id) {
       if (id === resolvedVirtualModuleId) {
@@ -108,6 +109,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           '}',
         ].join('\n')
       }
+      return null
     },
 
     handleHotUpdate(ctx) {
@@ -144,7 +146,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           if (
             changedFile.includes(`/services/${id}/`) ||
             changedFile.includes(`\\services\\${id}\\`) ||
-            (ext.src && changedFile.endsWith(ext.src))
+            // ResolvedExtension has no `src` (it is on ext.service); kept as-is, always undefined
+            ((ext as { src?: string }).src && changedFile.endsWith((ext as { src?: string }).src))
           ) {
             import('./electron/electron.js')
               .then(({ sendCommand }) => {
@@ -162,7 +165,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
       const { path: htmlPath } = ctx
       const parent = dirname(htmlPath)
 
-      const resolvedConfig = mergeConfig(config, {})
+      // mergeConfig is typed Record<string, any>; it returns a deep clone of config
+      const resolvedConfig = mergeConfig(config, {}) as ResolvedConfig
       // resolvedConfig.root = parent
 
       // Only use custom outDir if not in development

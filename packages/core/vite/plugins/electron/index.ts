@@ -5,7 +5,7 @@ import { rootDir } from '../../../globals.js'
 import { withExternalBuiltins } from './inbuilt.js'
 import { resolveServerUrl } from './server.js'
 import { electronGlobalStates, startup } from './electron.js'
-import { createNoOpHooks, Hooks } from '../../../ui.js'
+import { createNoOpHooks } from '../../../ui.js'
 import { HooksInterface } from '../../../types.js'
 
 type UserConfig = import('vite').UserConfig
@@ -42,7 +42,6 @@ async function resolveViteConfig(options: ElectronOptions): Promise<InlineConfig
       emptyOutDir: false,
     },
     resolve: {
-      browserField: false as const,
       conditions: ['node'],
       mainFields: ['module', 'jsnext:main', 'jsnext'],
     },
@@ -102,7 +101,11 @@ export const buildElectronAssets = async (
   }
 }
 
-export const startElectronInstance = (root, hooks: HooksInterface = createNoOpHooks(), outDir?: string) => startup(root, hooks, outDir)
+export const startElectronInstance = (
+  root,
+  hooks: HooksInterface = createNoOpHooks(),
+  outDir?: string
+) => startup(root, hooks, outDir)
 
 export default async function commonersElectronPlugin({
   build,
