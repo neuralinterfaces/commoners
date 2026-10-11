@@ -6,6 +6,19 @@ import prettier from 'eslint-plugin-prettier'
 import prettierConfig from 'eslint-config-prettier'
 
 export default [
+  // Build output and generated files, everywhere: a global ignore (an object with only
+  // `ignores`) applies to every entry below, including js.configs.recommended
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.commoners/**',
+      '**/build/**',
+      'coverage/**',
+      'docs/.vitepress/dist/**',
+      'docs/.vitepress/cache/**',
+    ],
+  },
   js.configs.recommended,
   {
     files: ['**/*.{ts,tsx,js,jsx}'],
