@@ -99,6 +99,38 @@ describe('Browser config bundle', () => {
     expect(code).not.toContain(dir)
   })
 
+  test('import.meta.url in a page plugin is the page bundle URL, not the source file', async () => {
+    const { outFile, code } = await bundleForBrowser(
+      `export default {
+         plugins: {
+           here: { load() { return { url: import.meta.url, asset: new URL('./x.png', import.meta.url).href } } },
+         },
+       }`,
+      'page-import-meta'
+    )
+    expect(code).not.toContain(dir) // The developer's absolute project path
+    expect(code).not.toContain(pathToFileURL(dir).href)
+
+    // Resolved by the runtime against wherever the bundle was loaded from
+    const config = (await import(pathToFileURL(outFile).href)).default
+    const { url, asset } = config.plugins.here.load()
+    expect(url).toMatch(/^file:\/\/.*\/page-import-meta\.out\.mjs$/) // The bundle, not the source
+    expect(asset).toBe(new URL('./x.png', url).href)
+  })
+
+  test('a page plugin that uses a source-relative directory loads without the project path', async () => {
+    const { outFile, code } = await bundleForBrowser(
+      `import { dirname } from 'node:path'
+       import { fileURLToPath } from 'node:url'
+       const root = dirname(fileURLToPath(import.meta.url))
+       export default { plugins: { where: { load() { return root } } } }`,
+      'used-dirname'
+    )
+    expect(code).not.toContain(dir)
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.where.load()).toBeTypeOf('string')
+  })
+
   test('a path call the page plugin uses still runs in the page', async () => {
     const { outFile } = await bundleForBrowser(
       `import { join } from 'node:path'
