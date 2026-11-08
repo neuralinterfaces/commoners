@@ -111,6 +111,39 @@ describe('stale development lock', () => {
     ).rejects.toThrow('Active development build detected')
   })
 
+  test('the block names the running process, its command and how to stop it', async () => {
+    const tempDir = join(root, '.commoners', '.tmp')
+    mkdirSync(tempDir, { recursive: true })
+    writeFileSync(
+      join(tempDir, 'commoners.metadata.json'),
+      JSON.stringify({
+        createdAt: new Date().toISOString(),
+        tempDir,
+        pid: process.pid,
+        command: 'commoners start --target tauri',
+      })
+    )
+    const error = await handleTemporaryDirectories({ root }, false, { cleanupOnExit: false }).catch(
+      e => e
+    )
+    const text = `${error.message}\n${error.details}`
+    expect(text).toContain(String(process.pid))
+    expect(text).toContain('commoners start --target tauri')
+    expect(text).toContain(`kill ${process.pid}`)
+  })
+
+  test('a new lock records the command that holds it', async () => {
+    const tempDir = join(root, '.commoners', '.tmp')
+    const { close } = await handleTemporaryDirectories({ root }, false, { cleanupOnExit: false })
+    try {
+      const lock = JSON.parse(readFileSync(join(tempDir, 'commoners.metadata.json'), 'utf-8'))
+      expect(typeof lock.command).toBe('string')
+      expect(lock.command.length).toBeGreaterThan(0)
+    } finally {
+      close()
+    }
+  })
+
   test('a lock left by a dead CLI is reclaimed and its processes are killed', async () => {
     const orphan = spawnSleeper()
     writeLock(await deadPid())

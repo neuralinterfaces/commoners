@@ -71,6 +71,10 @@ export const getElectronVersion = (): string | undefined => {
 export const globalTempDir = join(globalWorkspacePath, '.tmp')
 
 let activeStagingDir: string
+
+// `commoners start --target tauri`, not the node and script paths
+const describeCommand = () => ['commoners', ...process.argv.slice(2)].join(' ')
+
 export const handleTemporaryDirectories = async (
   config,
   overwrite = false,
@@ -87,7 +91,7 @@ export const handleTemporaryDirectories = async (
   // NOTE: Ensure that the single temporary directory is not overwritten for different targets
   if (!canOverwrite && hasTempMetadata) {
     const metadata = JSON.parse(readFileSync(runMetadataFile, 'utf-8'))
-    const { createdAt, pid } = metadata
+    const { createdAt, pid, command } = metadata
     const createdAtDate = new Date(createdAt)
 
     // The owning CLI died without cleaning up (SIGKILL, crash). Locks written before
@@ -105,9 +109,11 @@ export const handleTemporaryDirectories = async (
       )
       removeDirectory(tempDir)
     } else {
+      const holder = command ? `\`${command}\` (pid ${pid})` : `pid ${pid}`
       throw new BuildError(
-        `Active development build detected (${createdAtDate.toLocaleString()})`,
-        `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
+        `Active development build detected: ${holder}, started ${createdAtDate.toLocaleString()}`,
+        `Only one dev or build run can use ${resolve(tempDir)} at a time. ` +
+          `Stop the running one (Ctrl+C in its terminal, or \`kill ${pid}\`), then run this again.`
       )
     }
   }
@@ -117,7 +123,12 @@ export const handleTemporaryDirectories = async (
     mkdirSync(dirname(runMetadataFile), { recursive: true })
   writeFileSync(
     runMetadataFile,
-    JSON.stringify({ createdAt: new Date().toISOString(), tempDir, pid: process.pid }),
+    JSON.stringify({
+      createdAt: new Date().toISOString(),
+      tempDir,
+      pid: process.pid,
+      command: describeCommand(), // Named in the message if a second run is blocked
+    }),
     'utf-8'
   )
 
