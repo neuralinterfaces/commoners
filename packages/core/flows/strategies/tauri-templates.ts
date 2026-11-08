@@ -47,7 +47,41 @@ const MACOS_OVERLAY_DEPENDENCIES = `
 objc2 = "0.6"
 `
 
-export type SidecarEntry = { id: string; bin: string; port?: number }
+export type SidecarEntry = {
+  id: string
+  bin: string
+  port?: number
+  env?: Record<string, string> // The service's declared env, set on the sidecar at spawn
+  ssl?: { key: string; cert: string } // Certificate paths relative to the app's resource dir
+}
+
+// A Rust string literal for any JS string
+const RUST_ESCAPES: Record<string, string> = {
+  '\\': '\\\\',
+  '"': '\\"',
+  '\n': '\\n',
+  '\r': '\\r',
+  '\t': '\\t',
+}
+export const rustString = (value: string) => {
+  let out = '"'
+  for (const c of String(value)) {
+    const code = c.charCodeAt(0)
+    if (RUST_ESCAPES[c]) out += RUST_ESCAPES[c]
+    else if (code < 0x20 || code === 0x7f) out += `\\u{${code.toString(16)}}`
+    else out += c
+  }
+  return out + '"'
+}
+
+const sidecarSpecRs = (s: SidecarEntry) => {
+  const env = Object.entries(s.env ?? {})
+    .map(([k, v]) => `(${rustString(k)}, ${rustString(v)})`)
+    .join(', ')
+  const ssl = s.ssl ? `Some((${rustString(s.ssl.key)}, ${rustString(s.ssl.cert)}))` : 'None'
+  return `
+        SidecarSpec { id: ${rustString(s.id)}, bin: ${rustString(s.bin.split('/').pop()!)}, env: &[${env}], ssl: ${ssl} },`
+}
 
 // Click-through, display bounds and the macOS window level have no tauri.conf.json
 // equivalent — set them at startup, then show the (initially hidden) window
@@ -152,9 +186,9 @@ fn main() {
 `
   }
 
-  // Generate service spawn entries as Rust array literal
+  // Generate service spawn entries as a Rust array literal
   // sidecar() takes the bare binary name; Tauri resolves it next to the app executable
-  const serviceArray = services.map(s => `("${s.id}", "${s.bin.split('/').pop()}")`).join(', ')
+  const serviceArray = services.map(sidecarSpecRs).join('')
 
   return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -164,6 +198,13 @@ use tauri::Manager;
 use tauri::Emitter;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
+
+struct SidecarSpec {
+    id: &'static str,
+    bin: &'static str,
+    env: &'static [(&'static str, &'static str)], // The service's declared env
+    ssl: Option<(&'static str, &'static str)>,    // Key and cert, relative to the resource dir
+}
 
 struct ServiceState {
     children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>,
@@ -218,22 +259,40 @@ fn main() {
             commoners_service_close,
         ])
         .setup(|app| {${overlaySetup}
-            let services: Vec<(&str, &str)> = vec![${serviceArray}];
+            let services: Vec<SidecarSpec> = vec![${serviceArray}
+            ];
 
-            for (id, bin_name) in services {
+            for spec in services {
+                let id = spec.id;
                 let port = get_free_port();
-                let url = format!("http://localhost:{}", port);
+
+                // Bundled certificates resolve against the installed app's resource dir
+                let ssl_paths = spec.ssl.and_then(|(key, cert)| {
+                    app.path().resource_dir().ok().map(|dir| (dir.join(key), dir.join(cert)))
+                });
+                let scheme = if ssl_paths.is_some() { "https" } else { "http" };
+                let url = format!("{}://localhost:{}", scheme, port);
 
                 // Store URL immediately so frontend can query it
                 app.state::<ServiceState>()
                     .urls.lock().unwrap()
                     .insert(id.to_string(), url);
 
-                // Spawn sidecar with PORT env var. A service that fails to start is
-                // reported and skipped — panicking in setup() aborts the whole app on macOS
+                // Spawn the sidecar with the service's env, SSL paths, then PORT and HOST (as the
+                // Electron runtime does). A service that fails to start is reported and
+                // skipped — panicking in setup() aborts the whole app on macOS
                 let spawned = app.shell()
-                    .sidecar(bin_name)
-                    .map(|cmd| cmd.env("PORT", port.to_string()).env("HOST", "localhost"))
+                    .sidecar(spec.bin)
+                    .map(|cmd| {
+                        let mut cmd = cmd;
+                        for (key, value) in spec.env {
+                            cmd = cmd.env(key, value);
+                        }
+                        if let Some((key, cert)) = &ssl_paths {
+                            cmd = cmd.env("SSL_KEY_PATH", key).env("SSL_CERT_PATH", cert);
+                        }
+                        cmd.env("PORT", port.to_string()).env("HOST", "localhost")
+                    })
                     .and_then(|cmd| cmd.spawn());
 
                 let (mut rx, child) = match spawned {
@@ -339,6 +398,7 @@ export function generateTauriConf(opts: {
   backgroundThrottling?: boolean
   csp?: CSPOverride // Top-level security.csp; tauri.security.csp takes precedence
   crossOriginIsolation?: boolean
+  resources?: Record<string, string> // Bundled files (source -> target), e.g. sidecar certificates
 }): Record<string, any> {
   const {
     name,
@@ -402,7 +462,7 @@ export function generateTauriConf(opts: {
       connect: [
         'ipc:',
         'http://ipc.localhost',
-        ...(externalBins.length ? ['http://localhost:*'] : []),
+        ...(externalBins.length ? ['http://localhost:*', 'https://localhost:*'] : []),
       ],
     }),
     tauriConfig.security?.csp ?? opts.csp
@@ -417,6 +477,9 @@ export function generateTauriConf(opts: {
   // Service sidecars
   if (externalBins.length > 0) {
     conf.bundle.externalBin = externalBins
+  }
+  if (opts.resources && Object.keys(opts.resources).length > 0) {
+    conf.bundle.resources = opts.resources
   }
 
   // Raw config overrides

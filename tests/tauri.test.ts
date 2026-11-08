@@ -453,14 +453,14 @@ describe('main.rs template with sidecars', () => {
   })
 
   test('spawns sidecar for each service', () => {
-    expect(rs).toContain('.sidecar(bin_name)')
+    expect(rs).toContain('.sidecar(spec.bin)')
   })
 
   // Tauri v2 resolves sidecar(name) to <exe dir>/<name>; passing the externalBin
   // path ("binaries/http") looks for <exe dir>/binaries/http and fails with NotFound
   test('passes bare sidecar names, not externalBin paths', () => {
-    expect(rs).toContain('("http", "http")')
-    expect(rs).toContain('("python-api", "python-api")')
+    expect(rs).toContain('id: "http", bin: "http"')
+    expect(rs).toContain('id: "python-api", bin: "python-api"')
     expect(rs).not.toContain('"binaries/')
   })
 
@@ -742,5 +742,50 @@ describe('Dev mode vs build mode differences', () => {
     expect(caps.permissions).not.toContain('shell:allow-kill')
     expect(caps.permissions).toContain('core:default')
     expect(caps.permissions).toContain('opener:default')
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// Sidecar environment (service env + SSL)
+// ────────────────────────────────────────────────────────
+
+describe('Sidecar environment', () => {
+  test('declared service env is set on the sidecar, before PORT and HOST', () => {
+    const rs = generateMainRs([{ id: 'api', bin: 'binaries/api', env: { API_MODE: 'fast' } }])
+    expect(rs).toContain('("API_MODE", "fast")')
+    expect(rs.indexOf('for (key, value) in spec.env')).toBeLessThan(rs.indexOf('.env("PORT"'))
+  })
+
+  test('env values are escaped as Rust string literals', () => {
+    const rs = generateMainRs([
+      { id: 'api', bin: 'binaries/api', env: { QUOTED: 'say "hi"\\now\n' } },
+    ])
+    expect(rs).toContain('("QUOTED", "say \\"hi\\"\\\\now\\n")')
+  })
+
+  test('a sidecar with SSL gets certificate paths from the resource dir and an https URL', () => {
+    const rs = generateMainRs([
+      { id: 'api', bin: 'binaries/api', ssl: { key: 'ssl/api/key.pem', cert: 'ssl/api/cert.pem' } },
+    ])
+    expect(rs).toContain('Some(("ssl/api/key.pem", "ssl/api/cert.pem"))')
+    expect(rs).toContain('resource_dir()')
+    expect(rs).toContain('SSL_KEY_PATH')
+    expect(rs).toContain('SSL_CERT_PATH')
+    expect(rs).toContain('"https"')
+  })
+
+  test('SSL resources are bundled and https sidecars are allowed by the CSP', () => {
+    const conf = generateTauriConf({
+      name: 'App',
+      appId: 'org.example.app',
+      version: '1.0.0',
+      icon: [],
+      tauriConfig: {},
+      electronWindow: undefined,
+      externalBins: ['binaries/api'],
+      resources: { 'ssl/api/key.pem': 'ssl/api/key.pem' },
+    } as any)
+    expect(conf.bundle.resources).toEqual({ 'ssl/api/key.pem': 'ssl/api/key.pem' })
+    expect(conf.app.security.csp).toContain('https://localhost:*')
   })
 })
