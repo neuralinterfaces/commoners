@@ -994,11 +994,13 @@ export const bundleConfig = async (
     // User-facing target guards for dead-code elimination in config files.
     // Usage: if (__COMMONERS_DESKTOP__) { /* desktop-only plugin */ }
     // Targets: web, desktop, mobile (universal) + electron, tauri, ios, android (subtargets)
-    // Rewrite import.meta.url to the *source* config file so getDirname() etc.
+    // Node bundles: rewrite import.meta.url to the *source* config file so getDirname() etc.
     // resolve paths relative to the project root, not the bundle output directory.
+    // Page bundles keep the native import.meta.url (the bundle's own URL on the page origin):
+    // the source file URL is meaningless there and would leak the developer's absolute path.
     define: {
       ...featureDefines(features),
-      'import.meta.url': JSON.stringify(pathToFileURL(input).href),
+      ...(node ? { 'import.meta.url': JSON.stringify(pathToFileURL(input).href) } : {}),
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
       __COMMONERS_MOBILE__: JSON.stringify(
