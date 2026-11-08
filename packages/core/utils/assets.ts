@@ -13,7 +13,7 @@ import {
   posix,
   basename,
 } from 'node:path'
-import { createRequire } from 'node:module'
+import { builtinModules, createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
 // Internal Imports
@@ -850,6 +850,38 @@ function generateStrippedEntry(configImportPath: string, node: boolean): string 
   ].join('\n')
 }
 
+// A config file holds build-time settings (vite plugins, service builds) next to the plugins
+// the page runs, so it may import Node built-ins. In the page bundle, every built-in that has
+// no browser alias resolves to this side-effect-free stub: unused imports tree-shake away,
+// named imports still link, and calling one in the page throws a clear error.
+const NODE_BUILTIN_STUB_PREFIX = '\0commoners-node-builtin:'
+const BROWSER_ALIASED_BUILTINS = new Set(['path', 'url', 'process'])
+
+const nodeBuiltinStubPlugin = () => ({
+  name: 'commoners-node-builtin-stub',
+  enforce: 'pre' as const,
+  resolveId(id: string) {
+    const bare = id.startsWith('node:') ? id.slice(5) : id
+    if (BROWSER_ALIASED_BUILTINS.has(bare) || !builtinModules.includes(bare)) return null
+    return NODE_BUILTIN_STUB_PREFIX + bare
+  },
+  load(id: string) {
+    if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) return null
+    const specifier = JSON.stringify(`node:${id.slice(NODE_BUILTIN_STUB_PREFIX.length)}`)
+    const code = [
+      `const fail = name => { throw new Error(${specifier} + (name ? ' (' + String(name) + ')' : '') + ' is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.') }`,
+      `const stub = name => new Proxy(function () {}, {`,
+      `  get: (_, key) => (key === 'then' || typeof key === 'symbol' ? undefined : stub(name ? name + '.' + String(key) : key)),`,
+      `  apply: () => fail(name),`,
+      `  construct: () => fail(name),`,
+      `})`,
+      `export const __commonersNodeStub = stub('')`,
+      `export default __commonersNodeStub`,
+    ].join('\n')
+    return { code, syntheticNamedExports: '__commonersNodeStub', moduleSideEffects: false }
+  },
+})
+
 export const bundleConfig = async (
   input,
   outFile,
@@ -931,41 +963,6 @@ export const bundleConfig = async (
         }
       })()
 
-  // Externalize Node built-ins that don't have browser equivalents and aren't
-  // used in config bundles. Keep node:url and node:path aliased above.
-  const nodeExternals = node
-    ? []
-    : [
-        'os',
-        'dgram',
-        'fs',
-        'child_process',
-        'net',
-        'tls',
-        'http',
-        'https',
-        'crypto',
-        'stream',
-        'zlib',
-        'dns',
-        'cluster',
-        'module',
-        'node:os',
-        'node:fs',
-        'node:child_process',
-        'node:net',
-        'node:tls',
-        'node:http',
-        'node:https',
-        'node:crypto',
-        'node:stream',
-        'node:zlib',
-        'node:dns',
-        'node:cluster',
-        'node:module',
-        'node:dgram',
-      ]
-
   // Plain InlineConfig: defineConfig() is an identity fn whose UserConfig type lacks configFile
   const config: InlineConfig = {
     configFile: false, // Block loading any user-defined vite.config.ts file
@@ -976,6 +973,7 @@ export const bundleConfig = async (
 
     plugins: [
       ...plugins,
+      ...(node ? [] : [nodeBuiltinStubPlugin()]),
       // Virtual module plugin to serve the node:url shim
       ...(node
         ? []
@@ -1059,7 +1057,6 @@ export const bundleConfig = async (
         // resolver picks the right per-target build via the package's
         // `exports` conditions.
         external: (id: string) => {
-          if (nodeExternals.includes(id)) return true
           if (/-wasm$/.test(id) || /^wasm-/.test(id)) return true
           return false
         },
