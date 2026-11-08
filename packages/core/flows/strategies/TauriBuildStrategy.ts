@@ -6,6 +6,7 @@
 import { join, dirname, isAbsolute, extname, basename } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, chmodSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
@@ -74,6 +75,16 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       throw new DependencyError(
         '@tauri-apps/cli not found',
         'Install the Tauri CLI: npm install -D @tauri-apps/cli'
+      )
+    }
+
+    // The page's Commoners runtime imports @tauri-apps/api (e.g. to read the sidecars' runtime ports)
+    try {
+      createRequire(join(context.config.root, 'package.json')).resolve('@tauri-apps/api/core')
+    } catch {
+      throw new DependencyError(
+        '@tauri-apps/api not found',
+        'Install the Tauri JavaScript API in your project: npm install @tauri-apps/api'
       )
     }
 

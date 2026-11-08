@@ -91,6 +91,7 @@
     "rcedit": "^4.0.1"
   },
   "peerDependencies": {
+    "@tauri-apps/api": "^2.0.0",
     "@capacitor/android": "^8.2.0",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.2.0",
@@ -103,6 +104,9 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "peerDependenciesMeta": {
+    "@tauri-apps/api": {
+      "optional": true
+    },
     "@capacitor/android": {
       "optional": true
     },

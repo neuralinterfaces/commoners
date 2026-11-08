@@ -21,7 +21,7 @@ import { resolveConfigPath } from '../index.js'
 import { createNoOpHooks } from '../ui.js'
 import { copyAsset } from './copy.js'
 import { encodePath } from './encode.js'
-import { isDesktop, isElectron, rootDir, vite } from '../globals.js'
+import { isDesktop, isElectron, isTauri, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
 import { BuildError } from '../errors.js'
 import { createLogger } from '../assets/utils/logger.js'
@@ -70,6 +70,7 @@ type CoreAssetInfo =
       force?: boolean
       compile?: BuildFunction // Function to compile the asset
       defines?: Record<string, string> // Compile-time defines for esbuild
+      nodePaths?: string[] // Extra module resolution roots for esbuild
     } & AssetMetadata)
 
 type AssetInfo = CoreAssetInfo | { text: string; output: string }
@@ -343,7 +344,10 @@ export const getAppAssets = async (
       __HAS_PLUGINS__: String(hasPlugins),
       __IS_DEV__: String(dev),
       __IS_DESKTOP__: String(isDesktop(target)),
+      __IS_TAURI__: String(isTauri(target)),
     },
+    // The Tauri runtime imports @tauri-apps/api, which the app installs (not this package)
+    nodePaths: root ? [join(root, 'node_modules')] : [],
   })
 
   // Bundle environment files compatible with Vite (Desktop Only)
@@ -677,6 +681,9 @@ export const buildAssets = async (
             logLevel: 'silent',
             outfile: output,
             ...(assetDefines ? { define: assetDefines, minifySyntax: true } : {}),
+            ...(typeof info === 'object' && 'nodePaths' in info && info.nodePaths?.length
+              ? { nodePaths: info.nodePaths }
+              : {}),
           }
 
           // Force a build format if the proper extension is specified

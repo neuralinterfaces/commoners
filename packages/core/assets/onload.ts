@@ -17,6 +17,7 @@ import {
 declare const __HAS_PLUGINS__: boolean
 declare const __IS_DEV__: boolean
 declare const __IS_DESKTOP__: boolean
+declare const __IS_TAURI__: boolean
 
 const TEMP_COMMONERS = globalThis.__commoners ?? {}
 
@@ -26,6 +27,13 @@ const { __PLUGINS, WEB, DESKTOP, MOBILE, __READY, DEV } = ENV
 delete ENV.__PLUGINS
 
 const TARGET = DESKTOP ? 'desktop' : MOBILE ? 'mobile' : 'web'
+
+// Tauri sidecars get their ports at launch: expose those URLs before plugins load or READY resolves
+const servicesReady: Promise<unknown> = __IS_TAURI__
+  ? import('./runtime/tauri-services')
+      .then(({ resolveTauriServices }) => resolveTauriServices(ENV.SERVICES))
+      .catch(() => undefined)
+  : Promise.resolve()
 
 // Extension discovery — commoners.query(), .validate(), .list(), .get()
 const getExtensions = () => (ENV as any).EXTENSIONS ?? {}
@@ -183,17 +191,20 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
     return TEMP_COMMONERS.send('commoners:plugins:loaded', DESKTOP.__id, id)
   }
 
-  asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {
-    try {
-      const supported = await isPluginLoadable.call(pluginLoadedContext, plugin)
+  servicesReady
+    .then(() =>
+      asyncFilter(Object.entries(__PLUGINS), async ([id, plugin]) => {
+        try {
+          const supported = await isPluginLoadable.call(pluginLoadedContext, plugin)
 
-      if (!supported) registerPluginAsLoaded(id)
+          if (!supported) registerPluginAsLoaded(id)
 
-      return supported
-    } catch (e) {
-      return false
-    }
-  })
+          return supported
+        } catch (e) {
+          return false
+        }
+      })
+    )
     .then(async supported => {
       const sanitized = await Promise.all(
         supported.map(async ([id, o]) => {
@@ -371,5 +382,5 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
       ;(globalThis as any).commoners?.__READY_FAIL?.(error)
     })
 } else {
-  __READY({})
+  servicesReady.then(() => __READY({}))
 }
