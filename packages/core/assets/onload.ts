@@ -345,11 +345,13 @@ if (__HAS_PLUGINS__ && __PLUGINS) {
                 // Tauri: forward each binary frame on a channel to a Rust command as a raw body
                 // (e.g. a tauri.plugin command). Includes ports sent from this same window.
                 tapPort: (channel: string, command: string) => {
-                  const invoke = (globalThis as any).__TAURI_INTERNALS__?.invoke
-                  if (!invoke) {
+                  if (!__IS_TAURI__) {
                     console.warn(`[commoners] tapPort('${channel}') needs a Tauri target; ignored`)
                     return () => {}
                   }
+                  const tauri = import('@tauri-apps/api/core')
+                  const invoke = (cmd: string, body: Uint8Array | ArrayBuffer) =>
+                    tauri.then(({ invoke }) => invoke(cmd, body))
                   return portChannels().onPort(
                     `plugins:${id}:${channel}`,
                     port => {

@@ -501,6 +501,9 @@ export type TauriOptions = {
   plugin?:
     | import('./flows/strategies/tauri-user-plugins.js').TauriUserPluginConfig
     | import('./flows/strategies/tauri-user-plugins.js').TauriUserPluginConfig[]
+  // Inject window.__TAURI__ (tauri.conf.json app.withGlobalTauri). Off by default: import from
+  // @tauri-apps/api instead, as the Commoners runtime does
+  withGlobalTauri?: boolean
   config?: Record<string, any> // Raw tauri.conf.json overrides
 }
 

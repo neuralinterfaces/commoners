@@ -789,3 +789,58 @@ describe('Sidecar environment', () => {
     expect(conf.app.security.csp).toContain('https://localhost:*')
   })
 })
+
+// ────────────────────────────────────────────────────────
+// withGlobalTauri (window.__TAURI__)
+// ────────────────────────────────────────────────────────
+
+describe('withGlobalTauri', () => {
+  const base = {
+    name: 'App',
+    appId: 'org.example.app',
+    version: '1.0.0',
+    icon: [],
+    electronWindow: undefined,
+    externalBins: [],
+  }
+
+  test('is off by default, so window.__TAURI__ is not injected', () => {
+    expect(generateTauriConf({ ...base, tauriConfig: {} }).app.withGlobalTauri).toBe(false)
+    expect(
+      generateDevTauriConf({ name: 'App', devUrl: 'http://localhost:5173' }).app.withGlobalTauri
+    ).toBe(false)
+  })
+
+  test('tauri.withGlobalTauri turns it on in build and dev', () => {
+    expect(
+      generateTauriConf({ ...base, tauriConfig: { withGlobalTauri: true } }).app.withGlobalTauri
+    ).toBe(true)
+    expect(
+      generateDevTauriConf({
+        name: 'App',
+        devUrl: 'http://localhost:5173',
+        withGlobalTauri: true,
+      } as any).app.withGlobalTauri
+    ).toBe(true)
+  })
+})
+
+describe('Commoners runtime and the Tauri globals', () => {
+  // The runtime must work with withGlobalTauri off: it imports @tauri-apps/api instead
+  test('no runtime file reads window.__TAURI__ or __TAURI_INTERNALS__', async () => {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const dir = join(__dirname, '..', 'packages', 'core', 'assets')
+    const offenders: string[] = []
+    const walk = (d: string) => {
+      for (const f of readdirSync(d)) {
+        const p = join(d, f)
+        if (statSync(p).isDirectory()) walk(p)
+        else if (/\.(ts|js)$/.test(f) && /__TAURI(_INTERNALS)?__/.test(readFileSync(p, 'utf8')))
+          offenders.push(p)
+      }
+    }
+    walk(dir)
+    expect(offenders).toEqual([])
+  })
+})

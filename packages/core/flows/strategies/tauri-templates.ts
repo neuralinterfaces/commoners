@@ -440,6 +440,7 @@ export function generateTauriConf(opts: {
         },
       ],
       security: {},
+      withGlobalTauri: tauriConfig.withGlobalTauri === true, // window.__TAURI__ only when asked for
     },
     bundle: {
       active: true,
@@ -547,6 +548,7 @@ export function generateDevTauriConf(opts: {
   window?: { title?: string; width?: number; height?: number }
   overlay?: ResolvedOverlay | null
   backgroundThrottling?: boolean
+  withGlobalTauri?: boolean
 }): Record<string, any> {
   const { name, devUrl, window: windowConfig = {}, overlay } = opts
   const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
@@ -567,6 +569,7 @@ export function generateDevTauriConf(opts: {
         },
       ],
       security: {},
+      withGlobalTauri: opts.withGlobalTauri === true,
     },
     bundle: {
       active: true,

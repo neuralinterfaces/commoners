@@ -103,6 +103,7 @@ export default async function tauriPlugin({
             window: windowConfig,
             overlay,
             backgroundThrottling: (config as any)?.desktop?.backgroundThrottling,
+            withGlobalTauri: tauriConfig.withGlobalTauri,
           })
           writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 
