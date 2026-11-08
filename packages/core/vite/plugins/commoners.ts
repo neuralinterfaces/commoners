@@ -12,7 +12,7 @@ import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from '../../assets/services/index.js'
 import { getServices } from '../../utils/extensions.js'
-import { getLocalIP } from '../../assets/services/ip.js'
+import { getDevWebsocketURL } from '../../dev-websocket.js'
 
 const virtualModuleId = 'commoners:env'
 const wasmVirtualModuleId = 'commoners:wasm'
@@ -239,7 +239,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
         WEB: !desktop && !mobile,
 
         // Production vs Development
-        DEV: dev ? `ws://${getLocalIP()}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
+        DEV: dev ? getDevWebsocketURL(config, process.env.COMMONERS_WEBSOCKET_PORT) : false,
         PROD: !dev,
 
         // Environment Variables

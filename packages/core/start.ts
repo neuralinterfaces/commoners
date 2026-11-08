@@ -1,6 +1,5 @@
 // Built-In Modules
 import { basename, extname, join } from 'node:path'
-import { createRequire } from 'node:module'
 
 // Internal Imports
 import {
@@ -26,6 +25,7 @@ import { createLogger } from './assets/utils/logger.js'
 import { Plugin, ResolvedConfig, UserConfig, HooksInterface } from './types.js'
 import { createNoOpHooks } from './ui.js'
 import { createServer } from './vite/index.js'
+import { createDevWebsocketServer } from './dev-websocket.js'
 
 // Internal Utilities
 import { runAppPlugins } from './assets/plugins/index.js'
@@ -63,10 +63,7 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
     return acc
   }, {}) as Record<string, Plugin>
 
-  const require = createRequire(import.meta.url) // Create a require function for dynamic imports
-  const { Server } = require('ws') // Import WebSocket server dynamically to avoid bundling issues
-
-  const wss = new Server({ port: env[wsPortEnvVar] })
+  const wss = createDevWebsocketServer(config, env[wsPortEnvVar]) // Loopback unless public or mobile
   onCleanup(() => wss.close()) // Close the WebSocket server on exit
   wss.on('connection', ws => {
     ws.on('message', message => {
