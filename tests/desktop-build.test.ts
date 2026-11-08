@@ -1,6 +1,6 @@
 import { describe } from 'vitest'
 
-import { registerBuildTest } from './utils'
+import { registerBuildTest, requirePyInstaller } from './utils'
 
 const { platform } = process
 
@@ -10,9 +10,6 @@ const platforms = {
 }
 
 describe('Desktop Build', () => {
-  registerBuildTest(
-    'Desktop',
-    { target: 'electron', launch: false },
-    platforms.mac || platforms.windows // Packaged on macOS and Windows
-  )
+  const { enabled, skipReason } = requirePyInstaller(platforms.mac || platforms.windows) // Packaged on macOS and Windows
+  registerBuildTest('Desktop', { target: 'electron', launch: false }, enabled, skipReason)
 })

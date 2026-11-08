@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { build, open } from '@commoners/testing'
 import testingPlugin from '@commoners/testing/plugin'
 
-import { registerBuildTest, scopedBuildOutDir } from './utils'
+import { registerBuildTest, requirePyInstaller, scopedBuildOutDir } from './utils'
 
 const { platform } = process
 
@@ -21,7 +21,8 @@ const enabled = platforms.mac || platforms.windows
 // Builds the Electron app then launches it for E2E testing.
 // Runs AFTER desktop.test.ts (alphabetically) to avoid CDP port conflicts.
 describe('Desktop Build + Launch', () => {
-  registerBuildTest('Desktop', { target: 'electron', launch: true }, enabled)
+  const demo = requirePyInstaller(enabled) // The demo app includes Python services
+  registerBuildTest('Desktop', { target: 'electron', launch: true }, demo.enabled, demo.skipReason)
 })
 
 // The packaged app serves its pages from app://local, not file://. Checked on the launched app:

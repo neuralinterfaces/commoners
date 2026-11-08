@@ -25,6 +25,35 @@ export const EXTRA_OUTPUT_LOCATIONS = ['build']
 
 export const scopedBuildOutDir = join('.commoners', 'custom_output_dir')
 
+// The demo's Python services build with `python -m PyInstaller`, run through a shell on the
+// same PATH a service build gets. Check the import the same way, so a test skips exactly
+// when the build would fail.
+const pyInstallerCheck = 'python -c "import PyInstaller"'
+export const hasPyInstaller = (() => {
+  try {
+    execSync(pyInstallerCheck, {
+      stdio: 'ignore',
+      env: { ...process.env, PATH: `${process.env.PATH}:${process.cwd()}/node_modules/.bin` },
+    })
+    return true
+  } catch {
+    return false
+  }
+})()
+
+export const PYINSTALLER_SKIP_MESSAGE =
+  "SKIPPED: needs PyInstaller for the demo's Python service (install it or activate the commoners-demo env)"
+
+// Builds of the demo app include its Python services
+export const requirePyInstaller = (enabled = true) => {
+  // Written straight to stderr: vitest does not show console output from a skipped file
+  if (enabled && !hasPyInstaller) process.stderr.write(`\n${PYINSTALLER_SKIP_MESSAGE}\n\n`)
+  return {
+    enabled: enabled && hasPyInstaller,
+    skipReason: hasPyInstaller ? undefined : PYINSTALLER_SKIP_MESSAGE,
+  }
+}
+
 const getRandomNumber = () => Math.random().toString(36).substring(7)
 
 const getMinutes = minutes => minutes * 60 * 1000
@@ -449,14 +478,15 @@ type BuildOptions = { target?: string; publish?: PublishOption; launch?: boolean
 export const registerBuildTest = (
   name,
   { target = 'web', publish = false, launch = true }: BuildOptions = {},
-  enabled = true
+  enabled = true,
+  skipReason?: string // Shown in the suite title when the build is skipped
 ) => {
   const describeCommand = enabled ? describe : describe.skip
 
   const isElectron = target === 'electron'
   const isMobile = target === 'mobile'
 
-  describeCommand(`${name} (Build)`, () => {
+  describeCommand(`${name} (Build)${!enabled && skipReason ? ` — ${skipReason}` : ''}`, () => {
     let triggerAssetsBuilt
     let triggerBuildComplete
     const assetsBuilt = new Promise(res => (triggerAssetsBuilt = res))
