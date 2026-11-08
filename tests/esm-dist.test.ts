@@ -75,10 +75,13 @@ describe('config loading from the ESM build', () => {
           ].join('\n')
         )
 
+        // Print the load error explicitly: an unhandled rejection can exit without output.
         const script =
           `const { loadConfigFromFile } = await import(${JSON.stringify(pathToFileURL(main).href)});` +
+          `try {` +
           `const config = await loadConfigFromFile(${JSON.stringify(root)});` +
           `console.log('RESULT=' + JSON.stringify({ value: config.value }));` +
+          `} catch (error) { console.log('ERROR=' + (error?.stack ?? error)) }` +
           `process.exit(0)`
         let output: string
         try {
