@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -150,5 +150,107 @@ describe('Browser config bundle', () => {
     )
     const config = (await import(pathToFileURL(outFile).href)).default
     expect(() => config.plugins.bad.load()).toThrow(/node:fs\/promises.*not available in the page/)
+  })
+})
+
+// A third-party package written for Node (it imports Node built-ins and runs code when it is
+// imported) that the config uses only in build settings must not reach the page: its top-level
+// code would run there against the built-in stub and stop the app from loading.
+describe('Browser config bundle: Node-only dependencies', () => {
+  const pkg = (name: string, manifest: Record<string, unknown>, source: string) => {
+    const root = join(dir, 'node_modules', name)
+    mkdirSync(root, { recursive: true })
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ name, version: '1.0.0', type: 'module', main: 'index.js', ...manifest })
+    )
+    writeFileSync(join(root, 'index.js'), source)
+  }
+
+  // Calls into node:fs while it is being imported, like a package that reads a file on load
+  pkg(
+    'node-only-on-load',
+    {},
+    `import { readFileSync } from 'node:fs'
+     globalThis.__nodeOnlyOnLoad = readFileSync('/etc/hosts', 'utf8').length
+     export const marker = 'NODE_ONLY_ON_LOAD_MARKER'
+     export const readMarker = p => marker + readFileSync(p, 'utf8').length`
+  )
+
+  // Same shape, but its load-time code is safe to run in the page
+  pkg(
+    'node-only-safe-load',
+    {},
+    `import { readFileSync } from 'node:fs'
+     globalThis.__nodeOnlySafeLoad = 'ran'
+     export const marker = 'NODE_ONLY_SAFE_LOAD_MARKER'
+     export const readMarker = p => marker + readFileSync(p, 'utf8').length`
+  )
+
+  // Declares its own side effects, which the bundle must keep honouring
+  pkg(
+    'node-only-declared',
+    { sideEffects: true },
+    `import { readFileSync } from 'node:fs'
+     globalThis.__nodeOnlyDeclared = 'NODE_ONLY_DECLARED_MARKER'
+     export const readMarker = p => readFileSync(p, 'utf8')`
+  )
+
+  // A browser package imported only for what it does on load (polyfill, element registration)
+  pkg(
+    'browser-registers-on-load',
+    {},
+    `globalThis.__browserRegistered = 'BROWSER_REGISTERED_MARKER'`
+  )
+
+  test('a Node-only dependency used only in a vite hook leaves no trace and the page loads', async () => {
+    const { outFile, code } = await bundleForBrowser(
+      `import { marker, readMarker } from 'node-only-on-load'
+       export default {
+         vite: { plugins: [{ name: 'build-only', configResolved() { console.log(readMarker('x'), marker) } }] },
+         plugins: { greet: { load() { return 'hello' } } },
+       }`,
+      'node-only-dep-build-only'
+    )
+    expect(code).not.toContain('NODE_ONLY_ON_LOAD_MARKER')
+    expect(code).not.toContain('__nodeOnlyOnLoad')
+    expect(code).not.toContain('/etc/hosts')
+
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.greet.load()).toBe('hello')
+    expect(globalThis).not.toHaveProperty('__nodeOnlyOnLoad')
+  })
+
+  test('the same kind of dependency used by a page plugin is still bundled and runs', async () => {
+    const { outFile, code } = await bundleForBrowser(
+      `import { marker } from 'node-only-safe-load'
+       export default { plugins: { greet: { load() { return marker } } } }`,
+      'node-only-dep-page-use'
+    )
+    expect(code).toContain('NODE_ONLY_SAFE_LOAD_MARKER')
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.greet.load()).toBe('NODE_ONLY_SAFE_LOAD_MARKER')
+    expect((globalThis as any).__nodeOnlySafeLoad).toBe('ran') // Its load-time code ran too
+  })
+
+  test('a dependency that declares sideEffects keeps them', async () => {
+    const { code } = await bundleForBrowser(
+      `import { readMarker } from 'node-only-declared'
+       export default {
+         vite: { plugins: [{ name: 'build-only', configResolved() { readMarker('x') } }] },
+         plugins: { greet: { load() { return 'hello' } } },
+       }`,
+      'node-only-dep-declared'
+    )
+    expect(code).toContain('NODE_ONLY_DECLARED_MARKER')
+  })
+
+  test('a browser package imported for its load-time effect is kept', async () => {
+    const { code } = await bundleForBrowser(
+      `import 'browser-registers-on-load'
+       export default { plugins: { greet: { load() { return 'hello' } } } }`,
+      'browser-side-effect-import'
+    )
+    expect(code).toContain('BROWSER_REGISTERED_MARKER')
   })
 })

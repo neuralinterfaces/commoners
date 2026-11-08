@@ -13,7 +13,7 @@ import {
   posix,
   basename,
 } from 'node:path'
-import { builtinModules, createRequire } from 'node:module'
+import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
 // Internal Imports
@@ -38,6 +38,7 @@ import { getAllIcons } from '../assets/utils/icons.js'
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from './esbuild/plugins.js'
 import { purePathCallsPlugin } from './pure-path-calls.js'
+import { isStubbedBuiltin, nodeOnlyDepsPlugin } from './node-only-deps.js'
 import { getEnvFilesForMode, tryStatSync } from '../assets/services/env/utils.js'
 
 const logger = createLogger('assets')
@@ -856,15 +857,13 @@ function generateStrippedEntry(configImportPath: string, node: boolean): string 
 // no browser alias resolves to this side-effect-free stub: unused imports tree-shake away,
 // named imports still link, and calling one in the page throws a clear error.
 const NODE_BUILTIN_STUB_PREFIX = '\0commoners-node-builtin:'
-const BROWSER_ALIASED_BUILTINS = new Set(['path', 'url', 'process'])
 
 const nodeBuiltinStubPlugin = () => ({
   name: 'commoners-node-builtin-stub',
   enforce: 'pre' as const,
   resolveId(id: string) {
-    const bare = id.startsWith('node:') ? id.slice(5) : id
-    if (BROWSER_ALIASED_BUILTINS.has(bare) || !builtinModules.includes(bare)) return null
-    return NODE_BUILTIN_STUB_PREFIX + bare
+    if (!isStubbedBuiltin(id)) return null
+    return NODE_BUILTIN_STUB_PREFIX + (id.startsWith('node:') ? id.slice(5) : id)
   },
   load(id: string) {
     if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) return null
@@ -974,7 +973,7 @@ export const bundleConfig = async (
 
     plugins: [
       ...plugins,
-      ...(node ? [] : [nodeBuiltinStubPlugin(), purePathCallsPlugin()]),
+      ...(node ? [] : [nodeBuiltinStubPlugin(), purePathCallsPlugin(), nodeOnlyDepsPlugin()]),
       // Virtual module plugin to serve the node:url shim
       ...(node
         ? []
