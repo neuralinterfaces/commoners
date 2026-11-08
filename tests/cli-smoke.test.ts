@@ -32,6 +32,23 @@ describe.skipIf(!existsSync(cli))('built CLI', () => {
       expect(h.stdout).toMatch(/build/)
     })
 
+  // Package managers link `bin` straight to this file, and the shell runs it by its shebang.
+  // Without the executable bit, the shell falls through to whatever `commoners` is next on PATH
+  test.skipIf(process.platform === 'win32')(
+    'runs directly as an executable, the way a linked bin runs',
+    () => {
+      const result = spawnSync(cli, ['--version'], {
+        cwd: repo,
+        encoding: 'utf8',
+        timeout: 60000,
+        env: { ...process.env, NODE_PATH: '' },
+      })
+      expect(result.error, String(result.error)).toBeUndefined()
+      expect(result.status, result.stderr).toBe(0)
+      expect(result.stdout).toContain(version)
+    }
+  )
+
   test('a crash exits non-zero and shows the error, instead of ending silently', () => {
     const result = run(
       ['--version'],
