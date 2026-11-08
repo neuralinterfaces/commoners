@@ -6,43 +6,189 @@
  * allow direct testing without triggering the build flow import chain.
  */
 
-export function generateCargoToml(name: string): string {
+import { ResolvedOverlay, tauriOverlayWindowConfig } from '../../assets/utils/overlay.js'
+import { buildCSP, resolveCSP, type CSPOverride } from '../../assets/utils/csp.js'
+
+type UserPlugin = { crate: string; ident: string; path: string; permissions?: string[] }
+
+// Path dependencies on the user's plugin crates (tauri.plugin)
+const userPluginDependencies = (plugins: UserPlugin[] = []) =>
+  plugins.map(p => `${p.crate} = { path = ${JSON.stringify(p.path)} }\n`).join('')
+
+const userPluginRegistrations = (plugins: UserPlugin[] = []) =>
+  plugins.map(p => `\n        .plugin(${p.ident}::init())`).join('')
+
+// Transparent windows on macOS need Tauri's private-API feature (and app.macOSPrivateApi)
+export function generateCargoToml(
+  name: string,
+  opts: { overlay?: boolean; userPlugins?: UserPlugin[] } = {}
+): string {
+  const tauriFeatures = opts.overlay ? '["macos-private-api"]' : '[]'
   return `[package]
 name = "${name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ${tauriFeatures} }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
+tokio = { version = "1", features = ["signal"] }
+${userPluginDependencies(opts.userPlugins)}
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+${opts.overlay ? MACOS_OVERLAY_DEPENDENCIES : ''}`
+}
+
+const MACOS_OVERLAY_DEPENDENCIES = `
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+`
+
+export type SidecarEntry = {
+  id: string
+  bin: string
+  port?: number
+  env?: Record<string, string> // The service's declared env, set on the sidecar at spawn
+  ssl?: { key: string; cert: string } // Certificate paths relative to the app's resource dir
+}
+
+// A Rust string literal for any JS string
+const RUST_ESCAPES: Record<string, string> = {
+  '\\': '\\\\',
+  '"': '\\"',
+  '\n': '\\n',
+  '\r': '\\r',
+  '\t': '\\t',
+}
+export const rustString = (value: string) => {
+  let out = '"'
+  for (const c of String(value)) {
+    const code = c.charCodeAt(0)
+    if (RUST_ESCAPES[c]) out += RUST_ESCAPES[c]
+    else if (code < 0x20 || code === 0x7f) out += `\\u{${code.toString(16)}}`
+    else out += c
+  }
+  return out + '"'
+}
+
+const sidecarSpecRs = (s: SidecarEntry) => {
+  const env = Object.entries(s.env ?? {})
+    .map(([k, v]) => `(${rustString(k)}, ${rustString(v)})`)
+    .join(', ')
+  const ssl = s.ssl ? `Some((${rustString(s.ssl.key)}, ${rustString(s.ssl.cert)}))` : 'None'
+  return `
+        SidecarSpec { id: ${rustString(s.id)}, bin: ${rustString(s.bin.split('/').pop()!)}, env: &[${env}], ssl: ${ssl} },`
+}
+
+// Click-through, display bounds and the macOS window level have no tauri.conf.json
+// equivalent — set them at startup, then show the (initially hidden) window
+function overlaySetupRs(overlay?: ResolvedOverlay | null): string {
+  if (!overlay) return ''
+  const lines: string[] = []
+  if (overlay.clickThrough)
+    lines.push('                let _ = window.set_ignore_cursor_events(true);')
+  if (overlay.coverDisplay)
+    lines.push(
+      '                if let Ok(Some(monitor)) = window.primary_monitor() {',
+      '                    let _ = window.set_position(*monitor.position());',
+      '                    let _ = window.set_size(*monitor.size());',
+      '                }'
+    )
+  if (overlay.alwaysOnTop || overlay.allWorkspaces)
+    lines.push(
+      '                #[cfg(target_os = "macos")]',
+      '                float_overlay(&window);'
+    )
+  lines.push('                let _ = window.show();')
+  return `
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory); // Like Electron's visibleOnFullScreen
+
+            if let Some(window) = app.get_webview_window("main") {
+${lines.join('\n')}
+            }
 `
 }
 
-export type SidecarEntry = { id: string; bin: string; port?: number }
+// Matches Electron's setAlwaysOnTop('screen-saver') + setVisibleOnAllWorkspaces. Tauri's own
+// alwaysOnTop is the floating level (5), which macOS keeps below the menu bar.
+function floatOverlayRs(overlay?: ResolvedOverlay | null): string {
+  if (!overlay || (!overlay.alwaysOnTop && !overlay.allWorkspaces)) return ''
+  const calls: string[] = []
+  // Only a non-activating NSPanel appears over another app's fullscreen Space. The class
+  // swap drops Tauri's window subclass (a plain panel can't become key), so it is limited
+  // to click-through overlays, which never take focus anyway.
+  const asPanel = overlay.allWorkspaces && overlay.clickThrough
+  if (asPanel)
+    calls.push(
+      '            object_setClass(ns_window, class!(NSPanel));',
+      '            let mask: usize = msg_send![ns_window, styleMask];',
+      '            let _: () = msg_send![ns_window, setStyleMask: mask | (1usize << 7)]; // NSWindowStyleMaskNonactivatingPanel'
+    )
+  if (overlay.alwaysOnTop)
+    calls.push(
+      '            let _: () = msg_send![ns_window, setLevel: 1000isize]; // NSScreenSaverWindowLevel'
+    )
+  if (overlay.allWorkspaces)
+    calls.push(
+      '            // CanJoinAllSpaces | Stationary | FullScreenAuxiliary',
+      '            let _: () = msg_send![ns_window, setCollectionBehavior: (1usize << 0) | (1usize << 4) | (1usize << 8)];'
+    )
+  return `
+#[cfg(target_os = "macos")]
+fn float_overlay(window: &tauri::WebviewWindow) {
+${
+  asPanel
+    ? `    use objc2::{class, msg_send, runtime::{AnyClass, AnyObject}};
+    extern "C" {
+        fn object_setClass(obj: *mut AnyObject, cls: *const AnyClass) -> *const AnyClass;
+    }`
+    : '    use objc2::{msg_send, runtime::AnyObject};'
+}
+    if let Ok(ns_window) = window.ns_window() {
+        let ns_window = ns_window as *mut AnyObject;
+        unsafe {
+${calls.join('\n')}
+        }
+    }
+}
+`
+}
 
-export function generateMainRs(services: SidecarEntry[] = []): string {
+export function generateMainRs(
+  services: SidecarEntry[] = [],
+  opts: { overlay?: ResolvedOverlay | null; userPlugins?: UserPlugin[] } = {}
+): string {
+  const overlaySetup = overlaySetupRs(opts.overlay)
+  const userPlugins = userPluginRegistrations(opts.userPlugins)
+  const overlayFns = floatOverlayRs(opts.overlay)
+
   if (services.length === 0) {
     // No services — simple main.rs
+    const setup = overlaySetup
+      ? `
+        .setup(|app| {${overlaySetup}
+            Ok(())
+        })`
+      : ''
     return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
+${overlaySetup ? '\nuse tauri::Manager;\n' : ''}${overlayFns}
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init())${userPlugins}${setup}
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 `
   }
 
-  // Generate service spawn entries as Rust array literal
-  const serviceArray = services.map(s => `("${s.id}", "${s.bin}")`).join(', ')
+  // Generate service spawn entries as a Rust array literal
+  // sidecar() takes the bare binary name; Tauri resolves it next to the app executable
+  const serviceArray = services.map(sidecarSpecRs).join('')
 
   return `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -53,11 +199,19 @@ use tauri::Emitter;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandEvent;
 
+struct SidecarSpec {
+    id: &'static str,
+    bin: &'static str,
+    env: &'static [(&'static str, &'static str)], // The service's declared env
+    ssl: Option<(&'static str, &'static str)>,    // Key and cert, relative to the resource dir
+}
+
 struct ServiceState {
     children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>,
     urls: Mutex<HashMap<String, String>>,
 }
 
+${overlayFns}
 fn get_free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0")
         .unwrap()
@@ -95,7 +249,7 @@ fn commoners_service_close(id: String, state: tauri::State<ServiceState>) -> boo
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init())${userPlugins}
         .manage(ServiceState {
             children: Mutex::new(HashMap::new()),
             urls: Mutex::new(HashMap::new()),
@@ -104,27 +258,54 @@ fn main() {
             commoners_get_services,
             commoners_service_close,
         ])
-        .setup(|app| {
-            let services: Vec<(&str, &str)> = vec![${serviceArray}];
+        .setup(|app| {${overlaySetup}
+            let services: Vec<SidecarSpec> = vec![${serviceArray}
+            ];
 
-            for (id, bin_name) in services {
+            for spec in services {
+                let id = spec.id;
                 let port = get_free_port();
-                let url = format!("http://localhost:{}", port);
+
+                // Bundled certificates resolve against the installed app's resource dir
+                let ssl_paths = spec.ssl.and_then(|(key, cert)| {
+                    app.path().resource_dir().ok().map(|dir| (dir.join(key), dir.join(cert)))
+                });
+                let scheme = if ssl_paths.is_some() { "https" } else { "http" };
+                let url = format!("{}://localhost:{}", scheme, port);
 
                 // Store URL immediately so frontend can query it
                 app.state::<ServiceState>()
                     .urls.lock().unwrap()
                     .insert(id.to_string(), url);
 
-                // Spawn sidecar with PORT env var
-                let sidecar = app.shell()
-                    .sidecar(bin_name)
-                    .expect(&format!("failed to create sidecar for {}", id))
-                    .env("PORT", port.to_string());
+                // Spawn the sidecar with the service's env, SSL paths, then PORT and HOST (as the
+                // Electron runtime does). A service that fails to start is reported and
+                // skipped — panicking in setup() aborts the whole app on macOS
+                let spawned = app.shell()
+                    .sidecar(spec.bin)
+                    .map(|cmd| {
+                        let mut cmd = cmd;
+                        for (key, value) in spec.env {
+                            cmd = cmd.env(key, value);
+                        }
+                        if let Some((key, cert)) = &ssl_paths {
+                            cmd = cmd.env("SSL_KEY_PATH", key).env("SSL_CERT_PATH", cert);
+                        }
+                        cmd.env("PORT", port.to_string()).env("HOST", "localhost")
+                    })
+                    .and_then(|cmd| cmd.spawn());
 
-                let (mut rx, child) = sidecar
-                    .spawn()
-                    .expect(&format!("failed to spawn sidecar {}", id));
+                let (mut rx, child) = match spawned {
+                    Ok(pair) => pair,
+                    Err(err) => {
+                        eprintln!("[commoners] service {} failed to start: {}", id, err);
+                        let _ = app.handle().emit(
+                            &format!("commoners:services:{}:error", id),
+                            err.to_string(),
+                        );
+                        continue;
+                    }
+                };
 
                 app.state::<ServiceState>()
                     .children.lock().unwrap()
@@ -164,10 +345,43 @@ fn main() {
                 });
             }
 
+            // Signals bypass RunEvent::Exit; turn them into a clean exit so sidecars are killed
+            let exit_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if tokio::signal::ctrl_c().await.is_ok() {
+                    exit_handle.exit(0);
+                }
+            });
+
+            #[cfg(unix)]
+            {
+                use tokio::signal::unix::{signal, SignalKind};
+                let exit_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Ok(mut term) = signal(SignalKind::terminate()) {
+                        term.recv().await;
+                        exit_handle.exit(0);
+                    }
+                });
+            }
+
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                kill_all_sidecars(app);
+            }
+        });
+}
+
+fn kill_all_sidecars(app: &tauri::AppHandle) {
+    let state = app.state::<ServiceState>();
+    let mut children = state.children.lock().unwrap();
+    for (_, child) in children.drain() {
+        let _ = child.kill();
+    }
 }
 `
 }
@@ -180,8 +394,22 @@ export function generateTauriConf(opts: {
   tauriConfig: any
   electronWindow: any
   externalBins: string[]
+  overlay?: ResolvedOverlay | null
+  backgroundThrottling?: boolean
+  csp?: CSPOverride // Top-level security.csp; tauri.security.csp takes precedence
+  crossOriginIsolation?: boolean
+  resources?: Record<string, string> // Bundled files (source -> target), e.g. sidecar certificates
 }): Record<string, any> {
-  const { name, appId, version, icon, tauriConfig = {}, electronWindow, externalBins } = opts
+  const {
+    name,
+    appId,
+    version,
+    icon,
+    tauriConfig = {},
+    electronWindow,
+    externalBins,
+    overlay,
+  } = opts
   const windowConfig = tauriConfig.window || electronWindow || {}
 
   // Resolve icon paths
@@ -212,6 +440,7 @@ export function generateTauriConf(opts: {
         },
       ],
       security: {},
+      withGlobalTauri: tauriConfig.withGlobalTauri === true, // window.__TAURI__ only when asked for
     },
     bundle: {
       active: true,
@@ -220,16 +449,38 @@ export function generateTauriConf(opts: {
     },
   }
 
-  // CSP
-  const csp = tauriConfig.security?.csp
-  if (csp !== false) {
-    conf.app.security.csp =
-      csp || "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+  if (overlay) {
+    Object.assign(conf.app.windows[0], tauriOverlayWindowConfig(overlay))
+    conf.app.macOSPrivateApi = true
   }
+  if (opts.backgroundThrottling === false) conf.app.windows[0].backgroundThrottling = 'disabled'
+
+  // CSP
+  // The shared policy (assets/utils/csp.ts) plus Tauri's IPC origins and local sidecars.
+  // Tauri adds hashes for the inline scripts it serves itself.
+  const csp = resolveCSP(
+    buildCSP({
+      connect: [
+        'ipc:',
+        'http://ipc.localhost',
+        ...(externalBins.length ? ['http://localhost:*', 'https://localhost:*'] : []),
+      ],
+    }),
+    tauriConfig.security?.csp ?? opts.csp
+  )
+  if (csp) conf.app.security.csp = csp
+  if (opts.crossOriginIsolation)
+    conf.app.security.headers = {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    }
 
   // Service sidecars
   if (externalBins.length > 0) {
     conf.bundle.externalBin = externalBins
+  }
+  if (opts.resources && Object.keys(opts.resources).length > 0) {
+    conf.bundle.resources = opts.resources
   }
 
   // Raw config overrides
@@ -240,8 +491,11 @@ export function generateTauriConf(opts: {
   return conf
 }
 
-export function generateCapabilities(serviceIds: string[]): Record<string, any> {
-  const permissions = ['core:default', 'opener:default']
+export function generateCapabilities(
+  serviceIds: string[],
+  extraPermissions: string[] = [] // e.g. user plugin permissions (tauri.plugin)
+): Record<string, any> {
+  const permissions = ['core:default', 'opener:default', ...extraPermissions]
 
   if (serviceIds.length > 0) {
     permissions.push('shell:allow-spawn', 'shell:allow-kill')
@@ -260,22 +514,26 @@ export function generateCapabilities(serviceIds: string[]): Record<string, any> 
  * Generate a dev-mode Cargo.toml with devtools feature enabled.
  * Separate from the build Cargo.toml which omits devtools.
  */
-export function generateDevCargoToml(name: string): string {
+export function generateDevCargoToml(
+  name: string,
+  opts: { overlay?: boolean; userPlugins?: UserPlugin[] } = {}
+): string {
+  const tauriFeatures = opts.overlay ? '["devtools", "macos-private-api"]' : '["devtools"]'
   return `[package]
 name = "${name}"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tauri = { version = "2", features = ["devtools"] }
+tauri = { version = "2", features = ${tauriFeatures} }
 tauri-plugin-shell = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
+${userPluginDependencies(opts.userPlugins)}
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-`
+${opts.overlay ? MACOS_OVERLAY_DEPENDENCIES : ''}`
 }
 
 /**
@@ -288,11 +546,14 @@ export function generateDevTauriConf(opts: {
   version?: string
   devUrl: string
   window?: { title?: string; width?: number; height?: number }
+  overlay?: ResolvedOverlay | null
+  backgroundThrottling?: boolean
+  withGlobalTauri?: boolean
 }): Record<string, any> {
-  const { name, devUrl, window: windowConfig = {} } = opts
+  const { name, devUrl, window: windowConfig = {}, overlay } = opts
   const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
 
-  return {
+  const conf: Record<string, any> = {
     productName: name,
     identifier: opts.appId || `com.commoners.${sanitizedName.replace(/[^a-z0-9]/g, '')}`,
     version: opts.version || '0.1.0',
@@ -308,11 +569,20 @@ export function generateDevTauriConf(opts: {
         },
       ],
       security: {},
+      withGlobalTauri: opts.withGlobalTauri === true,
     },
     bundle: {
       active: true,
     },
   }
+
+  if (overlay) {
+    Object.assign(conf.app.windows[0], tauriOverlayWindowConfig(overlay))
+    conf.app.macOSPrivateApi = true
+  }
+  if (opts.backgroundThrottling === false) conf.app.windows[0].backgroundThrottling = 'disabled'
+
+  return conf
 }
 
 /**

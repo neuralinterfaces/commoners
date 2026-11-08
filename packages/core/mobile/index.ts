@@ -5,13 +5,17 @@ import { createRequire } from 'node:module'
 
 // Internal Imports
 import * as assets from './assets.js'
-import { chalk } from '../globals.js'
 import { onCleanup } from '../cleanup.js'
 
-import { CapacitorConfig, Plugin, ResolvedConfig, SupportConfiguration } from '../types.js'
+import { CapacitorConfig, Plugin, ResolvedConfig } from '../types.js'
 import { getPlugins } from '../utils/extensions.js'
-import { DependencyError, PlatformError } from '../errors.js'
-import { TARGET_IOS, TARGET_ANDROID, MOBILE_IOS_PLIST_PATH, MOBILE_ANDROID_MANIFEST_PATH } from '../constants.js'
+import { DependencyError } from '../errors.js'
+import {
+  TARGET_IOS,
+  TARGET_ANDROID,
+  MOBILE_IOS_PLIST_PATH,
+  MOBILE_ANDROID_MANIFEST_PATH,
+} from '../constants.js'
 
 // Internal Utilities
 import { runCommand } from '../utils/processes.js'
@@ -37,12 +41,12 @@ const getBaseConfig = ({ name, appId, outDir }) => {
   }
 }
 
-const isCapacitorConfig = (o: CapacitorConfig) =>
-  o && typeof o === 'object' && 'name' in o && 'plugin' in o
+const isCapacitorConfig = (o: CapacitorConfig | false | undefined): o is CapacitorConfig =>
+  !!(o && typeof o === 'object' && 'name' in o && 'plugin' in o)
 
 const getCapacitorConfig = (o: Plugin) => {
   const support = o.isSupported
-  return (typeof support === 'object' && 'capacitor' in support) ? support.capacitor : undefined
+  return typeof support === 'object' && 'capacitor' in support ? support.capacitor : undefined
 }
 
 const getCapacitorPluginAccessor = (plugin: Plugin) => {
@@ -137,13 +141,16 @@ const syncProject = async (config: ResolvedConfig, outDir: string) => {
   close()
 }
 
-export const runInRoot = async (fn: (config: ResolvedConfig) => Promise<void>, config: ResolvedConfig) => {
-    const { root } = config
-    const initialWorkingDirectory = process.cwd()
-    process.chdir(root) // Change to output directory for mobile commands
-    const updatedConfig = { ...config }
-    await fn(updatedConfig)
-    process.chdir(initialWorkingDirectory) // Reset working directory
+export const runInRoot = async (
+  fn: (config: ResolvedConfig) => Promise<void>,
+  config: ResolvedConfig
+) => {
+  const { root } = config
+  const initialWorkingDirectory = process.cwd()
+  process.chdir(root) // Change to output directory for mobile commands
+  const updatedConfig = { ...config }
+  await fn(updatedConfig)
+  process.chdir(initialWorkingDirectory) // Reset working directory
 }
 
 export const init = async ({ target, outDir }: MobileOptions, config: ResolvedConfig) => {
@@ -263,7 +270,7 @@ const isInstalled = (pkgName, resolve = require.resolve) => {
   try {
     resolve(pkgName)
     return true
-  } catch (e) {
+  } catch {
     return false
   }
 }
@@ -285,7 +292,6 @@ const checkPlaformConfigExists = async (platform, root) => {
 
 // Install Capacitor packages as a user dependency
 export const checkDepsInstalled = async (config: ResolvedConfig) => {
-
   const notInstalled = new Set()
 
   const require = getRequireForRoot(config.root)

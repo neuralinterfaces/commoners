@@ -2,7 +2,8 @@
 // Modern CLI UI Library for Commoners
 // Provides rich, interactive styling decoupled from core functionality
 
-import { Ora } from 'ora'
+import { Ora, Color } from 'ora'
+import type { ChalkInstance } from 'chalk'
 import { createRequire } from 'node:module'
 import { relative } from 'node:path'
 import { defaultTheme, getTheme, ThemeName, UITheme } from './themes.js'
@@ -26,8 +27,13 @@ export class CommonersUI {
   private indentLevel: number = 0
   private indentString: string = '  ' // 2 spaces per indent level
 
-  constructor(theme: Partial<UITheme> | ThemeName = {}, options: { noColor?: boolean } = {}) {
+  // Loaded via require() in the constructor
+  private _chalk: ChalkInstance
+  private _ora: typeof import('ora').default
+  private _boxen: typeof import('boxen').default
+  private _figures: typeof import('figures').default
 
+  constructor(theme: Partial<UITheme> | ThemeName = {}, options: { noColor?: boolean } = {}) {
     if (typeof theme === 'string') this.theme = getTheme(theme)
     else if (typeof theme === 'object' && theme !== null) this.theme = { ...defaultTheme, ...theme } // Merge provided theme with default theme
 
@@ -47,7 +53,6 @@ export class CommonersUI {
     this._boxen = require('boxen').default // Ensure compatibility with both ESM and CJS
     this._figures = require('figures').default // Ensure compatibility with both ESM and CJS
 
-
     process.on('exit', () => this.cleanup())
     process.on('SIGINT', () => this.cleanup())
   }
@@ -62,6 +67,7 @@ export class CommonersUI {
   // Helper method to strip ANSI codes for accurate text length calculation
   private stripAnsi(text: string): string {
     // More comprehensive ANSI escape sequence removal
+    // eslint-disable-next-line no-control-regex -- matching the ESC byte is the point
     return text.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
   }
 
@@ -143,7 +149,7 @@ export class CommonersUI {
     if (subtitle) this.add(this._chalk.hex(this.theme.muted)(subtitle))
     this.add()
   }
-  
+
   sectionHeader(message: string, options?: { subtitle?: string }) {
     const { subtitle } = options || {}
     const title = this._chalk.hex(this.theme.secondary).bold(message)
@@ -161,7 +167,7 @@ export class CommonersUI {
       level,
       items: [],
       boxed: options?.boxed,
-      contentLines: []
+      contentLines: [],
     }
 
     this.sectionStack.push(section)
@@ -191,7 +197,7 @@ export class CommonersUI {
   private renderBoxHeader(title: string, subtitle?: string, boxWidth?: number) {
     const width = boxWidth || Math.max(60, (process.stdout.columns || 80) - 4)
     const padding = 2
-    const contentWidth = width - 2 - (padding * 2) // Account for borders and padding
+    const contentWidth = width - 2 - padding * 2 // Account for borders and padding
 
     // Top border
     const topBorder = '╭' + '─'.repeat(width - 2) + '╮'
@@ -202,10 +208,10 @@ export class CommonersUI {
 
     // Title line
     const titleText = this._chalk.hex(this.theme.secondary).bold(title)
-    const createLine = (text) => ' │' + this.padToWidth(text, contentWidth, padding) + '│'
+    const createLine = text => ' │' + this.padToWidth(text, contentWidth, padding) + '│'
     console.log(createLine(titleText))
     console.log(createLine(''))
-    
+
     // Subtitle if provided
     if (subtitle) {
       const subtitleText = this._chalk.hex(this.theme.muted)(subtitle)
@@ -217,7 +223,7 @@ export class CommonersUI {
   private renderBoxContent(content: string | string[], boxWidth?: number) {
     const width = boxWidth || Math.max(60, (process.stdout.columns || 80) - 4)
     const padding = 2
-    const contentWidth = width - 2 - (padding * 2)
+    const contentWidth = width - 2 - padding * 2
 
     // Handle both string and array input
     const contentLines = Array.isArray(content) ? content : content.split('\n')
@@ -275,7 +281,9 @@ export class CommonersUI {
       } else if (section.items.length > 0) {
         // Optional: Display section summary or completion
         const indent = '  '.repeat(section.level)
-        console.log(`${indent}${this._chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`)
+        console.log(
+          `${indent}${this._chalk.hex(this.theme.muted)(`└─ ${section.items.length} items processed`)}\n`
+        )
       }
     }
     return section
@@ -333,7 +341,7 @@ export class CommonersUI {
 
     const titled = {
       pwa: 'PWA',
-      ios: 'iOS'
+      ios: 'iOS',
     }
 
     const lower = targetName.toLowerCase()
@@ -360,7 +368,9 @@ export class CommonersUI {
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       console.log(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(
+          this._chalk.hex(this.theme.muted)(`  ${details}`)
+        )
         console.log(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -384,7 +394,9 @@ export class CommonersUI {
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       console.log(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(
+          this._chalk.hex(this.theme.muted)(`  ${details}`)
+        )
         console.log(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -408,7 +420,9 @@ export class CommonersUI {
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       console.log(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(
+          this._chalk.hex(this.theme.muted)(`  ${details}`)
+        )
         console.log(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -432,7 +446,9 @@ export class CommonersUI {
       const formattedMessage = this.formatWithSectionContext(fullMessage)
       this.add(`\n${formattedMessage}`)
       if (details) {
-        const formattedDetails = this.formatWithSectionContext(this._chalk.hex(this.theme.muted)(`  ${details}`))
+        const formattedDetails = this.formatWithSectionContext(
+          this._chalk.hex(this.theme.muted)(`  ${details}`)
+        )
         this.add(formattedDetails)
       }
       this.addToCurrentSection(message)
@@ -458,14 +474,12 @@ export class CommonersUI {
 
   // Service messages with colored labels
   service(serviceName: string, message: string, type: 'info' | 'error' | 'success' = 'info') {
-
     const currentSection = this.getCurrentSection()
     const colors = {
       info: this.theme.info,
       error: this.theme.error,
       success: this.theme.success,
     }
-
 
     if (!serviceName) {
       if (currentSection?.boxed) {
@@ -496,14 +510,14 @@ export class CommonersUI {
   spinner(
     message: string,
     options?: {
-      type?: 'dots' | 'pulse' | 'arrow3' | 'bouncingBar'
+      type?: 'dots' | 'arrow3' | 'bouncingBar'
       color?: keyof UITheme
     }
   ) {
     const { type = 'dots', color = 'primary' } = options || {}
 
     // Map theme colors to Ora-compatible color names
-    const oraColorMap = {
+    const oraColorMap: Partial<Record<keyof UITheme, Color>> = {
       primary: 'blue',
       secondary: 'magenta',
       success: 'green',

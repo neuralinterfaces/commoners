@@ -37,7 +37,10 @@ function findTauriExecutable(outDir: string): string | null {
 
   if (PLATFORM === 'windows') {
     // Check nsis first, then msi
-    for (const [dir, ext] of [['nsis', '.exe'], ['msi', '.msi']] as const) {
+    for (const [dir, ext] of [
+      ['nsis', '.exe'],
+      ['msi', '.msi'],
+    ] as const) {
       const bundleDir = join(outDir, dir)
       if (!existsSync(bundleDir)) continue
       const file = readdirSync(bundleDir).find(f => f.endsWith(ext))
@@ -48,7 +51,10 @@ function findTauriExecutable(outDir: string): string | null {
 
   if (PLATFORM === 'linux') {
     // Check appimage first, then deb
-    for (const [dir, ext] of [['appimage', '.AppImage'], ['deb', '.deb']] as const) {
+    for (const [dir, ext] of [
+      ['appimage', '.AppImage'],
+      ['deb', '.deb'],
+    ] as const) {
       const bundleDir = join(outDir, dir)
       if (!existsSync(bundleDir)) continue
       const file = readdirSync(bundleDir).find(f => f.endsWith(ext))

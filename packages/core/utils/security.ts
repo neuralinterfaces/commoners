@@ -13,16 +13,9 @@ import { ValidationError } from '../errors.js'
  * @returns The validated absolute path
  * @throws ValidationError if path escapes the base directory
  */
-export function validatePath(
-  userPath: string,
-  basePath: string,
-  pathDescription = 'path'
-): string {
+export function validatePath(userPath: string, basePath: string, pathDescription = 'path'): string {
   if (!userPath) {
-    throw new ValidationError(
-      `Invalid ${pathDescription}`,
-      'Path cannot be empty'
-    )
+    throw new ValidationError(`Invalid ${pathDescription}`, 'Path cannot be empty')
   }
 
   // Resolve to absolute paths
@@ -58,9 +51,7 @@ export function validatePaths(
   basePath: string,
   pathDescription = 'paths'
 ): string[] {
-  return paths.map((path, index) =>
-    validatePath(path, basePath, `${pathDescription}[${index}]`)
-  )
+  return paths.map((path, index) => validatePath(path, basePath, `${pathDescription}[${index}]`))
 }
 
 /**
@@ -75,13 +66,12 @@ export function validateConfigPath(
   allowedDirs: string[] = [process.cwd()]
 ): string {
   if (!configPath) {
-    throw new ValidationError(
-      'Invalid config path',
-      'Config path cannot be empty'
-    )
+    throw new ValidationError('Invalid config path', 'Config path cannot be empty')
   }
 
-  const absolutePath = isAbsolute(configPath) ? resolve(configPath) : resolve(process.cwd(), configPath)
+  const absolutePath = isAbsolute(configPath)
+    ? resolve(configPath)
+    : resolve(process.cwd(), configPath)
   const normalizedPath = normalize(absolutePath)
 
   // Check if path is within any allowed directory
@@ -117,10 +107,7 @@ export function sanitizeFilename(filename: string): string {
   const sanitized = basename.replace(/[^a-zA-Z0-9._-]/g, '_')
 
   if (!sanitized || sanitized === '.' || sanitized === '..') {
-    throw new ValidationError(
-      'Invalid filename',
-      `Filename "${filename}" is not allowed`
-    )
+    throw new ValidationError('Invalid filename', `Filename "${filename}" is not allowed`)
   }
 
   return sanitized
@@ -135,10 +122,7 @@ export function sanitizeFilename(filename: string): string {
  */
 export function validateBuildCommand(command: string): string {
   if (!command || typeof command !== 'string') {
-    throw new ValidationError(
-      'Invalid build command',
-      'Build command must be a non-empty string'
-    )
+    throw new ValidationError('Invalid build command', 'Build command must be a non-empty string')
   }
 
   // Check for shell metacharacters that could enable command injection

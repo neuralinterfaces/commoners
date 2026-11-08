@@ -33,31 +33,27 @@ class ElectronIPC implements RuntimeIPC {
     BrowserWindow.getAllWindows().forEach(win => IPC.send(win, channel, ...args))
   }
 
+  // Every listener goes through the IPC module, which accepts messages only from app pages
   on(channel: string, listener: (...args: any[]) => void): void {
-    const { ipcMain } = require('electron')
-    ipcMain.on(channel, listener)
+    IPC.on(channel, listener)
   }
 
   once(channel: string, listener: (...args: any[]) => void): void {
-    const { ipcMain } = require('electron')
-    ipcMain.once(channel, listener)
+    IPC.once(channel, listener)
   }
 
   invoke(channel: string, ...args: any[]): Promise<any> {
-    const { ipcMain } = require('electron')
-    return new Promise((resolve, reject) => {
-      ipcMain.once(channel, (_event, ...responseArgs) => resolve(responseArgs[0]))
+    return new Promise(resolve => {
+      IPC.once(channel, (_event, ...responseArgs) => resolve(responseArgs[0]))
     })
   }
 
   removeListener(channel: string, listener: (...args: any[]) => void): void {
-    const { ipcMain } = require('electron')
-    ipcMain.removeListener(channel, listener)
+    IPC.removeListener(channel, listener)
   }
 
   removeAllListeners(channel: string): void {
-    const { ipcMain } = require('electron')
-    ipcMain.removeAllListeners(channel)
+    IPC.removeAllListeners(channel)
   }
 }
 

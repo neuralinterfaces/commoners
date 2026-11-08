@@ -3,6 +3,7 @@ import { createNoOpHooks } from '../../../ui.js'
 import { HooksInterface } from '../../../types.js'
 import { treeKillGracefully } from './processes.js'
 import { createLogger } from '../../../assets/utils/logger.js'
+import { registerProcess, unregisterProcess } from '../../../assets/utils/process-registry.js'
 
 const logger = createLogger('electron')
 
@@ -60,7 +61,11 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks(), o
   }
 
   const { spawn } = await import('node:child_process')
-  const electron = await import('electron')
+  const { importOptional } = await import('../../../utils/optional.js')
+  const electron = await importOptional('electron', 'Desktop (Electron) development', [
+    'electron',
+    'electron-builder',
+  ])
 
   const electronPath = <any>(electron.default ?? electron)
 
@@ -76,9 +81,13 @@ export async function startup(root, hooks: HooksInterface = createNoOpHooks(), o
     stdio: ['pipe', 'pipe', 'pipe'],
   }))
 
+  // Recorded so a later run can stop it (and its helpers) if this CLI is killed outright
+  if (app.pid) registerProcess(root, 'electron', app.pid, electronPath)
+
   // Clean up electron reference when the child process exits
   app.once('exit', () => {
     delete electronGlobalStates.app
+    unregisterProcess(root, 'electron')
   })
 
   // In production, exit the parent process when Electron closes.

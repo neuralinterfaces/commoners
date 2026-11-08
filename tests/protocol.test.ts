@@ -4,8 +4,15 @@ import {
   decodePath,
   normalizeAndCompare,
   isValidUrl,
+  isWindowsPath,
   isCommonersUrl,
   isCommonersAsset,
+  isAllowedOrigin,
+  isAppOriginUrl,
+  toAppOriginUrl,
+  fromAppOriginUrl,
+  appOriginHeaders,
+  isAllowedExternal,
 } from '../packages/core/assets/electron/modules/protocol'
 
 describe('Protocol Utilities', () => {
@@ -53,15 +60,11 @@ describe('Protocol Utilities', () => {
     })
 
     test('supports custom comparison function', () => {
-      expect(
-        normalizeAndCompare('/path/to/file', '/path', (a, b) => a.startsWith(b))
-      ).toBe(true)
+      expect(normalizeAndCompare('/path/to/file', '/path', (a, b) => a.startsWith(b))).toBe(true)
     })
 
     test('custom comparison can return false', () => {
-      expect(
-        normalizeAndCompare('/other/path', '/path', (a, b) => a.startsWith(b))
-      ).toBe(false)
+      expect(normalizeAndCompare('/other/path', '/path', (a, b) => a.startsWith(b))).toBe(false)
     })
   })
 
@@ -92,6 +95,40 @@ describe('Protocol Utilities', () => {
 
     test('invalid URL - random string', () => {
       expect(isValidUrl('not-a-url')).toBe(false)
+    })
+  })
+
+  // The URL parser accepts "C:\x" as a URL with the scheme "c:". Treating it as one made packaged
+  // Windows apps load file:// instead of the app origin
+  describe('Windows paths are filesystem paths, not URLs', () => {
+    const paths = ['C:\\x\\index.html', 'c:/x/index.html', '\\\\server\\share\\x', 'C:x']
+    const urls = ['file:///C:/x', 'https://example.com/x', 'app://local/index.html']
+
+    test('the URL parser alone accepts a drive-letter path', () => {
+      expect(new URL('C:\\x\\index.html').protocol).toBe('c:')
+    })
+
+    test.each(paths)('%s is a Windows path and not a URL', path => {
+      expect(isWindowsPath(path)).toBe(true)
+      expect(isValidUrl(path)).toBe(false)
+      expect(isAppOriginUrl(path)).toBe(false)
+      expect(isCommonersUrl(path)).toBe(false)
+    })
+
+    test.each(urls)('%s is a URL and not a Windows path', url => {
+      expect(isWindowsPath(url)).toBe(false)
+      expect(isValidUrl(url)).toBe(true)
+    })
+
+    test('only app://local/ URLs are app-origin URLs', () => {
+      expect(isAppOriginUrl('app://local/index.html')).toBe(true)
+      expect(isAppOriginUrl('file:///C:/x')).toBe(false)
+      expect(isAppOriginUrl('https://example.com/x')).toBe(false)
+    })
+
+    test('posix paths are neither', () => {
+      expect(isWindowsPath('/x/index.html')).toBe(false)
+      expect(isValidUrl('/x/index.html')).toBe(false)
     })
   })
 
@@ -139,9 +176,73 @@ describe('Protocol Utilities', () => {
     })
 
     test('external URL is not an asset', () => {
-      expect(
-        isCommonersAsset('https://example.com/page', assetRoot, 'http://localhost:5173')
-      ).toBe(false)
+      expect(isCommonersAsset('https://example.com/page', assetRoot, 'http://localhost:5173')).toBe(
+        false
+      )
     })
+  })
+})
+
+describe('App origin', () => {
+  const root = '/Applications/My App.app/Contents/Resources/app.asar'
+
+  test('maps files under the asset root to app://local and back', () => {
+    const url = toAppOriginUrl(`${root}/pages/two words.html`, root)
+    expect(url).toBe('app://local/pages/two%20words.html')
+    expect(fromAppOriginUrl(url!)).toBe('pages/two words.html')
+    expect(fromAppOriginUrl('app://local/')).toBe('index.html')
+  })
+
+  test('refuses files outside the asset root', () => {
+    expect(toAppOriginUrl('/etc/passwd', root)).toBeNull()
+    expect(toAppOriginUrl(`${root}-other/index.html`, root)).toBeNull()
+  })
+
+  test('refuses other origins and encoded escapes', () => {
+    expect(fromAppOriginUrl('app://other/index.html')).toBeNull()
+    expect(fromAppOriginUrl('file:///etc/passwd')).toBeNull()
+    expect(fromAppOriginUrl('app://local/a/%2e%2e%2f%2e%2e%2fetc/passwd')).toBeNull()
+    expect(fromAppOriginUrl('app://local/a%5c..%5csecret')).toBeNull()
+  })
+
+  test('counts as an app URL for navigation and protocol origin checks', () => {
+    expect(isAppOriginUrl('app://local/index.html')).toBe(true)
+    expect(isAppOriginUrl('app://localhost/index.html')).toBe(false)
+    expect(isCommonersUrl('app://local/index.html')).toBe(true)
+    expect(isAllowedOrigin('app://local', 'myapp')).toBe(true)
+  })
+
+  test('headers carry the CSP, and COOP/COEP/CORP only when isolation is on', () => {
+    const plain = appOriginHeaders('index.html', { csp: "default-src 'self'" })
+    expect(plain['Content-Type']).toBe('text/html; charset=utf-8')
+    expect(plain['Content-Security-Policy']).toBe("default-src 'self'")
+    expect(plain['X-Content-Type-Options']).toBe('nosniff')
+    expect(plain['Cross-Origin-Embedder-Policy']).toBeUndefined()
+
+    const isolated = appOriginHeaders('main.js', { csp: null, crossOriginIsolation: true })
+    expect(isolated['Content-Security-Policy']).toBeUndefined()
+    expect(isolated['Cross-Origin-Opener-Policy']).toBe('same-origin')
+    expect(isolated['Cross-Origin-Embedder-Policy']).toBe('require-corp')
+    expect(isolated['Cross-Origin-Resource-Policy']).toBe('same-origin')
+  })
+})
+
+describe('External links', () => {
+  test('web and mail links may open in the OS by default', () => {
+    expect(isAllowedExternal('https://example.com')).toBe(true)
+    expect(isAllowedExternal('http://example.com')).toBe(true)
+    expect(isAllowedExternal('mailto:a@example.com')).toBe(true)
+  })
+
+  test('protocols that can launch local programs are refused by default', () => {
+    expect(isAllowedExternal('file:///Applications/Calculator.app')).toBe(false)
+    expect(isAllowedExternal('smb://host/share')).toBe(false)
+    expect(isAllowedExternal('someapp://run?x=1')).toBe(false)
+    expect(isAllowedExternal('not a url')).toBe(false)
+  })
+
+  test('an app can allow more protocols, with or without the colon', () => {
+    expect(isAllowedExternal('zoommtg://join', ['https', 'zoommtg'])).toBe(true)
+    expect(isAllowedExternal('mailto:a@example.com', ['https:'])).toBe(false)
   })
 })

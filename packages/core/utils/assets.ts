@@ -1,4 +1,5 @@
 // Built-In Modules
+import { resolveFeatures, featureDefines, type FeatureMap } from './features.js'
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import {
   dirname,
@@ -12,7 +13,7 @@ import {
   posix,
   basename,
 } from 'node:path'
-import { createRequire } from 'node:module'
+import { builtinModules, createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 
 // Internal Imports
@@ -20,7 +21,7 @@ import { resolveConfigPath } from '../index.js'
 import { createNoOpHooks } from '../ui.js'
 import { copyAsset } from './copy.js'
 import { encodePath } from './encode.js'
-import { isDesktop, isElectron, rootDir, vite } from '../globals.js'
+import { isDesktop, isElectron, isTauri, rootDir, vite } from '../globals.js'
 import { spawnProcess } from './processes.js'
 import { BuildError } from '../errors.js'
 import { createLogger } from '../assets/utils/logger.js'
@@ -31,10 +32,12 @@ import {
   ServiceRebuildOption,
 } from '../types.js'
 import { getPlugins, getServices } from './extensions.js'
+import type { InlineConfig } from 'vite'
 import { withExternalBuiltins } from '../vite/plugins/electron/inbuilt.js'
 import { getAllIcons } from '../assets/utils/icons.js'
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from './esbuild/plugins.js'
+import { purePathCallsPlugin } from './pure-path-calls.js'
 import { getEnvFilesForMode, tryStatSync } from '../assets/services/env/utils.js'
 
 const logger = createLogger('assets')
@@ -68,6 +71,7 @@ type CoreAssetInfo =
       force?: boolean
       compile?: BuildFunction // Function to compile the asset
       defines?: Record<string, string> // Compile-time defines for esbuild
+      nodePaths?: string[] // Extra module resolution roots for esbuild
     } & AssetMetadata)
 
 type AssetInfo = CoreAssetInfo | { text: string; output: string }
@@ -102,7 +106,7 @@ export const getAssetBuildPath = (
     isSharedWithElectron = sharedWithElectron.includes(inputToCompare)
   if (isSharedWithElectron) return join(getBuildDir(outDir), assetPath) // Ensure consistently resolved by Electron
   const buildDir = getBuildDir(outDir)
-  const encoded = encodePath(assetPath)
+  const encoded = encodePath(assetPath, outDir)
   return join(buildDir, encoded)
 }
 
@@ -154,11 +158,13 @@ async function buildService(
     out,
     src,
     root,
+    env,
   }: {
     src: string
     out: string
     build: ResolvedService['build']
     root: ResolvedConfig['root']
+    env?: ResolvedService['env']
   },
   name,
   force = false,
@@ -225,7 +231,15 @@ async function buildService(
       }
 
       // Terminal Command
-      await spawnProcess(build, [], { cwd: root, label: name }, hooks)
+      // The declared service env is available to its build command too. An env function
+      // depends on other services' runtime URLs, so only a plain object applies here.
+      const buildEnv = env && typeof env === 'object' ? env : {}
+      const code = await spawnProcess(build, [], { cwd: root, label: name, env: buildEnv }, hooks)
+      if (code !== 0)
+        throw new BuildError(
+          `Service "${name}" failed to build: the build command exited with code ${code instanceof Error ? code.message : code}`,
+          `Command: ${build}\nRun it in ${root} to see the full output.`
+        )
       const endTime = performance.now()
       logger.debug('Emitting service:build:end', {
         service: name,
@@ -308,11 +322,16 @@ export const getAppAssets = async (
   const configExtensions = CONFIG_EXTENSION_TARGETS.filter(
     ext => ext !== '.cjs' || isElectron(target)
   )
+  // Resolved once here so every config bundle sees the same feature defines
+  const features = resolveFeatures((resolvedConfig as any).features, {
+    target,
+    mode: dev ? 'development' : 'production',
+  })
   assets.bundle.push(
     ...configExtensions.map(ext => {
       const output = `commoners.config${ext}`
       return configPath
-        ? { input: configPath, output }
+        ? { input: configPath, output, features }
         : { text: ext === '.cjs' ? 'module.exports = {default: {}}' : 'export default {}', output }
     })
   )
@@ -326,7 +345,10 @@ export const getAppAssets = async (
       __HAS_PLUGINS__: String(hasPlugins),
       __IS_DEV__: String(dev),
       __IS_DESKTOP__: String(isDesktop(target)),
+      __IS_TAURI__: String(isTauri(target)),
     },
+    // The Tauri runtime imports @tauri-apps/api, which the app installs (not this package)
+    nodePaths: root ? [join(root, 'node_modules')] : [],
   })
 
   // Bundle environment files compatible with Vite (Desktop Only)
@@ -363,7 +385,10 @@ export const getAppAssets = async (
 
         // Skip HTML files for bundling or copying
         // Handle in the main Vite build process instead
-        if (extname(assetSrc) === '.html') return (pluginAssets[key] = assetSrc)
+        if (extname(assetSrc) === '.html') {
+          pluginAssets[key] = assetSrc
+          return
+        }
 
         const absPath = getAbsolutePath(root, assetSrc)
 
@@ -453,7 +478,7 @@ export const getServiceAssets = (
       __autobuild?: boolean
     }
 
-    const { build, base, filepath, __src, __autobuild, ssl } = resolvedService
+    const { build, base, filepath, __src, __autobuild, ssl, env } = resolvedService
 
     // WASM services: copy pkg/ output into web assets directory (not extraResources)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal __wasm marker not on public type
@@ -512,13 +537,15 @@ export const getServiceAssets = (
             build,
             out,
             root,
+            env,
           },
           name,
           rebuild, // Force rebuild if specified
           hooks
         )
 
-        const toCopy = output === null ? null : (output ?? base ?? filepath)
+        const toCopy =
+          output === null ? null : typeof output === 'string' ? output : (base ?? filepath)
 
         if (!existsSync(toCopy)) {
           logger.debug('Emitting service:build:error', {
@@ -527,14 +554,12 @@ export const getServiceAssets = (
             out,
             missingFile: toCopy,
           })
-          hooks.emit({
-            type: 'service:build:error',
-            service: name,
-            src,
-            out,
-            error: new Error(`Missing build file: ${toCopy}`),
-          })
-          return null // Do not try to copy or bundle the missing file
+          const error = new BuildError(
+            `Service "${name}" failed to build: its output was not found at ${toCopy}`,
+            'The build finished without writing the file the service declares (src, base or the path returned by build).'
+          )
+          hooks.emit({ type: 'service:build:error', service: name, src, out, error })
+          throw error // A missing service would otherwise ship silently
         }
 
         return toCopy
@@ -568,8 +593,9 @@ export const buildAssets = async (
 
   const outputs: AssetOutput[] = []
 
-  const toCompile = assets.bundle.filter(o => o.compile)
-  const toBundle = assets.bundle.filter(o => !o.compile)
+  const hasCompile = (o: AssetInfo) => typeof o === 'object' && 'compile' in o && !!o.compile
+  const toCompile = assets.bundle.filter(o => hasCompile(o))
+  const toBundle = assets.bundle.filter(o => !hasCompile(o))
 
   // Serially resolve services
   for (const info of toCompile) {
@@ -604,6 +630,7 @@ export const buildAssets = async (
       }
 
       const { input, output } = resolveAssetInfo(info, outDir, root)
+      const features = (info as any).features
 
       // Transform an input file in some way
       const inputExt = extname(input)
@@ -636,6 +663,7 @@ export const buildAssets = async (
             node: outputExtension === '.cjs',
             desktop: isDesktopTarget,
             target,
+            features,
           })
         else {
           // Externalize packages that cannot be bundled: Electron runtime,
@@ -654,6 +682,9 @@ export const buildAssets = async (
             logLevel: 'silent',
             outfile: output,
             ...(assetDefines ? { define: assetDefines, minifySyntax: true } : {}),
+            ...(typeof info === 'object' && 'nodePaths' in info && info.nodePaths?.length
+              ? { nodePaths: info.nodePaths }
+              : {}),
           }
 
           // Force a build format if the proper extension is specified
@@ -687,6 +718,7 @@ export const buildAssets = async (
       }
     })
   ).catch(error => {
+    if (error instanceof BuildError) throw error // Already says which asset failed and why
     throw new BuildError(
       'Asset build failed',
       `Failed to build assets: ${error.message}. Stack: ${error.stack}`
@@ -724,7 +756,16 @@ export const buildAssets = async (
 // Browser (.mjs): only plugins are read from the config import (onload.ts).
 // Electron (.cjs): main process reads name, icon, electron, plugins, services, hooks.
 export const BROWSER_CONFIG_KEYS = ['plugins']
-export const ELECTRON_CONFIG_KEYS = ['name', 'icon', 'electron', 'plugins', 'services', 'hooks']
+export const ELECTRON_CONFIG_KEYS = [
+  'name',
+  'icon',
+  'electron',
+  'desktop',
+  'security',
+  'plugins',
+  'services',
+  'hooks',
+]
 
 // Keys to strip from each runtime context.
 // Browser strips: Electron-specific hooks + service internals + build-time only props
@@ -810,10 +851,47 @@ function generateStrippedEntry(configImportPath: string, node: boolean): string 
   ].join('\n')
 }
 
+// A config file holds build-time settings (vite plugins, service builds) next to the plugins
+// the page runs, so it may import Node built-ins. In the page bundle, every built-in that has
+// no browser alias resolves to this side-effect-free stub: unused imports tree-shake away,
+// named imports still link, and calling one in the page throws a clear error.
+const NODE_BUILTIN_STUB_PREFIX = '\0commoners-node-builtin:'
+const BROWSER_ALIASED_BUILTINS = new Set(['path', 'url', 'process'])
+
+const nodeBuiltinStubPlugin = () => ({
+  name: 'commoners-node-builtin-stub',
+  enforce: 'pre' as const,
+  resolveId(id: string) {
+    const bare = id.startsWith('node:') ? id.slice(5) : id
+    if (BROWSER_ALIASED_BUILTINS.has(bare) || !builtinModules.includes(bare)) return null
+    return NODE_BUILTIN_STUB_PREFIX + bare
+  },
+  load(id: string) {
+    if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) return null
+    const specifier = JSON.stringify(`node:${id.slice(NODE_BUILTIN_STUB_PREFIX.length)}`)
+    const code = [
+      `const fail = name => { throw new Error(${specifier} + (name ? ' (' + String(name) + ')' : '') + ' is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.') }`,
+      `const stub = name => new Proxy(function () {}, {`,
+      `  get: (_, key) => (key === 'then' || typeof key === 'symbol' ? undefined : stub(name ? name + '.' + String(key) : key)),`,
+      `  apply: () => fail(name),`,
+      `  construct: () => fail(name),`,
+      `})`,
+      `export const __commonersNodeStub = stub('')`,
+      `export default __commonersNodeStub`,
+    ].join('\n')
+    return { code, syntheticNamedExports: '__commonersNodeStub', moduleSideEffects: false }
+  },
+})
+
 export const bundleConfig = async (
   input,
   outFile,
-  { node = false, desktop = false, target = '' } = {}
+  {
+    node = false,
+    desktop = false,
+    target = '',
+    features = {},
+  }: { node?: boolean; desktop?: boolean; target?: string; features?: FeatureMap } = {}
 ) => {
   const _vite = await vite
 
@@ -886,42 +964,8 @@ export const bundleConfig = async (
         }
       })()
 
-  // Externalize Node built-ins that don't have browser equivalents and aren't
-  // used in config bundles. Keep node:url and node:path aliased above.
-  const nodeExternals = node
-    ? []
-    : [
-        'os',
-        'dgram',
-        'fs',
-        'child_process',
-        'net',
-        'tls',
-        'http',
-        'https',
-        'crypto',
-        'stream',
-        'zlib',
-        'dns',
-        'cluster',
-        'module',
-        'node:os',
-        'node:fs',
-        'node:child_process',
-        'node:net',
-        'node:tls',
-        'node:http',
-        'node:https',
-        'node:crypto',
-        'node:stream',
-        'node:zlib',
-        'node:dns',
-        'node:cluster',
-        'node:module',
-        'node:dgram',
-      ]
-
-  const config = _vite.defineConfig({
+  // Plain InlineConfig: defineConfig() is an identity fn whose UserConfig type lacks configFile
+  const config: InlineConfig = {
     configFile: false, // Block loading any user-defined vite.config.ts file
 
     logLevel,
@@ -930,6 +974,7 @@ export const bundleConfig = async (
 
     plugins: [
       ...plugins,
+      ...(node ? [] : [nodeBuiltinStubPlugin(), purePathCallsPlugin()]),
       // Virtual module plugin to serve the node:url shim
       ...(node
         ? []
@@ -952,6 +997,7 @@ export const bundleConfig = async (
     // Rewrite import.meta.url to the *source* config file so getDirname() etc.
     // resolve paths relative to the project root, not the bundle output directory.
     define: {
+      ...featureDefines(features),
       'import.meta.url': JSON.stringify(pathToFileURL(input).href),
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
@@ -983,6 +1029,10 @@ export const bundleConfig = async (
               .map(([k, v]) => [`process.env.${k}`, JSON.stringify(v ?? '')])
           )
         : {}),
+      // Any other process.env.* reads as undefined in the page instead of throwing: there is no
+      // `process` in a browser or a sandboxed Electron renderer, and a config that reads
+      // process.env at top level would otherwise fail to load there (READY would never resolve)
+      ...(!node ? { 'process.env': '{}' } : {}),
     },
 
     resolve: {
@@ -999,7 +1049,18 @@ export const bundleConfig = async (
       outDir,
 
       rollupOptions: {
-        external: nodeExternals,
+        // Externalize wasm-pack output packages — same rationale as
+        // the loadConfigFromFile path's esbuild external rule. The
+        // Node-target output uses CJS-specific globals (`__dirname`,
+        // sync `fs.readFileSync`) and (per the web target) `fetch()`
+        // calls for the .wasm bytes that don't work when bundled
+        // into the config snapshot. Externalize so Node's runtime
+        // resolver picks the right per-target build via the package's
+        // `exports` conditions.
+        external: (id: string) => {
+          if (/-wasm$/.test(id) || /^wasm-/.test(id)) return true
+          return false
+        },
         plugins: [
           importMetaResolvePlugin(), // Ensure import.meta.url is resolved correctly within each source file
           // Fix inter-chunk imports on Windows: Vite/Rollup may generate absolute
@@ -1023,7 +1084,7 @@ export const bundleConfig = async (
         ],
       },
     },
-  })
+  }
 
   const resolvedConfig = node ? withExternalBuiltins(config) : config
 

@@ -4,17 +4,9 @@ import {
   PyInstallerServiceProperties,
 } from './python.js'
 
-import {
-  createCargoServices,
-  CargoService,
-  CargoServiceProperties,
-} from './rust.js'
+import { createCargoServices, CargoService, CargoServiceProperties } from './rust.js'
 
-import {
-  createWasmCargoServices,
-  WasmCargoService,
-  WasmCargoServiceProperties,
-} from './wasm.js'
+import { createWasmCargoServices, WasmCargoService, WasmCargoServiceProperties } from './wasm.js'
 
 export const python = {
   services: createPyInstallerServices,
@@ -24,12 +16,10 @@ export const python = {
 
 export const rust = {
   services: createCargoServices,
-  service: (service: CargoServiceProperties, out: string) =>
-    new CargoService(service, out),
+  service: (service: CargoServiceProperties, out: string) => new CargoService(service, out),
 }
 
 export const wasm = {
   services: createWasmCargoServices,
-  service: (service: WasmCargoServiceProperties, out: string) =>
-    new WasmCargoService(service, out),
+  service: (service: WasmCargoServiceProperties, out: string) => new WasmCargoService(service, out),
 }

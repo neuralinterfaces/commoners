@@ -20,7 +20,11 @@ export class WebBuildStrategy extends BaseBuildStrategy {
     return (
       target === 'web' ||
       target === 'pwa' ||
-      (!target.includes('electron') && !target.includes('tauri') && !target.includes('ios') && !target.includes('android') && !target.includes('capacitor'))
+      (!target.includes('electron') &&
+        !target.includes('tauri') &&
+        !target.includes('ios') &&
+        !target.includes('android') &&
+        !target.includes('capacitor'))
     )
   }
 
@@ -29,7 +33,7 @@ export class WebBuildStrategy extends BaseBuildStrategy {
     logger.debug('Web build environment prepared')
   }
 
-  async build(context: BuildContext): Promise<void> {
+  async build(_context: BuildContext): Promise<void> {
     // Web builds are handled entirely by Vite in the base flow
     // No additional packaging required
     logger.debug('Web build completed (Vite handles all assets)')

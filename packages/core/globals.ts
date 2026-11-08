@@ -1,10 +1,11 @@
 // Built-In Modules
 import { join, resolve } from 'node:path'
 import { dirname } from 'node:path'
-import { exists, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 
 import { removeDirectory } from './utils/files.js'
+import { isProcessAlive, killRegisteredProcesses } from './assets/utils/process-registry.js'
 import { getFilename } from './utils/paths.js'
 import { SpecificTargetType } from './types.js'
 
@@ -46,7 +47,6 @@ import {
 import { globalWorkspacePath } from './assets/services/paths.js'
 export { globalWorkspacePath }
 
-
 // Dynamic Imports
 export const chalk = import('chalk').then(m => m.default)
 export const vite = import('vite')
@@ -59,18 +59,27 @@ export const PLATFORM = getOS() // Declared Mobile OR Implicit Desktop Patform
 // Ensure __filename is available in ES Modules
 const __filename = getFilename(import.meta.url)
 const require = createRequire(import.meta.url)
-const { version: electronVersion } = require('electron/package.json')
-export { electronVersion }
+// Electron is an optional peer dependency (desktop builds only): undefined when not installed
+export const getElectronVersion = (): string | undefined => {
+  try {
+    return require('electron/package.json').version
+  } catch {
+    return undefined
+  }
+}
 
 export const globalTempDir = join(globalWorkspacePath, '.tmp')
 
 let activeStagingDir: string
+
+// `commoners start --target tauri`, not the node and script paths
+const describeCommand = () => ['commoners', ...process.argv.slice(2)].join(' ')
+
 export const handleTemporaryDirectories = async (
   config,
   overwrite = false,
   options: { cleanupOnExit?: boolean } = {}
 ) => {
-
   const tempDir = config.outDir || resolve(config.root, globalTempDir)
 
   const { cleanupOnExit = true } = options
@@ -81,24 +90,47 @@ export const handleTemporaryDirectories = async (
 
   // NOTE: Ensure that the single temporary directory is not overwritten for different targets
   if (!canOverwrite && hasTempMetadata) {
-      const metadata = JSON.parse(readFileSync(runMetadataFile, 'utf-8'))
-      const { createdAt } = metadata
-      const createdAtDate = new Date(createdAt)
+    const metadata = JSON.parse(readFileSync(runMetadataFile, 'utf-8'))
+    const { createdAt, pid, command } = metadata
+    const createdAtDate = new Date(createdAt)
 
-      // In test environments, clean up stale metadata instead of throwing
-      if (process.env.__COMMONERS_TESTING) {
-        removeDirectory(tempDir)
-      } else {
-        throw new BuildError(
-          `Active development build detected (${createdAtDate.toLocaleString()})`,
-          `Another build is running for this project. Shut it down first or delete: ${resolve(tempDir)}`
-        )
-      }
+    // The owning CLI died without cleaning up (SIGKILL, crash). Locks written before
+    // the pid was recorded have no owner to check and are treated the same way.
+    const isStale = !pid || !isProcessAlive(pid)
+
+    // In test environments, clean up stale metadata instead of throwing
+    if (process.env.__COMMONERS_TESTING) {
+      removeDirectory(tempDir)
+    } else if (isStale) {
+      const killed = killRegisteredProcesses(config.root)
+      console.warn(
+        `[commoners] Reclaimed a stale build lock from ${createdAtDate.toLocaleString()}` +
+          (killed.length ? `; stopped orphaned processes: ${killed.join(', ')}` : '')
+      )
+      removeDirectory(tempDir)
+    } else {
+      const holder = command ? `\`${command}\` (pid ${pid})` : `pid ${pid}`
+      throw new BuildError(
+        `Active development build detected: ${holder}, started ${createdAtDate.toLocaleString()}`,
+        `Only one dev or build run can use ${resolve(tempDir)} at a time. ` +
+          `Stop the running one (Ctrl+C in its terminal, or \`kill ${pid}\`), then run this again.`
+      )
+    }
   }
 
   // Create a temporary metadata file
-  if (!existsSync(dirname(runMetadataFile))) mkdirSync(dirname(runMetadataFile), { recursive: true })
-  writeFileSync(runMetadataFile, JSON.stringify({ createdAt: new Date().toISOString(), tempDir }), 'utf-8')
+  if (!existsSync(dirname(runMetadataFile)))
+    mkdirSync(dirname(runMetadataFile), { recursive: true })
+  writeFileSync(
+    runMetadataFile,
+    JSON.stringify({
+      createdAt: new Date().toISOString(),
+      tempDir,
+      pid: process.pid,
+      command: describeCommand(), // Named in the message if a second run is blocked
+    }),
+    'utf-8'
+  )
 
   let removed = false
 
@@ -157,8 +189,7 @@ export const getSpecificTarget = (target: TargetType) => {
     target = TARGET_IOS_CAPACITOR // ios → ios-capacitor (default iOS backend)
   else if (target === TARGET_ANDROID)
     target = TARGET_ANDROID_CAPACITOR // android → android-capacitor (default Android backend)
-  else if (target === TARGET_DESKTOP)
-    target = TARGET_DESKTOP_ELECTRON // desktop → electron (default desktop backend)
+  else if (target === TARGET_DESKTOP) target = TARGET_DESKTOP_ELECTRON // desktop → electron (default desktop backend)
   return target as SpecificTargetType
 }
 
@@ -170,14 +201,21 @@ export const ensureTargetConsistent = async (target: TargetType, allow = []) => 
   if (isDesktop(target)) return target
   else if (isMobile(target)) {
     // iOS targets (capacitor or tauri) require macOS
-    if ((target === TARGET_IOS_CAPACITOR || target === TARGET_IOS_TAURI) && PLATFORM !== PLATFORM_MAC) {
+    if (
+      (target === TARGET_IOS_CAPACITOR || target === TARGET_IOS_TAURI) &&
+      PLATFORM !== PLATFORM_MAC
+    ) {
       throw new PlatformError(
         `Target '${target}' requires macOS`,
         `iOS builds can only be done on macOS.`
       )
     }
     // Android targets work on all platforms; macOS can build for all
-    if (PLATFORM === PLATFORM_MAC || target === TARGET_ANDROID_CAPACITOR || target === TARGET_ANDROID_TAURI)
+    if (
+      PLATFORM === PLATFORM_MAC ||
+      target === TARGET_ANDROID_CAPACITOR ||
+      target === TARGET_ANDROID_TAURI
+    )
       return target
   }
 

@@ -11,6 +11,14 @@ commoners --target desktop
 commoners build --target desktop
 ```
 
+**Install the desktop toolchain in your project.** Electron builds need `electron` and `electron-builder`; Commoners treats them as optional peer dependencies, so a web-only app never installs a desktop toolchain. Projects created with `create-commoners` already include them.
+
+```bash
+npm install --save-dev electron electron-builder
+```
+
+If they are missing, a desktop build stops and prints this command. Tauri builds use the Tauri CLI and a Rust toolchain instead.
+
 ## Choosing a Runtime: Electron vs Tauri
 
 Commoners supports two desktop runtimes. Use `--target desktop` (defaults to Electron) or specify explicitly:
@@ -33,6 +41,39 @@ commoners --target tauri      # Tauri (system webview + Rust)
 Both runtimes support Commoners' service orchestration — your `commoners.config.ts` works the same regardless of runtime.
 
 > **Note:** With bundled services (Python, Rust, Node), the binary size difference narrows. A Tauri app + PyInstaller service is ~80-150 MB vs Electron + PyInstaller at ~170-250 MB.
+
+### Tauri Configuration
+
+Tauri apps need the Tauri CLI and JavaScript API in the project, plus a Rust toolchain:
+
+```bash
+npm install -D @tauri-apps/cli
+npm install @tauri-apps/api
+```
+
+Tauri-specific options go under `tauri`:
+
+```js
+export default {
+    tauri: {
+        window: { width: 1024, height: 768 },
+        // Inject window.__TAURI__ into pages (Tauri's app.withGlobalTauri). Off by default:
+        // import from @tauri-apps/api instead, e.g. import { invoke } from '@tauri-apps/api/core'
+        withGlobalTauri: false,
+        config: {} // Raw tauri.conf.json overrides, merged last
+    }
+}
+```
+
+### Services Under Tauri
+
+Each local service is bundled as a sidecar binary (JavaScript services are compiled to a single executable first). When the app launches it picks a free port for each sidecar and starts it with:
+
+- the service's declared `env` (an `env` function is called at build time, so any service URLs it reads carry build-time ports);
+- `SSL_KEY_PATH` and `SSL_CERT_PATH` when the service has `ssl` certificates, which are bundled with the app;
+- `PORT` and `HOST`.
+
+`commoners.SERVICES` holds the URLs the app chose at launch once `commoners.READY` resolves, so read service URLs after awaiting it.
 
 ## Mac
 While code-signing, you may recieve a `CSSMER_TP_CERT_REVOKED` error, which will cause a `The application "X" can't be opened` error to appear when attempting to open the app.

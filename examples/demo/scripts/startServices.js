@@ -1,5 +1,7 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- CommonJS script (uses __dirname)
 const { join } = require('node:path')
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- CommonJS script (uses __dirname)
 const { loadConfigFromFile, startServices } = require('@commoners/solidarity')
 
 loadConfigFromFile(join(__dirname, '..')).then(async config => {

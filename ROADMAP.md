@@ -28,9 +28,11 @@ All four release gate items are complete:
 
 ### Medium-term
 
+- **Features and compile-out** -- Shipped: per-target `features` as build-time defines (P1); the manifest and canary gate (P4) — disabled features' canaries must be absent and enabled ones present in the frontend output, results in the build record and SARIF. Open: excluding plugins and services by feature (P2), Tauri `[features]` (P3), default canaries from modules and services. See [features-and-compile-out.md](./docs/roadmap/features-and-compile-out.md).
+
 - **Testing expansion** -- Mobile build output tests, native emulator testing. Protocol E2E and WASM E2E are done. See [testing-and-distribution.md](./docs/roadmap/testing-and-distribution.md).
 - **Tauri remaining work** -- SEA cross-compilation, dev mode testing, Tauri IPC bridge, code signing. See [tauri-future-work.md](./docs/roadmap/tauri-future-work.md).
-- **Showcase page** -- Add a docs page with screenshots and descriptions of production apps built with Commoners (brainsatplay, Universal Brain products). The BCI origin story is a strong differentiator but currently buried in a single paragraph.
+- **Showcase page** -- Add a docs page with screenshots and descriptions of production apps built with Commoners (e.g. brainsatplay). The BCI origin story is a strong differentiator but currently buried in a single paragraph.
 - **Python service friction** -- Document alternatives to conda for PyInstaller (uv, pip, Docker-based builds). Conda is a high barrier for developers unfamiliar with the Python ecosystem.
 
 ### Long-term (demand-driven)

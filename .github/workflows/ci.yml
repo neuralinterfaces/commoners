@@ -191,7 +191,8 @@ jobs:
           CI: true
 
       - name: Fast unit tests
-        run: pnpm test:fast-unit
+        # Linux runners have no display; Electron-launching tests need a virtual one
+        run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}pnpm test:fast-unit
         env:
           CI: true
 

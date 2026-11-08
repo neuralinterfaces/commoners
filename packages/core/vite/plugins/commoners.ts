@@ -1,3 +1,4 @@
+import { resolveFeatures } from '../../utils/features.js'
 import { extname, resolve, dirname, join, relative, sep, posix } from 'node:path'
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -11,7 +12,7 @@ import { ResolvedConfig } from '../../types.js'
 
 import { sanitize } from '../../assets/services/index.js'
 import { getServices } from '../../utils/extensions.js'
-import { getLocalIP } from '../../assets/services/ip.js'
+import { getDevWebsocketURL } from '../../dev-websocket.js'
 
 const virtualModuleId = 'commoners:env'
 const wasmVirtualModuleId = 'commoners:wasm'
@@ -72,6 +73,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId
       if (id === wasmVirtualModuleId) return resolvedWasmVirtualModuleId
+      return null
     },
     load(id) {
       if (id === resolvedVirtualModuleId) {
@@ -107,6 +109,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           '}',
         ].join('\n')
       }
+      return null
     },
 
     handleHotUpdate(ctx) {
@@ -143,7 +146,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
           if (
             changedFile.includes(`/services/${id}/`) ||
             changedFile.includes(`\\services\\${id}\\`) ||
-            (ext.src && changedFile.endsWith(ext.src))
+            // ResolvedExtension has no `src` (it is on ext.service); kept as-is, always undefined
+            ((ext as { src?: string }).src && changedFile.endsWith((ext as { src?: string }).src))
           ) {
             import('./electron/electron.js')
               .then(({ sendCommand }) => {
@@ -161,7 +165,8 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
       const { path: htmlPath } = ctx
       const parent = dirname(htmlPath)
 
-      const resolvedConfig = mergeConfig(config, {})
+      // mergeConfig is typed Record<string, any>; it returns a deep clone of config
+      const resolvedConfig = mergeConfig(config, {}) as ResolvedConfig
       // resolvedConfig.root = parent
 
       // Only use custom outDir if not in development
@@ -210,6 +215,13 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
 
       const globalObject = {
         NAME: resolvedConfig.name,
+        // Read-only map of this build's features (code that must branch at runtime)
+        FEATURES: Object.freeze(
+          resolveFeatures((resolvedConfig as any).features, {
+            target,
+            mode: dev ? 'development' : 'production',
+          })
+        ),
         VERSION: resolvedConfig.version,
         ICON: iconPath,
         SERVICES: services,
@@ -227,7 +239,7 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
         WEB: !desktop && !mobile,
 
         // Production vs Development
-        DEV: dev ? `ws://${getLocalIP()}:${process.env.COMMONERS_WEBSOCKET_PORT}` : false,
+        DEV: dev ? getDevWebsocketURL(config, process.env.COMMONERS_WEBSOCKET_PORT) : false,
         PROD: !dev,
 
         // Environment Variables
@@ -276,10 +288,16 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                 if (services) GLOBAL.SERVICES = services // Replace with sanitized services from Electron if available
                 if (GLOBAL.DESKTOP === true) GLOBAL.DESKTOP = { quit, close, ...args } // Ensure desktop is configured properly at the start
 
-                GLOBAL.READY = new Promise(res => {
+                GLOBAL.READY = new Promise((res, rej) => {
+                    // A configuration or loader that fails to load rejects READY instead of leaving it pending forever
+                    GLOBAL.__READY_FAIL = (error) => {
+                        delete GLOBAL.__READY_FAIL
+                        rej(error)
+                    }
                     GLOBAL.__READY = (value) => {
                         res(value) // Resolve the promise
                         delete GLOBAL.__READY
+                        delete GLOBAL.__READY_FAIL
 
                         if (on) on("commoners:window:ready:main:ping", () => send("commoners:window:ready:main:pong", __id)) // Respond to the main process ping
                         if (send) send("commoners:window:ready:renderer:pong", __id) // Notify the main process that the window is ready
@@ -304,8 +322,12 @@ export default async ({ config, build, dev, env }: CommonersPluginOptions) => {
                 import("${updatedConfigURL}").then(o => {
                     const { plugins } = o.default
                     if (plugins) GLOBAL.__PLUGINS = plugins
-                    import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
+                    return import("${getAssetLinkPath('onload.mjs', assetOutDir, relTo)}")
+                 }).catch(error => {
+                    console.error('[commoners] The app failed to load:', error)
+                    if (GLOBAL.__READY_FAIL) GLOBAL.__READY_FAIL(error)
                  })
+                GLOBAL.READY.catch(() => {}) // Reported above; consumers awaiting READY still see the rejection
 
 
             </script>\n

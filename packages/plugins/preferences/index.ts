@@ -57,7 +57,9 @@ function createIndexedDBBackend(namespace: string) {
       const { store, done } = await tx('readonly')
       return new Promise((resolve, reject) => {
         const request = store.get(key)
-        request.onsuccess = () => { done.then(() => resolve(request.result)) }
+        request.onsuccess = () => {
+          done.then(() => resolve(request.result))
+        }
         request.onerror = () => reject(request.error)
       })
     },
@@ -78,7 +80,9 @@ function createIndexedDBBackend(namespace: string) {
       const { store, done } = await tx('readonly')
       return new Promise((resolve, reject) => {
         const request = store.getAllKeys()
-        request.onsuccess = () => { done.then(() => resolve(request.result as string[])) }
+        request.onsuccess = () => {
+          done.then(() => resolve(request.result as string[]))
+        }
         request.onerror = () => reject(request.error)
       })
     },
@@ -93,7 +97,7 @@ function createIndexedDBBackend(namespace: string) {
 
 // --- Desktop backend: IPC to main process (Electron) ---
 
-function createDesktopBackend(send: Function, invoke: Function) {
+function createDesktopBackend(send: (...args: any[]) => any, invoke: (...args: any[]) => any) {
   return {
     get: <T = unknown>(key: string): Promise<T | undefined> => invoke('get', key),
     set: <T = unknown>(key: string, value: T): Promise<void> => invoke('set', key, value),
@@ -189,12 +193,15 @@ export default function storage(options: StorageOptions = {}) {
     // Electron main process: fs-backed JSON storage
     desktop: {
       start: function () {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy so renderer bundles never load node:fs
         const { readFileSync, writeFileSync, existsSync, mkdirSync } = require('node:fs')
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy
         const { join, dirname } = require('node:path')
 
         // Resolve storage path — use Electron's userData if available
         let storagePath: string
         try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require (falls back to cwd if unavailable)
           const { app } = require('electron')
           storagePath = join(app.getPath('userData'), `${namespace}-storage.json`)
         } catch {
@@ -207,7 +214,9 @@ export default function storage(options: StorageOptions = {}) {
           try {
             const raw = JSON.parse(readFileSync(storagePath, 'utf8'))
             for (const [k, v] of Object.entries(raw)) data.set(k, v)
-          } catch { /* corrupt file, start fresh */ }
+          } catch {
+            /* corrupt file, start fresh */
+          }
         }
 
         function persist() {
@@ -218,10 +227,19 @@ export default function storage(options: StorageOptions = {}) {
 
         // Register IPC handlers
         this.handle('get', (_: any, key: string) => data.get(key))
-        this.handle('set', (_: any, key: string, value: unknown) => { data.set(key, value); persist() })
-        this.handle('remove', (_: any, key: string) => { data.delete(key); persist() })
+        this.handle('set', (_: any, key: string, value: unknown) => {
+          data.set(key, value)
+          persist()
+        })
+        this.handle('remove', (_: any, key: string) => {
+          data.delete(key)
+          persist()
+        })
         this.handle('keys', () => [...data.keys()])
-        this.handle('clear', () => { data.clear(); persist() })
+        this.handle('clear', () => {
+          data.clear()
+          persist()
+        })
       },
     },
   }

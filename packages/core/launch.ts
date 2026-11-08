@@ -90,9 +90,7 @@ export const resolveAppToLaunch = (config: LaunchConfig): string => {
  * @param args - Additional launch arguments (currently unused in new architecture)
  * @returns Launch result with server info (for web) or empty object
  */
-export const launchApp = async (
-  config: LaunchConfig,
-): Promise<any> => {
+export const launchApp = async (config: LaunchConfig): Promise<any> => {
   getLogger().debug('Starting app launch with flow architecture')
 
   try {
@@ -102,7 +100,7 @@ export const launchApp = async (
 
     // Extract launch options
     const { port, public: isPublic } = resolvedConfig
-    
+
     // Delegate to LaunchFlow for orchestration
     const result = await getLaunchFlow().launch(resolvedConfig, {
       hooks,

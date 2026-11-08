@@ -37,7 +37,13 @@ export type BuildEvent =
   | { type: 'build:electron:start' }
   | { type: 'build:electron:complete'; duration?: number }
   | { type: 'build:mobile:start'; mobileTarget: 'ios' | 'android' }
-  | { type: 'build:complete'; config: ResolvedConfig; outDir: string; duration?: number }
+  | {
+      type: 'build:complete'
+      config: ResolvedConfig
+      outDir: string
+      duration?: number
+      dev?: boolean
+    }
   | { type: 'build:error'; error: Error; phase?: string }
 
 export type ServiceEvent =
@@ -48,6 +54,7 @@ export type ServiceEvent =
   | { type: 'service:error'; error: Error; service: string }
   | { type: 'service:exit'; service: string; code: number | null }
   | { type: 'service:restart'; service: string }
+  | { type: 'service:build'; service: string; src: string; out: string; method: 'compile' }
   | { type: 'service:build:start'; service: string; src: string; out: string }
   | { type: 'service:build:end'; service: string; src: string; out: string; duration?: number }
   | { type: 'service:build:error'; service: string; src: string; out: string; error: Error }
@@ -86,15 +93,11 @@ export type DevServerEvent =
 export type LaunchEvent =
   | { type: 'launch:start'; outDir: string; target: string }
   | { type: 'launch:ready'; url?: string; server?: any }
+  | { type: 'launch:complete' }
   | { type: 'launch:error'; error: Error; target?: string }
 
 export type HookEvent =
-  | GenericEvent
-  | BuildEvent
-  | LaunchEvent
-  | ServiceEvent
-  | SecurityEvent
-  | DevServerEvent
+  GenericEvent | BuildEvent | LaunchEvent | ServiceEvent | SecurityEvent | DevServerEvent
 
 // Hook function type
 export type HookFunction = (event: HookEvent) => void | Promise<void>
@@ -247,6 +250,7 @@ export type ResolvedService = {
 
   // For Client
   url: string // What URL to use for service requests
+  port?: PortType // Set by shareServices() to override the port of a single shared service
   status: ServiceStatus
 
   capabilities?: ExtensionCapabilities
@@ -293,7 +297,7 @@ export type CapacitorConfig = {
 
 type DesktopPluginContext = {
   id: string
-  runtime: import('./assets/runtime/types').DesktopRuntime
+  runtime: import('./assets/runtime/types.js').DesktopRuntime
   electron: typeof electron // Legacy — prefer runtime abstraction for Tauri compatibility
   utils: typeof utils // Legacy — prefer runtime abstraction for Tauri compatibility
   createWindow: (page: string, opts: BrowserWindowConstructorOptions) => BrowserWindow
@@ -326,7 +330,16 @@ type DesktopPluginOptions = {
   unload?: (this: DesktopPluginContext, win: BrowserWindow, id: string) => void
 }
 
-type PluginLoadCallback = (this: IpcRenderer, env: CommonersGlobalObject) => LoadedPlugin // General load behavior
+// Renderer-side plugin context: IPC plus port channels, which work in every window on every
+// target. A port sent on a channel reaches whichever windows listen on it (BroadcastChannel).
+export type PluginRendererContext = IpcRenderer & {
+  sendPort: (channel: string, port: MessagePort) => () => void
+  onPort: (channel: string, listener: (port: MessagePort) => void) => () => void
+  // Tauri only: forward each binary frame on the channel to a Rust command (raw invoke body)
+  tapPort: (channel: string, command: string) => () => void
+}
+
+type PluginLoadCallback = (this: PluginRendererContext, env: CommonersGlobalObject) => LoadedPlugin // General load behavior
 
 type OptionalPluginBehaviors = {
   assets?: Record<string, string>
@@ -416,6 +429,16 @@ export type ElectronSecuritySettings = {
   nodeIntegration?: boolean // Disable Node.js integration (default: false)
   asarIntegrity?: boolean | { strict?: boolean } // Enable ASAR integrity checks (default: true)
   csp?: string | false | Record<string, string[]> // Content Security Policy override. String for full CSP, object for per-directive overrides, false to disable.
+  // Protocols that links and window.open may open in the OS (default: https, http, mailto).
+  // Others, such as file: or custom app schemes, are refused because they can launch programs
+  externalProtocols?: string[]
+  // Packaged apps cannot be run as plain Node.js: ELECTRON_RUN_AS_NODE, NODE_OPTIONS and --inspect
+  // arguments are turned off with Electron fuses. Set one to true to keep it enabled
+  fuses?: { runAsNode?: boolean; nodeOptions?: boolean; inspect?: boolean }
+  // IPC is accepted only from the app's own pages (app://local, the dev server, or the app's
+  // files when pages load from file://). List other origins, such as 'https://example.com',
+  // only for remote pages you trust with your plugins' and services' IPC
+  ipcOrigins?: string[]
   /**
    * Expected publisher (substring of cert subject) for service binary verification.
    * When set on a signed build, each executable service is verified against the OS
@@ -434,6 +457,9 @@ export type ElectronOptions = {
   protocol?: string | CustomScheme
   build?: ElectronBuilderConfiguration
   security?: boolean | ElectronSecuritySettings // Whether to use secure builds (default: true)
+  // Where packaged pages load from. 'app' (default) serves them from app://local with response
+  // headers (CSP, and COOP/COEP when security.crossOriginIsolation is on); 'file' loads file://
+  origin?: 'file' | 'app'
   // When true (default), a second launch of the app focuses the existing
   // window instead of starting a new instance. Set to false to allow
   // concurrent instances — useful in dev for hot-reloading scenarios where
@@ -443,6 +469,17 @@ export type ElectronOptions = {
     load?: 'url' | 'file' // Load the Electron pages from a file or URL
   }
   hooks?: HooksInterface
+}
+
+// ------------------- Desktop (backend-neutral) -------------------
+export type { OverlayOptions } from './assets/utils/overlay.js'
+
+export type DesktopOptions = {
+  // Main window as a transparent, frameless overlay above other apps (Electron and Tauri)
+  overlay?: boolean | import('./assets/utils/overlay.js').OverlayOptions
+  // false keeps hidden or occluded windows running at full rate (timers, workers). Needed for
+  // windows that host a data stream that must keep running while hidden
+  backgroundThrottling?: boolean
 }
 
 // ------------------- Tauri -------------------
@@ -460,6 +497,13 @@ export type TauriOptions = {
     decorations?: boolean
   }
   security?: TauriSecuritySettings
+  // User Rust plugin crate(s) exporting init() -> TauriPlugin, registered in the generated app
+  plugin?:
+    | import('./flows/strategies/tauri-user-plugins.js').TauriUserPluginConfig
+    | import('./flows/strategies/tauri-user-plugins.js').TauriUserPluginConfig[]
+  // Inject window.__TAURI__ (tauri.conf.json app.withGlobalTauri). Off by default: import from
+  // @tauri-apps/api instead, as the Commoners runtime does
+  withGlobalTauri?: boolean
   config?: Record<string, any> // Raw tauri.conf.json overrides
 }
 
@@ -495,6 +539,30 @@ export type BaseConfig = {
 
   // Electron Options
   electron: ElectronOptions
+
+  // Backend-neutral desktop options
+  desktop?: DesktopOptions
+
+  // Which features this build includes. Each becomes a compile-time define
+  // (__COMMONERS_FEATURE_<NAME>__) in every bundle, so disabled code is removed, not just skipped
+  features?: Record<string, import('./utils/features.js').FeatureDeclaration>
+
+  // Security policy shared by every target. electron.security.csp / tauri.security.csp
+  // take precedence for their target
+  security?: {
+    csp?: import('./assets/utils/csp.js').CSPOverride
+    headers?: Record<string, string | false> | false // Web/PWA response headers (_headers)
+    // Build-time scan for eval-like code the CSP blocks at runtime: 'warn' (default), 'error', or false
+    noEval?: import('./vite/plugins/no-eval.js').NoEvalMode
+    // COOP/COEP/CORP for SharedArrayBuffer and precise timers (web/PWA, dev server, Tauri). Opt-in:
+    // it blocks cross-origin embeds, fonts and OAuth popups that do not send CORP/CORS headers
+    crossOriginIsolation?: boolean
+    killSwitch?: boolean // Web builds ship a self-unregistering sw.js (default true)
+  }
+
+  // Production builds write an SBOM (CycloneDX) and a manifest of settings and file hashes to
+  // .commoners/records/<target>/ (or outDir). false turns it off
+  buildRecord?: false | { outDir?: string }
 
   // Tauri Options
   tauri?: TauriOptions
@@ -572,7 +640,7 @@ export type ServiceManifestEntry = {
 
 export type ServiceManifest = Record<string, ServiceManifestEntry>
 
-export type ResolvedConfig = Omit<BaseConfig, 'hooks' | 'plugins' | 'services'> & {
+export type ResolvedConfig = Omit<BaseConfig, 'hooks' | 'plugins' | 'services' | 'extensions'> & {
   build?: BuildOptions
   hooks: HooksInterface // Resolved hooks interface
 
@@ -679,8 +747,7 @@ type BaseElectronWindowOptions = Electron.BrowserWindowConstructorOptions & {
   onInitialized?: ElectronWindowCreationCallback
 }
 export type ElectronWindowOptions =
-  | BaseElectronWindowOptions
-  | ((this: typeof Electron | void) => BaseElectronWindowOptions)
+  BaseElectronWindowOptions | ((this: typeof Electron | void) => BaseElectronWindowOptions)
 
 type ElectronTransferableBrowserWindowFlags = {
   __id: number

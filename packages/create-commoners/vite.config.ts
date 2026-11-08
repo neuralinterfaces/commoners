@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 
 const baseConfig = createPackageConfig({
   entryPoint: {
-    index: 'index.ts'
+    index: 'index.ts',
   },
   packageName: 'create-commoners',
   libraryName: 'create-commoners',
@@ -18,7 +18,7 @@ export default defineConfig({
       output: {
         ...baseConfig.build?.rollupOptions?.output,
         banner: '#!/usr/bin/env node',
-      }
-    }
-  }
+      },
+    },
+  },
 })

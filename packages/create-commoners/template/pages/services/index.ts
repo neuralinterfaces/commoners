@@ -18,9 +18,9 @@ if (Object.keys(SERVICES).length === 0) {
     ul.append(li)
 
     await fetch(url)
-      .then((res) => res.text())
-      .then((text) => (response.innerHTML = text))
-      .catch((e) => {
+      .then(res => res.text())
+      .then(text => (response.innerHTML = text))
+      .catch(e => {
         response.innerHTML = e.message
         response.style.color = 'red'
       })

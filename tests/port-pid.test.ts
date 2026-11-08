@@ -78,41 +78,33 @@ describe.skipIf(process.platform === 'win32')('verifyPortOwnership() unit tests'
 })
 
 describe('Port PID verification via start()', () => {
-  test(
-    'no security:warning emitted when PID matches',
-    { timeout: 30_000 },
-    async () => {
-      const [freePort] = await getFreePorts(1)
+  test('no security:warning emitted when PID matches', { timeout: 30_000 }, async () => {
+    const [freePort] = await getFreePorts(1)
 
-      const emitSpy = vi.fn()
-      const hooks = { emit: emitSpy, on: vi.fn() }
+    const emitSpy = vi.fn()
+    const hooks = { emit: emitSpy, on: vi.fn() }
 
-      const config = {
-        __src: scriptPath,
-        filepath: scriptPath,
-        url: `http://127.0.0.1:${freePort}`,
-        __portAutoAllocated: true,
-        status: null,
-      }
-
-      const result = await start(config, 'pid-match-test', {
-        root: tmpDir,
-        hooks,
-      })
-
-      expect(result, 'Service should have started').toBeTruthy()
-
-      // Verify stdout was emitted (service started)
-      const stdoutCalls = emitSpy.mock.calls.filter(
-        ([evt]) => evt.type === 'service:stdout'
-      )
-      expect(stdoutCalls.length).toBeGreaterThan(0)
-
-      // Verify no security warning was emitted
-      const warningCalls = emitSpy.mock.calls.filter(
-        ([evt]) => evt.type === 'security:warning'
-      )
-      expect(warningCalls).toHaveLength(0)
+    const config = {
+      __src: scriptPath,
+      filepath: scriptPath,
+      url: `http://127.0.0.1:${freePort}`,
+      __portAutoAllocated: true,
+      status: null,
     }
-  )
+
+    const result = await start(config, 'pid-match-test', {
+      root: tmpDir,
+      hooks,
+    })
+
+    expect(result, 'Service should have started').toBeTruthy()
+
+    // Verify stdout was emitted (service started)
+    const stdoutCalls = emitSpy.mock.calls.filter(([evt]) => evt.type === 'service:stdout')
+    expect(stdoutCalls.length).toBeGreaterThan(0)
+
+    // Verify no security warning was emitted
+    const warningCalls = emitSpy.mock.calls.filter(([evt]) => evt.type === 'security:warning')
+    expect(warningCalls).toHaveLength(0)
+  })
 })

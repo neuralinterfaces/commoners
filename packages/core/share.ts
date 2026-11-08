@@ -83,7 +83,9 @@ export async function shareServices(
         const servicePort = parseInt(url.port)
         if (!servicePort) continue
         mdns.publish({ id, name: `commoners-${id}`, port: servicePort, url: svc.url, meta })
-      } catch { /* skip invalid URLs */ }
+      } catch {
+        /* skip invalid URLs */
+      }
     }
   }
 

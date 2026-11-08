@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commoners Overlay</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+    .badge {
+      position: fixed; right: 24px; bottom: 24px;
+      padding: 10px 16px; border-radius: 999px;
+      font: 600 14px/1 -apple-system, system-ui, sans-serif;
+      color: #fff; background: rgba(47, 93, 138, 0.85);
+    }
+  </style>
+</head>
+<body>
+  <div class="badge" id="badge">overlay</div>
+  <script type="module">
+    const runtime = globalThis.commoners?.TARGET ?? 'web'
+    document.getElementById('badge').textContent = `overlay · ${runtime}`
+  </script>
+</body>
+</html>

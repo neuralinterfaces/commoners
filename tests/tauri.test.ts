@@ -1,7 +1,12 @@
 import { describe, test, expect } from 'vitest'
 
 // Import from @commoners/solidarity (built dist — no circular dependency)
-import { isDesktop, getSpecificTarget, ensureTargetConsistent } from '@commoners/solidarity'
+import {
+  isDesktop,
+  isMobile,
+  getSpecificTarget,
+  ensureTargetConsistent,
+} from '@commoners/solidarity'
 
 // Import pure template generators directly (no build flow chain dependency)
 import {
@@ -139,8 +144,6 @@ describe('Target Shorthand Resolution', () => {
 // ────────────────────────────────────────────────────────
 
 describe('isMobile with standardized targets', () => {
-  const { isMobile } = require('@commoners/solidarity')
-
   test('recognizes all mobile targets', () => {
     expect(isMobile('mobile')).toBe(true)
     expect(isMobile('ios')).toBe(true)
@@ -205,6 +208,24 @@ describe('Generated tauri.conf.json', () => {
 
   test('CSP is set by default', () => {
     expect(conf.app.security.csp).toContain("default-src 'self'")
+  })
+
+  // Parity with Electron's default (assets/electron/modules/security.ts): without these,
+  // blob/module workers and WASM that run on Electron are blocked on Tauri
+  test('default CSP allows workers, WASM and Tauri IPC like the Electron default', () => {
+    const csp = generateTauriConf({
+      name: 'app',
+      appId: '',
+      version: '1.0.0',
+      icon: null,
+      tauriConfig: {},
+      electronWindow: {},
+      externalBins: [],
+    }).app.security.csp
+    expect(csp).toContain("worker-src 'self' blob:")
+    expect(csp).toContain("'wasm-unsafe-eval'")
+    expect(csp).toContain('connect-src')
+    expect(csp).toContain('ipc:')
   })
 
   test('bundle is active', () => {
@@ -346,6 +367,10 @@ describe('Generated capabilities/default.json', () => {
 describe('Cargo.toml template', () => {
   const toml = generateCargoToml('my-app')
 
+  test('enables tokio signal handling for sidecar cleanup', () => {
+    expect(toml).toContain('tokio = { version = "1", features = ["signal"] }')
+  })
+
   test('contains package name', () => {
     expect(toml).toContain('name = "my-app"')
   })
@@ -410,7 +435,9 @@ describe('main.rs template with sidecars', () => {
 
   test('has ServiceState struct', () => {
     expect(rs).toContain('struct ServiceState')
-    expect(rs).toContain('children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>')
+    expect(rs).toContain(
+      'children: Mutex<HashMap<String, tauri_plugin_shell::process::CommandChild>>'
+    )
     expect(rs).toContain('urls: Mutex<HashMap<String, String>>')
   })
 
@@ -426,9 +453,40 @@ describe('main.rs template with sidecars', () => {
   })
 
   test('spawns sidecar for each service', () => {
-    expect(rs).toContain('("http", "binaries/http")')
-    expect(rs).toContain('("python-api", "binaries/python-api")')
-    expect(rs).toContain('.sidecar(bin_name)')
+    expect(rs).toContain('.sidecar(spec.bin)')
+  })
+
+  // Tauri v2 resolves sidecar(name) to <exe dir>/<name>; passing the externalBin
+  // path ("binaries/http") looks for <exe dir>/binaries/http and fails with NotFound
+  test('passes bare sidecar names, not externalBin paths', () => {
+    expect(rs).toContain('id: "http", bin: "http"')
+    expect(rs).toContain('id: "python-api", bin: "python-api"')
+    expect(rs).not.toContain('"binaries/')
+  })
+
+  test('a sidecar that fails to start does not abort the app', () => {
+    expect(rs).not.toContain('failed to create sidecar')
+    expect(rs).not.toContain('failed to spawn sidecar')
+    expect(rs).toContain('commoners:services:{}:error')
+  })
+
+  // Matches the Electron/Node path (assets/services/index.ts), which always sets both
+  test('passes HOST alongside PORT to each sidecar', () => {
+    expect(rs).toContain('.env("PORT", port.to_string())')
+    expect(rs).toContain('.env("HOST", "localhost")')
+  })
+
+  // Sidecars are separate processes — without this they outlive the app
+  test('kills all sidecars when the app exits', () => {
+    expect(rs).toContain('tauri::RunEvent::Exit')
+    expect(rs).toContain('kill_all_sidecars(app)')
+    expect(rs).not.toContain('.run(tauri::generate_context!())')
+  })
+
+  test('routes SIGTERM and Ctrl-C through a clean exit', () => {
+    expect(rs).toContain('SignalKind::terminate()')
+    expect(rs).toContain('tokio::signal::ctrl_c()')
+    expect(rs).toContain('.exit(0)')
   })
 
   test('assigns free port via TcpListener', () => {
@@ -657,8 +715,13 @@ describe('Dev mode vs build mode differences', () => {
   test('dev conf has devUrl, build conf has frontendDist', () => {
     const devConf = generateDevTauriConf({ name: 'app', devUrl: 'http://localhost:5173' })
     const buildConf = generateTauriConf({
-      name: 'app', appId: '', version: '', icon: null,
-      tauriConfig: {}, electronWindow: null, externalBins: [],
+      name: 'app',
+      appId: '',
+      version: '',
+      icon: null,
+      tauriConfig: {},
+      electronWindow: null,
+      externalBins: [],
     })
     expect(devConf.build.devUrl).toBeDefined()
     expect(devConf.build.frontendDist).toBeUndefined()
@@ -679,5 +742,105 @@ describe('Dev mode vs build mode differences', () => {
     expect(caps.permissions).not.toContain('shell:allow-kill')
     expect(caps.permissions).toContain('core:default')
     expect(caps.permissions).toContain('opener:default')
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// Sidecar environment (service env + SSL)
+// ────────────────────────────────────────────────────────
+
+describe('Sidecar environment', () => {
+  test('declared service env is set on the sidecar, before PORT and HOST', () => {
+    const rs = generateMainRs([{ id: 'api', bin: 'binaries/api', env: { API_MODE: 'fast' } }])
+    expect(rs).toContain('("API_MODE", "fast")')
+    expect(rs.indexOf('for (key, value) in spec.env')).toBeLessThan(rs.indexOf('.env("PORT"'))
+  })
+
+  test('env values are escaped as Rust string literals', () => {
+    const rs = generateMainRs([
+      { id: 'api', bin: 'binaries/api', env: { QUOTED: 'say "hi"\\now\n' } },
+    ])
+    expect(rs).toContain('("QUOTED", "say \\"hi\\"\\\\now\\n")')
+  })
+
+  test('a sidecar with SSL gets certificate paths from the resource dir and an https URL', () => {
+    const rs = generateMainRs([
+      { id: 'api', bin: 'binaries/api', ssl: { key: 'ssl/api/key.pem', cert: 'ssl/api/cert.pem' } },
+    ])
+    expect(rs).toContain('Some(("ssl/api/key.pem", "ssl/api/cert.pem"))')
+    expect(rs).toContain('resource_dir()')
+    expect(rs).toContain('SSL_KEY_PATH')
+    expect(rs).toContain('SSL_CERT_PATH')
+    expect(rs).toContain('"https"')
+  })
+
+  test('SSL resources are bundled and https sidecars are allowed by the CSP', () => {
+    const conf = generateTauriConf({
+      name: 'App',
+      appId: 'org.example.app',
+      version: '1.0.0',
+      icon: [],
+      tauriConfig: {},
+      electronWindow: undefined,
+      externalBins: ['binaries/api'],
+      resources: { 'ssl/api/key.pem': 'ssl/api/key.pem' },
+    } as any)
+    expect(conf.bundle.resources).toEqual({ 'ssl/api/key.pem': 'ssl/api/key.pem' })
+    expect(conf.app.security.csp).toContain('https://localhost:*')
+  })
+})
+
+// ────────────────────────────────────────────────────────
+// withGlobalTauri (window.__TAURI__)
+// ────────────────────────────────────────────────────────
+
+describe('withGlobalTauri', () => {
+  const base = {
+    name: 'App',
+    appId: 'org.example.app',
+    version: '1.0.0',
+    icon: [],
+    electronWindow: undefined,
+    externalBins: [],
+  }
+
+  test('is off by default, so window.__TAURI__ is not injected', () => {
+    expect(generateTauriConf({ ...base, tauriConfig: {} }).app.withGlobalTauri).toBe(false)
+    expect(
+      generateDevTauriConf({ name: 'App', devUrl: 'http://localhost:5173' }).app.withGlobalTauri
+    ).toBe(false)
+  })
+
+  test('tauri.withGlobalTauri turns it on in build and dev', () => {
+    expect(
+      generateTauriConf({ ...base, tauriConfig: { withGlobalTauri: true } }).app.withGlobalTauri
+    ).toBe(true)
+    expect(
+      generateDevTauriConf({
+        name: 'App',
+        devUrl: 'http://localhost:5173',
+        withGlobalTauri: true,
+      } as any).app.withGlobalTauri
+    ).toBe(true)
+  })
+})
+
+describe('Commoners runtime and the Tauri globals', () => {
+  // The runtime must work with withGlobalTauri off: it imports @tauri-apps/api instead
+  test('no runtime file reads window.__TAURI__ or __TAURI_INTERNALS__', async () => {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const dir = join(__dirname, '..', 'packages', 'core', 'assets')
+    const offenders: string[] = []
+    const walk = (d: string) => {
+      for (const f of readdirSync(d)) {
+        const p = join(d, f)
+        if (statSync(p).isDirectory()) walk(p)
+        else if (/\.(ts|js)$/.test(f) && /__TAURI(_INTERNALS)?__/.test(readFileSync(p, 'utf8')))
+          offenders.push(p)
+      }
+    }
+    walk(dir)
+    expect(offenders).toEqual([])
   })
 })

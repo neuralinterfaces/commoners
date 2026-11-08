@@ -73,6 +73,25 @@ conda activate commoners-demo
 pnpm test
 ```
 
+### Checks Before Pushing
+
+Run these in order, one at a time:
+
+```bash
+pnpm exec eslint .                 # 0 errors
+pnpm run typecheck
+pnpm audit --audit-level=high
+pnpm build                         # the full build: a filtered build skips @commoners/testing,
+                                   # and the fast unit suite imports it
+pnpm test:fast-unit
+pnpm exec vitest run tests/features.test.ts tests/config.test.ts tests/build.test.ts tests/start.test.ts
+pnpm exec vitest run tests/desktop-build.test.ts
+pnpm exec vitest run tests/desktop.test.ts
+pnpm exec vitest run tests/desktop-zlaunch.test.ts
+```
+
+The three desktop suites share a debugging port, so never run them at the same time. The packaged-app suites (`desktop-build`, `desktop-zlaunch`) run on macOS and Windows.
+
 ## Commit Conventions
 
 This project uses [lint-staged](https://github.com/lint-staged/lint-staged) with a pre-commit hook that runs ESLint and Prettier on staged files automatically.

@@ -52,8 +52,10 @@ export const desktop = {
       }
     })
 
-    session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => true)
-    session.setDevicePermissionHandler(details => true)
+    session.setPermissionCheckHandler(
+      (_webContents, _permission, _requestingOrigin, _details) => true
+    )
+    session.setDevicePermissionHandler(_details => true)
   },
 }
 
@@ -64,7 +66,7 @@ export function load() {
 
   const { __id } = DESKTOP
 
-  const callbacks: Record<string, Function[]> = {}
+  const callbacks: Record<string, ((...args: any[]) => any)[]> = {}
 
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`

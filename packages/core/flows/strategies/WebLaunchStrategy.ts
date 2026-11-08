@@ -3,7 +3,7 @@
  * Handles launching web apps with Vite dev server
  */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseLaunchStrategy, type LaunchContext } from '../LaunchFlow.js'
@@ -12,8 +12,6 @@ import { BuildError } from '../../errors.js'
 import { LaunchOutput } from '../../types.js'
 
 const logger = createLogger('WebLaunchStrategy')
-
-type ViteServerOptions = import('vite').ServerOptions
 
 /**
  * Web/PWA launch strategy
@@ -27,7 +25,11 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     return (
       target === 'web' ||
       target === 'pwa' ||
-      (!target.includes('electron') && !target.includes('tauri') && !target.includes('ios') && !target.includes('android') && !target.includes('capacitor'))
+      (!target.includes('electron') &&
+        !target.includes('tauri') &&
+        !target.includes('ios') &&
+        !target.includes('android') &&
+        !target.includes('capacitor'))
     )
   }
 
@@ -61,19 +63,37 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     const __vite = await vite
 
     logger.info('Starting Vite preview server', { outDir, port, host })
-    
+
+    // Serve the headers the build declared (_headers), so preview matches hosting. Read per
+    // request: a rebuild into the same directory must never leave a stale CSP in front of new pages
+    const { HEADERS_FILE, parseHeadersFile } = await import('../../vite/plugins/web-security.js')
+    const headersPath = join(outDir, HEADERS_FILE)
+    const declaredHeaders = {
+      name: 'commoners:declared-headers',
+      configurePreviewServer(server) {
+        server.middlewares.use((_req, res, next) => {
+          if (existsSync(headersPath)) {
+            const headers = parseHeadersFile(readFileSync(headersPath, 'utf8'))
+            for (const [key, value] of Object.entries(headers)) res.setHeader(key, value as string)
+          }
+          next()
+        })
+      },
+    }
+
     const previewConfig = {
       port,
       open: !process.env.VITEST,
-      host: isPublic || host ? (host || '0.0.0.0') : undefined,
+      host: isPublic || host ? host || '0.0.0.0' : undefined,
     }
 
     // Create Vite preview server for built artifacts (handles PWA correctly)
     this.server = await __vite.preview({
       build: {
-        outDir
+        outDir,
       },
       preview: previewConfig,
+      plugins: [declaredHeaders],
     })
 
     const resolvedPort = this.server.config.preview.port
@@ -86,7 +106,7 @@ export class WebLaunchStrategy extends BaseLaunchStrategy {
     return { url }
   }
 
-  async cleanup(context: LaunchContext): Promise<void> {
+  async cleanup(_context: LaunchContext): Promise<void> {
     if (this.server) {
       logger.debug('Closing Vite dev server')
       await this.server.close()

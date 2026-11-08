@@ -1,6 +1,5 @@
 // Built-In Modules
 import { basename, extname, join } from 'node:path'
-import { createRequire } from 'node:module'
 
 // Internal Imports
 import {
@@ -26,6 +25,7 @@ import { createLogger } from './assets/utils/logger.js'
 import { Plugin, ResolvedConfig, UserConfig, HooksInterface } from './types.js'
 import { createNoOpHooks } from './ui.js'
 import { createServer } from './vite/index.js'
+import { createDevWebsocketServer } from './dev-websocket.js'
 
 // Internal Utilities
 import { runAppPlugins } from './assets/plugins/index.js'
@@ -63,10 +63,7 @@ const runDevelopmentPlugins = async (config: ResolvedConfig, hooks: HooksInterfa
     return acc
   }, {}) as Record<string, Plugin>
 
-  const require = createRequire(import.meta.url) // Create a require function for dynamic imports
-  const { Server } = require('ws') // Import WebSocket server dynamically to avoid bundling issues
-
-  const wss = new Server({ port: env[wsPortEnvVar] })
+  const wss = createDevWebsocketServer(config, env[wsPortEnvVar]) // Loopback unless public or mobile
   onCleanup(() => wss.close()) // Close the WebSocket server on exit
   wss.on('connection', ws => {
     ws.on('message', message => {
@@ -193,11 +190,12 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
     let closed
 
     const startManager = {
-      close: async function () {
+      // References startManager, not `this`: callers destructure it (const { close } = await start())
+      close: async () => {
         filesystemManager.close()
         if (closed) return
         closed = true
-        const { frontend, services } = this
+        const { frontend, services } = startManager
         await frontend?.close()
         await services?.close()
       },
@@ -215,6 +213,10 @@ export const app = async function (config: UserConfig, options: { hooks?: HooksI
       const assets = await getAppAssets(scopedConfig, true, outDir)
       await buildAssets(assets, { outDir, root, target, dev: true })
       await buildServices(scopedConfig, { dev: true, rebuild: true, hooks })
+      // The dev app has no sidecars, so Node runs the services (at the URLs the page is given).
+      // Started before the frontend so they are up when the window loads
+      if (!isMobile(target))
+        startManager.services = await createAllServices(services, { root, target, hooks })
       // Tauri Vite plugin handles spawning `tauri dev` (or `tauri ios dev` / `tauri android dev`)
       const frontend = (startManager.frontend = await createServer(scopedConfig))
       startManager.url = frontend.resolvedUrls.local[0]

@@ -6,7 +6,15 @@
  */
 
 import { execSync } from 'node:child_process'
-import { copyFileSync, writeFileSync, existsSync, mkdirSync, rmSync, chmodSync, statSync } from 'node:fs'
+import {
+  copyFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  chmodSync,
+  statSync,
+} from 'node:fs'
 import { dirname, basename, join, extname } from 'node:path'
 import { PlatformError } from '../errors.js'
 
@@ -40,7 +48,7 @@ export type SEABuildResult = {
  * @returns Build result with executable path
  */
 export async function createSEA(options: SEABuildOptions): Promise<SEABuildResult> {
-  const { src, out, platform = process.platform, force = false, sign = true } = options
+  const { src, out, platform = process.platform, sign = true } = options
 
   try {
     // Setup paths
@@ -104,7 +112,8 @@ export async function createSEA(options: SEABuildOptions): Promise<SEABuildResul
       size,
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? `${error.message}\nStack: ${error.stack}` : String(error)
+    const errorMessage =
+      error instanceof Error ? `${error.message}\nStack: ${error.stack}` : String(error)
     return {
       success: false,
       executablePath: out,

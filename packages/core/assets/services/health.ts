@@ -1,4 +1,4 @@
-import type { HooksInterface } from '../../types'
+import type { HooksInterface } from '../../types.js'
 
 export type ServiceHealthStatus = 'unknown' | 'healthy' | 'unhealthy' | 'restarting' | 'stopped'
 
@@ -31,7 +31,7 @@ export class ServiceHealthMonitor {
     url: string,
     config: HealthMonitorConfig = {},
     hooks: HooksInterface,
-    onRestart?: () => void,
+    onRestart?: () => void
   ) {
     this.id = id
     this.url = url
@@ -101,7 +101,13 @@ export class ServiceHealthMonitor {
 
     if (this.failureCount >= this.config.retries && this.status !== 'unhealthy') {
       this.status = 'unhealthy'
-      this.hooks.emit({ type: 'service:error', service: this.id, error: new Error(`Service "${this.id}" is unhealthy after ${this.failureCount} failed health checks`) })
+      this.hooks.emit({
+        type: 'service:error',
+        service: this.id,
+        error: new Error(
+          `Service "${this.id}" is unhealthy after ${this.failureCount} failed health checks`
+        ),
+      })
 
       if (this.config.autoRestart && this.onRestart) {
         this.status = 'restarting'

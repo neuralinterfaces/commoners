@@ -2,7 +2,7 @@ import { expect } from 'vitest'
 import { globalTempDir } from '@commoners/solidarity'
 
 import { join } from 'node:path'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 
 export const checkAssets = (projectBase, baseDir = '', { target = 'web' } = {}) => {
   if (!baseDir) {
@@ -37,5 +37,9 @@ export const checkAssets = (projectBase, baseDir = '', { target = 'web' } = {}) 
   const isPWA = target === 'pwa'
   expect(existsSync(join(baseDir, 'manifest.webmanifest'))).toBe(isPWA)
   expect(existsSync(join(baseDir, 'registerSW.js'))).toBe(isPWA)
-  expect(existsSync(join(baseDir, 'sw.js'))).toBe(isPWA)
+  // Web builds ship a self-unregistering kill-switch sw.js (never registered: no registerSW.js),
+  // replacing any worker a previous PWA build installed at this path
+  if (isPWA) expect(existsSync(join(baseDir, 'sw.js'))).toBe(true)
+  else if (existsSync(join(baseDir, 'sw.js')))
+    expect(readFileSync(join(baseDir, 'sw.js'), 'utf8')).toContain('registration.unregister()')
 }

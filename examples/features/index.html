@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Features</title></head>
+<body>
+  <ul id="out"></ul>
+  <script type="module">
+    const out = document.getElementById('out')
+    const line = text => out.insertAdjacentHTML('beforeend', `<li>${text}</li>`)
+
+    // Each branch carries a unique marker so the built output shows what survived
+    if (__COMMONERS_FEATURE_EXPORT__) line('export enabled: canary-export-7f3a')
+    if (__COMMONERS_FEATURE_DIAGNOSTICS__) line('diagnostics enabled: canary-diagnostics-91c2')
+    line('features: ' + JSON.stringify(commoners.FEATURES))
+  </script>
+</body>
+</html>

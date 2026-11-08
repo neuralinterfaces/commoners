@@ -176,7 +176,7 @@ export const open = async (
   // Set remote debugging port env var before spawning Electron
   // This is read by electron.ts startup() and passed as a CLI arg to the Electron process
   if (isElectron) {
-    const testingPlugin = Object.values(config.plugins).find(
+    const testingPlugin = Object.values(updatedConfig.plugins ?? {}).find(
       p => p.options && 'remoteDebuggingPort' in p.options
     )
     if (!testingPlugin)
@@ -186,8 +186,9 @@ export const open = async (
     process.env.COMMONERS_REMOTE_DEBUGGING_PORT = `${testingPlugin.options.remoteDebuggingPort}`
   }
 
-  // Launch build of the project
-  if (useBuild) {
+  // Launch build of the project. Tauri is skipped: tauri-driver launches the app itself,
+  // and a second direct launch is left running with no handle to clean it up
+  if (useBuild && !isTauriTarget) {
     const launchResults = await CommonersLaunch({
       root,
       target,
@@ -735,14 +736,15 @@ export const open = async (
     }
 
     const { connectTauri } = await import('./tauri.js')
-    const { findTauriExecutable } = await import(
-      '../../core/flows/strategies/TauriLaunchStrategy.js'
-    )
+    const { findTauriExecutable } =
+      await import('../../core/flows/strategies/TauriLaunchStrategy.js')
 
-    const appPath = findTauriExecutable(outDir)
+    // Same default as TauriLaunchStrategy.prepare() — config.outDir is usually unset
+    const tauriOutDir = outDir ?? join(root, globalWorkspacePath, target)
+    const appPath = findTauriExecutable(tauriOutDir)
     if (!appPath) {
       throw new Error(
-        `Could not find Tauri executable in ${outDir}. ` +
+        `Could not find Tauri executable in ${tauriOutDir}. ` +
           'Ensure the Tauri build completed successfully.'
       )
     }

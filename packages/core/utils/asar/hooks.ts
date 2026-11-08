@@ -31,9 +31,7 @@ function createHookChainer(hookName: string) {
           if (typeof existing === 'string') {
             // Load and execute the script file
             const scriptPath = existing
-            const { createRequire } = await import('module').then(
-              (mod: any) => mod.default || mod
-            )
+            const { createRequire } = await import('module').then((mod: any) => mod.default || mod)
             const require = createRequire(import.meta.url || __filename)
 
             // Try to require the script
@@ -46,7 +44,9 @@ function createHookChainer(hookName: string) {
               await hookFunction(ctx)
               logger.info(`Executed string-based ${hookName} hook: ${scriptPath}`)
             } else {
-              logger.warn(`String-based ${hookName} hook at "${scriptPath}" did not export a function`)
+              logger.warn(
+                `String-based ${hookName} hook at "${scriptPath}" did not export a function`
+              )
             }
           } else if (typeof existing === 'function') {
             await existing(ctx)

@@ -47,8 +47,10 @@ jobs:
         run: pnpm audit --audit-level=low || true
         continue-on-error: true
 
-      - name: Run security audit (fail on high/critical)
-        run: pnpm audit --audit-level=high
+      # Fails on high or critical advisories in what users install (packages/*); docs,
+      # examples and repository tooling are reported as warnings and tracked, not blocking
+      - name: Run security audit (fail on high/critical in shipped packages)
+        run: node scripts/audit-shipped.mjs
 
       - name: Check for outdated dependencies
         run: pnpm outdated || true

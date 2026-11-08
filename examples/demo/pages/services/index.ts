@@ -1,8 +1,5 @@
 const { SERVICES } = commoners
 
-const keys = Object.keys(SERVICES)
-const values = Object.values(SERVICES)
-
 if (Object.keys(SERVICES).length === 0) document.body.innerHTML = '<p>No services available</p>'
 else {
   const ul = document.querySelector<HTMLUListElement>('ul')!

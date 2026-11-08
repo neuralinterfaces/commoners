@@ -10,6 +10,11 @@ import type { BuildAdapter, AdapterConfig, AdapterBuildResult, AdapterDevServer 
 import { resolveViteConfig } from '../vite/index.js'
 import { ScopedLogger } from '../vite/logger.js'
 import { vite } from '../globals.js'
+import { createRequire } from 'node:module'
+
+// require() for optional and runtime-resolved modules that works in both the ESM and CJS
+// builds (a bare require is undefined in ESM, so these checks would silently fail there)
+const requireOptional = createRequire(import.meta.url)
 
 /**
  * Create the default Vite build adapter
@@ -56,7 +61,8 @@ export function createViteAdapter(): BuildAdapter {
       await server.listen()
 
       const address = server.httpServer?.address()
-      const url = typeof address === 'string' ? address : `http://localhost:${address?.port ?? 5173}`
+      const url =
+        typeof address === 'string' ? address : `http://localhost:${address?.port ?? 5173}`
 
       return {
         url,
@@ -74,14 +80,15 @@ export function createViteAdapter(): BuildAdapter {
       const port = srv.config.preview.port
       return {
         url: `http://localhost:${port}`,
-        close: async () => { srv.httpServer?.close() },
+        close: async () => {
+          srv.httpServer?.close()
+        },
       }
     },
 
     loadEnv(mode: string, root: string, prefix = ''): Record<string, string> {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { loadEnv } = require('vite')
+        const { loadEnv } = requireOptional('vite')
         return loadEnv(mode, root, prefix)
       } catch {
         return {}
@@ -93,8 +100,7 @@ export function createViteAdapter(): BuildAdapter {
       override: Record<string, unknown>
     ): Record<string, unknown> {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { mergeConfig } = require('vite')
+        const { mergeConfig } = requireOptional('vite')
         return mergeConfig(base, override)
       } catch {
         return { ...base, ...override }

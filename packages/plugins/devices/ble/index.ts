@@ -64,7 +64,7 @@ export const desktop = {
     const { session } = webContents
 
     const WIN_STATES: {
-      select?: Function
+      select?: (...args: unknown[]) => unknown
       match?: DeviceInformation
     } = {}
 
@@ -128,7 +128,7 @@ export function load() {
 
   const { __id } = DESKTOP
 
-  const callbacks: Record<string, Function[]> = {}
+  const callbacks: Record<string, ((...args: unknown[]) => unknown)[]> = {}
 
   const runCallbacks = (type, ...args) => {
     const fullId = `${__id}:${type}`

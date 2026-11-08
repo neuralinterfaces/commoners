@@ -3,15 +3,19 @@
  * Generates a src-tauri/ project and invokes `tauri build`
  */
 
-import { join, dirname, isAbsolute, extname } from 'node:path'
+import { join, dirname, isAbsolute, extname, basename } from 'node:path'
 import { existsSync, mkdirSync, writeFileSync, copyFileSync, chmodSync, cpSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { createLogger } from '../../assets/utils/logger.js'
 import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_TAURI, DIR_TAURI } from '../../constants.js'
 import { globalTempDir } from '../../globals.js'
 import { DependencyError, BuildError } from '../../errors.js'
 import { getIcon } from '../../assets/utils/icons.js'
+import { resolveOverlay } from '../../assets/utils/overlay.js'
+import { resolveTauriUserPlugins } from './tauri-user-plugins.js'
+import { getServices } from '../../utils/extensions.js'
 import { createSEA, isSEASupported } from '../../utils/sea.js'
 import {
   generateCargoToml,
@@ -66,11 +70,21 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
 
     // Verify @tauri-apps/cli
     try {
-      execSync('npx tauri --version', { stdio: 'pipe', timeout: 30000 })
+      execSync('npx tauri --version', { stdio: 'pipe', timeout: 30000, cwd: context.config.root }) // Resolve the project's CLI, not the caller's cwd
     } catch {
       throw new DependencyError(
         '@tauri-apps/cli not found',
         'Install the Tauri CLI: npm install -D @tauri-apps/cli'
+      )
+    }
+
+    // The page's Commoners runtime imports @tauri-apps/api (e.g. to read the sidecars' runtime ports)
+    try {
+      createRequire(join(context.config.root, 'package.json')).resolve('@tauri-apps/api/core')
+    } catch {
+      throw new DependencyError(
+        '@tauri-apps/api not found',
+        'Install the Tauri JavaScript API in your project: npm install @tauri-apps/api'
       )
     }
 
@@ -103,10 +117,55 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     logger.info('Tauri build environment prepared', { hostTriple: this.hostTriple })
   }
 
+  /**
+   * The env and SSL settings a sidecar gets at spawn, matching what the Electron runtime passes
+   * to a service process. Values are written into the app at build time: an env function is
+   * called here with the build's resolved services, so any service URLs it reads carry
+   * build-time ports, not the ones the app picks at launch.
+   */
+  private async sidecarRuntimeOptions(
+    id: string,
+    services: Record<string, any>,
+    srcTauriDir: string,
+    resources: Record<string, string>
+  ): Promise<Pick<SidecarEntry, 'env' | 'ssl'>> {
+    const service = services[id] ?? {}
+    const options: Pick<SidecarEntry, 'env' | 'ssl'> = {}
+
+    let env = service.env
+    if (typeof env === 'function') {
+      logger.warn(
+        `Service "${id}": its env function runs at build time under Tauri; service URLs it reads use build-time ports`
+      )
+      env = await env(services)
+    }
+    if (env && typeof env === 'object')
+      options.env = Object.fromEntries(Object.entries(env).map(([k, v]) => [k, String(v)]))
+
+    // Certificates ship as bundle resources (Electron uses extraResources/ssl)
+    const keySource = service.ssl?.__keySource
+    const certSource = service.ssl?.__certSource
+    if (keySource && certSource) {
+      const sslDir = join(srcTauriDir, 'ssl', id)
+      mkdirSync(sslDir, { recursive: true })
+      const key = `ssl/${id}/${basename(keySource)}`
+      const cert = `ssl/${id}/${basename(certSource)}`
+      copyFileSync(keySource, join(srcTauriDir, key))
+      copyFileSync(certSource, join(srcTauriDir, cert))
+      resources[key] = key
+      resources[cert] = cert
+      options.ssl = { key, cert }
+    }
+
+    return options
+  }
+
   async build(context: BuildContext): Promise<void> {
     const { config, outDir, stagingDir } = context
     const { name, appId, version } = config
     const tauriConfig = (config as any).tauri || {}
+    const overlay = resolveOverlay((config as any).desktop?.overlay)
+    const userPlugins = resolveTauriUserPlugins(config.root, tauriConfig.plugin)
 
     logger.info('Starting Tauri packaging', { name, appId })
     context.hooks.emit({ type: 'build:tauri:start' } as any)
@@ -127,7 +186,10 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_-]/g, '-')
 
     // Generate Cargo.toml
-    writeFileSync(join(srcTauriDir, 'Cargo.toml'), generateCargoToml(sanitizedName))
+    writeFileSync(
+      join(srcTauriDir, 'Cargo.toml'),
+      generateCargoToml(sanitizedName, { overlay: !!overlay, userPlugins })
+    )
 
     // Generate build.rs
     writeFileSync(join(srcTauriDir, 'build.rs'), 'fn main() {\n  tauri_build::build()\n}\n')
@@ -139,9 +201,16 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const sidecarEntries: SidecarEntry[] = []
 
     const jsExts = ['.js', '.cjs', '.mjs']
+    const resolvedServices = getServices(config.extensions) as Record<string, any>
+    const resources: Record<string, string> = {}
 
     for (const [id, entry] of Object.entries(serviceManifest)) {
-      if (entry.wasm || !entry.filepath || !existsSync(entry.filepath)) continue
+      if (entry.wasm || !entry.filepath) continue // In-browser or remote: nothing to bundle
+      if (!existsSync(entry.filepath))
+        throw new BuildError(
+          `Service "${id}" has no built binary at ${entry.filepath}`,
+          'The app would ship without this service. Check the service build output above.'
+        )
 
       const ext = process.platform === 'win32' ? '.exe' : ''
       const targetName = `${id}-${this.hostTriple}${ext}`
@@ -179,11 +248,15 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
 
       externalBins.push(`binaries/${id}`)
       serviceIds.push(id)
-      sidecarEntries.push({ id, bin: `binaries/${id}` })
+      sidecarEntries.push({
+        id,
+        bin: `binaries/${id}`,
+        ...(await this.sidecarRuntimeOptions(id, resolvedServices, srcTauriDir, resources)),
+      })
     }
 
     // Generate src/main.rs (with sidecar lifecycle if services exist)
-    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries))
+    writeFileSync(join(srcDir, 'main.rs'), generateMainRs(sidecarEntries, { overlay, userPlugins }))
 
     // Generate icons using `tauri icon` (handles PNG→ICO/ICNS + all required sizes)
     const iconDir = join(srcTauriDir, 'icons')
@@ -223,11 +296,19 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
       tauriConfig,
       electronWindow: config.electron?.window,
       externalBins,
+      overlay,
+      backgroundThrottling: (config as any).desktop?.backgroundThrottling,
+      csp: (config as any).security?.csp,
+      crossOriginIsolation: (config as any).security?.crossOriginIsolation,
+      resources,
     })
     writeFileSync(join(srcTauriDir, 'tauri.conf.json'), JSON.stringify(tauriConf, null, 2))
 
     // Generate capabilities/default.json
-    const capabilities = generateCapabilities(serviceIds)
+    const capabilities = generateCapabilities(
+      serviceIds,
+      userPlugins.flatMap(p => p.permissions)
+    )
     writeFileSync(join(capDir, 'default.json'), JSON.stringify(capabilities, null, 2))
 
     // Invoke tauri build

@@ -44,10 +44,16 @@ function createWebBackend() {
         if (encoding === 'binary') return await file.arrayBuffer()
         return await file.text()
       }
-      throw new Error('File reading requires the File System Access API (Chrome/Edge) or a desktop build')
+      throw new Error(
+        'File reading requires the File System Access API (Chrome/Edge) or a desktop build'
+      )
     },
 
-    async write(path: string, data: string | ArrayBuffer, encoding: FilesystemEncoding = 'utf8'): Promise<void> {
+    async write(
+      path: string,
+      data: string | ArrayBuffer,
+      _encoding: FilesystemEncoding = 'utf8'
+    ): Promise<void> {
       if ('showSaveFilePicker' in window) {
         const handle = await (window as any).showSaveFilePicker({
           suggestedName: path.split('/').pop() || 'file',
@@ -58,7 +64,8 @@ function createWebBackend() {
         return
       }
       // Fallback: trigger download
-      const blob = typeof data === 'string' ? new Blob([data], { type: 'text/plain' }) : new Blob([data])
+      const blob =
+        typeof data === 'string' ? new Blob([data], { type: 'text/plain' }) : new Blob([data])
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -87,10 +94,11 @@ function createWebBackend() {
 
 // --- Desktop backend: IPC to Electron main process ---
 
-function createDesktopBackend(invoke: Function) {
+function createDesktopBackend(invoke: (...args: any[]) => any) {
   return {
     read: (path: string, encoding: FilesystemEncoding = 'utf8') => invoke('read', path, encoding),
-    write: (path: string, data: string | ArrayBuffer, encoding: FilesystemEncoding = 'utf8') => invoke('write', path, data, encoding),
+    write: (path: string, data: string | ArrayBuffer, encoding: FilesystemEncoding = 'utf8') =>
+      invoke('write', path, data, encoding),
     exists: (path: string) => invoke('exists', path),
     remove: (path: string) => invoke('remove', path),
     mkdir: (path: string) => invoke('mkdir', path),
@@ -190,13 +198,24 @@ export default function filesystem(options: FilesystemOptions = {}) {
 
     desktop: {
       start: function () {
-        const { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, readdirSync, statSync } = require('node:fs')
+        const {
+          readFileSync,
+          writeFileSync,
+          existsSync,
+          unlinkSync,
+          mkdirSync,
+          readdirSync,
+          statSync,
+        } = require('node:fs') // eslint-disable-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy so renderer bundles never load node:fs
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy
         const { join, dirname } = require('node:path')
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
         const { app } = require('electron')
 
         const basePath = app.getPath(baseDir)
 
         function resolvePath(path: string): string {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports -- main-process-only code inside desktop.start; kept lazy
           if (require('node:path').isAbsolute(path)) return path
           return join(basePath, path)
         }
@@ -211,14 +230,20 @@ export default function filesystem(options: FilesystemOptions = {}) {
           const resolved = resolvePath(path)
           const dir = dirname(resolved)
           if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-          writeFileSync(resolved, data, encoding === 'binary' ? undefined : (encoding as BufferEncoding))
+          writeFileSync(
+            resolved,
+            data,
+            encoding === 'binary' ? undefined : (encoding as BufferEncoding)
+          )
         })
 
         this.handle('exists', (_: any, path: string) => existsSync(resolvePath(path)))
 
         this.handle('remove', (_: any, path: string) => unlinkSync(resolvePath(path)))
 
-        this.handle('mkdir', (_: any, path: string) => mkdirSync(resolvePath(path), { recursive: true }))
+        this.handle('mkdir', (_: any, path: string) =>
+          mkdirSync(resolvePath(path), { recursive: true })
+        )
 
         this.handle('readDir', (_: any, path: string) => {
           const resolved = resolvePath(path)

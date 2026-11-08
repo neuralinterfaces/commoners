@@ -45,11 +45,7 @@ export interface TauriPageProxy {
 /**
  * Wait for a TCP port to accept connections
  */
-export function waitForPort(
-  port: number,
-  timeout = 30000,
-  host = '127.0.0.1'
-): Promise<void> {
+export function waitForPort(port: number, timeout = 30000, host = '127.0.0.1'): Promise<void> {
   const start = Date.now()
   return new Promise((resolve, reject) => {
     const tryConnect = () => {
@@ -83,7 +79,8 @@ export function waitForPort(
 export function createPageProxy(wdBrowser: any): TauriPageProxy {
   return {
     async evaluate<R>(fn: string | ((...args: any[]) => R), ...args: any[]): Promise<R> {
-      const script = typeof fn === 'function' ? `return (${fn.toString()}).apply(null, arguments)` : fn
+      const script =
+        typeof fn === 'function' ? `return (${fn.toString()}).apply(null, arguments)` : fn
       return wdBrowser.execute(script, ...args) as Promise<R>
     },
 
@@ -101,8 +98,7 @@ export function createPageProxy(wdBrowser: any): TauriPageProxy {
     ): Promise<void> {
       const { timeout = 30000, polling = 200 } = options
       const start = Date.now()
-      const script =
-        typeof fn === 'function' ? `return (${fn.toString()})()` : `return (${fn})()`
+      const script = typeof fn === 'function' ? `return (${fn.toString()})()` : `return (${fn})()`
 
       while (Date.now() - start < timeout) {
         const result = await wdBrowser.execute(script)
@@ -132,9 +128,7 @@ export async function connectTauri(options: TauriConnectOptions): Promise<TauriT
       stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch {
-    throw new Error(
-      'tauri-driver not found. Install it with: cargo install tauri-driver'
-    )
+    throw new Error('tauri-driver not found. Install it with: cargo install tauri-driver')
   }
 
   // Collect stderr for diagnostics

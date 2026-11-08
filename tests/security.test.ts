@@ -1,4 +1,6 @@
 import { describe, test, expect } from 'vitest'
+import { electronCSPDirectives } from '../packages/core/assets/electron/modules/security'
+import { serializeCSP } from '../packages/core/assets/utils/csp'
 import { createHash } from 'node:crypto'
 import {
   decodePath,
@@ -143,7 +145,9 @@ describe('Service Binary Integrity', () => {
   })
 
   test('Mismatching hashes fail integrity check', () => {
-    const tampered = createHash('sha256').update(Buffer.from('tampered-binary-content')).digest('hex')
+    const tampered = createHash('sha256')
+      .update(Buffer.from('tampered-binary-content'))
+      .digest('hex')
     expect(tampered).not.toBe(knownHash)
   })
 
@@ -161,23 +165,9 @@ describe('Service Binary Integrity', () => {
 // 5. CSP Header Generation
 // ────────────────────────────────────────────────────────
 
-// Mirror the buildDefaultCSP function from security.ts (not exported, so replicated here)
-function buildDefaultCSP(devServerUrl?: string, serviceUrls?: string[], scriptHash?: string): string {
-  const connectSources = ["'self'"]
-  if (devServerUrl) connectSources.push(devServerUrl, 'ws:')
-  if (serviceUrls) connectSources.push(...serviceUrls)
-
-  const scriptInline = scriptHash || "'unsafe-inline'"
-
-  return [
-    "default-src 'self'",
-    `script-src 'self' ${scriptInline} 'wasm-unsafe-eval'`,
-    "style-src 'self' 'unsafe-inline'",
-    `connect-src ${connectSources.join(' ')}`,
-    "img-src 'self' data:",
-    "font-src 'self'",
-  ].join('; ')
-}
+// The real Electron policy — tests a copy would not catch changes to the shipped one
+const buildDefaultCSP = (devServerUrl?: string, serviceUrls?: string[], scriptHash?: string) =>
+  serializeCSP(electronCSPDirectives(devServerUrl, serviceUrls, scriptHash))
 
 describe('CSP Header Generation', () => {
   test('Production CSP restricts connect-src to self only', () => {
@@ -210,9 +200,7 @@ describe('CSP Header Generation', () => {
 
   test('CSP does not include bare unsafe-eval in script-src', () => {
     const csp = buildDefaultCSP()
-    const scriptSrc = csp
-      .split(';')
-      .find(d => d.trim().startsWith('script-src'))!
+    const scriptSrc = csp.split(';').find(d => d.trim().startsWith('script-src'))!
     // Should contain wasm-unsafe-eval but NOT standalone unsafe-eval
     expect(scriptSrc).toContain('wasm-unsafe-eval')
     expect(scriptSrc).not.toMatch(/(?<!'wasm-)'unsafe-eval'/)
@@ -338,9 +326,7 @@ describe('IPC Channel Edge Cases', () => {
 
 describe('Port Randomization', () => {
   test('getFreePorts returns valid unique ports in range 1024-65535', async () => {
-    const { getFreePorts } = await import(
-      '../packages/core/assets/services/network'
-    )
+    const { getFreePorts } = await import('../packages/core/assets/services/network')
     const ports = await getFreePorts(5)
     expect(ports).toHaveLength(5)
     const unique = new Set(ports)
@@ -352,9 +338,7 @@ describe('Port Randomization', () => {
   })
 
   test('getFreePorts(1) returns a single-element array', async () => {
-    const { getFreePorts } = await import(
-      '../packages/core/assets/services/network'
-    )
+    const { getFreePorts } = await import('../packages/core/assets/services/network')
     const ports = await getFreePorts(1)
     expect(ports).toHaveLength(1)
     expect(typeof ports[0]).toBe('number')
@@ -367,19 +351,14 @@ describe('Port Randomization', () => {
 
 describe('CSP with Service URLs', () => {
   test('Service URLs are included in connect-src', () => {
-    const csp = buildDefaultCSP(undefined, [
-      'http://localhost:3000',
-      'http://localhost:4000',
-    ])
+    const csp = buildDefaultCSP(undefined, ['http://localhost:3000', 'http://localhost:4000'])
     expect(csp).toContain('http://localhost:3000')
     expect(csp).toContain('http://localhost:4000')
     expect(csp).toContain("connect-src 'self' http://localhost:3000 http://localhost:4000")
   })
 
   test('Service URLs combine with dev server URL', () => {
-    const csp = buildDefaultCSP('http://localhost:5173', [
-      'http://localhost:3000',
-    ])
+    const csp = buildDefaultCSP('http://localhost:5173', ['http://localhost:3000'])
     expect(csp).toContain('http://localhost:5173')
     expect(csp).toContain('ws:')
     expect(csp).toContain('http://localhost:3000')
@@ -503,21 +482,21 @@ describe('IPC Message Schema Validation', () => {
   })
 
   test('Registry completeness: all validators have minArgs <= maxArgs', () => {
-    for (const [channel, validator] of Object.entries(CHANNEL_REGISTRY)) {
+    for (const validator of Object.values(CHANNEL_REGISTRY)) {
       expect(validator.minArgs).toBeLessThanOrEqual(validator.maxArgs)
     }
-    for (const [attr, validator] of Object.entries(SCOPED_CHANNEL_VALIDATORS)) {
+    for (const validator of Object.values(SCOPED_CHANNEL_VALIDATORS)) {
       expect(validator.minArgs).toBeLessThanOrEqual(validator.maxArgs)
     }
   })
 
   test('Registry completeness: argType indices are in range', () => {
-    for (const [channel, validator] of Object.entries(CHANNEL_REGISTRY)) {
+    for (const validator of Object.values(CHANNEL_REGISTRY)) {
       if (validator.argTypes) {
         expect(validator.argTypes.length).toBeLessThanOrEqual(validator.maxArgs)
       }
     }
-    for (const [attr, validator] of Object.entries(SCOPED_CHANNEL_VALIDATORS)) {
+    for (const validator of Object.values(SCOPED_CHANNEL_VALIDATORS)) {
       if (validator.argTypes) {
         expect(validator.argTypes.length).toBeLessThanOrEqual(validator.maxArgs)
       }
@@ -575,7 +554,8 @@ describe('Windows ASAR Dependencies', () => {
 // ────────────────────────────────────────────────────────
 
 describe('CSP with Script Hash', () => {
-  const testHash = "'sha256-" + createHash('sha256').update('test script', 'utf8').digest('base64') + "'"
+  const testHash =
+    "'sha256-" + createHash('sha256').update('test script', 'utf8').digest('base64') + "'"
 
   test('Production CSP with hash: script-src contains hash, no unsafe-inline', () => {
     const csp = buildDefaultCSP(undefined, undefined, testHash)

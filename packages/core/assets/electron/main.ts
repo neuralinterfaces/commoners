@@ -27,6 +27,7 @@ const toFilePath = (urlOrPathname: string): string => {
   return urlOrPathname
 }
 import { resolveHooks } from '../utils/hooks'
+import { applyElectronOverlay } from '../utils/overlay'
 
 // Import all modules
 import * as Config from './modules/config'
@@ -39,6 +40,7 @@ import * as Plugins from './modules/plugins'
 import { Commands } from './modules/commands'
 import { generateIPCAllowlist, validateChannel, serializeAllowlist } from './modules/ipc-allowlist'
 import type { IPCAllowlist } from './modules/ipc-allowlist'
+import { createSenderPolicy } from './modules/ipc-sender'
 
 // Runtime abstraction
 import { createElectronRuntime } from '../runtime/electron'
@@ -60,7 +62,24 @@ const electronConfig = Config.loadConfig()
 const { config, electron: electronOptions, plugins } = electronConfig
 
 const options = Config.parseOptions(electronConfig, isProduction)
-const { protocolOptions, windowOptions, securitySettings } = options
+const { protocolOptions, windowOptions, overlay, securitySettings } = options
+
+// Packaged pages load from app://local (default) instead of file:// (electron.origin: 'file').
+// Never in development: the dev server already gives pages a real origin
+const useAppOrigin = electronOptions.origin !== 'file' && !DEV_SERVER_URL
+const crossOriginIsolation = config.security?.crossOriginIsolation === true
+let appOriginCSP: string | null = null
+
+// IPC is accepted only from app pages: app://local, the dev server, or (when pages load from
+// file://) files inside the app, plus any origins listed in electron.security.ipcOrigins
+IPC.setSenderPolicy(
+  createSenderPolicy({
+    appOrigin: useAppOrigin ? Protocol.APP_ORIGIN : null,
+    devServerUrl: DEV_SERVER_URL,
+    fileRoot: useAppOrigin || DEV_SERVER_URL ? null : ASSET_ROOT_DIR,
+    extraOrigins: securitySettings.ipcOrigins,
+  })
+)
 
 // Generate capabilities-driven IPC allowlist from declared plugins and services
 const pluginIds = Object.keys(plugins)
@@ -143,6 +162,16 @@ Security.runVerification(isProduction, {
     ...platformDependentWindowConfig,
   }
 
+  // Links and window.open leave the app only for allowed protocols (see externalProtocols)
+  const openExternal = (url: string) => {
+    if (Protocol.isAllowedExternal(url, securitySettings.externalProtocols))
+      return runtime.shell.openExternal(url)
+    console.warn(
+      `[commoners] Refused to open ${url}: protocol not in electron.security.externalProtocols`
+    )
+    hooks.emit({ type: 'security:external:blocked', url } as any)
+  }
+
   // ------------------------ Page Loading Helpers ------------------------
   function getPageLocation(pathname: string = 'index.html', alt = false): string | null {
     if (DEV_SERVER_URL) return new URL(pathname, DEV_SERVER_URL).href
@@ -199,18 +228,25 @@ Security.runVerification(isProduction, {
       return ''
     }
 
-    try {
-      new URL(location)
+    // A URL loads as given. A filesystem path, including C:\... and \\server\... on Windows
+    // (which the URL parser accepts as a "c:" or similar URL), goes through the app origin below
+    if (Protocol.isValidUrl(location)) {
       runtime.window.loadURL(win, location + search + hash)
       return location
-    } catch {}
+    }
 
     // file:// URLs accept query strings and fragments — append the captured search/hash
     // from the originating navigate() call so the destination page sees them on
     // window.location. Without this, dev-mode in-window navigation between file://
     // pages loses ?id=... etc.
     const loadFile = (loc: string) =>
-      runtime.window.loadURL(win, pathToFileURL(loc).href + search + hash)
+      runtime.window.loadURL(
+        win,
+        ((useAppOrigin && Protocol.toAppOriginUrl(loc, ASSET_ROOT_DIR)) ||
+          pathToFileURL(loc).href) +
+          search +
+          hash
+      )
 
     const result = await loadFile(location)
       .then(() => location)
@@ -323,7 +359,7 @@ Security.runVerification(isProduction, {
       if (!Protocol.isCommonersUrl(url, DEV_SERVER_URL)) {
         const type = await Protocol.checkLinkType(url)
         if (type === 'download') return win.webContents.downloadURL(url)
-        if (isMainWindow) return runtime.shell.openExternal(url)
+        if (isMainWindow) return openExternal(url)
         else return runtime.window.loadURL(win, url)
       }
 
@@ -339,7 +375,10 @@ Security.runVerification(isProduction, {
       // URL pathname will be like: /path/to/app.asar/pages/windows/index.html
       // We need to extract just: pages/windows/index.html
       const asarIndex = pathname.indexOf('.asar/')
-      if (asarIndex !== -1) {
+      const appOriginPath = Protocol.fromAppOriginUrl(url)
+      if (appOriginPath) {
+        pathname = appOriginPath
+      } else if (asarIndex !== -1) {
         // Extract path after .asar/
         pathname = pathname.slice(asarIndex + 6) // '.asar/'.length = 6
         if (!pathname || pathname === '/') pathname = 'index.html'
@@ -380,7 +419,7 @@ Security.runVerification(isProduction, {
     runtime.ipc.once(Commands.quit.channel, (_, message) => globalThis.COMMONERS_QUIT?.(message))
 
     runtime.window.setWindowOpenHandler(win, ({ url }) => {
-      runtime.shell.openExternal(url)
+      openExternal(url)
       return { action: 'deny' }
     })
 
@@ -439,7 +478,11 @@ Security.runVerification(isProduction, {
   }
 
   async function createMainWindow(): Promise<BrowserWindow | undefined> {
-    return Window.createMainWindow(createWindow, windowOptions, () => runtime.window.getAll())
+    const win = await Window.createMainWindow(createWindow, windowOptions, () =>
+      runtime.window.getAll()
+    )
+    if (win && overlay) applyElectronOverlay(win, overlay, runtime.native.screen)
+    return win
   }
 
   // ------------------------ IPC Handlers ------------------------
@@ -499,8 +542,17 @@ Security.runVerification(isProduction, {
   // ------------------------ Protocol Registration ------------------------
   const hasCustomProtocol = !!protocolOptions.scheme
   if (hasCustomProtocol) {
+    if (useAppOrigin && protocolOptions.scheme === Protocol.APP_SCHEME)
+      throw new Error(
+        `electron.protocol "${Protocol.APP_SCHEME}" is reserved by electron.origin: 'app'`
+      )
     runtime.protocol.registerScheme(protocolOptions)
   }
+  if (useAppOrigin)
+    runtime.protocol.registerScheme({
+      scheme: Protocol.APP_SCHEME,
+      privileges: Protocol.APP_SCHEME_PRIVILEGES,
+    })
 
   if (config.name) runtime.app.setName(config.name)
 
@@ -553,7 +605,10 @@ Security.runVerification(isProduction, {
 
           // Setup Content Security Policy
           Security.setupContentSecurityPolicy(
-            csp => runtime.session.setupCSP(csp),
+            csp => {
+              appOriginCSP = csp
+              runtime.session.setupCSP(csp)
+            },
             securitySettings.csp,
             DEV_SERVER_URL,
             serviceUrls,
@@ -660,6 +715,28 @@ Security.runVerification(isProduction, {
             }
           }
 
+          // App origin: serve the packaged pages and assets with their response headers
+          if (useAppOrigin) {
+            runtime.protocol.handleRequest(Protocol.APP_SCHEME, async req => {
+              const relative = Protocol.fromAppOriginUrl(req.url)
+              const location = relative ? getPageLocation(relative) : null
+              const contained =
+                location &&
+                Protocol.toAppOriginUrl(location, ASSET_ROOT_DIR) !== null &&
+                existsSync(location)
+              if (!contained) return new Response('Not found', { status: 404 })
+
+              const file = await runtime.protocol.fetch(pathToFileURL(location).href)
+              return new Response(file.body, {
+                status: file.status,
+                headers: Protocol.appOriginHeaders(location, {
+                  csp: appOriginCSP,
+                  crossOriginIsolation,
+                }),
+              })
+            })
+          }
+
           // Custom protocol handler
           if (hasCustomProtocol) {
             const { scheme } = protocolOptions
@@ -675,7 +752,8 @@ Security.runVerification(isProduction, {
                 const isAppOrigin = source.startsWith(`${scheme}://`)
                 const isDevOrigin = DEV_SERVER_URL && source.startsWith(DEV_SERVER_URL)
                 const isFileOrigin = source.startsWith('file://')
-                if (!isAppOrigin && !isDevOrigin && !isFileOrigin) {
+                const isServedOrigin = Protocol.isAppOriginUrl(source)
+                if (!isAppOrigin && !isDevOrigin && !isFileOrigin && !isServedOrigin) {
                   hooks.emit({ type: 'security:protocol:blocked', origin: source, url: req.url })
                   return new Response('Forbidden', { status: 403 })
                 }

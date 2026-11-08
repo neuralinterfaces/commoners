@@ -5,6 +5,11 @@
 
 import { createLogger } from '../../assets/utils/logger.js'
 import { detectArchitectureMismatch } from './windows-ffi.js'
+import { createRequire } from 'node:module'
+
+// require() for optional and runtime-resolved modules that works in both the ESM and CJS
+// builds (a bare require is undefined in ESM, so these checks would silently fail there)
+const requireOptional = createRequire(import.meta.url)
 
 const logger = createLogger('asar-integrity')
 
@@ -29,26 +34,34 @@ export function checkDependencies(targetArch?: string): DependencyStatus {
   }
 
   try {
-    require('@electron/fuses')
+    requireOptional('@electron/fuses')
     status.fuses = true
-  } catch {}
+  } catch {
+    // not installed: status.fuses stays false
+  }
 
   try {
-    require('ffi-napi')
-    require('ref-napi')
-    require('ref-struct-napi')
+    requireOptional('ffi-napi')
+    requireOptional('ref-napi')
+    requireOptional('ref-struct-napi')
     status.ffi = true
-  } catch {}
+  } catch {
+    // not installed: status.ffi stays false
+  }
 
   try {
-    require('rcedit')
+    requireOptional('rcedit')
     status.rcedit = true
-  } catch {}
+  } catch {
+    // not installed: status.rcedit stays false
+  }
 
   try {
-    require('plist')
+    requireOptional('plist')
     status.plist = true
-  } catch {}
+  } catch {
+    // not installed: status.plist stays false
+  }
 
   const archWarning = detectArchitectureMismatch(targetArch)
   if (archWarning) {

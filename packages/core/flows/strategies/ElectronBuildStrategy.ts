@@ -9,7 +9,8 @@ import { BaseBuildStrategy, type BuildContext } from '../BuildFlow.js'
 import { TARGET_DESKTOP_ELECTRON, DIR_ELECTRON } from '../../constants.js'
 import { parseOptions } from '../../assets/electron/modules/config.js'
 
-import { globalTempDir, getBuildConfig, templateDir, electronVersion } from '../../globals.js'
+import { globalTempDir, getBuildConfig, templateDir, getElectronVersion } from '../../globals.js'
+import { importOptional } from '../../utils/optional.js'
 import { configureForDesktop } from '../../index.js'
 import merge from '../../utils/merge.js'
 import { lstatSync } from '../../utils/lstat.js'
@@ -98,7 +99,11 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     )
 
     // Package the app
-    const { build } = await import('electron-builder')
+    const { build } = await importOptional<typeof import('electron-builder')>(
+      'electron-builder',
+      'Desktop (Electron) builds',
+      ['electron', 'electron-builder']
+    )
     await build(electronBuilderConfig)
 
     logger.debug('Emitting build:electron:complete', { name, outDir })
@@ -186,8 +191,17 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
     // Configure ASAR integrity
     await this.configureAsarIntegrity(buildConfig, config)
 
+    // Turn off Node.js entry points into the packaged app, signed or not
+    await this.configureNodeEntryFuses(buildConfig, config)
+
     // Set Electron version
     if (!('electronVersion' in buildConfig)) {
+      const electronVersion = getElectronVersion()
+      if (!electronVersion)
+        await importOptional('electron', 'Desktop (Electron) builds', [
+          'electron',
+          'electron-builder',
+        ])
       buildConfig.electronVersion = electronVersion
     }
 
@@ -331,6 +345,18 @@ export class ElectronBuildStrategy extends BaseBuildStrategy {
       electronTemplateDir,
       buildConfig.mac.entitlementsInherit
     )
+  }
+
+  private async configureNodeEntryFuses(
+    buildConfig: WritableElectronBuilderConfig,
+    config: any
+  ): Promise<void> {
+    const { securitySettings } = parseOptions(config, true)
+    const keep = (securitySettings as any).fuses ?? {}
+    const { makeAfterPackHardenFuses, chainAfterPack } =
+      await import('../../utils/asar/security.js')
+    const harden = makeAfterPackHardenFuses(keep, { resetAdHocSignature: !this.willSign(config) })
+    buildConfig.afterPack = chainAfterPack(buildConfig.afterPack as any, harden) as any
   }
 
   private willSign(config: any): boolean {

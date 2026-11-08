@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, cpSync } from 'node:fs'
-import { dirname, relative, sep } from 'node:path'
+import { basename, dirname, relative, sep } from 'node:path'
 
 import { safeJoin } from '../assets/utils/paths'
 import { lstatSync } from './lstat'

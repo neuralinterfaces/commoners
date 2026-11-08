@@ -120,9 +120,9 @@ describe('createPageProxy', () => {
     }
 
     const page = createPageProxy(mockBrowser)
-    await expect(
-      page.waitForFunction(() => false, { timeout: 100, polling: 20 })
-    ).rejects.toThrow('timed out')
+    await expect(page.waitForFunction(() => false, { timeout: 100, polling: 20 })).rejects.toThrow(
+      'timed out'
+    )
   })
 })
 

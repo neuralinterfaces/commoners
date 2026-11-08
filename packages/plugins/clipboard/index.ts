@@ -36,21 +36,21 @@ function createWebBackend() {
           const imageType = item.types.find(t => t.startsWith('image/'))
           if (imageType) return await item.getType(imageType)
         }
-      } catch { /* clipboard read may be denied */ }
+      } catch {
+        /* clipboard read may be denied */
+      }
       return null
     },
 
     async writeImage(blob: Blob): Promise<void> {
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
-      ])
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
     },
   }
 }
 
 // --- Desktop backend: IPC to Electron main process ---
 
-function createDesktopBackend(invoke: Function) {
+function createDesktopBackend(invoke: (...args: any[]) => any) {
   return {
     readText: () => invoke('readText'),
     writeText: (text: string) => invoke('writeText', text),
@@ -121,6 +121,7 @@ export default function clipboard() {
 
     desktop: {
       start: function () {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main-process runtime require
         const { clipboard, nativeImage } = require('electron')
 
         this.handle('readText', () => clipboard.readText())

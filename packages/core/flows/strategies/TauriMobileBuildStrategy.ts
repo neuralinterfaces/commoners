@@ -58,7 +58,7 @@ export class TauriMobileBuildStrategy extends BaseBuildStrategy {
 
     // Verify @tauri-apps/cli
     try {
-      execSync('npx tauri --version', { stdio: 'pipe', timeout: 30000 })
+      execSync('npx tauri --version', { stdio: 'pipe', timeout: 30000, cwd: context.config.root }) // Resolve the project's CLI, not the caller's cwd
     } catch {
       throw new DependencyError(
         '@tauri-apps/cli not found',
@@ -190,7 +190,9 @@ pub fn run() {
       })
     } catch {
       if (isHeadless) {
-        logger.info(`Tauri ${this.mobileTarget} project synced (headless). Use native tooling to compile.`)
+        logger.info(
+          `Tauri ${this.mobileTarget} project synced (headless). Use native tooling to compile.`
+        )
       } else {
         throw new BuildError(
           `Tauri ${this.mobileTarget} build failed`,

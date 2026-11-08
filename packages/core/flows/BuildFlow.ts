@@ -3,7 +3,9 @@
  * Implements the Template Method pattern for build operations
  */
 
-import { join, resolve, isAbsolute } from 'node:path'
+import { join, resolve, isAbsolute, dirname } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { createLogger } from '../assets/utils/logger.js'
 import type {
   UserConfig,
@@ -12,7 +14,7 @@ import type {
   ResolvedConfig,
   ServiceRebuildOption,
 } from '../types.js'
-import { resolveConfig, resolveHooks } from '../index.js'
+import { resolveConfig, resolveHooks, resolveConfigPath } from '../index.js'
 import { getAppAssets, getServiceAssets, buildAssets, getServicesToBuild } from '../utils/assets.js'
 import { removeDirectory } from '../utils/files.js'
 import {
@@ -23,6 +25,15 @@ import {
 } from '../globals.js'
 import { getBuildAdapter } from '../adapters/index.js'
 import { globalServiceWorkspacePath } from '../assets/services/paths.js'
+import * as BuildRecord from '../utils/build-record.js'
+import { resolveFeatures } from '../utils/features.js'
+import { getServices } from '../utils/extensions.js'
+import { resetEncodedPaths } from '../utils/encode.js'
+
+const ownRequire = createRequire(import.meta.url)
+const commonersPackagePath = ownRequire.resolve('../package.json')
+const commonersPackage = ownRequire('../package.json')
+const commonersVersion: string = commonersPackage.version
 
 const resolveOutDir = (context: BuildContext): string => context.stagingDir || context.outDir
 
@@ -202,15 +213,37 @@ export class BuildFlow {
    */
   private async executeBuildFlow(context: BuildContext, strategy: BuildStrategy): Promise<void> {
     const { dev } = context
+    const recording = !dev && context.config.buildRecord !== false
 
     // Step 1: Prepare build environment
     await strategy.prepare(context)
 
     // Step 2: Build frontend assets
+    BuildRecord.resetInventory(resolve(context.root))
+    // Build salt for output names: the config source and the Commoners version (see encode.ts)
+    const configPath = resolveConfigPath(resolve(context.root))
+    const configSource =
+      configPath && existsSync(configPath) ? readFileSync(configPath, 'utf8') : ''
+    resetEncodedPaths(BuildRecord.sha256(`${commonersVersion}\0${configSource}`))
+    BuildRecord.resetEvalFindings(resolve(context.root))
     await this.buildFrontendAssets(context)
 
     // Step 3: Build app-specific assets
     await this.buildAppAssets(context)
+    const frontendFiles = recording ? BuildRecord.hashTree(resolveOutDir(context)) : []
+
+    // Feature canaries: checked on the frontend output before packaging (Tauri compresses what it
+    // embeds, so this is the only point where the scan can see it)
+    const featureCheck = dev ? null : this.checkFeatures(context)
+    if (featureCheck?.violations.length) {
+      if (recording) this.writeScanOnly(context, featureCheck)
+      const lines = featureCheck.violations.map(v =>
+        v.kind === 'absence'
+          ? `  ${v.feature} is disabled but its canary "${v.canary}" is in ${v.file}`
+          : `  ${v.feature} is enabled but its canary "${v.canary}" is not in the build output`
+      )
+      throw new Error(`Feature check failed:\n${lines.join('\n')}`)
+    }
 
     // Step 4: Build services (if applicable)
     if (context.rebuildServices) await this.buildServices(context)
@@ -230,6 +263,207 @@ export class BuildFlow {
 
     // Step 7: Finalize build
     await strategy.finalize(context)
+
+    // Step 8: Build record (SBOM + manifest) for production builds
+    if (recording) this.writeBuildRecord(context, frontendFiles, featureCheck)
+  }
+
+  private checkFeatures(context: BuildContext): BuildRecord.FeatureCheck {
+    const declared = (context.config as any).features
+    const features = resolveFeatures(declared, { target: context.target, mode: 'production' })
+    return BuildRecord.checkFeatureCanaries(
+      resolveOutDir(context),
+      features,
+      BuildRecord.featureCanaries(declared)
+    )
+  }
+
+  private scanFindings(
+    root: string,
+    check: BuildRecord.FeatureCheck | null
+  ): BuildRecord.ScanFinding[] {
+    const featureFindings = (check?.violations ?? []).map(v => ({
+      ruleId: `feature-${v.kind}`,
+      level: 'error' as const,
+      message:
+        v.kind === 'absence'
+          ? `Feature "${v.feature}" is disabled but its canary "${v.canary}" is present`
+          : `Feature "${v.feature}" is enabled but its canary "${v.canary}" is missing`,
+      ...(v.file ? { file: v.file } : {}),
+    }))
+    return [...featureFindings, ...BuildRecord.getEvalFindings(root)]
+  }
+
+  private recordDir(context: BuildContext): string {
+    const root = resolve(context.root)
+    const options = typeof context.config.buildRecord === 'object' ? context.config.buildRecord : {}
+    return options.outDir
+      ? resolve(root, options.outDir)
+      : join(root, globalWorkspacePath, 'records', context.target)
+  }
+
+  private writeScanOnly(context: BuildContext, check: BuildRecord.FeatureCheck): void {
+    const root = resolve(context.root)
+    const sarif = BuildRecord.createSARIF(
+      { name: '@commoners/solidarity', version: commonersVersion },
+      this.scanFindings(root, check)
+    )
+    BuildRecord.writeRecord(this.recordDir(context), null, null, sarif)
+  }
+
+  /**
+   * Write the SBOM and manifest describing what this build contains (see utils/build-record.ts)
+   */
+  private writeBuildRecord(
+    context: BuildContext,
+    frontendFiles: BuildRecord.FileHash[],
+    featureCheck: BuildRecord.FeatureCheck | null
+  ): void {
+    const { config, target, outDir } = context
+    const root = resolve(context.root)
+    const recordDir = this.recordDir(context)
+
+    const components: BuildRecord.Component[] = [...BuildRecord.getInventory(root)]
+    const notCovered: string[] = []
+
+    // Desktop runtime
+    const isTauri = target === 'tauri'
+    if (isTauri) {
+      const lockfile = join(dirname(context.stagingDir), 'src-tauri', 'Cargo.lock')
+      const crates = BuildRecord.cargoLockComponents(lockfile)
+      if (crates.length) components.push(...crates)
+      else notCovered.push('Tauri runtime crates (no Cargo.lock found)')
+    } else if (isDesktop(target)) {
+      // The app's own electron if it pins one, else the one Commoners packages with
+      const electron =
+        BuildRecord.installedPackage(root, 'electron') ??
+        BuildRecord.installedPackage(dirname(commonersPackagePath), 'electron')
+      if (electron) components.push({ ...electron, type: 'framework' })
+      else notCovered.push('Electron runtime version')
+    }
+
+    // Services: built files with hashes, plus their dependencies where a lockfile pins them
+    const services = Object.entries(getServices(config.extensions) ?? {}).map(
+      ([id, service]: [string, any]) => {
+        const builtDir = join(root, globalServiceWorkspacePath, id)
+        const files = BuildRecord.hashTree(builtDir)
+        const srcDir = typeof service?.src === 'string' ? dirname(resolve(root, service.src)) : null
+
+        if (srcDir) {
+          components.push(...BuildRecord.cargoLockComponents(join(srcDir, 'Cargo.lock')))
+          const python = BuildRecord.pythonRequirements(join(srcDir, 'requirements.txt'))
+          components.push(...python.components)
+          if (python.unresolved.length)
+            notCovered.push(`${id}: unpinned Python requirements (${python.unresolved.join(', ')})`)
+          if (/\.(c|cc|cpp)$/.test(service.src)) notCovered.push(`${id}: C/C++ dependencies`)
+          if (/\.[cm]?[jt]s$/.test(service.src) && !existsSync(join(srcDir, 'package-lock.json')))
+            notCovered.push(
+              `${id}: JavaScript dependencies bundled into the service are not itemized`
+            )
+        }
+
+        if (files.length)
+          components.push({
+            type: 'application',
+            name: id,
+            version: config.version ?? '0.0.0',
+            hashes: files,
+          })
+
+        return {
+          id,
+          location: files.length ? 'bundled' : service?.url ? 'remote' : 'not-packaged',
+          ...(service?.url && !files.length ? { url: service.url } : {}),
+          files,
+        }
+      }
+    )
+
+    const frontendPaths = new Set(frontendFiles.map(f => f.path))
+    const installers = isTauri ? [] : BuildRecord.hashInstallers(outDir, frontendPaths)
+
+    const timestamp = BuildRecord.buildTimestamp()
+    let projectAuthor: unknown
+    try {
+      projectAuthor = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).author
+    } catch {
+      // No package.json: the app has no declared supplier
+    }
+    const supplier = BuildRecord.supplierOf(projectAuthor)
+    const app = {
+      name: config.name ?? 'commoners-app',
+      version: config.version ?? '0.0.0',
+      ...(supplier ? { supplier } : {}),
+    }
+    components.push({
+      type: 'framework',
+      name: '@commoners/solidarity',
+      supplier: BuildRecord.supplierOf(commonersPackage.author),
+      version: commonersVersion,
+      purl: BuildRecord.npmPurl('@commoners/solidarity', commonersVersion),
+    })
+
+    // NTIA minimum elements the inventory could not fill are listed, not invented
+    if (!supplier) notCovered.push('App supplier / SBOM author: set "author" in package.json')
+    const withoutSupplier = components.filter(c => c.type !== 'application' && !c.supplier)
+    if (withoutSupplier.length)
+      notCovered.push(
+        `${withoutSupplier.length} component(s) declare no supplier (package author): ${withoutSupplier
+          .slice(0, 10)
+          .map(c => c.name)
+          .join(', ')}${withoutSupplier.length > 10 ? ', …' : ''}`
+      )
+
+    const sbom = BuildRecord.createSBOM(app, components, {
+      tool: { name: '@commoners/solidarity', version: commonersVersion },
+      timestamp,
+    })
+
+    const security = (config as any).security ?? {}
+    const manifest = {
+      manifestVersion: 1,
+      app: { ...app, ...(config.appId ? { appId: config.appId } : {}) },
+      build: {
+        target,
+        mode: 'production',
+        commoners: commonersVersion,
+        node: process.version,
+        host: `${process.platform}-${process.arch}`,
+        timestamp,
+        source: BuildRecord.sourceState(root),
+      },
+      features: resolveFeatures((config as any).features, { target, mode: 'production' }),
+      featureChecks: featureCheck
+        ? {
+            absence: featureCheck.absence,
+            presence: featureCheck.presence,
+            unchecked: featureCheck.unchecked,
+          }
+        : null,
+      security: {
+        csp: security.csp === undefined ? 'default' : security.csp,
+        noEval: security.noEval ?? 'warn',
+        crossOriginIsolation: security.crossOriginIsolation === true,
+        killSwitch: security.killSwitch !== false,
+        ...(isDesktop(target) && !isTauri
+          ? {
+              electronOrigin: (config as any).electron?.origin ?? 'app',
+              electron: (config as any).electron?.security ?? true,
+            }
+          : {}),
+      },
+      frontend: { files: frontendFiles },
+      services,
+      installers,
+      notCovered,
+    }
+
+    const sarif = BuildRecord.createSARIF(
+      { name: '@commoners/solidarity', version: commonersVersion },
+      this.scanFindings(root, featureCheck)
+    )
+    const written = BuildRecord.writeRecord(recordDir, sbom, manifest, sarif)
+    this.logger.info('Build record written', written)
   }
 
   /**

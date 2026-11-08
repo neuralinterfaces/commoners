@@ -28,6 +28,7 @@ import { ConfigurationError, ValidationError } from './errors.js'
 
 // Security utilities
 import { validatePath } from './utils/security.js'
+import { defaultAppId } from './utils/app-id.js'
 
 // Logging
 import { createLogger } from './assets/utils/logger.js'
@@ -63,6 +64,8 @@ export {
 export type { BuildAdapter, ServiceBundler, AdapterConfig } from './adapters/types.js'
 export { launchApp as launch, launchServices, resolveAppToLaunch } from './launch.js'
 export { buildApp as build, buildServices } from './build.js'
+export { verifyHeaders, compareHeaders } from './utils/verify-headers.js'
+export { attachTestResults, parseJUnit } from './utils/build-record.js'
 export { shareServices } from './share.js'
 export { app as start, services as startServices } from './start.js'
 export { packageFile } from './utils/assets.js'
@@ -277,6 +280,7 @@ export async function resolveConfig(
   // Merge Config and package.json (transformed name)
   const {
     hooks, // Do not copy
+    features, // Not cloneable (may hold functions); carried by reference
     electron = {},
     ...rest
   } = temp
@@ -295,6 +299,7 @@ export async function resolveConfig(
   }) as Partial<ResolvedConfig>
 
   o.hooks = await resolveHooks(hooks, hooksOverride) // Default hooks
+  if (features) (o as any).features = features
 
   if (o.outDir && !isAbsolute(o.outDir))
     o.outDir = validatePath(o.outDir, o.root, 'output directory') // Ensure outDir is absolute
@@ -319,7 +324,7 @@ export async function resolveConfig(
 
   if (!o.version) o.version = '0.0.0'
 
-  if (!o.appId) o.appId = `com.${o.name.replace(/\s/g, '').toLowerCase()}.app`
+  if (!o.appId) o.appId = defaultAppId(o.name)
 
   // Always have a build options object
   if (!o.build) o.build = {}
@@ -426,7 +431,7 @@ export async function resolveConfig(
       capabilities: svc.capabilities,
     }
   }
-  o.serviceManifest = serviceManifest
+  Object.assign(o, { serviceManifest }) // Typed as UserConfig until returned as ResolvedConfig
 
   Object.defineProperty(o, '__resolved', { value: true, writable: false }) // Resolution flag
   return o as ResolvedConfig

@@ -27,7 +27,11 @@ export type DiscoveredService = {
 export type MDNSHandle = {
   publish: (service: PublishedService) => void
   unpublishAll: () => void
-  browse: (type: string, onUp: (svc: DiscoveredService) => void, onDown: (svc: DiscoveredService) => void) => void
+  browse: (
+    type: string,
+    onUp: (svc: DiscoveredService) => void,
+    onDown: (svc: DiscoveredService) => void
+  ) => void
   destroy: () => void
 }
 
@@ -65,11 +69,15 @@ export async function createMDNS(): Promise<MDNSHandle | null> {
         bonjour.unpublishAll()
       },
 
-      browse(type: string, onUp: (svc: DiscoveredService) => void, onDown: (svc: DiscoveredService) => void) {
-        const browser = bonjour.find({ type }, (service) => {
+      browse(
+        type: string,
+        onUp: (svc: DiscoveredService) => void,
+        onDown: (svc: DiscoveredService) => void
+      ) {
+        const browser = bonjour.find({ type }, service => {
           onUp(sanitizeDiscovered(service))
         })
-        browser.on('down', (service) => {
+        browser.on('down', service => {
           onDown(sanitizeDiscovered(service))
         })
         browser.start()
