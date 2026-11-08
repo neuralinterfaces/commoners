@@ -2,11 +2,13 @@ import { describe, test, expect, vi } from 'vitest'
 
 // The generated Tauri app picks each sidecar's port at launch and reports it through the
 // commoners_get_services command. The page must expose those URLs, not the build-time ones.
-const invoke = vi.fn(async (command: string) => {
-  if (command === 'commoners_get_services')
-    return { api: { url: 'http://localhost:62877', status: true } }
-  throw new Error(`unexpected command ${command}`)
-})
+const { invoke } = vi.hoisted(() => ({
+  invoke: vi.fn(async (command: string) => {
+    if (command === 'commoners_get_services')
+      return { api: { url: 'http://localhost:62877', status: true } }
+    throw new Error(`unexpected command ${command}`)
+  }),
+}))
 vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 
 describe('Tauri runtime service URLs', () => {

@@ -57,6 +57,7 @@
     "@commoners/testing": "workspace:*",
     "@commoners/windows": "workspace:*",
     "@eslint/js": "^9.39.5",
+    "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/cli": "^2.12.2",
     "@typescript-eslint/eslint-plugin": "^8.71.1",
     "@typescript-eslint/parser": "^8.71.1",
