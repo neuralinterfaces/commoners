@@ -23,6 +23,7 @@ const steps = [
   ['Typecheck', 'pnpm', ['typecheck']],
   ...(skipTests ? [] : [['Full test suite', 'pnpm', ['exec', 'vitest', 'run']]]),
   ['Audit shipped packages', process.execPath, [join(root, 'scripts', 'audit-shipped.mjs')]],
+  ['Licences of shipped packages', process.execPath, [join(root, 'scripts', 'license-shipped.mjs')]],
 ]
 
 const results = []

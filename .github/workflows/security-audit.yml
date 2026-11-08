@@ -43,26 +43,43 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Informational: the full report, including docs, examples and tooling. Never fails by
+      # design (`|| true`); the shipped-package gate is the next step
       - name: Run security audit (informational)
         run: pnpm audit --audit-level=low || true
-        continue-on-error: true
 
       # Fails on high or critical advisories in what users install (packages/*); docs,
       # examples and repository tooling are reported as warnings and tracked, not blocking
       - name: Run security audit (fail on high/critical in shipped packages)
         run: node scripts/audit-shipped.mjs
 
+      # Informational: a list of newer versions, not a finding. Never fails by design
       - name: Check for outdated dependencies
         run: pnpm outdated || true
-        continue-on-error: true
 
-      - name: Install and run Cargo audit
+      # Warn-only by policy: every Rust crate in this repository is example code under
+      # examples/, which no user installs, so its findings warn (dev/docs dependencies warn,
+      # shipped dependencies fail). Make this blocking if a published package ever ships Rust.
+      # Crates without a committed Cargo.lock get one generated so they are audited at all.
+      - name: Install and run Cargo audit (examples only, warn)
         if: hashFiles('**/Cargo.toml') != ''
+        continue-on-error: true
         run: |
-          cargo install cargo-audit --quiet
-          cargo audit
-        continue-on-error: true
+          cargo install cargo-audit --locked --quiet
+          status=0
+          for manifest in $(git ls-files '*Cargo.toml'); do
+            dir=$(dirname "$manifest")
+            [ -f "$dir/Cargo.lock" ] || cargo generate-lockfile --manifest-path "$manifest"
+            echo "::group::cargo audit $dir"
+            if ! cargo audit --file "$dir/Cargo.lock"; then
+              echo "::warning::cargo audit reported advisories in $dir (example code, not shipped)"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status
 
-      - name: Check for copyleft licenses
-        run: npx license-checker --production --failOn 'GPL-2.0;GPL-3.0;AGPL-3.0'
-        continue-on-error: true
+      # Fails when a production dependency of a published package is licensed only under
+      # GPL-2.0, GPL-3.0 or AGPL-3.0
+      - name: Check for copyleft licenses (shipped packages)
+        run: node scripts/license-shipped.mjs

@@ -73,7 +73,6 @@ jobs:
 
       - name: Mobile workflow tests
         run: pnpm test:mobile-workflow
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -85,41 +84,35 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: E2E start tests (Linux)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:start
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os != 'ubuntu-latest'
         name: E2E start tests
         run: pnpm test:start
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os == 'ubuntu-latest'
         name: E2E build tests (Linux)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:build
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os != 'ubuntu-latest'
         name: E2E build tests
         run: pnpm test:build
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os == 'ubuntu-latest'
         name: Desktop tests (Linux)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:desktop
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os != 'ubuntu-latest'
         name: Desktop tests
         run: pnpm test:desktop
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
