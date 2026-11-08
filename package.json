@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "build": "pnpm -r run build",
+    "ci:local": "node scripts/ci-local.mjs",
+    "audit:shipped": "node scripts/audit-shipped.mjs",
     "test": "vitest",
     "test:config": "vitest run tests/config.test.ts",
     "test:start": "vitest run tests/start.test.ts",
@@ -95,6 +97,8 @@
       "@isaacs/brace-expansion@>=5.0.0 <5.0.1": ">=5.0.1",
       "qs@>=6.7.0 <=6.14.1": ">=6.14.2",
       "serialize-javascript@<=7.0.2": ">=7.0.3",
+      "undici@>=4.0.0 <6.29.1": ">=6.29.1 <7",
+      "undici@>=7.0.0 <7.30.1": ">=7.30.1 <8",
       "lodash@>=4.0.0 <=4.17.22": ">=4.17.23",
       "js-yaml@>=4.0.0 <4.1.1": ">=4.1.1",
       "mdast-util-to-hast@>=13.0.0 <13.2.1": ">=13.2.1",
