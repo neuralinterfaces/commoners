@@ -156,11 +156,13 @@ async function buildService(
     out,
     src,
     root,
+    env,
   }: {
     src: string
     out: string
     build: ResolvedService['build']
     root: ResolvedConfig['root']
+    env?: ResolvedService['env']
   },
   name,
   force = false,
@@ -227,7 +229,10 @@ async function buildService(
       }
 
       // Terminal Command
-      await spawnProcess(build, [], { cwd: root, label: name }, hooks)
+      // The declared service env is available to its build command too. An env function
+      // depends on other services' runtime URLs, so only a plain object applies here.
+      const buildEnv = env && typeof env === 'object' ? env : {}
+      await spawnProcess(build, [], { cwd: root, label: name, env: buildEnv }, hooks)
       const endTime = performance.now()
       logger.debug('Emitting service:build:end', {
         service: name,
@@ -463,7 +468,7 @@ export const getServiceAssets = (
       __autobuild?: boolean
     }
 
-    const { build, base, filepath, __src, __autobuild, ssl } = resolvedService
+    const { build, base, filepath, __src, __autobuild, ssl, env } = resolvedService
 
     // WASM services: copy pkg/ output into web assets directory (not extraResources)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal __wasm marker not on public type
@@ -522,6 +527,7 @@ export const getServiceAssets = (
             build,
             out,
             root,
+            env,
           },
           name,
           rebuild, // Force rebuild if specified

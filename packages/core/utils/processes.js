@@ -21,6 +21,45 @@ process.on('uncaughtException', e => {
 
 process.on('beforeExit', kill)
 
+// Variables a build toolchain needs to find the user's home, temp dir, locale and installed
+// toolchains (e.g. cargo via rustup). Commands only inherit this allowlist from the parent
+// environment, plus whatever the caller passes in `env`: tokens and other secrets that happen to
+// be exported in the developer's shell are not handed to every build script.
+export const BASE_ENV_KEYS = [
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'TERM',
+  'CARGO_HOME',
+  'RUSTUP_HOME',
+  'RUSTUP_TOOLCHAIN',
+  // Windows: processes cannot start, or cannot find the user's profile, without these
+  'SYSTEMROOT',
+  'SystemRoot',
+  'WINDIR',
+  'COMSPEC',
+  'ComSpec',
+  'PATHEXT',
+  'USERPROFILE',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'HOMEDRIVE',
+  'HOMEPATH',
+]
+
+export const getBaseEnv = (source = process.env) =>
+  BASE_ENV_KEYS.reduce((acc, key) => {
+    if (source[key] !== undefined) acc[key] = source[key]
+    return acc
+  }, {})
+
 export const runCommand = async (string, options, hooks = createNoOpHooks()) => {
   const splitCommand = string.split(' ')
   const [command, ...args] = splitCommand
@@ -43,6 +82,7 @@ export const spawnProcess = (
     const proc = spawn(command, args, {
       shell: true,
       env: {
+        ...getBaseEnv(),
         ...env,
         PATH: `${process.env.PATH}:${customPath}`,
       },
