@@ -232,7 +232,12 @@ async function buildService(
       // The declared service env is available to its build command too. An env function
       // depends on other services' runtime URLs, so only a plain object applies here.
       const buildEnv = env && typeof env === 'object' ? env : {}
-      await spawnProcess(build, [], { cwd: root, label: name, env: buildEnv }, hooks)
+      const code = await spawnProcess(build, [], { cwd: root, label: name, env: buildEnv }, hooks)
+      if (code !== 0)
+        throw new BuildError(
+          `Service "${name}" failed to build: the build command exited with code ${code instanceof Error ? code.message : code}`,
+          `Command: ${build}\nRun it in ${root} to see the full output.`
+        )
       const endTime = performance.now()
       logger.debug('Emitting service:build:end', {
         service: name,
@@ -544,14 +549,12 @@ export const getServiceAssets = (
             out,
             missingFile: toCopy,
           })
-          hooks.emit({
-            type: 'service:build:error',
-            service: name,
-            src,
-            out,
-            error: new Error(`Missing build file: ${toCopy}`),
-          })
-          return null // Do not try to copy or bundle the missing file
+          const error = new BuildError(
+            `Service "${name}" failed to build: its output was not found at ${toCopy}`,
+            'The build finished without writing the file the service declares (src, base or the path returned by build).'
+          )
+          hooks.emit({ type: 'service:build:error', service: name, src, out, error })
+          throw error // A missing service would otherwise ship silently
         }
 
         return toCopy
@@ -707,6 +710,7 @@ export const buildAssets = async (
       }
     })
   ).catch(error => {
+    if (error instanceof BuildError) throw error // Already says which asset failed and why
     throw new BuildError(
       'Asset build failed',
       `Failed to build assets: ${error.message}. Stack: ${error.stack}`

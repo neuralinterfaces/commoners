@@ -148,7 +148,12 @@ export class TauriBuildStrategy extends BaseBuildStrategy {
     const jsExts = ['.js', '.cjs', '.mjs']
 
     for (const [id, entry] of Object.entries(serviceManifest)) {
-      if (entry.wasm || !entry.filepath || !existsSync(entry.filepath)) continue
+      if (entry.wasm || !entry.filepath) continue // In-browser or remote: nothing to bundle
+      if (!existsSync(entry.filepath))
+        throw new BuildError(
+          `Service "${id}" has no built binary at ${entry.filepath}`,
+          'The app would ship without this service. Check the service build output above.'
+        )
 
       const ext = process.platform === 'win32' ? '.exe' : ''
       const targetName = `${id}-${this.hostTriple}${ext}`
