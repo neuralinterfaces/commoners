@@ -37,6 +37,7 @@ import { withExternalBuiltins } from '../vite/plugins/electron/inbuilt.js'
 import { getAllIcons } from '../assets/utils/icons.js'
 
 import { importMetaResolvePlugin, nativeNodeModulesPlugin } from './esbuild/plugins.js'
+import { purePathCallsPlugin } from './pure-path-calls.js'
 import { getEnvFilesForMode, tryStatSync } from '../assets/services/env/utils.js'
 
 const logger = createLogger('assets')
@@ -973,7 +974,7 @@ export const bundleConfig = async (
 
     plugins: [
       ...plugins,
-      ...(node ? [] : [nodeBuiltinStubPlugin()]),
+      ...(node ? [] : [nodeBuiltinStubPlugin(), purePathCallsPlugin()]),
       // Virtual module plugin to serve the node:url shim
       ...(node
         ? []

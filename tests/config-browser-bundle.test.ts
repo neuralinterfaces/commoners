@@ -64,6 +64,52 @@ describe('Browser config bundle', () => {
     expect(config.vite).toBeUndefined()
   })
 
+  test('top-level path code used only by build settings stays out of the page bundle', async () => {
+    const { code } = await bundleForBrowser(
+      `import { dirname, join } from 'node:path'
+       import { fileURLToPath } from 'node:url'
+       const here = dirname(fileURLToPath(import.meta.url))
+       const modelPath = join(here, 'model-for-build-only.json')
+       export default {
+         vite: { plugins: [{ name: 'model', configureServer() { return modelPath } }] },
+         plugins: { greet: { load() { return 'hello' } } },
+       }`,
+      'top-level-path'
+    )
+    expect(code).not.toContain('model-for-build-only.json')
+    expect(code).not.toContain(dir) // The developer's absolute project path
+  })
+
+  test('namespace path imports in a TypeScript config are dropped too', async () => {
+    const input = write(
+      'ts-namespace.config.ts',
+      `import * as path from 'node:path'
+       import url from 'node:url'
+       const root: string = path.dirname(url.fileURLToPath(import.meta.url))
+       const model: string = path.join(root, 'ts-build-only.json')
+       export default {
+         vite: { plugins: [{ name: 'model', configureServer: () => model }] },
+         plugins: { greet: { load: (): string => 'hello' } },
+       }`
+    )
+    const outFile = join(dir, 'ts-namespace.out.mjs')
+    await bundleConfig(input, outFile, { target: 'web' })
+    const code = readFileSync(outFile, 'utf8')
+    expect(code).not.toContain('ts-build-only.json')
+    expect(code).not.toContain(dir)
+  })
+
+  test('a path call the page plugin uses still runs in the page', async () => {
+    const { outFile } = await bundleForBrowser(
+      `import { join } from 'node:path'
+       const base = join('assets', 'icons')
+       export default { plugins: { icons: { load() { return join(base, 'a.png') } } } }`,
+      'used-path'
+    )
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.icons.load()).toBe('assets/icons/a.png')
+  })
+
   test('a plugin that calls node-only code in the page fails with a clear message', async () => {
     const { outFile } = await bundleForBrowser(
       `import { readFileSync } from 'node:fs/promises'
