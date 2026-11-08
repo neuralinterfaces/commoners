@@ -61,23 +61,12 @@ jobs:
       - name: Install and build dependencies
         run: corepack enable pnpm && pnpm install && pnpm build
 
-      - name: Config and env tests
-        run: pnpm test:config && pnpm test:env
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fast unit tests (security, ASAR, protocol, ports, config-stripping, etc.)
-        run: pnpm test:fast-unit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # Config, env, fast unit and service compilation tests are gated by ci.yml on every
+      # OS and Node version, with its own setup; they are not repeated here. This workflow
+      # runs only the suites ci.yml does not: mobile workflow and the E2E start, build and
+      # desktop tests. Every step here blocks.
       - name: Mobile workflow tests
         run: pnpm test:mobile-workflow
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Service compilation tests
-        run: pnpm test:services
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

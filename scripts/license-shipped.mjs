@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Copyleft licence check for what ships.
 //
 // Fails when a production dependency of a published package (packages/*, not private) is
@@ -9,6 +8,9 @@
 // Usage: node scripts/license-shipped.mjs              (runs `pnpm licenses list --prod --json`
 //                                                       in each published package)
 //        node scripts/license-shipped.mjs report.json  (reads a saved `pnpm licenses` report)
+//
+// No `#!` line: the tests import this file, and on a Windows (CRLF) checkout a `#!` line
+// makes that import a SyntaxError. Run it with `node`.
 
 import { execFileSync } from 'node:child_process'
 import console from 'node:console'
