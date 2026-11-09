@@ -205,9 +205,42 @@ addPackage(
   'k-dyn',
   `import { readFileSync } from 'node:fs'\nexport const kind = typeof readFileSync\n`
 )
+// A package with no side effects that tree-shaking removes from the page
+write(
+  'node_modules/shaken-fs/package.json',
+  JSON.stringify({ name: 'shaken-fs', type: 'module', main: 'index.js', sideEffects: false })
+)
+write('node_modules/shaken-fs/index.js', packageSource(''))
+// A package the page reaches only through a dynamic import()
+addPackage('dyn-only', packageSource(CALL_AT_LOAD))
+// A package installed under another name (a pnpm alias), and one imported by a subpath
+addPackage('real-fs', packageSource(CALL_AT_LOAD), {
+  at: 'node_modules/.pnpm/real-fs@1.0.0/node_modules/real-fs',
+})
+symlinkSync(
+  join(dir, 'node_modules/.pnpm/real-fs@1.0.0/node_modules/real-fs'),
+  join(dir, 'node_modules/my-alias'),
+  'dir'
+)
+write(
+  'node_modules/subp/package.json',
+  JSON.stringify({
+    name: 'subp',
+    type: 'module',
+    exports: { '.': './index.js', './node': './node.js' },
+  })
+)
+write('node_modules/subp/index.js', `export const marker = '${MARKER}'\n`)
+write('node_modules/subp/node.js', packageSource(CALL_AT_LOAD))
 // Project files, including a subfolder with its own named package.json
 write('local/calls-at-load.js', packageSource(CALL_AT_LOAD))
 write('local/reads-at-build.js', packageSource(SIDE_EFFECT))
+write(
+  'local/own-error.js',
+  `const own = n => new Error("node:fs" + (n ? " (" + String(n) + ")" : "") + " is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.")
+export const messages = [own('readFileSync').message, own('').message]
+`
+)
 write('sub/package.json', JSON.stringify({ name: 'my-sub', type: 'module' }))
 write('sub/index.js', packageSource(CALL_AT_LOAD))
 
@@ -262,6 +295,22 @@ import fs from 'node:fs'
 import { packageFs } from 'keeps-fs'
 export default { plugins: { same: { load() { return fs === packageFs } } } }`
 
+  // The config's own string, equal to the stub's default message, next to a "node:" string
+  const USER_LITERAL_CONFIG = `
+import { marker } from 'reads-at-build'
+const spec = "node:fs"
+const msg = " is not available in the page. Keep Node-only code in build settings, not in plugins the page runs."
+export default { plugins: { own: { load() { return [spec, msg, marker] } } } }`
+  const SHAKEN_CONFIG = `
+import { readFileSync } from 'node:fs'
+import { readSize } from 'shaken-fs'
+export default {
+  vite: { plugins: [{ name: 'size', configResolved() { console.log(readSize('package.json')) } }] },
+  plugins: { bad: { load() { return readFileSync('/x') } } },
+}`
+  const DYNAMIC_ONLY_CONFIG = `
+export default { plugins: { later: { async start() { return (await import('dyn-only')).marker } } } }`
+
   const cases: [string, string][] = [
     ['a package used only in a vite hook', configUsing('reads-at-build')],
     ['a package used by a page plugin', configUsing('reads-at-build', { pageUse: true })],
@@ -270,6 +319,11 @@ export default { plugins: { same: { load() { return fs === packageFs } } } }`
     ['a package reached through another', configUsing('e-outer')],
     ['the config and a dynamically imported package', DYNAMIC_CONFIG],
     ['the config and a package keeping the same built-in', IDENTITY_CONFIG],
+    ['a string in the config equal to the default message', USER_LITERAL_CONFIG],
+    ['a package tree-shaken away', SHAKEN_CONFIG],
+    ['a package reached only through a dynamic import', DYNAMIC_ONLY_CONFIG],
+    ['a package installed under another name', configUsing('my-alias')],
+    ['a package imported by a subpath', configUsing('subp/node')],
   ]
 
   test.each(cases)('%s: same files and code as without package names', async (label, source) => {
@@ -387,6 +441,92 @@ export default { plugins: { same: { load() { return fs === packageFs } } } }`
     expect(() => config.plugins.bad.load()).toThrow(
       /"reads-at-build" package, which commoners\.config imports, or by the config itself\./
     )
+  })
+
+  test('a string in the config equal to the default message is left as written', async () => {
+    const { outFile, files } = await bundleInto(USER_LITERAL_CONFIG, 'user-literal')
+    expect(Object.values(files).join('\n')).toContain('code from the \\"reads-at-build\\" package')
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.own.load()).toEqual([
+      'node:fs',
+      ' is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.',
+      MARKER,
+    ])
+  })
+
+  test('a copy of the stub error expression in the config leaves both messages as written', async () => {
+    const { outFile } = await bundleInto(
+      `import { marker } from 'calls-at-load'
+       const own = n => new Error("node:fs" + (n ? " (" + String(n) + ")" : "") + " is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.")
+       export default { plugins: { own: { load() { return [own('readFileSync').message, own('').message, marker] } } } }`,
+      'user-expression'
+    )
+    expect(await loadFailure(outFile)).toBe(PROJECT_MESSAGE)
+  })
+
+  test('a copy of the stub error expression in a chunk without the stub is left as written', async () => {
+    const { outFile, files } = await bundleInto(
+      `import { marker } from 'reads-at-build'
+       export default { plugins: { own: {
+         load() { return marker },
+         async start() { return (await import('./local/own-error.js')).messages },
+       } } }`,
+      'user-expression-chunk'
+    )
+    expect(Object.keys(files).length).toBeGreaterThan(1)
+    expect(Object.values(files).join('\n')).toContain('code from the \\"reads-at-build\\" package')
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(await config.plugins.own.start()).toEqual([
+      PROJECT_MESSAGE,
+      PROJECT_MESSAGE.replace(' (readFileSync)', ''),
+    ])
+  })
+
+  test('a package that tree-shaking removed from the page is not named', async () => {
+    const { outFile, files } = await bundleInto(SHAKEN_CONFIG, 'shaken')
+    expect(Object.values(files).join('\n')).not.toContain(MARKER) // The package is gone
+    const config = (await import(pathToFileURL(outFile).href)).default
+    let message = ''
+    try {
+      config.plugins.bad.load()
+    } catch (error) {
+      message = (error as Error).message
+    }
+    expect(message).toBe(PROJECT_MESSAGE)
+  })
+
+  test('a package reached only through a dynamic import in a page plugin is named', async () => {
+    const { outFile } = await bundleInto(DYNAMIC_ONLY_CONFIG, 'dynamic-only')
+    const config = (await import(pathToFileURL(outFile).href)).default
+    const failure = await config.plugins.later.start().then(
+      () => null,
+      (error: Error) => error.message
+    )
+    expect(failure).toMatch(/^node:fs \(readFileSync\) is not available in the page\./)
+    for (const text of named('dyn-only')) expect(failure).toContain(text)
+  })
+
+  test.each([
+    [
+      'installed under another name, by the name the config imports',
+      'my-alias',
+      'my-alias',
+      'my-alias',
+      'real-fs',
+    ],
+    [
+      'imported by a subpath, with that subpath in the fix',
+      'subp/node',
+      'subp',
+      'subp/node',
+      "await import('subp')",
+    ],
+  ])('a package %s', async (_, from, pkg, specifier, wrong) => {
+    const { outFile } = await bundleInto(configUsing(from), `spec-${pkg.replace(/\W+/g, '-')}`)
+    const failure = await loadFailure(outFile)
+    expect(failure).toContain(`"${pkg}" package, which commoners.config imports`)
+    expect(failure).toContain(`await import('${specifier}')`)
+    expect(failure).not.toContain(wrong)
   })
 
   test('a project opened through a symlinked folder names no package', async () => {

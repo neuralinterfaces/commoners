@@ -865,14 +865,17 @@ const BROWSER_ALIASED_BUILTINS = new Set(['path', 'url', 'process'])
 const PROJECT_CODE_HINT = 'Keep Node-only code in build settings, not in plugins the page runs.'
 const PROJECT_CODE_MESSAGE = ` is not available in the page. ${PROJECT_CODE_HINT}`
 
-const packagesHint = (packages: string[], alsoProject: boolean) => {
+type ImportedPackage = { name: string; specifier: string }
+
+const packagesHint = (packages: ImportedPackage[], alsoProject: boolean) => {
   const [first] = packages
   const who =
     packages.length === 1
-      ? `the "${first}" package`
-      : `one of these packages: ${packages.map(name => `"${name}"`).join(', ')}`
-  const what = packages.length === 1 ? `"${first}"` : 'that package'
-  const lazy = packages.length === 1 ? `await import('${first}')` : `await import('<package>')`
+      ? `the "${first.name}" package`
+      : `one of these packages: ${packages.map(({ name }) => `"${name}"`).join(', ')}`
+  const what = packages.length === 1 ? `"${first.name}"` : 'that package'
+  const lazy =
+    packages.length === 1 ? `await import('${first.specifier}')` : `await import('<package>')`
   return (
     `It was called by code from ${who}, which commoners.config imports` +
     (alsoProject ? ', or by the config itself' : '') +
@@ -911,79 +914,177 @@ const moduleOwner = (projectRoot: string) => {
   }
 }
 
+type ModuleInfo = {
+  importers: readonly string[]
+  dynamicImporters: readonly string[]
+  isIncluded: boolean | null
+  ast: unknown
+}
 type ModuleGraph = {
-  getModuleInfo(
-    id: string
-  ): { importers: readonly string[]; dynamicImporters: readonly string[] } | null
+  getModuleInfo(id: string): ModuleInfo | null
+  resolve(source: string, importer: string): Promise<{ id: string } | null>
 }
 
-// For one stub: the packages the project's own code imports that lead to it, and whether the
-// project's own code imports it directly
+// One import of a package by the project's own code: the project module, the package module
+// it imports, and the package that module belongs to
+type ProjectImport = { importer: string; imported: string; package: string }
+
+// For one stub: the imports of packages by the project's own code that lead to it, and whether
+// the project's own code imports it directly. A package counts only if some module on the way
+// from it to the stub is still in the output: a package that tree-shaking removed did not call
+// the built-in. (A module that only re-exports is not itself in the output, so it can pass the
+// path on but not start it.)
 const attributeStub = (
   graph: ModuleGraph,
   stubId: string,
   ownerOf: ReturnType<typeof moduleOwner>
 ) => {
-  const packages = new Set<string>()
+  const imports = new Map<string, ProjectImport>()
   let project = false
   const seen = new Set<string>()
-  const queue: [string, string | undefined][] = []
+  type Step = { id: string; below?: { package: string; imported: string }; live: boolean }
+  const queue: Step[] = []
   const importersOf = (id: string) => {
     const info = graph.getModuleInfo(id)
     return info ? [...info.importers, ...info.dynamicImporters] : []
   }
-  for (const id of importersOf(stubId)) queue.push([id, undefined])
+  for (const id of importersOf(stubId)) queue.push({ id, live: false })
   while (queue.length) {
-    const [id, below] = queue.shift()
-    const key = `${id}\n${below ?? ''}`
+    const { id, below, live } = queue.shift()
+    const key = [id, below?.imported ?? '', live].join('\n')
     if (seen.has(key)) continue
     seen.add(key)
     const owner = ownerOf(id)
     if (!owner.virtual && !owner.package) {
-      if (below) packages.add(below)
-      else project = true
+      if (!below) project = true
+      else if (live) imports.set(`${id}\n${below.imported}`, { importer: id, ...below })
       continue
     }
-    for (const importer of importersOf(id)) queue.push([importer, owner.package ?? below])
+    const step = {
+      below: owner.package ? { package: owner.package, imported: id } : below,
+      live: live || graph.getModuleInfo(id)?.isIncluded === true,
+    }
+    for (const importer of importersOf(id)) queue.push({ id: importer, ...step })
   }
-  return { packages: [...packages].sort(), project }
+  return { imports: [...imports.values()], project }
 }
 
-// In finished chunks, give each built-in's default message the packages that reach it.
-// The message follows its own "node:<name>" literal in the stub's code.
+// The module specifiers a module's code imports by name (not by path), static or dynamic
+const bareSpecifiers = (ast: unknown) => {
+  const found = new Set<string>()
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) return node.forEach(visit)
+    const { type, source } = node as { type?: string; source?: { type?: string; value?: unknown } }
+    if (
+      (type === 'ImportDeclaration' ||
+        type === 'ExportNamedDeclaration' ||
+        type === 'ExportAllDeclaration' ||
+        type === 'ImportExpression') &&
+      source?.type === 'Literal' &&
+      typeof source.value === 'string' &&
+      !/^[./\\\0]|^[a-zA-Z][\w+.-]*:/.test(source.value)
+    )
+      found.add(source.value)
+    for (const value of Object.values(node)) if (value && typeof value === 'object') visit(value)
+  }
+  visit(ast)
+  return [...found]
+}
+
+// The package name in a specifier: "@scope/name" or "name", without any subpath
+const packageOfSpecifier = (specifier: string) =>
+  specifier
+    .split('/')
+    .slice(0, specifier.startsWith('@') ? 2 : 1)
+    .join('/')
+
+// Name each import as the project's code writes it (an alias or a subpath included), by
+// resolving that module's own specifiers again. Fall back to the folder name.
+const nameImports = async (graph: ModuleGraph, imports: ProjectImport[]) => {
+  const plain = (id: string) => id.replace(/^\0/, '').split('?')[0]
+  const named = new Map<string, ImportedPackage>()
+  for (const { importer, imported, package: folder } of imports) {
+    let found: ImportedPackage | undefined
+    for (const specifier of bareSpecifiers(graph.getModuleInfo(importer)?.ast)) {
+      const resolved = await graph.resolve(specifier, importer).catch(() => null)
+      if (resolved && plain(resolved.id) === plain(imported)) {
+        found = { name: packageOfSpecifier(specifier), specifier }
+        break
+      }
+    }
+    found ??= { name: folder, specifier: folder }
+    // The same package imported by several specifiers: name the package itself
+    const known = named.get(found.name)
+    named.set(
+      found.name,
+      known && known.specifier !== found.specifier
+        ? { name: found.name, specifier: found.name }
+        : found
+    )
+  }
+  return [...named.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+}
+
+// The stub's default message, as its load() code writes it
+const DEFAULT_MESSAGE_LITERAL = `'${PROJECT_CODE_MESSAGE}'`
+
+// The stub's whole error expression as it appears in a finished (minified) chunk:
+// new Error("node:<name>" + (n ? " (" + String(n) + ")" : "") + "<default message>")
+// Group 6 is the message literal.
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-const DEFAULT_MESSAGE_LITERAL = new RegExp(`(["'])${escapeRegExp(PROJECT_CODE_MESSAGE)}\\1`, 'g')
-const SPECIFIER_LITERAL = /(["'])node:([\w/]+)\1/g
-export const nameNodeOnlyPackagesInCode = (code: string, hints: Map<string, string>) =>
-  code.replace(DEFAULT_MESSAGE_LITERAL, (literal, _quote, offset: number) => {
-    const before = code.slice(Math.max(0, offset - 200), offset)
-    const specifiers = [...before.matchAll(SPECIFIER_LITERAL)]
-    const builtin = specifiers.length ? specifiers[specifiers.length - 1][2] : undefined
-    const hint = builtin && hints.get(builtin)
-    return hint ? JSON.stringify(` is not available in the page. ${hint}`) : literal
-  })
+const stubErrorExpression = (builtin: string) =>
+  new RegExp(
+    [
+      String.raw`(?:new\s+)?Error\(\s*(["'])node:${escapeRegExp(builtin)}\1`,
+      String.raw`\s*\+\s*\(\s*([\w$]+)\s*\?\s*(["']) \(\3`,
+      String.raw`\s*\+\s*String\(\s*\2\s*\)\s*\+\s*(["'])\)\4`,
+      String.raw`\s*:\s*(["'])\5\s*\)`,
+      String.raw`\s*\+\s*((["'])${escapeRegExp(PROJECT_CODE_MESSAGE)}\7)\s*\)`,
+    ].join(''),
+    'gd'
+  )
+
+// In a finished chunk that holds a stub, give that stub's message the packages that reach it.
+// Only an expression of exactly the stub's shape can match, and only when the chunk holds one:
+// with two (say the project's own code wrote the same expression), neither is changed.
+export const nameNodeOnlyPackagesInCode = (code: string, builtin: string, hint: string) => {
+  const matches = [...code.matchAll(stubErrorExpression(builtin))]
+  if (matches.length !== 1) return code
+  const [start, end] = matches[0].indices![6]
+  return (
+    code.slice(0, start) +
+    JSON.stringify(` is not available in the page. ${hint}`) +
+    code.slice(end)
+  )
+}
 
 const nodeBuiltinStubPlugin = (root: string, namePackages = true) => ({
   name: 'commoners-node-builtin-stub',
   enforce: 'pre' as const,
-  generateBundle(
+  async generateBundle(
     this: ModuleGraph & { getModuleIds(): IterableIterator<string> },
     _: unknown,
-    bundle: Record<string, { type: string; code?: string }>
+    bundle: Record<string, { type: string; code?: string; modules?: Record<string, unknown> }>
   ) {
     if (!namePackages) return
     const ownerOf = moduleOwner(root)
     const hints = new Map<string, string>()
     for (const id of this.getModuleIds()) {
       if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) continue
-      const { packages, project } = attributeStub(this, id, ownerOf)
-      if (packages.length)
-        hints.set(id.slice(NODE_BUILTIN_STUB_PREFIX.length), packagesHint(packages, project))
+      const { imports, project } = attributeStub(this, id, ownerOf)
+      if (imports.length) hints.set(id, packagesHint(await nameImports(this, imports), project))
     }
-    if (!hints.size) return
-    for (const output of Object.values(bundle))
-      if (output.type === 'chunk' && output.code)
-        output.code = nameNodeOnlyPackagesInCode(output.code, hints)
+    for (const output of Object.values(bundle)) {
+      if (output.type !== 'chunk' || !output.code || !output.modules) continue
+      for (const [id, hint] of hints)
+        if (id in output.modules)
+          output.code = nameNodeOnlyPackagesInCode(
+            output.code,
+            id.slice(NODE_BUILTIN_STUB_PREFIX.length),
+            hint
+          )
+    }
   },
   resolveId(id: string) {
     const bare = id.startsWith('node:') ? id.slice(5) : id
@@ -994,7 +1095,7 @@ const nodeBuiltinStubPlugin = (root: string, namePackages = true) => ({
     if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) return null
     const specifier = JSON.stringify(`node:${id.slice(NODE_BUILTIN_STUB_PREFIX.length)}`)
     const code = [
-      `const fail = name => { throw new Error(${specifier} + (name ? ' (' + String(name) + ')' : '') + ' is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.') }`,
+      `const fail = name => { throw new Error(${specifier} + (name ? ' (' + String(name) + ')' : '') + ${DEFAULT_MESSAGE_LITERAL}) }`,
       `const stub = name => new Proxy(function () {}, {`,
       `  get: (_, key) => (key === 'then' || typeof key === 'symbol' ? undefined : stub(name ? name + '.' + String(key) : key)),`,
       `  apply: () => fail(name),`,
