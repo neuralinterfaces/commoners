@@ -19,10 +19,16 @@ const run = (report: unknown) => {
 }
 
 describe('isCopyleftOnly', () => {
-  test.each(['GPL-2.0', 'GPL-3.0-only', 'GPL-3.0-or-later', 'AGPL-3.0', '(MIT AND GPL-3.0)'])(
-    '%s is copyleft only',
-    license => expect(isCopyleftOnly(license)).toBe(true)
-  )
+  test.each([
+    'GPL-2.0',
+    'GPL-3.0-only',
+    'GPL-3.0-or-later',
+    'AGPL-3.0',
+    '(MIT AND GPL-3.0)',
+    'GPLv3',
+    'GPL v2',
+    'AGPLv3',
+  ])('%s is copyleft only', license => expect(isCopyleftOnly(license)).toBe(true))
 
   test.each(['MIT', '(MIT OR GPL-3.0-or-later)', 'LGPL-3.0', 'Apache-2.0', 'Unknown'])(
     '%s is not',
@@ -45,6 +51,11 @@ describe('classifyLicenses', () => {
     expect(() => classifyLicenses([])).toThrow(/Not a pnpm licenses report/)
     expect(() => classifyLicenses(null)).toThrow(/Not a pnpm licenses report/)
   })
+
+  test('refuses an empty report: no modules checked is not a clean check', () => {
+    expect(() => classifyLicenses({})).toThrow(/no modules/)
+    expect(() => classifyLicenses({ MIT: [] })).toThrow(/no modules/)
+  })
 })
 
 describe('license-shipped script', () => {
@@ -52,6 +63,11 @@ describe('license-shipped script', () => {
     const result = run({ MIT: [mod('a')], 'AGPL-3.0': [mod('bad')] })
     expect(result.status).toBe(1)
     expect(result.stdout).toContain('::error::')
+  })
+
+  test('exits 1 on an empty report', () => {
+    const result = run({})
+    expect(result.status).toBe(1)
   })
 
   test('exits 0 when every licence offers a permissive choice', () => {

@@ -1,12 +1,16 @@
 // Copyleft licence check for what ships.
 //
-// Fails when a production dependency of a published package (packages/*, not private) is
-// licensed only under GPL-2.0, GPL-3.0 or AGPL-3.0. A dual licence that offers a
-// non-copyleft choice, such as `(MIT OR GPL-3.0-or-later)`, passes. Unknown licences are
-// reported as warnings so they can be checked by hand.
+// Fails when a production dependency is licensed only under GPL-2.0, GPL-3.0 or AGPL-3.0. A
+// dual licence that offers a non-copyleft choice, such as `(MIT OR GPL-3.0-or-later)`, passes.
+// Unknown licences are reported as warnings so they can be checked by hand.
+//
+// Scope: `pnpm licenses list --prod` reports the production dependencies of the WHOLE
+// workspace, wherever it runs (a per-package run returns the same set). So this is one check
+// over every production dependency in the workspace: a superset of what the published
+// packages ship, which can only make it stricter.
 //
 // Usage: node scripts/license-shipped.mjs              (runs `pnpm licenses list --prod --json`
-//                                                       in each published package)
+//                                                       at the repo root)
 //        node scripts/license-shipped.mjs report.json  (reads a saved `pnpm licenses` report)
 //
 // No `#!` line: the tests import this file, and on a Windows (CRLF) checkout a `#!` line
@@ -16,12 +20,13 @@ import { execFileSync } from 'node:child_process'
 import console from 'node:console'
 import process from 'node:process'
 import { readFileSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-const COPYLEFT = /^A?GPL(-[23]\.0)?(-only|-or-later|\+)?$/i
+// SPDX ids plus common free-form spellings (`GPLv3`, `GPL v2`, `AGPL-3`)
+const COPYLEFT = /^A?GPL(?:[- ]?v?[23](?:\.0)?)?(?:-only|-or-later|\+)?$/i
 
 // `(MIT OR GPL-3.0-or-later)` is allowed: the user may take MIT. `(MIT AND GPL-3.0)` is not
 export const isCopyleftOnly = expression => {
@@ -35,6 +40,11 @@ export const classifyLicenses = report => {
   // An error or an empty value must not read as a clean check
   if (!report || typeof report !== 'object' || Array.isArray(report))
     throw new Error(`Not a pnpm licenses report: ${JSON.stringify(report).slice(0, 200)}`)
+  const moduleCount = Object.values(report).reduce(
+    (count, modules) => count + (Array.isArray(modules) ? modules.length : 0),
+    0
+  )
+  if (!moduleCount) throw new Error('The licence report lists no modules; refusing to report clean')
   const failures = []
   const unknown = []
   for (const [license, modules] of Object.entries(report)) {
@@ -45,32 +55,19 @@ export const classifyLicenses = report => {
   return { failures, unknown }
 }
 
-const publishedPackages = () =>
+const workspaceLicenses = () =>
   JSON.parse(
-    execFileSync('pnpm', ['-r', 'ls', '--json', '--depth', '-1'], {
+    execFileSync('pnpm', ['licenses', 'list', '--prod', '--json'], {
       cwd: repoRoot,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     })
   )
-    .filter(project => !project.private)
-    .map(project => project.path)
-    .filter(path => relative(repoRoot, path).split(/[\\/]/)[0] === 'packages')
-
-const licensesOf = dir =>
-  JSON.parse(
-    execFileSync('pnpm', ['licenses', 'list', '--prod', '--json'], {
-      cwd: dir,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    }) || '{}'
-  )
 
 const main = () => {
   const reports = process.argv[2]
     ? [['report', JSON.parse(readFileSync(process.argv[2], 'utf8'))]]
-    : publishedPackages().map(dir => [relative(repoRoot, dir), licensesOf(dir)])
-  if (!reports.length) throw new Error('No published packages found; refusing to report clean')
+    : [['workspace', workspaceLicenses()]]
 
   let failed = 0
   for (const [where, report] of reports) {
@@ -82,7 +79,11 @@ const main = () => {
     failed += failures.length
   }
 
-  console.log(`\nChecked ${reports.length} published package(s): ${failed} copyleft finding(s).`)
+  const modules = reports.reduce(
+    (count, [, report]) => count + Object.values(report).reduce((n, list) => n + list.length, 0),
+    0
+  )
+  console.log(`\nChecked ${modules} production module(s): ${failed} copyleft finding(s).`)
   process.exit(failed ? 1 : 0)
 }
 
