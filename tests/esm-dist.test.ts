@@ -19,7 +19,12 @@ import { execFileSync } from 'node:child_process'
 const dist = join(__dirname, '..', 'packages', 'core', 'dist')
 
 // require() inside a code string generated for another process is not executed here
-const ALLOWED = [/module\.exports = require\(path\)/]
+const ALLOWED = [
+  /module\.exports = require\(path\)/,
+  // The built desktop config bundle (CommonJS) finds its place in the app when it loads
+  /require\('node:path'\)\.join\(__dirname, \$\{/,
+  /= require\('node:url'\)\.pathToFileURL\(\$\{/,
+]
 
 describe('core ESM build', () => {
   test.skipIf(!existsSync(dist))('contains no bare require() calls', () => {

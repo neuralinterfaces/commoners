@@ -664,6 +664,8 @@ export const buildAssets = async (
             desktop: isDesktopTarget,
             target,
             features,
+            dev,
+            appRoot: outDir,
           })
         else {
           // Externalize packages that cannot be bundled: Electron runtime,
@@ -1108,6 +1110,16 @@ const nodeBuiltinStubPlugin = (root: string, namePackages = true) => ({
   },
 })
 
+const BUILT_CONFIG_URL_IDENTIFIER = '__commonersConfigUrl'
+
+// The bundle sits inside the built app; the config's place there is the app folder joined with
+// the config's file name, found from the bundle's own folder when it loads
+const builtConfigUrlIntro = (outFile: string, appRoot: string, input: string) => {
+  const toApp = relative(dirname(outFile), appRoot).split(sep).join('/') || '.'
+  const location = `require('node:path').join(__dirname, ${JSON.stringify(toApp)}, ${JSON.stringify(basename(input))})`
+  return `var ${BUILT_CONFIG_URL_IDENTIFIER} = require('node:url').pathToFileURL(${location}).href;`
+}
+
 export const bundleConfig = async (
   input,
   outFile,
@@ -1117,6 +1129,8 @@ export const bundleConfig = async (
     target = '',
     features = {},
     nameNodeOnlyPackages = true,
+    dev = false,
+    appRoot,
   }: {
     node?: boolean
     desktop?: boolean
@@ -1124,6 +1138,10 @@ export const bundleConfig = async (
     features?: FeatureMap
     /** Name packages that reach a stubbed built-in in its page error (on by default) */
     nameNodeOnlyPackages?: boolean
+    /** A development run: the Node bundle keeps the source file's import.meta.url */
+    dev?: boolean
+    /** Where the built app's files sit relative to the bundle (default: the bundle's folder) */
+    appRoot?: string
   } = {}
 ) => {
   const _vite = await vite
@@ -1227,13 +1245,21 @@ export const bundleConfig = async (
     // User-facing target guards for dead-code elimination in config files.
     // Usage: if (__COMMONERS_DESKTOP__) { /* desktop-only plugin */ }
     // Targets: web, desktop, mobile (universal) + electron, tauri, ios, android (subtargets)
-    // Node bundles: rewrite import.meta.url to the *source* config file so getDirname() etc.
-    // resolve paths relative to the project root, not the bundle output directory.
-    // Page bundles keep the native import.meta.url (the bundle's own URL on the page origin):
-    // the source file URL is meaningless there and would leak the developer's absolute path.
+    // Node bundles in a development run: import.meta.url is the *source* config file, so
+    // getDirname() etc. resolve paths relative to the project, not the bundle output directory.
+    // Node bundles in a build: import.meta.url names the config's place in the built app,
+    // computed where the app runs. The build lays pages out as the project does, so paths built
+    // from it find them; the source path would not exist there and names the developer's folder.
+    // Page bundles keep the native import.meta.url (the bundle's own URL on the page origin).
     define: {
       ...featureDefines(features),
-      ...(node ? { 'import.meta.url': JSON.stringify(pathToFileURL(input).href) } : {}),
+      ...(node
+        ? {
+            'import.meta.url': dev
+              ? JSON.stringify(pathToFileURL(input).href)
+              : BUILT_CONFIG_URL_IDENTIFIER,
+          }
+        : {}),
       __COMMONERS_TARGET__: JSON.stringify(target),
       __COMMONERS_DESKTOP__: JSON.stringify(desktop),
       __COMMONERS_MOBILE__: JSON.stringify(
@@ -1284,6 +1310,11 @@ export const bundleConfig = async (
       outDir,
 
       rollupOptions: {
+        // Built Node bundles: the config's URL in the app, from the bundle's location at load
+        ...(node && !dev
+          ? { output: { intro: builtConfigUrlIntro(outFile, appRoot ?? outDir, input) } }
+          : {}),
+
         // Externalize wasm-pack output packages — same rationale as
         // the loadConfigFromFile path's esbuild external rule. The
         // Node-target output uses CJS-specific globals (`__dirname`,

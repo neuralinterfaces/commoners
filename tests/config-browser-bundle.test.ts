@@ -1,11 +1,20 @@
 import { afterAll, describe, expect, test } from 'vitest'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { bundleConfig } from '../packages/core/utils/assets'
+import { buildAssets, bundleConfig } from '../packages/core/utils/assets'
 
 // The page receives a browser bundle of commoners.config, but the same file also holds
 // build-time settings (vite plugins, service builds) that use Node. Node-only imports there
@@ -577,5 +586,98 @@ export default {
     const config = loaded.default ?? loaded
     expect(config.vite).toBeUndefined()
     expect(await config.plugins.greet.start()).toBe(MARKER)
+  })
+})
+
+// The desktop main process loads a Node (.cjs) bundle of the config from inside the built app.
+// A build must not carry the developer's source path, and paths the config builds from
+// import.meta.url must point into the app, which lays pages out as the project does. A
+// development run keeps the source file's URL so those paths resolve in the project.
+describe('import.meta.url in the desktop (Node) config bundle', () => {
+  const SOURCE = `import { dirname, join } from 'node:path'
+    import { fileURLToPath } from 'node:url'
+    const here = dirname(fileURLToPath(import.meta.url))
+    const page = join(here, 'pages', 'probe.html')
+    export default {
+      services: { api: { src: join(here, 'api.js') } },
+      plugins: { where: { url: import.meta.url, page, asset: new URL('./x.png', import.meta.url).href } },
+    }`
+
+  type Loaded = {
+    services: { api: { src: string } }
+    plugins: { where: { url: string; page: string; asset: string } }
+  }
+  const load = (outFile: string): Loaded => {
+    const loaded = createRequire(import.meta.url)(outFile)
+    return loaded.default ?? loaded
+  }
+
+  // Laid out as a built app: the config bundle sits in assets/ under the app folder
+  const bundleForNode = async (name: string, options: { dev?: boolean; appRoot?: string } = {}) => {
+    const input = write(`${name}/commoners.config.js`, SOURCE)
+    const app = join(dir, 'out', name)
+    const outFile = join(app, 'assets', 'commoners.config.cjs')
+    await bundleConfig(input, outFile, {
+      node: true,
+      desktop: true,
+      target: 'electron',
+      ...options,
+    })
+    return { input, app, outFile, code: readFileSync(outFile, 'utf8') }
+  }
+
+  test('a build holds no source path; import.meta.url names the config in the app', async () => {
+    const { input, outFile, code } = await bundleForNode('built-node', {
+      appRoot: join(dir, 'out', 'built-node'),
+    })
+    expect(code).not.toContain(dirname(input)) // The developer's absolute project path
+    expect(code).not.toContain(pathToFileURL(dirname(input)).href)
+
+    // Moved after the build, as an installed app is: paths follow the bundle, not the build folder
+    const moved = join(dir, 'out', 'built-node-installed')
+    renameSync(join(dir, 'out', 'built-node'), moved)
+    const app = realpathSync(moved) // Node reports the real path (macOS tmpdir is a symlink)
+    const config = load(join(moved, 'assets', basename(outFile)))
+    const { url, page, asset } = config.plugins.where
+    expect(url).toBe(pathToFileURL(join(app, 'commoners.config.js')).href)
+    expect(page).toBe(join(app, 'pages', 'probe.html')) // Where the build puts the page
+    expect(asset).toBe(new URL('./x.png', url).href)
+    expect(config.services.api.src).toBe(join(app, 'api.js'))
+  })
+
+  test('without an app folder, the bundle folder stands in for it', async () => {
+    const { outFile } = await bundleForNode('no-app-root')
+    const config = load(outFile)
+    const bundleDir = dirname(realpathSync(outFile))
+    expect(config.plugins.where.url).toBe(
+      pathToFileURL(join(bundleDir, 'commoners.config.js')).href
+    )
+  })
+
+  test('the asset build passes the app folder and whether this is a development run', async () => {
+    const input = write('asset-build/commoners.config.js', SOURCE)
+    const build = async (dev: boolean) => {
+      const outDir = join(dir, 'out', `asset-build-${dev ? 'dev' : 'build'}`)
+      const bundle = [{ input, output: 'commoners.config.cjs', features: {} }]
+      await buildAssets(
+        { copy: [], bundle },
+        { outDir, root: dirname(input), target: 'electron', dev }
+      )
+      return { outDir, config: load(join(outDir, 'assets', 'commoners.config.cjs')) }
+    }
+    expect((await build(true)).config.plugins.where.url).toBe(pathToFileURL(input).href)
+    const built = await build(false)
+    expect(built.config.plugins.where.page).toBe(
+      join(realpathSync(built.outDir), 'pages', 'probe.html')
+    )
+  })
+
+  test('a development run keeps the source file URL', async () => {
+    const { input, outFile } = await bundleForNode('dev-node', { dev: true })
+    const config = load(outFile)
+    const { url, page } = config.plugins.where
+    expect(url).toBe(pathToFileURL(input).href)
+    expect(page).toBe(join(dirname(input), 'pages', 'probe.html'))
+    expect(config.services.api.src).toBe(join(dirname(input), 'api.js'))
   })
 })
