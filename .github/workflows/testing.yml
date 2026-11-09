@@ -61,65 +61,47 @@ jobs:
       - name: Install and build dependencies
         run: corepack enable pnpm && pnpm install && pnpm build
 
-      - name: Config and env tests
-        run: pnpm test:config && pnpm test:env
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Fast unit tests (security, ASAR, protocol, ports, config-stripping, etc.)
-        run: pnpm test:fast-unit
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # Config, env, fast unit and service compilation tests are gated by ci.yml on every
+      # OS and Node version, with its own setup; they are not repeated here. This workflow
+      # runs only the suites ci.yml does not: mobile workflow and the E2E start, build and
+      # desktop tests. Every step here blocks.
       - name: Mobile workflow tests
         run: pnpm test:mobile-workflow
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Service compilation tests
-        run: pnpm test:services
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os == 'ubuntu-latest'
         name: E2E start tests (Linux)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:start
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os != 'ubuntu-latest'
         name: E2E start tests
         run: pnpm test:start
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os == 'ubuntu-latest'
         name: E2E build tests (Linux)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:build
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os != 'ubuntu-latest'
         name: E2E build tests
         run: pnpm test:build
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os == 'ubuntu-latest'
         name: Desktop tests (Linux)
         run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:desktop
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - if: matrix.os != 'ubuntu-latest'
         name: Desktop tests
         run: pnpm test:desktop
-        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

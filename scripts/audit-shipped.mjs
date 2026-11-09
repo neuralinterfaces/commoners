@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Dependency audit split by what ships.
 //
 // Fails on a high or critical advisory reached from a published package (packages/*).
@@ -7,6 +6,9 @@
 //
 // Usage: node scripts/audit-shipped.mjs            (runs `pnpm audit --prod --json`)
 //        node scripts/audit-shipped.mjs report.json (reads a saved report)
+//
+// No `#!` line: the tests import this file, and on a Windows (CRLF) checkout a `#!` line
+// makes that import a SyntaxError. Run it with `node`.
 
 import { execFileSync } from 'node:child_process'
 import console from 'node:console'

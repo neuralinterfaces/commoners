@@ -61,7 +61,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -101,7 +100,6 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     steps:
       - name: Checkout code
@@ -243,6 +241,5 @@ jobs:
 
       - name: Service compilation tests
         run: pnpm test:services
-        continue-on-error: true
         env:
           CI: true
