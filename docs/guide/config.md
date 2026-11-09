@@ -305,7 +305,7 @@ export default {
 Your page loads a browser copy of `commoners.config`. That copy leaves out build settings such as `vite`, but it still runs the top-level code of every package the file imports. If a package only works in Node (it reads files, for example) and you import it at the top of the config, the page can fail to load with a message like:
 
 ```
-node:fs (readFileSync) is not available in the page. It was called by the "some-node-tool" package, which commoners.config imports. ...
+node:fs (readFileSync) is not available in the page. It was called by code from the "some-node-tool" package, which commoners.config imports. ...
 ```
 
 If you use that package only in build settings, load it inside the hook that needs it instead of at the top of the file. The page copy never contains it, and the hook still runs at build time:

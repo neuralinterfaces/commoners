@@ -1,6 +1,6 @@
 // Built-In Modules
 import { resolveFeatures, featureDefines, type FeatureMap } from './features.js'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import {
   dirname,
   extname,
@@ -856,89 +856,156 @@ function generateStrippedEntry(configImportPath: string, node: boolean): string 
 // no browser alias resolves to this side-effect-free stub: unused imports tree-shake away,
 // named imports still link, and calling one in the page throws a clear error.
 //
-// When the import comes from a package the config uses (not from the project's own files), the
-// stub is a separate copy that names that package and the fix in its error. Only the message
-// differs: the page bundle keeps exactly the code it kept before.
+// When packages the config imports reach a built-in, that built-in's message also names them
+// and the fix. The name is written into the finished bundle in place of the default message,
+// so the stub module, chunks and all other code stay exactly as they are without it.
 const NODE_BUILTIN_STUB_PREFIX = '\0commoners-node-builtin:'
-const STUB_PACKAGE_SEPARATOR = '?from='
 const BROWSER_ALIASED_BUILTINS = new Set(['path', 'url', 'process'])
 
 const PROJECT_CODE_HINT = 'Keep Node-only code in build settings, not in plugins the page runs.'
-const packageHint = (pkg: string) =>
-  `It was called by the "${pkg}" package, which commoners.config imports. ` +
-  `If the config uses "${pkg}" only in build settings (such as a vite plugin), load it inside that hook ` +
-  `with \`await import('${pkg}')\` instead of a top-level import, so it stays out of the page. ` +
-  `If a plugin the page runs needs it, use a package that works in the browser.`
+const PROJECT_CODE_MESSAGE = ` is not available in the page. ${PROJECT_CODE_HINT}`
 
-// The name of the package a module belongs to, or undefined for the project's own files.
-// A package is the nearest folder with a named package.json that is not the project root or
-// one of its parents (pnpm, npm and linked `file:` installs all resolve to such a folder).
-const packageOfModule = (root: string, cache: Map<string, string | null>) => {
-  const projectRoot = resolve(root)
-  const isProjectOrParent = (folder: string) =>
-    folder === projectRoot || projectRoot.startsWith(folder.endsWith(sep) ? folder : folder + sep)
+const packagesHint = (packages: string[], alsoProject: boolean) => {
+  const [first] = packages
+  const who =
+    packages.length === 1
+      ? `the "${first}" package`
+      : `one of these packages: ${packages.map(name => `"${name}"`).join(', ')}`
+  const what = packages.length === 1 ? `"${first}"` : 'that package'
+  const lazy = packages.length === 1 ? `await import('${first}')` : `await import('<package>')`
+  return (
+    `It was called by code from ${who}, which commoners.config imports` +
+    (alsoProject ? ', or by the config itself' : '') +
+    `. If the config uses ${what} only in build settings (such as a vite plugin), load it inside ` +
+    `that hook with \`${lazy}\` instead of a top-level import, so it stays out of the page. ` +
+    `If a plugin the page runs needs it, use a package that works in the browser.`
+  )
+}
 
-  const lookup = (folder: string): string | null => {
-    if (cache.has(folder)) return cache.get(folder)
-    let found: string | null = null
-    if (!isProjectOrParent(folder)) {
-      const manifest = join(folder, 'package.json')
-      let name: unknown
-      try {
-        name = JSON.parse(readFileSync(manifest, 'utf8')).name
-      } catch {
-        /* no readable package.json here */
-      }
-      if (typeof name === 'string' && name) found = name
-      else {
-        const parent = dirname(folder)
-        found = parent === folder ? null : lookup(parent)
-      }
+// Compare paths as the bundler sees them: real paths, forward slashes, lower-case drive letter
+const pathKey = (path: string) => {
+  let real = path
+  try {
+    real = realpathSync.native(path)
+  } catch {
+    /* not on disk: keep the path as given */
+  }
+  return real.replace(/\\/g, '/').replace(/^[A-Z]:/, drive => drive.toLowerCase())
+}
+
+// The package a module belongs to: the folder after the last node_modules/ in its path, inside
+// the project or outside it (a monorepo). Project files, wherever their package.json files are,
+// are never a package. Virtual modules (no file path) have no owner of their own.
+const moduleOwner = (projectRoot: string) => {
+  const root = pathKey(projectRoot)
+  return (id: string): { package?: string; virtual?: true } => {
+    const file = id.replace(/^\0/, '').split('?')[0]
+    if (!isAbsolute(file)) return { virtual: true }
+    const key = pathKey(file)
+    const inProject = key.startsWith(root.endsWith('/') ? root : root + '/')
+    const path = inProject ? key.slice(root.length) : key
+    const at = path.lastIndexOf('/node_modules/')
+    if (at === -1) return {}
+    const [scope, name] = path.slice(at + '/node_modules/'.length).split('/')
+    return { package: scope.startsWith('@') && name ? `${scope}/${name}` : scope }
+  }
+}
+
+type ModuleGraph = {
+  getModuleInfo(
+    id: string
+  ): { importers: readonly string[]; dynamicImporters: readonly string[] } | null
+}
+
+// For one stub: the packages the project's own code imports that lead to it, and whether the
+// project's own code imports it directly
+const attributeStub = (
+  graph: ModuleGraph,
+  stubId: string,
+  ownerOf: ReturnType<typeof moduleOwner>
+) => {
+  const packages = new Set<string>()
+  let project = false
+  const seen = new Set<string>()
+  const queue: [string, string | undefined][] = []
+  const importersOf = (id: string) => {
+    const info = graph.getModuleInfo(id)
+    return info ? [...info.importers, ...info.dynamicImporters] : []
+  }
+  for (const id of importersOf(stubId)) queue.push([id, undefined])
+  while (queue.length) {
+    const [id, below] = queue.shift()
+    const key = `${id}\n${below ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const owner = ownerOf(id)
+    if (!owner.virtual && !owner.package) {
+      if (below) packages.add(below)
+      else project = true
+      continue
     }
-    cache.set(folder, found)
-    return found
+    for (const importer of importersOf(id)) queue.push([importer, owner.package ?? below])
   }
-
-  return (importer?: string) => {
-    if (!importer || importer.startsWith('\0')) return undefined
-    const file = importer.split('?')[0]
-    if (!isAbsolute(file)) return undefined
-    return lookup(dirname(resolve(file))) ?? undefined
-  }
+  return { packages: [...packages].sort(), project }
 }
 
-const nodeBuiltinStubPlugin = (root: string) => {
-  const packageOf = packageOfModule(root, new Map())
-  return {
-    name: 'commoners-node-builtin-stub',
-    enforce: 'pre' as const,
-    resolveId(id: string, importer?: string) {
-      const bare = id.startsWith('node:') ? id.slice(5) : id
-      if (BROWSER_ALIASED_BUILTINS.has(bare) || !builtinModules.includes(bare)) return null
-      const pkg = packageOf(importer)
-      return NODE_BUILTIN_STUB_PREFIX + bare + (pkg ? STUB_PACKAGE_SEPARATOR + pkg : '')
-    },
-    load(id: string) {
-      if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) return null
-      const [builtin, pkg] = id.slice(NODE_BUILTIN_STUB_PREFIX.length).split(STUB_PACKAGE_SEPARATOR)
-      const specifier = JSON.stringify(`node:${builtin}`)
-      const message = pkg
-        ? JSON.stringify(` is not available in the page. ${packageHint(pkg)}`)
-        : `' is not available in the page. ${PROJECT_CODE_HINT}'`
-      const code = [
-        `const fail = name => { throw new Error(${specifier} + (name ? ' (' + String(name) + ')' : '') + ${message}) }`,
-        `const stub = name => new Proxy(function () {}, {`,
-        `  get: (_, key) => (key === 'then' || typeof key === 'symbol' ? undefined : stub(name ? name + '.' + String(key) : key)),`,
-        `  apply: () => fail(name),`,
-        `  construct: () => fail(name),`,
-        `})`,
-        `export const __commonersNodeStub = stub('')`,
-        `export default __commonersNodeStub`,
-      ].join('\n')
-      return { code, syntheticNamedExports: '__commonersNodeStub', moduleSideEffects: false }
-    },
-  }
-}
+// In finished chunks, give each built-in's default message the packages that reach it.
+// The message follows its own "node:<name>" literal in the stub's code.
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const DEFAULT_MESSAGE_LITERAL = new RegExp(`(["'])${escapeRegExp(PROJECT_CODE_MESSAGE)}\\1`, 'g')
+const SPECIFIER_LITERAL = /(["'])node:([\w/]+)\1/g
+export const nameNodeOnlyPackagesInCode = (code: string, hints: Map<string, string>) =>
+  code.replace(DEFAULT_MESSAGE_LITERAL, (literal, _quote, offset: number) => {
+    const before = code.slice(Math.max(0, offset - 200), offset)
+    const specifiers = [...before.matchAll(SPECIFIER_LITERAL)]
+    const builtin = specifiers.length ? specifiers[specifiers.length - 1][2] : undefined
+    const hint = builtin && hints.get(builtin)
+    return hint ? JSON.stringify(` is not available in the page. ${hint}`) : literal
+  })
+
+const nodeBuiltinStubPlugin = (root: string, namePackages = true) => ({
+  name: 'commoners-node-builtin-stub',
+  enforce: 'pre' as const,
+  generateBundle(
+    this: ModuleGraph & { getModuleIds(): IterableIterator<string> },
+    _: unknown,
+    bundle: Record<string, { type: string; code?: string }>
+  ) {
+    if (!namePackages) return
+    const ownerOf = moduleOwner(root)
+    const hints = new Map<string, string>()
+    for (const id of this.getModuleIds()) {
+      if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) continue
+      const { packages, project } = attributeStub(this, id, ownerOf)
+      if (packages.length)
+        hints.set(id.slice(NODE_BUILTIN_STUB_PREFIX.length), packagesHint(packages, project))
+    }
+    if (!hints.size) return
+    for (const output of Object.values(bundle))
+      if (output.type === 'chunk' && output.code)
+        output.code = nameNodeOnlyPackagesInCode(output.code, hints)
+  },
+  resolveId(id: string) {
+    const bare = id.startsWith('node:') ? id.slice(5) : id
+    if (BROWSER_ALIASED_BUILTINS.has(bare) || !builtinModules.includes(bare)) return null
+    return NODE_BUILTIN_STUB_PREFIX + bare
+  },
+  load(id: string) {
+    if (!id.startsWith(NODE_BUILTIN_STUB_PREFIX)) return null
+    const specifier = JSON.stringify(`node:${id.slice(NODE_BUILTIN_STUB_PREFIX.length)}`)
+    const code = [
+      `const fail = name => { throw new Error(${specifier} + (name ? ' (' + String(name) + ')' : '') + ' is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.') }`,
+      `const stub = name => new Proxy(function () {}, {`,
+      `  get: (_, key) => (key === 'then' || typeof key === 'symbol' ? undefined : stub(name ? name + '.' + String(key) : key)),`,
+      `  apply: () => fail(name),`,
+      `  construct: () => fail(name),`,
+      `})`,
+      `export const __commonersNodeStub = stub('')`,
+      `export default __commonersNodeStub`,
+    ].join('\n')
+    return { code, syntheticNamedExports: '__commonersNodeStub', moduleSideEffects: false }
+  },
+})
 
 export const bundleConfig = async (
   input,
@@ -948,7 +1015,15 @@ export const bundleConfig = async (
     desktop = false,
     target = '',
     features = {},
-  }: { node?: boolean; desktop?: boolean; target?: string; features?: FeatureMap } = {}
+    nameNodeOnlyPackages = true,
+  }: {
+    node?: boolean
+    desktop?: boolean
+    target?: string
+    features?: FeatureMap
+    /** Name packages that reach a stubbed built-in in its page error (on by default) */
+    nameNodeOnlyPackages?: boolean
+  } = {}
 ) => {
   const _vite = await vite
 
@@ -1031,7 +1106,7 @@ export const bundleConfig = async (
 
     plugins: [
       ...plugins,
-      ...(node ? [] : [nodeBuiltinStubPlugin(root), purePathCallsPlugin()]),
+      ...(node ? [] : [nodeBuiltinStubPlugin(root, nameNodeOnlyPackages), purePathCallsPlugin()]),
       // Virtual module plugin to serve the node:url shim
       ...(node
         ? []
