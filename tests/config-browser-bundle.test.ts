@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, test } from 'vitest'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { bundleConfig } from '../packages/core/utils/assets'
@@ -15,6 +16,7 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
 const write = (name: string, source: string) => {
   const path = join(dir, name)
+  mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, source)
   return path
 }
@@ -133,7 +135,7 @@ describe('Browser config bundle', () => {
 
   test('a path call the page plugin uses still runs in the page', async () => {
     const { outFile } = await bundleForBrowser(
-      `import { join } from 'node:path'
+      `import { dirname, join } from 'node:path'
        const base = join('assets', 'icons')
        export default { plugins: { icons: { load() { return join(base, 'a.png') } } } }`,
       'used-path'
@@ -150,5 +152,152 @@ describe('Browser config bundle', () => {
     )
     const config = (await import(pathToFileURL(outFile).href)).default
     expect(() => config.plugins.bad.load()).toThrow(/node:fs\/promises.*not available in the page/)
+  })
+})
+
+// A third-party package with no browser build, imported by the config for its build settings.
+// Its top-level code stays in the page bundle (it may have load-time effects the page needs),
+// so a built-in it calls at load fails in the page. That failure must name the package and the
+// fix, and the page bundle must keep everything it kept before: nothing is dropped.
+const SIDE_EFFECT = 'globalThis.__FIXTURE_SIDE_EFFECT__ = readFileSync.name'
+const MARKER = 'FIXTURE_MARKER_5c1e'
+const packageSource = (loadTime: string) => `import { readFileSync } from 'node:fs'
+${loadTime}
+export const marker = '${MARKER}'
+export const readSize = p => readFileSync(p, 'utf8').length
+`
+const addPackage = (name: string, loadTime: string) => {
+  write(
+    `node_modules/${name}/package.json`,
+    JSON.stringify({ name, version: '1.0.0', type: 'module', main: 'index.js' })
+  )
+  write(`node_modules/${name}/index.js`, packageSource(loadTime))
+  // The same code as a file of the project itself, which the page bundle has always stubbed
+  // without naming anyone
+  write(`local/${name}.js`, packageSource(loadTime))
+}
+addPackage('reads-at-build', SIDE_EFFECT)
+addPackage('calls-at-load', `globalThis.__FIXTURE_LOADED__ = readFileSync('/x', 'utf8')`)
+
+const configUsing = (from: string, { pageUse = false } = {}) => `
+import { marker, readSize } from '${from}'
+export default {
+  vite: { plugins: [{ name: 'size', configResolved() { console.log(readSize('package.json'), marker) } }] },
+  plugins: { greet: { load() { return ${pageUse ? 'marker' : "'hello'"} } } },
+}`
+
+// The stub's message is the only text allowed to differ between the two bundles. The bundler
+// shortens local names by how often each letter appears, so a longer message can give the same
+// code other short names: compare with names numbered in order of first use.
+const TOKEN =
+  /("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|([A-Za-z_$][\w$]*)|([^])/g
+const sameCodeAs = (code: string) => {
+  const names = new Map<string, string>()
+  return code.replace(TOKEN, (token, string, name) => {
+    if (string) return string.includes('is not available in the page') ? '<message>' : string
+    if (name) {
+      if (!names.has(name)) names.set(name, `n${names.size}`)
+      return names.get(name)
+    }
+    return token
+  })
+}
+
+describe('Node-only packages imported by the config', () => {
+  const cases = [
+    ['used only in a vite hook', 'reads-at-build', {}],
+    ['used by a page plugin', 'reads-at-build', { pageUse: true }],
+    ['calling a built-in at load', 'calls-at-load', {}],
+  ] as const
+
+  test.each(cases)(
+    'a package %s keeps the same page bundle as the same code in a project file',
+    async (_, name, options) => {
+      const fromPackage = await bundleForBrowser(
+        configUsing(name, options),
+        `pkg-${name}-${!!options.pageUse}`
+      )
+      const fromProject = await bundleForBrowser(
+        configUsing(`./local/${name}.js`, options),
+        `local-${name}-${!!options.pageUse}`
+      )
+      expect(sameCodeAs(fromPackage.code)).toBe(sameCodeAs(fromProject.code))
+      // Load-time code is kept, and so is what the page plugin uses
+      expect(fromPackage.code).toContain('globalThis.__FIXTURE_')
+      if (options.pageUse) expect(fromPackage.code).toContain(MARKER)
+    }
+  )
+
+  test('a package used by a page plugin still works in the page', async () => {
+    const { outFile } = await bundleForBrowser(
+      configUsing('reads-at-build', { pageUse: true }),
+      'pkg-page-run'
+    )
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.greet.load()).toBe(MARKER)
+  })
+
+  test('a package that calls a built-in in the page is named, with the fix', async () => {
+    const { outFile } = await bundleForBrowser(configUsing('calls-at-load'), 'pkg-call-message')
+    const failure = await import(pathToFileURL(outFile).href).then(
+      () => null,
+      (error: Error) => error.message
+    )
+    expect(failure).toMatch(/^node:fs \(readFileSync\) is not available in the page\./)
+    expect(failure).toContain('"calls-at-load" package')
+    expect(failure).toContain("await import('calls-at-load')")
+  })
+
+  test('the same call from a project file names no package', async () => {
+    const { outFile } = await bundleForBrowser(
+      configUsing('./local/calls-at-load.js'),
+      'local-call-message'
+    )
+    const failure = await import(pathToFileURL(outFile).href).then(
+      () => null,
+      (error: Error) => error.message
+    )
+    expect(failure).toBe(
+      'node:fs (readFileSync) is not available in the page. Keep Node-only code in build settings, not in plugins the page runs.'
+    )
+  })
+
+  // The documented fix: load the package inside the hook that needs it
+  const lazyConfig = (desktopHook = '') => `
+export default {
+  vite: { plugins: [{ name: 'size', async configResolved() {
+    const { readSize, marker } = await import('calls-at-load')
+    console.log(readSize('package.json'), marker)
+  } }] },
+  plugins: { greet: { load() { return 'hello' }${desktopHook} } },
+}`
+
+  test('loading the package inside the hook keeps it out of the page, which loads', async () => {
+    const input = write('lazy-page.config.js', lazyConfig())
+    const outFile = join(dir, 'lazy-page.out.mjs')
+    const outputs = await bundleConfig(input, outFile, { target: 'web' })
+    expect(outputs).toEqual([outFile]) // No separate chunk for the package either
+    const code = readFileSync(outFile, 'utf8')
+    expect(code).not.toContain(MARKER)
+    expect(code).not.toContain('__FIXTURE_LOADED__')
+    expect(code).not.toContain('calls-at-load')
+    const config = (await import(pathToFileURL(outFile).href)).default
+    expect(config.plugins.greet.load()).toBe('hello')
+    expect(config.vite).toBeUndefined()
+  })
+
+  test('the same pattern works in the desktop (Node) bundle', async () => {
+    const input = write(
+      'lazy-node.config.js',
+      lazyConfig(
+        `, async start() { const { marker } = await import('reads-at-build'); return marker }`
+      )
+    )
+    const outFile = join(dir, 'lazy-node.out.cjs')
+    await bundleConfig(input, outFile, { node: true, desktop: true, target: 'electron' })
+    const loaded = createRequire(import.meta.url)(outFile)
+    const config = loaded.default ?? loaded
+    expect(config.vite).toBeUndefined()
+    expect(await config.plugins.greet.start()).toBe(MARKER)
   })
 })

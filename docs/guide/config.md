@@ -301,6 +301,34 @@ export default {
 }
 ```
 
+#### Node-only packages in build settings
+Your page loads a browser copy of `commoners.config`. That copy leaves out build settings such as `vite`, but it still runs the top-level code of every package the file imports. If a package only works in Node (it reads files, for example) and you import it at the top of the config, the page can fail to load with a message like:
+
+```
+node:fs (readFileSync) is not available in the page. It was called by the "some-node-tool" package, which commoners.config imports. ...
+```
+
+If you use that package only in build settings, load it inside the hook that needs it instead of at the top of the file. The page copy never contains it, and the hook still runs at build time:
+
+```js
+// Before: imported at the top, so its code also runs in the page
+// import { prepareModels } from 'some-node-tool'
+
+export default {
+    vite: {
+        plugins: [{
+            name: 'prepare-models',
+            async buildStart() {
+                const { prepareModels } = await import('some-node-tool')
+                await prepareModels()
+            },
+        }],
+    },
+}
+```
+
+If a plugin the page runs needs the package, use one that works in the browser instead.
+
 
 <!-- ## PWA
 The `pwa` property defines the PWA options of your application. This value is used to configure the PWA options of your application.
